@@ -1,33 +1,31 @@
-[tool.poetry]
+[project]
 name = "tilebox-workflows"
-version = "0.0.0"
+dynamic = ["version"]
 description = "Workflow client and task runner for Tilebox"
-authors = ["Tilebox, Inc. <support@tilebox.com>"]
+authors = [{ name = "Tilebox, Inc.", email = "support@tilebox.com" }]
 readme = "README.md"
-license = "MIT"
-packages = [{ include = "tilebox" }]
+license = { text = "MIT License" }
+requires-python = ">=3.10"
+dependencies = [
+    "tilebox-datasets",
+    "tilebox-grpc",
+    "google-cloud-storage>=2.10",
+    "opentelemetry-api>=1.25",
+    "opentelemetry-exporter-otlp-proto-http>=1.25",
+    "opentelemetry-sdk>=1.25",
+    "tenacity>=8",
+    "boto3>=1.33",
+    "betterproto>=2.0.0b6",
+]
 
-[tool.poetry-dynamic-versioning]
-enable = true
+[tool.uv]
+dev-dependencies = ["moto>=5"]
 
-[build-system]
-requires = ["poetry-core", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
-build-backend = "poetry_dynamic_versioning.backend"
+[tool.hatch.build.targets.sdist]
+packages = ["tilebox"]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<4"
-tilebox-datasets = { path = "../tilebox-datasets" }
-tilebox-grpc = { path = "../tilebox-grpc" }
-google-cloud-storage = ">=2.10.0"
-opentelemetry-api = ">=1.25"
-opentelemetry-exporter-otlp-proto-http = ">=1.25"
-opentelemetry-sdk = ">=1.25"
-tenacity = ">=8"
-# There is an ongoing issue for a stable v2 release of betterproto: https://github.com/danielgtaylor/python-betterproto/issues/256
-# The reason they didn't do it yet is that there probably be some small breaking changes for some edge case protobuf messages.
-# However, we aren't using any of those edge cases, and so far the beta version has been working fine.
-betterproto = "2.0.0b6"
-boto3 = ">=1.33"
+[tool.hatch.build.targets.wheel]
+packages = ["tilebox"]
 
 [tool.coverage.run]
 omit = ["tilebox/workflows/workflowsv1/*"]
@@ -35,4 +33,12 @@ omit = ["tilebox/workflows/workflowsv1/*"]
 [tool.pytest.ini_options]
 minversion = "6.0"
 testpaths = ["tests"]
-addopts = "-Wall -Werror"
+addopts = "-Wall -Werror --import-mode importlib"
+asyncio_default_fixture_loop_scope = "function"
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"

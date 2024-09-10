@@ -15,3 +15,5 @@ dist/
 coverage.xml
 .coverage*
 test-report.xml
+
+*.egg-info/

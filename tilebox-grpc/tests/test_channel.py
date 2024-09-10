@@ -101,7 +101,7 @@ def test_parse_channel_port_required_for_http() -> None:
         _parse_channel_info("http://0.0.0.0")
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.parametrize("req_metadata", [None, [("some-other", "header")]])
 async def test_auth_interceptor(req_metadata: None | list[tuple[str, str]]) -> None:
     """Test that the auth interceptor adds the auth token as metadata to every gRPC request"""
@@ -121,7 +121,7 @@ async def test_auth_interceptor(req_metadata: None | list[tuple[str, str]]) -> N
 E = TypeVar("E", bound=BaseException)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("grpc_status", "exception_type"),
     [

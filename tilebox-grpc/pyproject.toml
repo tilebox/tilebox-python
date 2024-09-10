@@ -1,32 +1,39 @@
-[tool.poetry]
+[project]
 name = "tilebox-grpc"
-version = "0.0.0"
+dynamic = ["version"]
 description = "GRPC / Protocol Buffers functions for Tilebox"
-authors = ["Tilebox, Inc. <support@tilebox.com>"]
+authors = [{ name = "Tilebox, Inc.", email = "support@tilebox.com" }]
 readme = "README.md"
-license = "MIT"
-packages = [{ include = "_tilebox" }]
+license = { text = "MIT License" }
+requires-python = ">=3.10"
+dependencies = [
+    # our version of the protobuf compiler generates code that requires grpcio 1.63.0 or higher
+    # grpcio 1.65.1 contains a bug that produces lots of logging noise: https://github.com/grpc/grpc/issues/37178
+    "grpcio>=1.63.0,!=1.65.1",
+    "grpcio-status>=1.62",
+    # opentelemetry-proto requires protobuf < 5, https://github.com/open-telemetry/opentelemetry-python/issues/3958
+    "protobuf>=4,<5",
+    # for the libraries below we specify a minimum, tested to be working version
+    "lz4>=4",
+    "anyio>=4",
+    "nest-asyncio>=1.5.0",
+]
 
-[tool.poetry-dynamic-versioning]
-enable = true
+[tool.hatch.build.targets.sdist]
+packages = ["_tilebox"]
 
-[build-system]
-requires = ["poetry-core", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
-build-backend = "poetry_dynamic_versioning.backend"
-
-[tool.poetry.dependencies]
-python = ">=3.10,<4"
-# our version of the protobuf compiler generates code that requires grpcio 1.63.0 or higher
-# grpcio 1.65.1 contains a bug that produces lots of logging noise: https://github.com/grpc/grpc/issues/37178
-grpcio = ">=1.63.0,!=1.65.1"
-grpcio-status = ">=1.62"
-protobuf = ">=4,<5"          # opentelemetry-proto requires protobuf < 5, https://github.com/open-telemetry/opentelemetry-python/issues/3958
-# for the libraries below we specify a minimum, tested to be working version
-lz4 = ">=4"              # compression library for GRPC
-anyio = ">=4"
-nest-asyncio = ">=1.5.0"
+[tool.hatch.build.targets.wheel]
+packages = ["_tilebox"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
 testpaths = ["tests"]
 addopts = "-Wall -Werror --import-mode importlib"
+asyncio_default_fixture_loop_scope = "function"
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"

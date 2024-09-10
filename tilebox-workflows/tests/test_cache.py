@@ -11,7 +11,7 @@ from mypy_boto3_s3 import S3Client
 from tilebox.workflows.cache import AmazonS3Cache, InMemoryCache, JobCache, LocalFileSystemCache
 
 
-@pytest.fixture()
+@pytest.fixture
 def _aws_credentials() -> None:
     """Mocked AWS Credentials for moto."""
     os.environ["AWS_ACCESS_KEY_ID"] = "testing"
@@ -21,7 +21,7 @@ def _aws_credentials() -> None:
     os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 
 
-@pytest.fixture()
+@pytest.fixture
 def aws(_aws_credentials: None) -> Iterator[S3Client]:
     with mock_aws():
         yield boto3.client("s3", region_name="us-east-1")
@@ -30,7 +30,7 @@ def aws(_aws_credentials: None) -> Iterator[S3Client]:
 caches = ["LocalFileSystem", "InMemory", "AmazonS3", "AmazonS3_no_prefix"]
 
 
-@pytest.fixture()
+@pytest.fixture
 def cache(request: SubRequest, tmp_path: Path, aws: S3Client) -> JobCache:
     match request.param:
         case "LocalFileSystem":

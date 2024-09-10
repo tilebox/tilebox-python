@@ -16,19 +16,19 @@ jobs:
         with:
           fetch-depth: 0
           lfs: true
-      - name: Install poetry
-        run: pipx install poetry && poetry self add "poetry-dynamic-versioning[plugin]"
-      - name: Set up Python
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
-          cache: poetry
-      - name: Install dependencies
-        run: poetry install
+          python-version-file: "pyproject.toml"
       - name: Print version
         run: git describe --tags
       - name: Build
-        run: ./build.sh tilebox-datasets
+        run: mkdir dist && uv run python -m build tilebox-datasets && mv tilebox-datasets/dist/* dist/
       - name: Publish to PyPi.org
         if: github.event_name == 'release'
         # authorization is done via OIDC, so we don't need to specify a token

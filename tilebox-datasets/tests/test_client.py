@@ -43,7 +43,7 @@ def record_client(recording_file: str) -> Client:
     return client
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_list_datasets() -> None:
     # we send our package version as client_info, so the outgoing request changes over time, so let's not check it
     client = replay_client("list_datasets.rpcs.bin", assert_request_matches=False)
@@ -56,7 +56,7 @@ async def test_list_datasets() -> None:
     assert "Sentinel-2 is equipped with an optical instrument payload that samples" in repr(datasets)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_list_collections() -> None:
     client = replay_client("list_s2_collections.rpcs.bin")
 
@@ -65,7 +65,7 @@ async def test_list_collections() -> None:
     assert sorted(collections) == ["S2A_S2MSI1C", "S2A_S2MSI2A", "S2B_S2MSI1C", "S2B_S2MSI2A"]
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_collection_info() -> None:
     client = replay_client("s2_collection_info.rpcs.bin")
 
@@ -79,7 +79,7 @@ async def test_collection_info() -> None:
         assert "[2015-07-04T10:10:06.027 UTC, " in repr(info)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_dataset_not_found() -> None:
     client = replay_client("list_dataset_not_found.rpcs.bin")
 
@@ -87,7 +87,7 @@ async def test_dataset_not_found() -> None:
         await client.dataset("94e06073-ea61-40a2-a61c-446871d47932")
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_find_datapoint() -> None:
     client = replay_client("find_s2_datapoint.rpcs.bin")
 
@@ -114,7 +114,7 @@ async def test_find_datapoint() -> None:
             assert "geometry" not in datapoint
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_datapoint_not_found() -> None:
     client = replay_client("s2_datapoint_not_found.rpcs.bin")
 
@@ -125,7 +125,7 @@ async def test_datapoint_not_found() -> None:
         await collection.find("0181f4dc-53c0-4912-acda-e35a368994fc")  # is in another collection
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_load_data() -> None:
     client = replay_client("load_s2_data_interval.rpcs.bin")
 
@@ -147,7 +147,7 @@ async def test_load_data() -> None:
             assert "granule_name" not in data
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_load_data_pagination() -> None:
     client = replay_client("load_s2_data_interval_paging.rpcs.bin")
 

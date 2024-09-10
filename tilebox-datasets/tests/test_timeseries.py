@@ -52,7 +52,7 @@ def _mocked_dataset() -> tuple[RemoteTimeseriesDataset, AsyncMock]:
     return dataset, service
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @settings(max_examples=1)
 @given(infos=lists(collection_infos(), min_size=3, max_size=10))
 @pytest.mark.parametrize(("availability", "count"), [(True, True), (True, False), (False, True), (False, False)])
@@ -151,7 +151,7 @@ def _mocked_collection(provide_collection_info: bool = False) -> MockedCollectio
     return MockedCollection(dataset, dataset._dataset, collection, collection_info, service)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_timeseries_dataset_collection_info() -> None:
     """Test that .info() of a collection returns the correct CollectionInfo."""
     mocked = _mocked_collection()
@@ -169,7 +169,7 @@ async def test_timeseries_dataset_collection_info() -> None:
     )
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_timeseries_dataset_collection_info_cache() -> None:
     """Test that .info() of a collection is cached."""
     mocked = _mocked_collection()
@@ -193,7 +193,7 @@ async def test_timeseries_dataset_collection_info_cache() -> None:
     assert len(collection._info_cache) == 4
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @settings(max_examples=1)
 @given(datapoints())
 async def test_timeseries_dataset_collection_find(expected_datapoint: Datapoint) -> None:
@@ -211,7 +211,7 @@ async def test_timeseries_dataset_collection_find(expected_datapoint: Datapoint)
     assert meta.id == datapoint.coords["id"]
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_timeseries_dataset_collection_find_invalid_id() -> None:
     """Test that .find() of a collection raises a ValueError if the datapoint id is invalid."""
     mocked = _mocked_collection(provide_collection_info=True)
@@ -220,7 +220,7 @@ async def test_timeseries_dataset_collection_find_invalid_id() -> None:
         await mocked.collection.find("invalid")
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_timeseries_dataset_collection_find_not_found() -> None:
     """Test that .find() of a collection raises a NotFoundError if the datapoint is not found."""
     mocked = _mocked_collection(provide_collection_info=True)
@@ -229,7 +229,7 @@ async def test_timeseries_dataset_collection_find_not_found() -> None:
         await mocked.collection.find("14eb91a2-a42f-421f-9397-1dab577f05a9")
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @patch("tilebox.datasets.pagination.tqdm")
 @settings(deadline=1000, max_examples=3)  # increase deadline to 1s to not timeout because of the progress bar
 @given(pages=paginated_datapoint_for_interval_responses())
@@ -258,7 +258,7 @@ async def test_timeseries_dataset_collection_load(
         assert progress_bar.update.call_count == expected_updates
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @patch("tilebox.datasets.pagination.tqdm")
 @settings(deadline=1000, max_examples=3)  # increase deadline to 1s to not timeout because of the progress bar
 @given(pages=paginated_datapoint_for_interval_responses())

@@ -29,7 +29,7 @@ def test_sentinel1_download_urls(granule: ASFStorageGranule) -> None:
     assert f"RAW/{platform}/{granule.granule_name}.zip" in urls.data
 
 
-@pytest.mark.anyio()
+@pytest.mark.anyio
 async def test_asf_login(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(headers={"Set-Cookie": "logged_in=yes"})
 
@@ -40,7 +40,7 @@ async def test_asf_login(httpx_mock: HTTPXMock) -> None:
     assert client.cookies["logged_in"] == "yes"
 
 
-@pytest.mark.anyio()
+@pytest.mark.anyio
 async def test_asf_login_invalid_auth(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(401)
     with pytest.raises(ValueError, match="Invalid username or password."):

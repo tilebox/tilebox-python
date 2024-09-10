@@ -1,31 +1,29 @@
-[tool.poetry]
+[project]
 name = "tilebox-datasets"
-version = "0.0.0"
+dynamic = ["version"]
 description = "Access Tilebox datasets from Python"
-authors = ["Tilebox, Inc. <support@tilebox.com>"]
+authors = [{ name = "Tilebox, Inc.", email = "support@tilebox.com" }]
 readme = "README.md"
-license = "MIT"
-packages = [{ include = "tilebox" }]
+license = { text = "MIT License" }
+requires-python = ">=3.10"
+dependencies = [
+    "tilebox-grpc",
+    # cftime is a dependency of xarray, and we need this version at least to support numpy v2.0
+    "cftime>=1.6.4",
+    # below version pins are some minimum sane versions that we tested against to make sure they are working
+    "numpy>=1.24",
+    "xarray>=2023.11",
+    "loguru>=0.7",
+    "tqdm>=4.65",
+    "pandas>=2.1",
+    "shapely>=2",
+]
 
-[tool.poetry-dynamic-versioning]
-enable = true
+[tool.hatch.build.targets.sdist]
+packages = ["tilebox"]
 
-[build-system]
-requires = ["poetry-core", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
-build-backend = "poetry_dynamic_versioning.backend"
-
-[tool.poetry.dependencies]
-python = ">=3.10,<4"
-tilebox-grpc = { path = "../tilebox-grpc" }
-# cftime is a dependency of xarray, and we need this version at least to support numpy v2.0
-cftime = ">=1.6.4"
-# below version pins are some minimum sane versions that we tested against to make sure they are working
-numpy = ">=1.24"
-xarray = ">=2023.11"
-loguru = ">=0.7"
-tqdm = ">=4.65"
-pandas = ">=2.1"
-shapely = ">=2"
+[tool.hatch.build.targets.wheel]
+packages = ["tilebox"]
 
 [tool.coverage.run]
 omit = ["tilebox/*/datasetsv1/*"]
@@ -34,3 +32,11 @@ omit = ["tilebox/*/datasetsv1/*"]
 minversion = "6.0"
 testpaths = ["tests"]
 addopts = "-Wall -Werror --import-mode importlib"
+asyncio_default_fixture_loop_scope = "function"
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"

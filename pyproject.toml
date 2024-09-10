@@ -1,43 +1,70 @@
-[tool.poetry]
+[project]
 name = "tilebox-python"
-version = "0.0.0"
-description = ""
-authors = ["Tilebox <tilebox.io>"]
+dynamic = ["version"]
+description = "Tilebox Python packages"
+authors = [{ name = "Tilebox, Inc.", email = "support@tilebox.com" }]
 readme = "README.md"
-package-mode = false
+requires-python = ">=3.10"
+dependencies = [
+    "tilebox-datasets",
+    "tilebox-grpc",
+    "tilebox-storage",
+    "tilebox-workflows",
+]
 
-[tool.poetry-dynamic-versioning]
-enable = true
+[project.scripts]
+copy-protobuf = "tools.copy_protobuf:main"
 
-[tool.poetry.dependencies]
-python = ">=3.10,<4"
-tilebox-datasets = { path = "tilebox-datasets", develop = true }
-tilebox-grpc = { path = "tilebox-grpc", develop = true }
-tilebox-storage = { path = "tilebox-storage", develop = true }
-tilebox-workflows = { path = "tilebox-workflows", develop = true }
-# log spam issues from grpcio 1.65 onwards: https://github.com/grpc/grpc/issues/37245
-grpcio = "<1.65"
+[tool.hatch.build.targets.sdist]
+packages = ["tools"]
 
+[tool.hatch.build.targets.wheel]
+packages = ["tools"]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "*"
-pytest-cov = "*"
-# Cython is required for some pytest coverage plugins
-Cython = "*"
-pytest-asyncio = "*"
-ruff = "*"
-pyright = "*"
-pre-commit = "*"
-types-protobuf = "*"
-wheel-doctor = "*"
-twine = "*"
-hypothesis = "*"
-pytest-httpx = "*"
-junitparser = "*"
-# DeprecationWarning: Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0)
-pyarrow = "*"
-moto = { extras = ["s3"], version = "*" }
-boto3-stubs = { extras = ["essential"], version = "*" }
+[tool.uv]
+dev-dependencies = [
+    # so we can run pip commands such as 'pip freeze' in the virtualenv
+    "pip>=24.2",
+    # so we can build the packages using the CLI
+    "build>=1.2.2",
+    # some general dev dependencies relevant for all packages
+    "pytest>=8.3.2",
+    "pytest-cov>=5.0.0",
+    # Cython is required for some pytest coverage plugins
+    "cython>=3.0.11",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.6.4",
+    "pyright>=1.1.379",
+    "pre-commit>=3.8.0",
+    "types-protobuf>=5.27.0.20240907",
+    "hypothesis>=6.112.0",
+    "pytest-httpx>=0.30.0",
+    "junitparser>=3.2.0",
+    # DeprecationWarning: Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0)
+    "pyarrow>=17.0.0",
+
+]
+
+[tool.uv.workspace]
+members = [
+    "tilebox-datasets",
+    "tilebox-grpc",
+    "tilebox-storage",
+    "tilebox-workflows",
+]
+
+[tool.uv.sources] # don't install from pypi, use the workspace packages
+tilebox-datasets = { workspace = true }
+tilebox-grpc = { workspace = true }
+tilebox-storage = { workspace = true }
+tilebox-workflows = { workspace = true }
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
 
 [tool.ruff]
 # settings applying to all ruff subcommands, such as `ruff check` (lint) and `ruff format`
@@ -101,12 +128,12 @@ ignore = [
 ]
 
 # pyright needs to have all the dependencies installed to be able to type check
-# we can make sure of this by telling it to use the poetry venv
-# this requires the virtualenvs.in-project setting to be set to true in poetry.toml
+# we can make sure of this by telling it to use the uv venv
 venvPath = "."
 venv = ".venv"
-
-
-[build-system]
-requires = ["poetry-core", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
-build-backend = "poetry_dynamic_versioning.backend"
+extraPaths = [
+    "tilebox-datasets",
+    "tilebox-grpc",
+    "tilebox-storage",
+    "tilebox-workflows",
+]

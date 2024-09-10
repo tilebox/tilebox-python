@@ -21,7 +21,7 @@ def _create_cpu_bound_consumer(processing_time: float, output_stack: list[int]) 
     return _mock_consumer
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_producer_consumer_slow_producer_fast_consumer() -> None:
     """
     Assert that the producer consumer pattern behaves as expected with a slow producer and a fast consumer.
@@ -35,7 +35,7 @@ async def test_producer_consumer_slow_producer_fast_consumer() -> None:
     assert (producer_sleep * n + consumer_sleep) < took < ((producer_sleep + consumer_sleep) * n)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_producer_consumer_equally_slow_producer_consumer() -> None:
     """
     Assert that the producer consumer pattern behaves as expected with a producer and a consumer that are equally slow.
@@ -49,7 +49,7 @@ async def test_producer_consumer_equally_slow_producer_consumer() -> None:
     assert (producer_sleep * n + consumer_sleep) < took < ((producer_sleep + consumer_sleep) * n)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_producer_consumer_fast_producer_slow_consumer() -> None:
     """
     Assert that the producer consumer pattern behaves as expected with a consumer that is slower than the producer.

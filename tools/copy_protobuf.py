@@ -5,8 +5,8 @@ A small utility script to copy generated protobuf messages from the core reposit
 
 This will put them in the right place, and automatically fix the imports as well
 
-Usage:
-./copy_protobuf.py <path-to-core-repo> <path-to-go-repo> <path-to-clients-repo>
+Usage (from repo root):
+uv run copy-protobuf <path-to-core-repo> <path-to-go-repo> <path-to-clients-repo>
 """
 
 import sys
@@ -35,15 +35,16 @@ _SERVICE_MODULES = {
 
 
 def main() -> None:
-    core_repo = Path(__file__).parent.parent / "core"
-    go_repo = Path(__file__).parent.parent / "tilebox-go"
-    clients_repo = Path(__file__).parent
+    clients_repo = Path(__file__).parent.parent
+    core_repo = clients_repo.parent / "core"
+    go_repo = Path(__file__).parent / "tilebox-go"
+
     if len(sys.argv) == 4:  # manual arg parsing, don't want any dependencies for this simple script
         core_repo = Path(sys.argv[1])
         go_repo = Path(sys.argv[2])
         clients_repo = Path(sys.argv[3])
     elif len(sys.argv) != 1:
-        print("Usage: ./copy_protobuf.py <core-repo> <go-repo> <clients-repo>")  # noqa: T201
+        print("Usage: uv run copy-protobuf <core-repo> <go-repo> <clients-repo>")  # noqa: T201
         sys.exit(1)
 
     for service_folder, packages in _SERVICE_MODULES.items():

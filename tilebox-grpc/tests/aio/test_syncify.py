@@ -29,7 +29,7 @@ def test_syncify() -> None:
     assert list(cast(Iterator[int], service.async_generator())) == [42]
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_syncify_in_running_event_loop() -> None:
     """Test that syncify works as expected when called from a running event loop."""
     service = AsyncService()
@@ -38,7 +38,7 @@ async def test_syncify_in_running_event_loop() -> None:
     assert list(cast(Iterator[int], service.async_generator())) == [42]
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_syncify_generator_items_yielded_as_they_come_in() -> None:
     """
     Test that syncifing an async generator yields each item directly when it is available instead of a whole

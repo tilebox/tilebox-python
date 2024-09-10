@@ -18,7 +18,7 @@ from tilebox.storage.aio import ASFStorageClient, CopernicusStorageClient, Umbra
 from tilebox.storage.granule import ASFStorageGranule, CopernicusStorageGranule, UmbraStorageGranule
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 # ^^^ see https://medium.com/@BartekSkwira/how-to-solve-pytest-pytestunraisableexceptionwarning-8d75a4d1f801
 async def test_client_login(httpx_mock: HTTPXMock) -> None:
@@ -28,7 +28,7 @@ async def test_client_login(httpx_mock: HTTPXMock) -> None:
     assert isinstance(client._clients["ASF"], AsyncClient)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 # ^^^ see https://medium.com/@BartekSkwira/how-to-solve-pytest-pytestunraisableexceptionwarning-8d75a4d1f801
 async def test_client_login_failed(httpx_mock: HTTPXMock) -> None:
@@ -38,14 +38,14 @@ async def test_client_login_failed(httpx_mock: HTTPXMock) -> None:
         await client._client("ASF")
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 async def test_client_missing_credentials() -> None:
     client = _HttpClient(auth={})
     with pytest.raises(ValueError, match="Missing credentials.*"):
         await client._client("ASF")
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @given(ers_granules(ensure_quicklook=True))
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_download_quicklook(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
@@ -59,7 +59,7 @@ async def test_download_quicklook(httpx_mock: HTTPXMock, tmp_path: Path, granule
     assert downloaded.read_bytes() == b"my-quicklook-image"
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 @given(ers_granules(ensure_quicklook=True))
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
@@ -74,7 +74,7 @@ async def test_quicklook(httpx_mock: HTTPXMock, granule: ASFStorageGranule) -> N
         assert display_mock.call_args[0][1] == granule.urls.quicklook.rsplit("/", 1)[-1]
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @given(asf_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
@@ -89,7 +89,7 @@ async def test_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStora
     assert expected.read_bytes() == "".join(mock_data).encode()
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @given(asf_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_download_verify_md5(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
@@ -99,7 +99,7 @@ async def test_download_verify_md5(httpx_mock: HTTPXMock, tmp_path: Path, granul
         await client.download(granule, tmp_path, extract=False, show_progress=False)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @given(ers_granules(ensure_quicklook=True))
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_cached_download_quicklook(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
@@ -119,7 +119,7 @@ async def test_cached_download_quicklook(httpx_mock: HTTPXMock, tmp_path: Path, 
     assert len(httpx_mock.get_requests(url=granule.urls.quicklook)) == 1
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @given(asf_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_cached_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
@@ -139,7 +139,7 @@ async def test_cached_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: A
     assert len(httpx_mock.get_requests(url=granule.urls.data)) == 1
 
 
-@pytest.fixture()
+@pytest.fixture
 def _aws_credentials() -> None:
     """Mocked AWS Credentials for moto."""
     os.environ["AWS_ACCESS_KEY_ID"] = "testing"
@@ -151,7 +151,7 @@ def _aws_credentials() -> None:
     os.environ["MOTO_S3_CUSTOM_ENDPOINTS"] = CopernicusStorageClient._ENDPOINT_URL
 
 
-@pytest.fixture()
+@pytest.fixture
 def aws(_aws_credentials: None) -> Iterator[S3Client]:
     with mock_aws():
         yield boto3.client("s3", region_name="us-east-1")
@@ -173,7 +173,7 @@ def test_list_objects(aws: S3Client) -> None:
     assert res[0]["Size"] == len(b"content1")
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 # ^^^ see https://medium.com/@BartekSkwira/how-to-solve-pytest-pytestunraisableexceptionwarning-8d75a4d1f801
 async def test_download_object(aws: S3Client) -> None:
@@ -199,7 +199,7 @@ async def test_download_object(aws: S3Client) -> None:
     assert output_file.getvalue() == b"content1"
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 async def test_download_object_verify(aws: S3Client) -> None:
     bucket = "bucket1"
@@ -224,7 +224,7 @@ async def test_download_object_verify(aws: S3Client) -> None:
     assert output_file.getvalue() == b"content1"
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 @given(umbra_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
@@ -254,7 +254,7 @@ async def test_umbra_storage_client(aws: S3Client, tmp_path: Path, granules: Umb
     shutil.rmtree(folder)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 @given(umbra_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
@@ -282,7 +282,7 @@ async def test_umbra_storage_client_products(aws: S3Client, tmp_path: Path, gran
     shutil.rmtree(folder)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 @given(umbra_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
@@ -307,7 +307,7 @@ async def test_umbra_storage_client_no_cache(aws: S3Client, tmp_path: Path, gran
     shutil.rmtree(folder)
 
 
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @given(s5p_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_copernicus_storage_client(aws: S3Client, tmp_path: Path, granules: CopernicusStorageGranule) -> None:

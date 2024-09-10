@@ -6,17 +6,16 @@
 packages=$(find . -name pyproject.toml -exec dirname {} \; | grep tilebox | sort)
 
 for package in $packages; do
-    cd "$package" || exit 1  # cd into the package directory
+    cd "$package" || exit 1 # cd into the package directory
 
     echo "Running tests of $package"
     module=tilebox
-    if [ -d _tilebox ]
-    then
+    if [ -d _tilebox ]; then
         module=_tilebox
     fi
     pytest -Wall -Werror --cov=$module --cov-branch -v --junitxml=test-report.xml . || exit 1
 
-    cd .. || exit 1  # cd back to the root of the monorepo
+    cd .. || exit 1 # cd back to the root of the monorepo
 done
 
 coverage combine */.coverage
