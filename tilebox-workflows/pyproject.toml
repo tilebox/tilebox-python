@@ -18,6 +18,10 @@ dependencies = [
     "betterproto>=2.0.0b6",
 ]
 
+[project.urls]
+Homepage = "https://tilebox.com"
+Documentation = "https://docs.tilebox.com/workflows/introduction"
+
 [tool.uv]
 dev-dependencies = ["moto>=5"]
 

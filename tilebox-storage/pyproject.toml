@@ -16,6 +16,10 @@ dependencies = [
     "boto3-stubs[essential]>=1.33",
 ]
 
+[project.urls]
+Homepage = "https://tilebox.com"
+Documentation = "https://docs.tilebox.com/"
+
 [tool.uv]
 dev-dependencies = ["moto>=5"]
 

@@ -19,6 +19,10 @@ dependencies = [
     "nest-asyncio>=1.5.0",
 ]
 
+[project.urls]
+Homepage = "https://tilebox.com"
+Documentation = "https://docs.tilebox.com/"
+
 [tool.hatch.build.targets.sdist]
 packages = ["_tilebox"]
 

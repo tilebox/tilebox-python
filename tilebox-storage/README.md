@@ -1,3 +1,63 @@
-# Storage Client for Tilebox
+# Tilebox Storage
 
-Client to interact with storage servers for downloading data
+![PyPI - Version](https://img.shields.io/pypi/v/tilebox-storage.svg?style=flat-square&label=version&color=f43f5e)
+![Python](https://img.shields.io/pypi/pyversions/tilebox-storage.svg?style=flat-square&logo=python&color=f43f5e&logoColor=f43f5e)
+
+Download satellite payload data for your [Tilebox datasets](https://pypi.org/project/tilebox-datasets/).
+
+## Quickstart
+
+Install using `pip`:
+
+```bash
+pip install tilebox-storage tilebox-datasets
+```
+
+Fetch a datapoint to download the payload data for:
+
+```python
+from tilebox.datasets import Client
+
+
+# Creating clients
+client = Client(token="YOUR_TILEBOX_API_KEY")
+datasets = client.datasets()
+
+# Choosing the dataset and collection
+s2_dataset = datasets.open_data.copernicus.sentinel2_msi
+collections = s2_dataset.collections()
+collection = collections["S2A_S2MSI2A"]
+
+# Loading metadata
+s2_data = collection.load(("2024-08-01", "2024-08-02"), show_progress=True)
+
+# Let's download the first granule
+s2_granule = s2_data.isel(time=0)
+```
+
+Then download the payload data using a storage client:
+
+```python
+from pathlib import Path
+from tilebox.storage import CopernicusStorageClient
+
+# Check out the Copernicus Dataspace S3 documentation at
+# https://documentation.dataspace.copernicus.eu/APIs/S3.html
+# to learn how to get your access key and secret access key
+storage_client = CopernicusStorageClient(
+    access_key="YOUR_ACCESS_KEY",
+    secret_access_key="YOUR_SECRET_ACCESS_KEY",
+    cache_directory=Path("./data")
+)
+
+downloaded_data = storage_client.download(s2_granule)
+
+print(f"Downloaded granule: {downloaded_data.name} to {downloaded_data}")
+print("Contents: ")
+for content in downloaded_data.iterdir():
+    print(f" - {content.relative_to(downloaded_data)}")
+```
+
+## License
+
+Distributed under the MIT License (`The MIT License`).

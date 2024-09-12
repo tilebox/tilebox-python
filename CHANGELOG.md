@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.1] - 2024-09-12
+
+### Added
+
+- Added descriptions for the pypi.org pages of the packages.
+
 ## [0.25.0] - 2024-08-12
 
 ### Added
@@ -16,5 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.25.1...HEAD
+[0.25.1]: https://github.com/tilebox/tilebox-python/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/tilebox/tilebox-python/releases/tag/v0.25.0
