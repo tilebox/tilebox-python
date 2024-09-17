@@ -42,7 +42,7 @@ dev-dependencies = [
     "junitparser>=3.2.0",
     # DeprecationWarning: Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0)
     "pyarrow>=17.0.0",
-
+    "moto>=5.0.14",
 ]
 
 [tool.uv.workspace]

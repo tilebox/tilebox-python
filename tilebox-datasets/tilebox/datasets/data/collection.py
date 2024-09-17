@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from tilebox.datasets.data.time_interval import _EMPTY_TIME_INTERVAL, TimeInterval
+from tilebox.datasets.data.time_interval import TimeInterval
 from tilebox.datasets.datasetsv1 import core_pb2
 
 
@@ -28,7 +28,7 @@ class CollectionInfo:
     count: int | None
 
     @classmethod
-    def from_message(cls, info: core_pb2.CollectionInfo, availability_known: bool = False) -> "CollectionInfo":
+    def from_message(cls, info: core_pb2.CollectionInfo) -> "CollectionInfo":
         """
         Convert a CollectionInfo protobuf message to a CollectionInfo object.
 
@@ -39,20 +39,15 @@ class CollectionInfo:
                 don't know whether it has data points or not. Because the protobuf message availability field is
                 None for both of those cases.
         """
-        availability = None
-        if info.HasField("availability"):
-            availability = TimeInterval.from_message(info.availability)
-        elif availability_known:
-            availability = _EMPTY_TIME_INTERVAL  # use a sentinel value to indicate that the collection is empty
         return CollectionInfo(
             collection=Collection.from_message(info.collection),
-            availability=availability,
+            availability=TimeInterval.from_message(info.availability) if info.HasField("availability") else None,
             count=info.count if info.HasField("count") else None,
         )
 
     def to_message(self) -> core_pb2.CollectionInfo:
         info = core_pb2.CollectionInfo(collection=self.collection.to_message())
-        if isinstance(self.availability, TimeInterval) and self.availability != _EMPTY_TIME_INTERVAL:
+        if isinstance(self.availability, TimeInterval):
             info.availability.CopyFrom(self.availability.to_message())
         if self.count is not None:
             info.count = self.count

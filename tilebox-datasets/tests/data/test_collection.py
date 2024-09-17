@@ -12,7 +12,7 @@ def test_collections_to_message_and_back(collection: Collection) -> None:
 
 @given(collection_infos())
 def test_collection_infos_to_message_and_back(info: CollectionInfo) -> None:
-    assert CollectionInfo.from_message(info.to_message(), availability_known=info.availability is not None) == info
+    assert CollectionInfo.from_message(info.to_message()) == info
 
 
 @given(collection_infos())

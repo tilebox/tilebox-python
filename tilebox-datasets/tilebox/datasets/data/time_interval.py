@@ -138,6 +138,12 @@ class TimeInterval:
         cls, interval: core_pb2.TimeInterval
     ) -> "TimeInterval":  # lets use typing.Self once we require python >= 3.11
         """Convert a TimeInterval protobuf message to a TimeInterval object."""
+
+        start = timestamp_to_datetime(interval.start_time)
+        end = timestamp_to_datetime(interval.end_time)
+        if start == _EPOCH and end == _EPOCH and not interval.start_exclusive and not interval.end_inclusive:
+            return _EMPTY_TIME_INTERVAL
+
         return cls(
             start=timestamp_to_datetime(interval.start_time),
             end=timestamp_to_datetime(interval.end_time),

@@ -63,7 +63,7 @@ class TileboxDatasetService:
             dataset_id=uuid_to_uuid_message(dataset_id),
         )
         response = await self._service.GetCollectionByName(req)
-        return CollectionInfo.from_message(response, availability_known=with_availability)
+        return CollectionInfo.from_message(response)
 
     async def get_datapoint_by_id(self, collection_id: str, datapoint_id: str, skip_data: bool = False) -> Datapoint:
         response = await self._service.GetDatapointByID(

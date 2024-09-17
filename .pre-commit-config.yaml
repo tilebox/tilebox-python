@@ -1,18 +1,18 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v4.6.0
     hooks:
       - id: check-yaml
       - id: end-of-file-fixer
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     # keep the version here in sync with the version in uv.lock
-    rev: "v0.6.4"
+    rev: "v0.6.5"
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
   - repo: https://github.com/RobertCraigie/pyright-python
     # keep the version here in sync with the version in uv.lock
-    rev: v1.1.379
+    rev: v1.1.380
     hooks:
       - id: pyright
