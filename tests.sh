@@ -3,7 +3,7 @@
 # Needed because you can't run pytest on multiple packages at once
 
 # finds also packages in the `.venv` subdirectory, so we need to filter them out => grep tilebox
-packages=$(find . -name pyproject.toml -exec dirname {} \; | grep tilebox | sort)
+packages=$(find . -name pyproject.toml -exec dirname {} \; | grep tilebox | cut -d '/' -f 2 | sort)
 
 for package in $packages; do
     cd "$package" || exit 1 # cd into the package directory
@@ -13,12 +13,12 @@ for package in $packages; do
     if [ -d _tilebox ]; then
         module=_tilebox
     fi
-    pytest -Wall -Werror --cov=$module --cov-branch -v --junitxml=test-report.xml . || exit 1
+    uv run --package "$package" pytest -Wall -Werror --cov=$module --cov-branch -v --junitxml=test-report.xml . || exit 1
 
     cd .. || exit 1 # cd back to the root of the monorepo
 done
 
-coverage combine */.coverage
-coverage xml
+uv run coverage combine */.coverage
+uv run coverage xml
 
-junitparser merge */test-report.xml test-report.xml
+uv run junitparser merge */test-report.xml test-report.xml

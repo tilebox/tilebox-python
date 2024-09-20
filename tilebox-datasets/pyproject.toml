@@ -5,6 +5,19 @@ description = "Access Tilebox datasets from Python"
 authors = [{ name = "Tilebox, Inc.", email = "support@tilebox.com" }]
 readme = "README.md"
 license = { text = "MIT License" }
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development",
+]
 requires-python = ">=3.10"
 dependencies = [
     "tilebox-grpc",
@@ -23,6 +36,14 @@ dependencies = [
 Homepage = "https://tilebox.com"
 Documentation = "https://docs.tilebox.com/datasets/introduction"
 
+[tool.uv]
+dev-dependencies = [
+    "hypothesis>=6.112.1",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "pytest>=8.3.2",
+]
+
 [tool.hatch.build.targets.sdist]
 packages = ["tilebox"]
 
@@ -37,6 +58,7 @@ minversion = "6.0"
 testpaths = ["tests"]
 addopts = "-Wall -Werror --import-mode importlib"
 asyncio_default_fixture_loop_scope = "function"
+
 
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning"]

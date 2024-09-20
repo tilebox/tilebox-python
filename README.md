@@ -47,10 +47,10 @@ uv run copy-protobuf
 ### Running tests
 
 ```bash
-uv run ./tests.sh  # helper script for running with coverage
+./tests.sh  # helper script for running with coverage
 
 # testing a single package
-uv run pytest tilebox-datasets
+uv run --package tilebox-datasets pytest tilebox-datasets
 ```
 
 ### Running code analysis

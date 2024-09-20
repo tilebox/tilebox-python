@@ -1,7 +1,24 @@
-# Tilebox Datasets
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/tilebox/docs/refs/heads/main/assets/tilebox-banner.svg" alt="Tilebox Logo">
+  <br>
+</h1>
 
-![PyPI - Version](https://img.shields.io/pypi/v/tilebox-datasets.svg?style=flat-square&label=version&color=f43f5e)
-![Python](https://img.shields.io/pypi/pyversions/tilebox-datasets.svg?style=flat-square&logo=python&color=f43f5e&logoColor=f43f5e)
+<div align="center">
+  <a href="https://pypi.org/project/tilebox-datasets/">
+    <img src="https://img.shields.io/pypi/v/tilebox-datasets.svg?style=flat-square&label=version&color=f43f5e" alt="PyPi Latest Release badge"/>
+  </a>
+  <a href="https://pypi.org/project/tilebox-datasets/">
+    <img src="https://img.shields.io/pypi/pyversions/tilebox-datasets.svg?style=flat-square&logo=python&color=f43f5e&logoColor=f43f5e" alt="Required Python Version badge"/>
+  </a>
+</div>
+
+<p align="center">
+  <a href="https://docs.tilebox.com/datasets/introduction"><b>Documentation</b></a>
+  |
+  <a href="https://console.tilebox.com/"><b>Console</b></a>
+</p>
+
+# Tilebox Datasets
 
 Access satellite data using the [Tilebox](https://tilebox.com) datasets python client powered by gRPC and Protobuf.
 

@@ -27,22 +27,24 @@ dev-dependencies = [
     "pip>=24.2",
     # so we can build the packages using the CLI
     "build>=1.2.2",
-    # some general dev dependencies relevant for all packages
-    "pytest>=8.3.2",
-    "pytest-cov>=5.0.0",
     # Cython is required for some pytest coverage plugins
     "cython>=3.0.11",
-    "pytest-asyncio>=0.24.0",
+    # DeprecationWarning: Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0)
+    "pyarrow>=17.0.0",
+    # some dev tooling
     "ruff>=0.6.4",
     "pyright>=1.1.379",
     "pre-commit>=3.8.0",
     "types-protobuf>=5.27.0.20240907",
-    "hypothesis>=6.112.0",
-    "pytest-httpx>=0.30.0",
     "junitparser>=3.2.0",
-    # DeprecationWarning: Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0)
-    "pyarrow>=17.0.0",
-    "moto>=5.0.14",
+    # specify all the individual dev-dependencies for each package as well:
+    # otherwise pyright will fail, this is necessary until this issue is resolved: https://github.com/astral-sh/uv/issues/7541
+    "hypothesis>=6.112.1",
+    "pytest-httpx>=0.30.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "pytest>=8.3.2",
+    "moto>=5",
 ]
 
 [tool.uv.workspace]
