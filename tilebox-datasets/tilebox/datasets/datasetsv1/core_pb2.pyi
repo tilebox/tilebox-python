@@ -100,24 +100,6 @@ class AnnotatedType(_message.Message):
     field_annotations: _containers.RepeatedCompositeFieldContainer[FieldAnnotation]
     def __init__(self, descriptor_set: _Optional[_Union[_descriptor_pb2.FileDescriptorSet, _Mapping]] = ..., type_url: _Optional[str] = ..., description: _Optional[str] = ..., field_annotations: _Optional[_Iterable[_Union[FieldAnnotation, _Mapping]]] = ...) -> None: ...
 
-class LegacyDataset(_message.Message):
-    __slots__ = ("id", "server_key", "client_key", "name", "summary", "service", "type")
-    ID_FIELD_NUMBER: _ClassVar[int]
-    SERVER_KEY_FIELD_NUMBER: _ClassVar[int]
-    CLIENT_KEY_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    SUMMARY_FIELD_NUMBER: _ClassVar[int]
-    SERVICE_FIELD_NUMBER: _ClassVar[int]
-    TYPE_FIELD_NUMBER: _ClassVar[int]
-    id: str
-    server_key: str
-    client_key: str
-    name: str
-    summary: str
-    service: str
-    type: AnnotatedType
-    def __init__(self, id: _Optional[str] = ..., server_key: _Optional[str] = ..., client_key: _Optional[str] = ..., name: _Optional[str] = ..., summary: _Optional[str] = ..., service: _Optional[str] = ..., type: _Optional[_Union[AnnotatedType, _Mapping]] = ...) -> None: ...
-
 class Dataset(_message.Message):
     __slots__ = ("id", "group_id", "type", "code_name", "name", "summary", "icon", "description")
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -137,16 +119,6 @@ class Dataset(_message.Message):
     icon: str
     description: str
     def __init__(self, id: _Optional[_Union[ID, _Mapping]] = ..., group_id: _Optional[_Union[ID, _Mapping]] = ..., type: _Optional[_Union[AnnotatedType, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., summary: _Optional[str] = ..., icon: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
-
-class LegacyDatasetGroup(_message.Message):
-    __slots__ = ("name", "groups", "datasets")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    GROUPS_FIELD_NUMBER: _ClassVar[int]
-    DATASETS_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    groups: _containers.RepeatedCompositeFieldContainer[LegacyDatasetGroup]
-    datasets: _containers.RepeatedCompositeFieldContainer[LegacyDataset]
-    def __init__(self, name: _Optional[str] = ..., groups: _Optional[_Iterable[_Union[LegacyDatasetGroup, _Mapping]]] = ..., datasets: _Optional[_Iterable[_Union[LegacyDataset, _Mapping]]] = ...) -> None: ...
 
 class DatasetGroup(_message.Message):
     __slots__ = ("id", "parent_id", "code_name", "name", "icon")

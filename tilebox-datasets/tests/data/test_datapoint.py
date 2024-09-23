@@ -1,7 +1,23 @@
 from hypothesis import given
 
-from tests.data.datapoint import anys, datapoint_intervals, datapoint_pages, datapoints, repeated_anys
-from tilebox.datasets.data.datapoint import Any, Datapoint, DatapointInterval, DatapointPage, RepeatedAny
+from tests.data.datapoint import (
+    anys,
+    datapoint_intervals,
+    datapoint_pages,
+    datapoints,
+    delete_datapoints_responses,
+    ingest_datapoints_responses,
+    repeated_anys,
+)
+from tilebox.datasets.data.datapoint import (
+    Any,
+    Datapoint,
+    DatapointInterval,
+    DatapointPage,
+    DeleteDatapointsResponse,
+    IngestDatapointsResponse,
+    RepeatedAny,
+)
 
 
 @given(datapoint_intervals())
@@ -27,3 +43,13 @@ def test_datapoints_to_message_and_back(datapoint: Datapoint) -> None:
 @given(datapoint_pages())
 def test_datapoint_pages_to_message_and_back(page: DatapointPage) -> None:
     assert DatapointPage.from_message(page.to_message()) == page
+
+
+@given(ingest_datapoints_responses())
+def test_ingest_datapoints_responses_to_message_and_back(response: IngestDatapointsResponse) -> None:
+    assert IngestDatapointsResponse.from_message(response.to_message()) == response
+
+
+@given(delete_datapoints_responses())
+def test_delete_datapoints_responses_to_message_and_back(response: DeleteDatapointsResponse) -> None:
+    assert DeleteDatapointsResponse.from_message(response.to_message()) == response

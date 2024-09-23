@@ -6,18 +6,32 @@ from uuid import UUID
 from grpc.aio import Channel
 
 from tilebox.datasets.data.collection import CollectionInfo
-from tilebox.datasets.data.datapoint import Datapoint, DatapointInterval, DatapointPage
+from tilebox.datasets.data.datapoint import (
+    Datapoint,
+    DatapointInterval,
+    DatapointPage,
+    DeleteDatapointsResponse,
+    IngestDatapointsResponse,
+)
 from tilebox.datasets.data.datasets import Dataset, ListDatasetsResponse
 from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.time_interval import TimeInterval
 from tilebox.datasets.data.uuid import uuid_to_uuid_message
+from tilebox.datasets.datasetsv1 import core_pb2
 from tilebox.datasets.datasetsv1.core_pb2 import (
     GetCollectionByNameRequest,
     GetCollectionsRequest,
     GetDatapointByIdRequest,
     GetDatasetForIntervalRequest,
 )
-from tilebox.datasets.datasetsv1.tilebox_pb2 import ClientInfo, GetDatasetRequest, ListDatasetsRequest, Package
+from tilebox.datasets.datasetsv1.tilebox_pb2 import (
+    ClientInfo,
+    DeleteDatapointsRequest,
+    GetDatasetRequest,
+    IngestDatapointsRequest,
+    ListDatasetsRequest,
+    Package,
+)
 from tilebox.datasets.datasetsv1.tilebox_pb2_grpc import TileboxServiceStub
 
 
@@ -28,7 +42,6 @@ class TileboxDatasetService:
 
         Args:
             channel: The gRPC channel to use for the service.
-            dataset_name: The timeseries dataset name in pascal case.
         """
         self._service = TileboxServiceStub(channel)
 
@@ -108,6 +121,46 @@ class TileboxDatasetService:
             )
         )
         return DatapointPage.from_message(response)
+
+    async def ingest_datapoints(
+        self, collection_id: UUID, datapoints: DatapointPage, allow_existing: bool
+    ) -> IngestDatapointsResponse:
+        """Ingest a batch of datapoints into a collection.
+
+        Args:
+            collection_id: The UUID of the collection to insert the datapoints into.
+            datapoints: The datapoints to insert.
+            allow_existing: Whether to allow existing datapoints as part of the request.
+
+        Returns:
+            The number of datapoints that were ingested as well as the generated ids for those datapoints.
+        """
+        response = await self._service.IngestDatapoints(
+            IngestDatapointsRequest(
+                collection_id=uuid_to_uuid_message(collection_id),
+                datapoints=datapoints.to_message(),
+                allow_existing=allow_existing,
+            )
+        )
+        return IngestDatapointsResponse.from_message(response)
+
+    async def delete_datapoints(self, collection_id: UUID, datapoints: list[UUID]) -> DeleteDatapointsResponse:
+        """Delete a batch of datapoints from a collection.
+
+        Args:
+            collection_id: The UUID of the collection to delete the datapoints from.
+            datapoints: The datapoints to delete.
+
+        Returns:
+            The number of datapoints that were deleted.
+        """
+        response = await self._service.DeleteDatapoints(
+            DeleteDatapointsRequest(
+                collection_id=uuid_to_uuid_message(collection_id),
+                datapoint_ids=[core_pb2.ID(datapoint.bytes) for datapoint in datapoints],
+            )
+        )
+        return DeleteDatapointsResponse.from_message(response)
 
 
 def _client_info() -> ClientInfo:

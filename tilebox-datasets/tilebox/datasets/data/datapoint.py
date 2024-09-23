@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
+from uuid import UUID
 
 from tilebox.datasets.data.pagination import Pagination
+from tilebox.datasets.data.uuid import uuid_message_to_uuid
 from tilebox.datasets.datasetsv1 import core_pb2, tilebox_pb2
 
 
@@ -106,4 +108,42 @@ class DatapointPage:
             meta=self.meta,
             data=self.data.to_message(),
             next_page=self.next_page.to_message() if self.next_page else None,
+        )
+
+
+@dataclass(frozen=True)
+class IngestDatapointsResponse:
+    num_created: int
+    num_existing: int
+    datapoint_ids: list[UUID]
+
+    @classmethod
+    def from_message(cls, response: tilebox_pb2.IngestDatapointsResponse) -> "IngestDatapointsResponse":
+        return cls(
+            num_created=response.num_created,
+            num_existing=response.num_existing,
+            datapoint_ids=[uuid_message_to_uuid(datapoint_id) for datapoint_id in response.datapoint_ids],
+        )
+
+    def to_message(self) -> tilebox_pb2.IngestDatapointsResponse:
+        return tilebox_pb2.IngestDatapointsResponse(
+            num_created=self.num_created,
+            num_existing=self.num_existing,
+            datapoint_ids=[core_pb2.ID(uuid=datapoint_id.bytes) for datapoint_id in self.datapoint_ids],
+        )
+
+
+@dataclass(frozen=True)
+class DeleteDatapointsResponse:
+    num_deleted: int
+
+    @classmethod
+    def from_message(cls, response: tilebox_pb2.DeleteDatapointsResponse) -> "DeleteDatapointsResponse":
+        return cls(
+            num_deleted=response.num_deleted,
+        )
+
+    def to_message(self) -> tilebox_pb2.DeleteDatapointsResponse:
+        return tilebox_pb2.DeleteDatapointsResponse(
+            num_deleted=self.num_deleted,
         )

@@ -16,11 +16,6 @@ class TileboxServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.GetDatasets = channel.unary_unary(
-                '/datasets.v1.TileboxService/GetDatasets',
-                request_serializer=datasets_dot_v1_dot_tilebox__pb2.GetDatasetsRequest.SerializeToString,
-                response_deserializer=datasets_dot_v1_dot_tilebox__pb2.LegacyTileboxDatasets.FromString,
-                _registered_method=True)
         self.GetDataset = channel.unary_unary(
                 '/datasets.v1.TileboxService/GetDataset',
                 request_serializer=datasets_dot_v1_dot_tilebox__pb2.GetDatasetRequest.SerializeToString,
@@ -56,18 +51,21 @@ class TileboxServiceStub(object):
                 request_serializer=datasets_dot_v1_dot_core__pb2.GetDatapointByIdRequest.SerializeToString,
                 response_deserializer=datasets_dot_v1_dot_tilebox__pb2.Datapoint.FromString,
                 _registered_method=True)
+        self.IngestDatapoints = channel.unary_unary(
+                '/datasets.v1.TileboxService/IngestDatapoints',
+                request_serializer=datasets_dot_v1_dot_tilebox__pb2.IngestDatapointsRequest.SerializeToString,
+                response_deserializer=datasets_dot_v1_dot_tilebox__pb2.IngestDatapointsResponse.FromString,
+                _registered_method=True)
+        self.DeleteDatapoints = channel.unary_unary(
+                '/datasets.v1.TileboxService/DeleteDatapoints',
+                request_serializer=datasets_dot_v1_dot_tilebox__pb2.DeleteDatapointsRequest.SerializeToString,
+                response_deserializer=datasets_dot_v1_dot_tilebox__pb2.DeleteDatapointsResponse.FromString,
+                _registered_method=True)
 
 
 class TileboxServiceServicer(object):
     """TileboxService is the service definition for the Tilebox datasets service, which provides access to datasets
     """
-
-    def GetDatasets(self, request, context):
-        """Legacy endpoint. Use ListDatasets instead.
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
 
     def GetDataset(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -111,14 +109,21 @@ class TileboxServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def IngestDatapoints(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteDatapoints(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_TileboxServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'GetDatasets': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetDatasets,
-                    request_deserializer=datasets_dot_v1_dot_tilebox__pb2.GetDatasetsRequest.FromString,
-                    response_serializer=datasets_dot_v1_dot_tilebox__pb2.LegacyTileboxDatasets.SerializeToString,
-            ),
             'GetDataset': grpc.unary_unary_rpc_method_handler(
                     servicer.GetDataset,
                     request_deserializer=datasets_dot_v1_dot_tilebox__pb2.GetDatasetRequest.FromString,
@@ -154,6 +159,16 @@ def add_TileboxServiceServicer_to_server(servicer, server):
                     request_deserializer=datasets_dot_v1_dot_core__pb2.GetDatapointByIdRequest.FromString,
                     response_serializer=datasets_dot_v1_dot_tilebox__pb2.Datapoint.SerializeToString,
             ),
+            'IngestDatapoints': grpc.unary_unary_rpc_method_handler(
+                    servicer.IngestDatapoints,
+                    request_deserializer=datasets_dot_v1_dot_tilebox__pb2.IngestDatapointsRequest.FromString,
+                    response_serializer=datasets_dot_v1_dot_tilebox__pb2.IngestDatapointsResponse.SerializeToString,
+            ),
+            'DeleteDatapoints': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteDatapoints,
+                    request_deserializer=datasets_dot_v1_dot_tilebox__pb2.DeleteDatapointsRequest.FromString,
+                    response_serializer=datasets_dot_v1_dot_tilebox__pb2.DeleteDatapointsResponse.SerializeToString,
+            ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
             'datasets.v1.TileboxService', rpc_method_handlers)
@@ -165,33 +180,6 @@ def add_TileboxServiceServicer_to_server(servicer, server):
 class TileboxService(object):
     """TileboxService is the service definition for the Tilebox datasets service, which provides access to datasets
     """
-
-    @staticmethod
-    def GetDatasets(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/datasets.v1.TileboxService/GetDatasets',
-            datasets_dot_v1_dot_tilebox__pb2.GetDatasetsRequest.SerializeToString,
-            datasets_dot_v1_dot_tilebox__pb2.LegacyTileboxDatasets.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
 
     @staticmethod
     def GetDataset(request,
@@ -372,6 +360,60 @@ class TileboxService(object):
             '/datasets.v1.TileboxService/GetDatapointByID',
             datasets_dot_v1_dot_core__pb2.GetDatapointByIdRequest.SerializeToString,
             datasets_dot_v1_dot_tilebox__pb2.Datapoint.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def IngestDatapoints(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/datasets.v1.TileboxService/IngestDatapoints',
+            datasets_dot_v1_dot_tilebox__pb2.IngestDatapointsRequest.SerializeToString,
+            datasets_dot_v1_dot_tilebox__pb2.IngestDatapointsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteDatapoints(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/datasets.v1.TileboxService/DeleteDatapoints',
+            datasets_dot_v1_dot_tilebox__pb2.DeleteDatapointsRequest.SerializeToString,
+            datasets_dot_v1_dot_tilebox__pb2.DeleteDatapointsResponse.FromString,
             options,
             channel_credentials,
             insecure,

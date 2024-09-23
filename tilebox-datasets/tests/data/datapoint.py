@@ -28,7 +28,15 @@ from tests.data.well_known_types import (
     vec3_messages,
 )
 from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
-from tilebox.datasets.data.datapoint import Any, Datapoint, DatapointInterval, DatapointPage, RepeatedAny
+from tilebox.datasets.data.datapoint import (
+    Any,
+    Datapoint,
+    DatapointInterval,
+    DatapointPage,
+    DeleteDatapointsResponse,
+    IngestDatapointsResponse,
+    RepeatedAny,
+)
 from tilebox.datasets.data.time_interval import (
     datetime_to_timestamp,
 )
@@ -138,3 +146,21 @@ def paginated_datapoint_for_interval_responses(draw: DrawFn) -> list[DatapointPa
     first_pages = draw(lists(datapoint_pages(empty_next_page=False), min_size=0, max_size=5))
     last_page = draw(datapoint_pages(empty_next_page=True))
     return [*first_pages, last_page]
+
+
+@composite
+def ingest_datapoints_responses(draw: DrawFn) -> IngestDatapointsResponse:
+    """A hypothesis strategy for generating random ingest datapoints responses"""
+    num_created = draw(integers(min_value=0, max_value=50))
+    num_existing = draw(integers(min_value=0, max_value=50))
+    datapoint_ids = draw(
+        lists(uuids(), min_size=num_created + num_existing, max_size=num_created + num_existing, unique=True)
+    )
+    return IngestDatapointsResponse(num_created, num_existing, datapoint_ids)
+
+
+@composite
+def delete_datapoints_responses(draw: DrawFn) -> DeleteDatapointsResponse:
+    """A hypothesis strategy for generating random delete datapoints responses"""
+    num_deleted = draw(integers(min_value=0, max_value=5_000))
+    return DeleteDatapointsResponse(num_deleted)

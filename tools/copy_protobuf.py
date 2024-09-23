@@ -18,7 +18,7 @@ _SERVICE_MODULES = {
             "core": Path("tilebox-datasets/tilebox/datasets/datasetsv1"),
             "well_known_types": Path("tilebox-datasets/tilebox/datasets/datasetsv1"),
             "tilebox": Path("tilebox-datasets/tilebox/datasets/datasetsv1"),
-        }
+        },
     },
     "workflows-service": {
         "workflows": {
@@ -37,7 +37,7 @@ _SERVICE_MODULES = {
 def main() -> None:
     clients_repo = Path(__file__).parent.parent
     core_repo = clients_repo.parent / "core"
-    go_repo = Path(__file__).parent / "tilebox-go"
+    go_repo = clients_repo.parent / "tilebox-go"
 
     if len(sys.argv) == 4:  # manual arg parsing, don't want any dependencies for this simple script
         core_repo = Path(sys.argv[1])
@@ -58,15 +58,15 @@ def main() -> None:
                     module,
                 )
 
-    for package, modules in _SERVICE_MODULES["workflows-service"].items():
-        for module in modules:
-            copy_module(
-                go_repo / "protogen" / "python" / package / "v1",
-                clients_repo,
-                "workflows-service",
-                package,
-                module,
-            )
+        for package, modules in packages.items():
+            for module in modules:
+                copy_module(
+                    go_repo / "protogen" / "python" / package / "v1",
+                    clients_repo,
+                    service_folder,
+                    package,
+                    module,
+                )
 
 
 def copy_module(search_path: Path, clients_repo: Path, service_folder: str, package: str, module: str) -> None:
