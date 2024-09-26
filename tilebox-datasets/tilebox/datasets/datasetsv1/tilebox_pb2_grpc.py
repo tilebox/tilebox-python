@@ -31,6 +31,11 @@ class TileboxServiceStub(object):
                 request_serializer=datasets_dot_v1_dot_tilebox__pb2.ListDatasetsRequest.SerializeToString,
                 response_deserializer=datasets_dot_v1_dot_tilebox__pb2.ListDatasetsResponse.FromString,
                 _registered_method=True)
+        self.CreateCollection = channel.unary_unary(
+                '/datasets.v1.TileboxService/CreateCollection',
+                request_serializer=datasets_dot_v1_dot_core__pb2.CreateCollectionRequest.SerializeToString,
+                response_deserializer=datasets_dot_v1_dot_core__pb2.CollectionInfo.FromString,
+                _registered_method=True)
         self.GetCollections = channel.unary_unary(
                 '/datasets.v1.TileboxService/GetCollections',
                 request_serializer=datasets_dot_v1_dot_core__pb2.GetCollectionsRequest.SerializeToString,
@@ -80,6 +85,12 @@ class TileboxServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ListDatasets(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateCollection(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -138,6 +149,11 @@ def add_TileboxServiceServicer_to_server(servicer, server):
                     servicer.ListDatasets,
                     request_deserializer=datasets_dot_v1_dot_tilebox__pb2.ListDatasetsRequest.FromString,
                     response_serializer=datasets_dot_v1_dot_tilebox__pb2.ListDatasetsResponse.SerializeToString,
+            ),
+            'CreateCollection': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateCollection,
+                    request_deserializer=datasets_dot_v1_dot_core__pb2.CreateCollectionRequest.FromString,
+                    response_serializer=datasets_dot_v1_dot_core__pb2.CollectionInfo.SerializeToString,
             ),
             'GetCollections': grpc.unary_unary_rpc_method_handler(
                     servicer.GetCollections,
@@ -252,6 +268,33 @@ class TileboxService(object):
             '/datasets.v1.TileboxService/ListDatasets',
             datasets_dot_v1_dot_tilebox__pb2.ListDatasetsRequest.SerializeToString,
             datasets_dot_v1_dot_tilebox__pb2.ListDatasetsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateCollection(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/datasets.v1.TileboxService/CreateCollection',
+            datasets_dot_v1_dot_core__pb2.CreateCollectionRequest.SerializeToString,
+            datasets_dot_v1_dot_core__pb2.CollectionInfo.FromString,
             options,
             channel_credentials,
             insecure,

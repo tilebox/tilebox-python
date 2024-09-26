@@ -134,6 +134,14 @@ class DatasetGroup(_message.Message):
     icon: str
     def __init__(self, id: _Optional[_Union[ID, _Mapping]] = ..., parent_id: _Optional[_Union[ID, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., icon: _Optional[str] = ...) -> None: ...
 
+class CreateCollectionRequest(_message.Message):
+    __slots__ = ("dataset_id", "name")
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: ID
+    name: str
+    def __init__(self, dataset_id: _Optional[_Union[ID, _Mapping]] = ..., name: _Optional[str] = ...) -> None: ...
+
 class GetCollectionsRequest(_message.Message):
     __slots__ = ("dataset_id", "with_availability", "with_count")
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]

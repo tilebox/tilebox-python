@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Create collection RPC stub and service method
 - Ingest and delete datapoints RPC stubs and service methods
 - Configure a default console logger if `get_logger()` is called without any configured loggers.
 

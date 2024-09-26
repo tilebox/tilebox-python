@@ -19,6 +19,7 @@ from tilebox.datasets.data.time_interval import TimeInterval
 from tilebox.datasets.data.uuid import uuid_to_uuid_message
 from tilebox.datasets.datasetsv1 import core_pb2
 from tilebox.datasets.datasetsv1.core_pb2 import (
+    CreateCollectionRequest,
     GetCollectionByNameRequest,
     GetCollectionsRequest,
     GetDatapointByIdRequest,
@@ -54,6 +55,20 @@ class TileboxDatasetService:
         """Get a dataset by its id."""
         response = await self._service.GetDataset(GetDatasetRequest(dataset_id=str(dataset_id)))
         return Dataset.from_message(response)
+
+    async def create_collection(self, dataset_id: UUID, name: str) -> CollectionInfo:
+        """Create a new collection in a dataset.
+
+        Args:
+            dataset_id: The id of the dataset to create the collection in.
+            name: The name of the collection to create.
+
+        Returns:
+            The created collection info.
+        """
+        req = CreateCollectionRequest(dataset_id=uuid_to_uuid_message(dataset_id), name=name)
+        response = await self._service.CreateCollection(req)
+        return CollectionInfo.from_message(response)
 
     async def get_collections(
         self, dataset_id: UUID, with_availability: bool = True, with_count: bool = False
