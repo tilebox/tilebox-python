@@ -35,7 +35,7 @@ def _get_default_resource(service: str | Resource | None = None) -> Resource:
     if isinstance(service, Resource):  # already a resource object, no need to create a default one
         return service
 
-    service_name = service if isinstance(service, str) else "tilebox.workflows"
+    service_name = service if isinstance(service, str) else f"tilebox.workflows-{os.getpid()}"
 
     instance_id = f"{os.uname().nodename}-{os.getpid()}"
     workflows_version = "dev"
@@ -149,13 +149,16 @@ def configure_otel_logging(  # noqa: PLR0913
     handler = _otel_handler(level, service, endpoint, headers, export_interval)
     # add to stdlib logger
     root_logger = logging.getLogger(_LOGGING_NAMESPACE)
-    if reconfigure:
-        # clear previously configured otel handlers
-        console_handler_indices = [
-            i for i, handler in enumerate(root_logger.handlers) if isinstance(handler, OTELLoggingHandler)
-        ]
-        for i in reversed(console_handler_indices):  # reversed to avoid index shifting after deletion
-            root_logger.handlers.pop(i)
+
+    # clean up previous handlers:
+    # remove the default handler if it exists, and all other OtelHandlers if reconfigure is True
+    handlers_to_remove_indices = [
+        i
+        for i, handler in enumerate(root_logger.handlers)
+        if hasattr(handler, "_is_default") or (reconfigure and isinstance(handler, OTELLoggingHandler))
+    ]
+    for i in reversed(handlers_to_remove_indices):  # reversed to avoid index shifting after deletion
+        root_logger.handlers.pop(i)
 
     root_logger.addHandler(handler)
 
@@ -271,14 +274,21 @@ def configure_console_logging(
     handler.setFormatter(ColorfulConsoleFormatter())
 
     root_logger = logging.getLogger(_LOGGING_NAMESPACE)
-    if reconfigure:  # clear previously configured tilebox console handlers (if any)
-        console_handler_indices = [
-            i
-            for i, handler in enumerate(root_logger.handlers)
-            if isinstance(handler, logging.StreamHandler) and isinstance(handler.formatter, ColorfulConsoleFormatter)
-        ]
-        for i in reversed(console_handler_indices):  # reversed to avoid index shifting after deletion
-            root_logger.handlers.pop(i)
+
+    # clean up previous handlers:
+    # remove the default handler if it exists, and all other ConsoleHandlers if reconfigure is True
+    handlers_to_remove_indices = [
+        i
+        for i, handler in enumerate(root_logger.handlers)
+        if hasattr(handler, "_is_default")
+        or (
+            reconfigure
+            and isinstance(handler, logging.StreamHandler)
+            and isinstance(handler.formatter, ColorfulConsoleFormatter)
+        )
+    ]
+    for i in reversed(handlers_to_remove_indices):  # reversed to avoid index shifting after deletion
+        root_logger.handlers.pop(i)
 
     root_logger.addHandler(handler)
 
@@ -306,6 +316,17 @@ def get_logger(name: str | None = None, level: int = logging.INFO) -> logging.Lo
     """
     if name is None:
         name = f"unnamed_logger_{uuid4()}"
+
+    root_logger = logging.getLogger(_LOGGING_NAMESPACE)
+    if not root_logger.hasHandlers():
+        # no handlers are configured, so we add a standard console handler
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(level)
+        handler.setFormatter(ColorfulConsoleFormatter())
+        # we set a special attribute, which allows as to remove this handler again as soon
+        # as we configure an actual logging handler
+        handler._is_default = True  # type: ignore[attr-defined] # noqa: SLF001
+        root_logger.addHandler(handler)
 
     logger = logging.getLogger(f"{_LOGGING_NAMESPACE}.{name}")
     logger.setLevel(level)

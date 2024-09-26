@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Add ingest and delete datapoints capability
+### Added
+
+- Ingest and delete datapoints RPC stubs and service methods
+- Configure a default console logger if `get_logger()` is called without any configured loggers.
 
 ## [0.25.1] - 2024-09-12
 
