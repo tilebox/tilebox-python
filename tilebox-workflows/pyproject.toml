@@ -28,7 +28,6 @@ dependencies = [
     "opentelemetry-sdk>=1.25",
     "tenacity>=8",
     "boto3>=1.33",
-    "betterproto>=2.0.0b6",
 ]
 
 [project.urls]

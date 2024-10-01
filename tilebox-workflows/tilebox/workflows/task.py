@@ -7,8 +7,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Any, cast
 
-import betterproto
-
 # from python 3.11 onwards this is available as typing.dataclass_transform:
 from typing_extensions import dataclass_transform
 
@@ -85,7 +83,7 @@ class _ABCTaskify(ABCMeta, _Taskify):  # the order here is actually relevant: AB
     """A metaclass which combines abstract base class functionality with our own _Taskify metaclass.
 
     This is necessary to resolve the metaclass conflict between ABCMeta and _Taskify in case a task inherits
-    from an abstract base class, such as betterproto.Message.
+    from an abstract base class
     """
 
 
@@ -335,21 +333,26 @@ class ExecutionContext(ABC):
 def serialize_task(task: Task) -> bytes:
     """Serialize a task to a buffer of bytes.
 
-    A task can either be a Protobuf Message or a dataclass. In the case of a dataclass, the dataclass can contain
-    nested dataclasses or Protobuf Messages as well as primitive types.
+    A task is expected to be a dataclass, containing an arbitrary number of fields. Each field can either be a
+    primitive type, another dataclass or a protobuf message.
 
-    In the case of a Protobuf Message, we serialize it using the SerializeToString method of the message, so the
-    message can only contain nested Protobuf Messages and protobuf primitive types.
+    Serialization is done as json, so the result will be a json string mapping field names to their values.
+    However, if only one field is present, it will be serialized directly, without the need for a json string.
     """
-    if isinstance(task, betterproto.Message):
-        return _serialize_protobuf(task)
-    if is_dataclass(task):
-        return json.dumps(_serialize_as_dict(task)).encode()  # type: ignore[arg-type]
-    raise TypeError("Cannot serialize Task that is not based on a Protobuf Message or a dataclass")
+    if not is_dataclass(task):
+        raise TypeError("Cannot serialize the given task - did you inherit from Task?")
 
+    task_fields = [f for f in fields(task) if not f.metadata.get("skip_serialization", False)]
+    if len(task_fields) == 0:
+        return b""  # empty task
+    if len(task_fields) == 1:
+        # if there is only one field, we can serialize it directly
+        field = _serialize_field(task, task_fields[0].name)
+        if not isinstance(field, bytes):
+            field = json.dumps(field).encode()
+        return field
 
-def _serialize_protobuf(task: betterproto.Message) -> bytes:
-    return task.SerializeToString()  # supported by both betterproto and protobuf
+    return json.dumps(_serialize_as_dict(task)).encode()  # type: ignore[arg-type]
 
 
 def _serialize_as_dict(task: Task) -> dict[str, Any]:
@@ -359,35 +362,47 @@ def _serialize_as_dict(task: Task) -> dict[str, Any]:
         if skip:
             continue
 
-        value = getattr(task, dataclass_field.name)
-        if isinstance(value, betterproto.Message):
-            as_dict[dataclass_field.name] = b64encode(_serialize_protobuf(value)).decode("ascii")
-        elif is_dataclass(value):
-            as_dict[dataclass_field.name] = _serialize_as_dict(value)  # type: ignore[arg-type]
+        value = _serialize_field(task, dataclass_field.name)
+        if isinstance(value, bytes):
+            as_dict[dataclass_field.name] = b64encode(value).decode("ascii")
         else:
             as_dict[dataclass_field.name] = value
+
     return as_dict
+
+
+def _serialize_field(task: Task, field_name: str) -> Any:
+    value = getattr(task, field_name)
+    if hasattr(value, "SerializeToString"):  # protobuf message
+        return value.SerializeToString()
+    if is_dataclass(value):
+        return _serialize_as_dict(value)  # type: ignore[arg-type]
+    return value
 
 
 def deserialize_task(task_cls: type, task_input: bytes) -> Task:
     """Deserialize the input of a task from a buffer of bytes.
 
-    Supports both Protobuf Messages and dataclasses. In the case of dataclasses, the dataclass can contain nested
-    dataclasses or Protobuf Messages as well as primitive types.
-
-    In the case of a Protobuf Message, we deserialize it using the FromString method of the message, so the
-    message can only contain nested Protobuf Messages and protobuf primitive types.
+    The task_cls is expected to be a dataclass, containing an arbitrary number of fields.
+    The same deserialization logic as for serialize_task is used.
     """
 
-    if hasattr(task_cls, "FromString"):  # will be the case for Protobuf Messages
-        return _deserialize_protobuf(task_cls, task_input)
+    task_fields = [f for f in fields(task_cls) if not f.metadata.get("skip_serialization", False)]
+    if len(task_fields) == 0:
+        return task_cls()  # empty task
+    if len(task_fields) == 1:
+        # if there is only one field, we deserialize it directly
+        field_type = task_fields[0].type
+        if hasattr(field_type, "FromString"):  # protobuf message
+            value = field_type.FromString(task_input)  # type: ignore[arg-type]
+        else:
+            value = json.loads(task_input.decode())
+            if is_dataclass(field_type) and isinstance(value, dict):
+                value = _deserialize_dataclass(field_type, value)  # type: ignore[arg-type]
+
+        return task_cls(**{task_fields[0].name: value})
 
     return _deserialize_dataclass(task_cls, json.loads(task_input.decode()))
-
-
-def _deserialize_protobuf(task_cls: type, task_input: bytes) -> Task:
-    """Decode a Protobuf Message from a buffer of bytes."""
-    return task_cls.FromString(task_input)
 
 
 def _deserialize_dataclass(cls: type, params: dict[str, Any]) -> Task:
@@ -396,8 +411,8 @@ def _deserialize_dataclass(cls: type, params: dict[str, Any]) -> Task:
         # recursively deserialize nested dataclasses
         field = cls.__dataclass_fields__[param]
         if hasattr(field.type, "FromString"):
-            params[field.name] = _deserialize_protobuf(field.type, b64decode(params[field.name]))
-        elif is_dataclass(field.type):
+            params[field.name] = field.type.FromString(b64decode(params[field.name]))
+        elif is_dataclass(field.type) and isinstance(params[field.name], dict):
             params[field.name] = _deserialize_dataclass(field.type, params[field.name])  # type: ignore[arg-type]
 
     return cls(**params)

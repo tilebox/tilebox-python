@@ -1,0 +1,6 @@
+edition = "2023";
+
+message SampleArgs {
+  string some_string = 1;
+  int64 some_int = 2;
+}

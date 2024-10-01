@@ -1,6 +1,6 @@
-import betterproto
 import pytest
 from hypothesis import given
+from tests.proto.test_pb2 import SampleArgs
 from tests.tasks_data import storage_locations
 
 from tilebox.workflows.data import StorageEventType, StorageLocation
@@ -13,9 +13,8 @@ class ExampleStorageEventTask(StorageEventTask):
     value: int
 
 
-class ExampleProtoStorageEventTask(StorageEventTask, betterproto.Message):
-    name: str = betterproto.string_field(1)
-    value: int = betterproto.int64_field(2)
+class ExampleProtoStorageEventTask(StorageEventTask):
+    args: SampleArgs
 
 
 def test_storage_event_task_serialization() -> None:
@@ -23,7 +22,10 @@ def test_storage_event_task_serialization() -> None:
 
 
 def test_storage_event_task_serialization_protobuf() -> None:
-    assert ExampleProtoStorageEventTask("test", 42)._serialize_args() == b"\n\x04test\x10*"
+    assert (
+        ExampleProtoStorageEventTask(SampleArgs(some_string="test", some_int=42))._serialize_args()
+        == b"\n\x04test\x10*"
+    )
 
 
 def test_storage_event_task_serialization_requires_trigger() -> None:
@@ -47,7 +49,7 @@ def test_storage_event_task_de_serialization_roundtrip(storage_location: Storage
 
 @given(storage_locations())
 def test_storage_event_task_de_serialization_roundtrip_protobuf(storage_location: StorageLocation) -> None:
-    task = ExampleProtoStorageEventTask("test", 42)
+    task = ExampleProtoStorageEventTask(SampleArgs(some_string="test", some_int=42))
     triggered_task = task.once(storage_location, "FM171/apid.json")
 
     # serialized task only contains a bucket id, so for deserialization we need to provide a bucket lookup table

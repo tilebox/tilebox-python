@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from functools import partial
 
 import xarray as xr
@@ -14,6 +14,7 @@ from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.datasets.pagination import (
     paginated_request,
     with_progressbar,
+    with_time_progress_callback,
     with_time_progressbar,
 )
 from tilebox.datasets.protobuf_xarray import TimeseriesToXarrayConverter
@@ -214,7 +215,7 @@ class RemoteTimeseriesDatasetCollection(Syncifiable):
         time_or_interval: TimeIntervalLike,
         *,
         skip_data: bool = False,
-        show_progress: bool = False,
+        show_progress: bool | Callable[[float], None] = False,
     ) -> xr.Dataset:
         """
         Load a range of datapoints in this collection in a specified interval.
@@ -245,7 +246,7 @@ class RemoteTimeseriesDatasetCollection(Syncifiable):
         time_or_interval: TimeIntervalLike,
         skip_data: bool = False,
         skip_meta: bool = False,
-        show_progress: bool = False,
+        show_progress: bool | Callable[[float], None] = False,
         page_size: int | None = None,
     ) -> AsyncIterator[DatapointPage]:
         time_interval = TimeInterval.parse(time_or_interval)
@@ -258,7 +259,12 @@ class RemoteTimeseriesDatasetCollection(Syncifiable):
         initial_page = Pagination(limit=page_size)
         pages = paginated_request(request, initial_page)
 
-        if show_progress:
+        if callable(show_progress):
+            if skip_meta:
+                raise ValueError("Progress callback requires datapoint metadata, but skip_meta is True")
+            else:
+                pages = with_time_progress_callback(pages, time_interval, show_progress)
+        elif show_progress:
             message = f"Fetching {self._dataset.name}"
             if skip_meta:  # without metadata we can't estimate progress based on event time (since it is not returned)
                 pages = with_progressbar(pages, message)

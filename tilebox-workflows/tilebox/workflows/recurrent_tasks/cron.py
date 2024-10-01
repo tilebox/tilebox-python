@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from typing import TypeVar, cast
 
 from tilebox.workflows.data import TriggeredCronEvent
-from tilebox.workflows.recurrent_tasks.recurrent_task import initialize_recurrent_task
 from tilebox.workflows.task import AsyncTask, RunnerContext, SyncTask, deserialize_task, serialize_task
 from tilebox.workflows.workflowsv1.recurrent_task_pb2 import RecurrentTask as RecurrentTaskMessage
 from tilebox.workflows.workflowsv1.recurrent_task_pb2 import TriggeredCronEvent as TriggeredCronEventMessage
@@ -14,7 +13,6 @@ _NOT_TRIGGERED = TriggeredCronEvent(datetime.min.replace(tzinfo=timezone.utc))
 class SyncCronTask(SyncTask):
     def __post_init__(self) -> None:
         self.trigger = _NOT_TRIGGERED
-        initialize_recurrent_task(self)
 
     def _serialize_args(self) -> bytes:
         return serialize_task(self)
@@ -33,7 +31,6 @@ class SyncCronTask(SyncTask):
 class AsyncCronTask(AsyncTask):
     def __post_init__(self) -> None:
         self.trigger = _NOT_TRIGGERED
-        initialize_recurrent_task(self)
 
     def _serialize_args(self) -> bytes:
         return serialize_task(self)

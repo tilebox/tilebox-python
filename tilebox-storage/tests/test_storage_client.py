@@ -50,6 +50,7 @@ async def test_client_missing_credentials() -> None:
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_download_quicklook(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
     assert granule.urls.quicklook is not None  # for type checker
+    httpx_mock.add_response(content=b"login-response")
     httpx_mock.add_response(content=b"my-quicklook-image")
     client = _HttpClient(auth={"ASF": ("username", "password")})
     downloaded = await client.download_quicklook(granule, tmp_path)
@@ -65,6 +66,7 @@ async def test_download_quicklook(httpx_mock: HTTPXMock, tmp_path: Path, granule
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_quicklook(httpx_mock: HTTPXMock, granule: ASFStorageGranule) -> None:
     assert granule.urls.quicklook is not None  # for type checker
+    httpx_mock.add_response(content=b"login-response")
     httpx_mock.add_response(content=b"my-quicklook-image")
     client = _HttpClient(auth={"ASF": ("username", "password")})
     with patch("tilebox.storage.aio.Image"), patch("tilebox.storage.aio._display_quicklook") as display_mock:
@@ -80,6 +82,7 @@ async def test_quicklook(httpx_mock: HTTPXMock, granule: ASFStorageGranule) -> N
 async def test_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
     mock_data = ["my-granule", "some-data", "some-more-data"]
     granule.md5sum = "1c3cd9bf5dd29c2a79d4783ca2aee55e"  # real md5sum of the above data
+    httpx_mock.add_response(content=b"login-response")
     httpx_mock.add_response(stream=IteratorStream([d.encode() for d in mock_data]))
     client = _HttpClient(auth={"ASF": ("username", "password")})
     downloaded = await client.download(granule, tmp_path, extract=False, show_progress=False)
@@ -93,6 +96,7 @@ async def test_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStora
 @given(asf_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_download_verify_md5(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
+    httpx_mock.add_response(content=b"login-response")
     httpx_mock.add_response(stream=IteratorStream([b"my-granule"]))
     client = _HttpClient(auth={"ASF": ("username", "password")})
     with pytest.raises(ValueError, match=".*md5sum mismatch.*"):
@@ -105,7 +109,8 @@ async def test_download_verify_md5(httpx_mock: HTTPXMock, tmp_path: Path, granul
 async def test_cached_download_quicklook(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
     assert granule.urls.quicklook is not None  # for type checker
 
-    httpx_mock.reset(True)  # so we get an accurate request count below
+    httpx_mock.reset()  # so we get an accurate request count below
+    httpx_mock.add_response(content=b"login-response")
     httpx_mock.add_response(content=b"my-quicklook-image")
     client = ASFStorageClient("username", "password", cache_directory=tmp_path)
     downloaded = await client.download_quicklook(granule)
@@ -123,9 +128,10 @@ async def test_cached_download_quicklook(httpx_mock: HTTPXMock, tmp_path: Path, 
 @given(asf_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_cached_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
-    httpx_mock.reset(True)  # so we get an accurate request count below
+    httpx_mock.reset()  # so we get an accurate request count below
     mock_data = ["my-granule", "some-data", "some-more-data"]
     granule.md5sum = "1c3cd9bf5dd29c2a79d4783ca2aee55e"  # real md5sum of the above data
+    httpx_mock.add_response(content=b"login-response")
     httpx_mock.add_response(stream=IteratorStream([d.encode() for d in mock_data]))
     client = ASFStorageClient("username", "password", cache_directory=tmp_path)
     downloaded = await client.download(granule, extract=False, show_progress=False)

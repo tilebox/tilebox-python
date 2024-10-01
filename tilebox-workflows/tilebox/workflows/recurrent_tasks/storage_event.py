@@ -8,7 +8,6 @@ from tilebox.workflows.data import (
     StorageType,
     TriggeredStorageEvent,
 )
-from tilebox.workflows.recurrent_tasks.recurrent_task import initialize_recurrent_task
 from tilebox.workflows.task import AsyncTask, RunnerContext, SyncTask, deserialize_task, serialize_task
 from tilebox.workflows.workflowsv1.recurrent_task_pb2 import RecurrentTask as RecurrentTaskMessage
 from tilebox.workflows.workflowsv1.recurrent_task_pb2 import TriggeredStorageEvent as TriggeredStorageEventMessage
@@ -23,7 +22,6 @@ _NOT_TRIGGERED = TriggeredStorageEvent(
 class SyncStorageEventTask(SyncTask):
     def __post_init__(self) -> None:
         self.trigger = _NOT_TRIGGERED
-        initialize_recurrent_task(self)
 
     def _serialize_args(self) -> bytes:
         return serialize_task(self)
@@ -47,7 +45,6 @@ class SyncStorageEventTask(SyncTask):
 class AsyncStorageEventTask(AsyncTask):
     def __post_init__(self) -> None:
         self.trigger = _NOT_TRIGGERED
-        initialize_recurrent_task(self)
 
     def _serialize_args(self) -> bytes:
         return serialize_task(self)

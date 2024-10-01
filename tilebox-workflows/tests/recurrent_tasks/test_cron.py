@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
-import betterproto
 import pytest
+from tests.proto.test_pb2 import SampleArgs
 
 from tilebox.workflows.recurrent_tasks import CronTask
 
@@ -11,9 +11,8 @@ class ExampleCronTask(CronTask):
     value: int
 
 
-class ExampleProtoCronTask(CronTask, betterproto.Message):
-    name: str = betterproto.string_field(1)
-    value: int = betterproto.int64_field(2)
+class ExampleProtoCronTask(CronTask):
+    args: SampleArgs
 
 
 def test_cron_task_serialization() -> None:
@@ -21,7 +20,7 @@ def test_cron_task_serialization() -> None:
 
 
 def test_cron_task_serialization_protobuf() -> None:
-    assert ExampleProtoCronTask("test", 42)._serialize_args() == b"\n\x04test\x10*"
+    assert ExampleProtoCronTask(SampleArgs(some_string="test", some_int=42))._serialize_args() == b"\n\x04test\x10*"
 
 
 def test_cron_task_serialization_requires_trigger() -> None:
@@ -39,7 +38,7 @@ def test_cron_task_de_serialization_roundtrip() -> None:
 
 
 def test_cron_task_de_serialization_roundtrip_protobuf() -> None:
-    task = ExampleProtoCronTask("test", 42)
+    task = ExampleProtoCronTask(SampleArgs(some_string="test", some_int=42))
     triggered_task = task.once(trigger_time=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
 
     serialized = triggered_task._serialize()

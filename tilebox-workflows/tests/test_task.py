@@ -1,8 +1,9 @@
+import json
 from dataclasses import dataclass
 
-import betterproto
 import pytest
 
+from tests.proto.test_pb2 import SampleArgs
 from tilebox.workflows.data import TaskIdentifier
 from tilebox.workflows.task import (
     AsyncTask,
@@ -148,42 +149,60 @@ class ExampleTask(SyncTask):
         return "test_task.ExampleTask", "v0.1"
 
 
-class ExampleTaskWithArgs(SyncTask):
+class ExampleTaskNoArgs(SyncTask):
+    pass
+
+
+def test_serialize_no_args() -> None:
+    task = ExampleTaskNoArgs()
+    assert serialize_task(task) == b""
+
+
+def test_deserialize_no_args() -> None:
+    assert deserialize_task(ExampleTaskNoArgs, b"") == ExampleTaskNoArgs()
+
+
+class ExampleTaskWithArg(SyncTask):
+    x: str
+
+
+def test_serialize_one_arg_json() -> None:
+    task = ExampleTaskWithArg("Hello")
+    assert serialize_task(task) == json.dumps("Hello").encode()
+
+
+def test_serialize_deserialize_one_arg_json() -> None:
+    task = ExampleTaskWithArg("Hello")
+    assert deserialize_task(ExampleTaskWithArg, serialize_task(task)) == task
+
+
+class ExampleTaskWithMultipleArgs(SyncTask):
     x: str
     y: int
 
-    @staticmethod
-    def identifier() -> tuple[str, str]:
-        return "test_task.ExampleTask", "v0.1"
+
+def test_serialize_multiple_args_json() -> None:
+    task = ExampleTaskWithMultipleArgs("Hello", 123)
+    assert serialize_task(task) == json.dumps({"x": "Hello", "y": 123}).encode()
 
 
-def test_serialize_json() -> None:
-    task = ExampleTaskWithArgs("Hello", 123)
-    assert serialize_task(task) == b'{"x": "Hello", "y": 123}'
+def test_serialize_deserialize_multiple_args_json() -> None:
+    task = ExampleTaskWithMultipleArgs("Hello", 123)
+    assert deserialize_task(ExampleTaskWithMultipleArgs, serialize_task(task)) == task
 
 
-def test_serialize_deserialize_task_json() -> None:
-    task = ExampleTaskWithArgs("Hello", 123)
-    assert deserialize_task(ExampleTaskWithArgs, serialize_task(task)) == task
-
-
-class ExampleProtobufTaskWithArgs(SyncTask, betterproto.Message):
-    x: str = betterproto.string_field(1)
-    y: int = betterproto.int64_field(2)
-
-    @staticmethod
-    def identifier() -> tuple[str, str]:
-        return "test_task.ExampleProtobufTaskWithArgs", "v0.1"
+class ExampleProtobufTaskWithSingleProtobufArg(SyncTask):
+    arg: SampleArgs
 
 
 def test_serialize_protobuf() -> None:
-    task = ExampleProtobufTaskWithArgs("Hello", 123)
+    task = ExampleProtobufTaskWithSingleProtobufArg(SampleArgs(some_string="Hello", some_int=123))
     assert serialize_task(task) == b"\n\x05Hello\x10{"
 
 
 def test_serialize_deserialize_task_protobuf() -> None:
-    task = ExampleProtobufTaskWithArgs("Hello", 123)
-    assert deserialize_task(ExampleProtobufTaskWithArgs, serialize_task(task)) == task
+    task = ExampleProtobufTaskWithSingleProtobufArg(SampleArgs(some_string="Hello", some_int=123))
+    assert deserialize_task(ExampleProtobufTaskWithSingleProtobufArg, serialize_task(task)) == task
 
 
 @dataclass
@@ -201,51 +220,17 @@ class ExampleTaskWithNestedJson(SyncTask):
     x: str
     nested: DoublyNestedJson
 
-    @staticmethod
-    def identifier() -> tuple[str, str]:
-        return "test_task.ExampleTaskWithNestedJson", "v0.1"
-
 
 def test_serialize_deserialize_task_nested_json() -> None:
     task = ExampleTaskWithNestedJson("Hello", DoublyNestedJson("World", NestedJson("!")))
     assert deserialize_task(ExampleTaskWithNestedJson, serialize_task(task)) == task
 
 
-@dataclass
-class NestedProtobuf(betterproto.Message):
-    nested_x: str = betterproto.string_field(1)  # noqa: RUF009
-
-
-@dataclass
-class DoublyNestedProtobuf(betterproto.Message):
-    doubly_nested_x: str = betterproto.string_field(1)  # noqa: RUF009
-    nested: NestedProtobuf = betterproto.message_field(2)  # noqa: RUF009
-
-
-class ExampleTaskWithNestedProtobuf(SyncTask, betterproto.Message):
-    x: str = betterproto.string_field(1)
-    nested: DoublyNestedProtobuf = betterproto.message_field(2)
-
-    @staticmethod
-    def identifier() -> tuple[str, str]:
-        return "test_task.ExampleTaskWithNestedProtobuf", "v0.1"
+class ExampleTaskWithNestedProtobuf(SyncTask):
+    x: str
+    nested: SampleArgs
 
 
 def test_serialize_deserialize_task_nested_protobuf() -> None:
-    task = ExampleTaskWithNestedProtobuf("Hello", DoublyNestedProtobuf("World", NestedProtobuf("!")))
+    task = ExampleTaskWithNestedProtobuf("Hello", SampleArgs(some_string="World", some_int=123))
     assert deserialize_task(ExampleTaskWithNestedProtobuf, serialize_task(task)) == task
-
-
-class JsonTaskWithNestedProtobuf(SyncTask):
-    int_value: int
-    str_value: str
-    nested: NestedProtobuf
-
-    @staticmethod
-    def identifier() -> tuple[str, str]:
-        return "test_task.JsonTaskWithNestedProtobuf", "v0.1"
-
-
-def test_serialize_deserialize_json_task_nested_protobuf() -> None:
-    task = JsonTaskWithNestedProtobuf(5, "Hello", NestedProtobuf("World!"))
-    assert deserialize_task(JsonTaskWithNestedProtobuf, serialize_task(task)) == task

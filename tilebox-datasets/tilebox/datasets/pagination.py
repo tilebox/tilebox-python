@@ -133,6 +133,52 @@ async def with_time_progressbar(
             before = now
 
 
+async def with_time_progress_callback(
+    paginated_request: AsyncIterator[DatapointPage],
+    interval: TimeInterval,
+    progress_callback: Callable[[float], None],
+) -> AsyncIterator[DatapointPage]:
+    """Make a paginated request to a gRPC service endpoint, and reporting progress percentage to a callback function.
+
+    The given interval is used to estimate a total amount of work for the progress bar. Then the event_time of the
+    latest data point returned in each page is used to calculate progress percentage.
+
+    Args:
+        paginated_request: The paginated request to wrap with a progress bar
+        interval: The time interval of the request, used to estimate the total amount of work
+        progress_callback: A callback function taking a float argument, which will be called with progress updates
+            after each page. The argument is the total progress percentage so far, ranging from 0.0 to 1.0.
+
+    Yields:
+        DatasetInterval: The individual pages of the response
+    """
+    first_page = await anext(paginated_request)
+    yield first_page
+
+    # no more pages, return immediately to skip the progress bar
+    if not first_page.next_page.starting_after or len(first_page.meta) == 0:
+        progress_callback(1.0)
+        return
+
+    # we have more pages, so lets set up a progress bar
+    actual_interval = TimeInterval(
+        start=max(interval.start, timestamp_to_datetime(first_page.meta[0].event_time)),
+        end=min(interval.end, datetime.now(tz=timezone.utc)),
+    )
+
+    total = (actual_interval.end - actual_interval.start).total_seconds()
+    if len(first_page.meta) > 0:
+        current = (timestamp_to_datetime(first_page.meta[-1].event_time) - actual_interval.start).total_seconds()
+        progress_callback(current / total)
+    async for page in paginated_request:  # now loop over the remaining pages
+        if len(page.meta) > 0:
+            current = (timestamp_to_datetime(page.meta[-1].event_time) - actual_interval.start).total_seconds()
+            progress_callback(current / total)
+        yield page
+
+    progress_callback(1.0)
+
+
 class TimeIntervalProgressBar:
     def __init__(
         self,

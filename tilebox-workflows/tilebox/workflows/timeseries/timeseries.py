@@ -1,82 +1,26 @@
 import inspect
 import math
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from itertools import pairwise
 from uuid import UUID
 
-import betterproto
 import xarray as xr
-from betterproto import Message
 
 # from python 3.11 onwards: typing.dataclass_transform
 # from python 3.12 onwards: typing.override
 from typing_extensions import dataclass_transform, override
 
 from tilebox.datasets.data.collection import Collection, CollectionInfo
+from tilebox.datasets.data.datapoint import DatapointInterval
 from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
+from tilebox.datasets.data.timeseries import TimeChunk, TimeseriesDatasetChunk
 from tilebox.datasets.timeseries import RemoteTimeseriesDatasetCollection
 from tilebox.workflows.interceptors import ForwardExecution, execution_interceptor
 from tilebox.workflows.task import AsyncTask, ExecutionContext, SyncTask, Task
 
 _365_DAYS = timedelta(days=365)
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
-
-
-@dataclass(eq=False, repr=False)
-class _UUID(Message):
-    """
-    An UUID as a protobuf message.
-
-    This can be used to avoid serializing UUIDs as hex strings, which results in much larger byte
-    sequences than necessary.
-    """
-
-    uuid: bytes = betterproto.bytes_field(1)  # noqa: RUF009
-
-    def __str__(self) -> str:
-        """Convert the UUID bytes back to a hex string."""
-        return str(UUID(bytes=self.uuid))
-
-    def __repr__(self) -> str:
-        """When displaying it, we act as if it were a UUID string."""
-        return '"' + str(self) + '"'
-
-    @classmethod
-    def from_str(cls, s: str) -> "_UUID":
-        """Convert a hex string to a UUID protobuf message."""
-        return cls(uuid=UUID(s).bytes)
-
-
-@dataclass(eq=False, repr=False)
-class _DatapointInterval(Message):
-    start: _UUID = betterproto.message_field(1)  # noqa: RUF009
-    end: _UUID = betterproto.message_field(2)  # noqa: RUF009
-
-
-@dataclass(eq=False, repr=False)
-class _TimeInterval(Message):
-    start_time: datetime = betterproto.message_field(1)  # noqa: RUF009
-    end_time: datetime = betterproto.message_field(2)  # noqa: RUF009
-    start_exclusive: bool = betterproto.bool_field(3)  # noqa: RUF009
-    end_inclusive: bool = betterproto.bool_field(4)  # noqa: RUF009
-
-
-@dataclass(eq=False, repr=False)
-class TimeseriesDatasetChunk(Message):
-    dataset_id: _UUID = betterproto.message_field(1)  # noqa: RUF009
-    collection_id: _UUID = betterproto.message_field(2)  # noqa: RUF009
-    time_interval: _TimeInterval = betterproto.message_field(3)  # noqa: RUF009
-    datapoint_interval: _DatapointInterval = betterproto.message_field(4)  # noqa: RUF009
-    branch_factor: int = betterproto.int32_field(5)  # noqa: RUF009
-    chunk_size: int = betterproto.int32_field(6)  # noqa: RUF009
-    datapoints_per_365_days: int = betterproto.int64_field(7)  # noqa: RUF009
-
-
-@dataclass(eq=False, repr=False)
-class TimeChunk(Message):
-    time_interval: _TimeInterval = betterproto.message_field(1)  # noqa: RUF009
-    chunk_size: timedelta = betterproto.message_field(2)  # noqa: RUF009
 
 
 @execution_interceptor
@@ -87,7 +31,7 @@ async def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, con
     chunk: TimeseriesDatasetChunk = task.timeseries_data  # type: ignore[attr-defined]
 
     # let's get the collection object
-    dataset = await context.runner_context.datasets_client.dataset()(str(chunk.dataset_id))  # type: ignore[attr-defined]
+    dataset = await context.runner_context.datasets_client.dataset(str(chunk.dataset_id))  # type: ignore[attr-defined]
     collection = dataset.collection("unknown")  # dummy collection, we will inject the right id below:
     # we already know the collection id, so we can skip the lookup (we don't know the name, but don't need it)
     info = CollectionInfo(Collection(str(chunk.collection_id), "unknown"), None, None)
@@ -95,10 +39,13 @@ async def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, con
 
     # leaf case: we are already executing a specific batch of datapoints fitting in the chunk size, so let's load them and process them
     if chunk.datapoint_interval:
-        datapoint_interval = (str(chunk.datapoint_interval.start), str(chunk.datapoint_interval.end))
+        datapoint_interval = (chunk.datapoint_interval.start_id, chunk.datapoint_interval.end_id)
         # we already are a leaf task executing for a specific datapoint interval:
         datapoints = await collection._find_interval(  # noqa: SLF001
-            datapoint_interval, end_inclusive=True, skip_data=False, show_progress=False
+            datapoint_interval,
+            end_inclusive=chunk.datapoint_interval.end_inclusive,
+            skip_data=False,
+            show_progress=False,
         )
         for i in range(datapoints.sizes["time"]):
             datapoint = datapoints.isel(time=i)
@@ -109,7 +56,7 @@ async def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, con
     if not chunk.time_interval:
         raise ValueError("Missing time_interval and data_point interval, one of them is required")
 
-    interval = TimeInterval(chunk.time_interval.start_time, chunk.time_interval.end_time)
+    interval = chunk.time_interval
     interval_size = interval.end - interval.start
     estimated_datapoints = int(chunk.datapoints_per_365_days * (interval_size / _365_DAYS))
     sub_chunks = []
@@ -125,23 +72,22 @@ async def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, con
             # in that case we just use an effective chunk size of the server side limit
 
             if len(page.meta) > 0:
-                sub_chunks.append(  # noqa: PERF401
-                    replace(
-                        chunk,
-                        time_interval=_TimeInterval(),
-                        datapoint_interval=_DatapointInterval(
-                            _UUID.from_str(page.meta[0].id), _UUID.from_str(page.meta[-1].id)
-                        ),
-                    )
+                interval_chunk = replace(
+                    chunk,
+                    time_interval=None,
+                    datapoint_interval=DatapointInterval(
+                        start_id=page.meta[0].id, end_id=page.meta[-1].id, start_exclusive=False, end_inclusive=True
+                    ),
                 )
+                sub_chunks.append(interval_chunk)
 
     # otherwise let's split our time range evenly into sub chunks:
     else:
         chunk_interval = interval_size / chunk.branch_factor
-        chunks = [interval.start + chunk_interval * i for i in range(chunk.branch_factor)] + [interval.end]
+        chunks = [chunk.time_interval.start + chunk_interval * i for i in range(chunk.branch_factor)] + [interval.end]
 
         for sub_chunk_start, sub_chunk_end in pairwise(chunks):
-            sub_chunks.append(replace(chunk, time_interval=_TimeInterval(sub_chunk_start, sub_chunk_end)))
+            sub_chunks.append(replace(chunk, time_interval=TimeInterval(sub_chunk_start, sub_chunk_end)))
 
     subtasks = [replace(task, timeseries_data=sub_chunk) for sub_chunk in sub_chunks]  # type: ignore[misc]
     if len(subtasks) > 0:
@@ -184,14 +130,11 @@ async def batch_process_timeseries_dataset(
     # estimate the number of datapoints per 365 days, to roughly know when to stop splitting into branches
     datapoints_per_365_days = math.ceil(info.count / ((info.availability.end - info.availability.start) / _365_DAYS))
 
-    # convert from one UUID message to another
-    dataset_id = _UUID(uuid=collection._dataset._dataset.id.bytes)  # noqa: SLF001
-
     return TimeseriesDatasetChunk(
-        dataset_id=dataset_id,
-        collection_id=_UUID.from_str(info.collection.id),
-        time_interval=_TimeInterval(interval.start, interval.end, False, False),
-        datapoint_interval=_DatapointInterval(),
+        dataset_id=collection._dataset._dataset.id,  # noqa: SLF001
+        collection_id=UUID(info.collection.id),
+        time_interval=interval,
+        datapoint_interval=None,
         branch_factor=2,
         chunk_size=chunk_size,
         datapoints_per_365_days=datapoints_per_365_days,
@@ -205,8 +148,8 @@ async def _time_interval_chunk(task: Task, call_next: ForwardExecution, context:
 
     chunk: TimeChunk = task.interval  # type: ignore[attr-defined]
 
-    start = _make_multiple(chunk.time_interval.start_time, chunk.chunk_size, before=True)
-    end = _make_multiple(chunk.time_interval.end_time, chunk.chunk_size, before=False)
+    start = _make_multiple(chunk.time_interval.start, chunk.chunk_size, before=True)
+    end = _make_multiple(chunk.time_interval.end, chunk.chunk_size, before=False)
 
     n = (end - start) // chunk.chunk_size
     if n <= 1:  # we are already a leaf task
@@ -222,8 +165,7 @@ async def _time_interval_chunk(task: Task, call_next: ForwardExecution, context:
         chunks = [start, middle, end]
 
     time_chunks = [
-        TimeChunk(_TimeInterval(chunk_start, chunk_end), chunk.chunk_size)
-        for chunk_start, chunk_end in pairwise(chunks)
+        TimeChunk(TimeInterval(chunk_start, chunk_end), chunk.chunk_size) for chunk_start, chunk_end in pairwise(chunks)
     ]
 
     context.submit_batch(
@@ -253,8 +195,7 @@ class AsyncTimeIntervalTask(AsyncTask):
 
 
 def batch_process_time_interval(interval: TimeIntervalLike, chunk_size: timedelta) -> TimeChunk:
-    interval = TimeInterval.parse(interval).to_half_open()  # our time splitting assumes half open intervals
-    return TimeChunk(_TimeInterval(interval.start, interval.end, False, False), chunk_size)
+    return TimeChunk(time_interval=TimeInterval.parse(interval).to_half_open(), chunk_size=chunk_size)  # type: ignore[arg-type]
 
 
 def _make_multiple(time: datetime, duration: timedelta, start: datetime = _EPOCH, before: bool = True) -> datetime:

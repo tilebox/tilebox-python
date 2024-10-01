@@ -4,6 +4,7 @@ from typing import TypeAlias
 
 import numpy as np
 import xarray as xr
+from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 from pandas.core.tools.datetimes import DatetimeScalar, to_datetime
 
@@ -200,3 +201,13 @@ def datetime_to_us(dt: datetime) -> int:
 def us_to_datetime(us: int) -> datetime:
     """Convert a timestamp in microseconds since the epoch to a datetime object."""
     return _EPOCH + timedelta(microseconds=us)
+
+
+def timedelta_to_duration(td: timedelta) -> Duration:
+    """Convert a timedelta to a duration protobuf message."""
+    return Duration(seconds=int(td.total_seconds()), nanos=int(td.microseconds * 1000))
+
+
+def duration_to_timedelta(duration: Duration) -> timedelta:
+    """Convert a duration protobuf message to a timedelta."""
+    return timedelta(seconds=duration.seconds, microseconds=duration.nanos // 1000)
