@@ -53,30 +53,30 @@ wheels = [
 
 [[package]]
 name = "boto3"
-version = "1.35.30"
+version = "1.35.31"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "botocore" },
     { name = "jmespath" },
     { name = "s3transfer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bf/3c/0c66238e0ffcd9ec76b45f9a78177e4183125e0ed6ed6bd64ac42d007753/boto3-1.35.30.tar.gz", hash = "sha256:d2851aec8e9dc6937977acbe9a5124ecc31b3ad5f50a10cd9ae52636da3f52fa", size = 111001 }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/f1/79811295eeb4a17ac30e35811665554b123fe131306f9d241e649c1440c4/boto3-1.35.31.tar.gz", hash = "sha256:8c593af260c4ea3eb6f079c09908f94494ca2222aa4e40a7ff490fab1cee8b39", size = 111034 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/78/b8/4f49e8b9fc006b3b0657696c745396e0dadf41226b7de6a8c2d8ba692d48/boto3-1.35.30-py3-none-any.whl", hash = "sha256:d89c3459db89c5408e83219ab849ffd0146bc4285e75cdc67c6e45d390a12df2", size = 139139 },
+    { url = "https://files.pythonhosted.org/packages/33/53/c15e373e6f8057afb0e73a5bd4be85069252d7daa1dc09d21272495e8657/boto3-1.35.31-py3-none-any.whl", hash = "sha256:2e9af74d10d8af7610a8d8468d2914961f116912a024fce17351825260385a52", size = 139138 },
 ]
 
 [[package]]
 name = "boto3-stubs"
-version = "1.35.30"
+version = "1.35.31"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "botocore-stubs" },
     { name = "types-s3transfer" },
     { name = "typing-extensions", marker = "python_full_version < '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/16/3b/68bfc647bf93c2b3064b3f7795a61ec095d4e84239decd85dfe22a41219c/boto3_stubs-1.35.30.tar.gz", hash = "sha256:159c242ebe82ef12ab561a809acc0b5036d23bc93be080ccd561d2661bbe33ef", size = 90709 }
+sdist = { url = "https://files.pythonhosted.org/packages/41/47/e941e98f6f7dee6ef0b9d00904c1bc7d0a5b249f7b6884a98018df27744a/boto3_stubs-1.35.31.tar.gz", hash = "sha256:bc10fa6e0c0e46c2b7c664b2183bb524053eb7439d9ebf9ae66547b295b76675", size = 90742 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/9a/674473ef36854613c85b199159f218437629a1dd48b8c7c8f8bbacbe04df/boto3_stubs-1.35.30-py3-none-any.whl", hash = "sha256:448f7025757f41926cf5c8a2ecae75954dcdc2a7a08d2a6e3250a7c8b5dbd7d7", size = 61468 },
+    { url = "https://files.pythonhosted.org/packages/a8/4e/51350879f8eda353182d5ae9ac43671291bb4704136f3ff3d5c11c7bb909/boto3_stubs-1.35.31-py3-none-any.whl", hash = "sha256:d440ad57493534074024c999045929c617007712d395c86208b95b48f716269f", size = 61468 },
 ]
 
 [package.optional-dependencies]
@@ -92,28 +92,28 @@ essential = [
 
 [[package]]
 name = "botocore"
-version = "1.35.30"
+version = "1.35.31"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/74/17/1e99db5104ab63cecc7b7047f45cd6dc06877b01ecb5ca5cd73f7f2096e7/botocore-1.35.30.tar.gz", hash = "sha256:ab5350e8a50e48d371fa2d517d65c29a40c43788cb9a15387f93eac5a23df0fd", size = 12783089 }
+sdist = { url = "https://files.pythonhosted.org/packages/21/e0/760f93dc395259120fc23de87de8e6f692bdd8507b126071f5c0241cd75a/botocore-1.35.31.tar.gz", hash = "sha256:f7bfa910cf2cbcc8c2307c1cf7b93495d614c2d699883417893e0a337fe4eb63", size = 12783441 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/05/2f/24649d2db0b4ad1dccf2d6d3a0c2e0e41d3682d228da4d865dc4f15e9735/botocore-1.35.30-py3-none-any.whl", hash = "sha256:3bb9f9dde001608671ea74681ac3cec06bbbb10cba8cb8c1387a25e843075ce0", size = 12571171 },
+    { url = "https://files.pythonhosted.org/packages/c7/b8/af6ff2c29315c0be0dcdec98ba42bb699e531bca83fbab1027fee060312e/botocore-1.35.31-py3-none-any.whl", hash = "sha256:4cee814875bc78656aef4011d3d6b2231e96f53ea3661ee428201afb579d5c31", size = 12571828 },
 ]
 
 [[package]]
 name = "botocore-stubs"
-version = "1.35.30"
+version = "1.35.31"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "types-awscrt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/46/a6/d765bccfad63f10366e3d239a5bf47389f60398c668f96d3bfcd450532dd/botocore_stubs-1.35.30.tar.gz", hash = "sha256:7c13533ccaf2941bd3c09b1a8564a841c7167c3cebb8bcfb7ea45f9b5607bf25", size = 40560 }
+sdist = { url = "https://files.pythonhosted.org/packages/b8/4f/e3dbc4b3510c76da8dd33f62994f264bca2368a6d3d0d0f620285f1b4854/botocore_stubs-1.35.31.tar.gz", hash = "sha256:b26f79253d8f2460aa8f2d49ae933c3f352fe38be72ea033651c15cd47a822a9", size = 40593 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/27/c3/632deb306a37a4c3d1e620b0c9446b3e8be30cf4fc91cfc4a31bd1e6c2a3/botocore_stubs-1.35.30-py3-none-any.whl", hash = "sha256:2b986965d1e62b78e2d0bdb5f24a57f911227f0da6f8b54686f726e9fb5ddca4", size = 60135 },
+    { url = "https://files.pythonhosted.org/packages/85/4e/984a5eaa01533e990c216b754a919478804587b57e71528ec6e5e09f420c/botocore_stubs-1.35.31-py3-none-any.whl", hash = "sha256:b7289c27b759dad40759c1421519cbd7ec65b79f7aa8be5dfc76004a61aef42b", size = 60136 },
 ]
 
 [[package]]
@@ -698,15 +698,15 @@ wheels = [
 
 [[package]]
 name = "httpcore"
-version = "1.0.5"
+version = "1.0.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "h11" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/17/b0/5e8b8674f8d203335a62fdfcfa0d11ebe09e23613c3391033cbba35f7926/httpcore-1.0.5.tar.gz", hash = "sha256:34a38e2f9291467ee3b44e89dd52615370e152954ba21721378a87b2960f7a61", size = 83234 }
+sdist = { url = "https://files.pythonhosted.org/packages/b6/44/ed0fa6a17845fb033bd885c03e842f08c1b9406c86a2e60ac1ae1b9206a6/httpcore-1.0.6.tar.gz", hash = "sha256:73f6dbd6eb8c21bbf7ef8efad555481853f5f6acdeaff1edb0694289269ee17f", size = 85180 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/78/d4/e5d7e4f2174f8a4d63c8897d79eb8fe2503f7ecc03282fee1fa2719c2704/httpcore-1.0.5-py3-none-any.whl", hash = "sha256:421f18bac248b25d310f3cacd198d55b8e6125c107797b609ff9b7a6ba7991b5", size = 77926 },
+    { url = "https://files.pythonhosted.org/packages/06/89/b161908e2f51be56568184aeb4a880fd287178d176fd1c860d2217f41106/httpcore-1.0.6-py3-none-any.whl", hash = "sha256:27b59625743b85577a8c0e10e55b50b5368a4f2cfe8cc7bcfa9cf00829c2682f", size = 78011 },
 ]
 
 [[package]]
@@ -958,14 +958,14 @@ wheels = [
 
 [[package]]
 name = "mypy-boto3-rds"
-version = "1.35.25"
+version = "1.35.31"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "typing-extensions", marker = "python_full_version < '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/03/5b8f6a8d283d3165c35ff3a9875743e233a80679aaf80e4746636bd0c90b/mypy_boto3_rds-1.35.25.tar.gz", hash = "sha256:238953116b2591696b6b24674c6f7065c49d8a14840dde75177edaff375a318f", size = 86943 }
+sdist = { url = "https://files.pythonhosted.org/packages/44/ed/d2d049086dd30b02a31044c92b044f440bdc28102295d03d4bb6c0d45b74/mypy_boto3_rds-1.35.31.tar.gz", hash = "sha256:597d28d8b91860d5cc8ba20e47c0aa9ba7da4f05b9fd8da98abe3e18ea41cad2", size = 86997 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/36/1d/ce5edddbad93abdc420ea1ef94033916e0769299fbb1e64c503236852566/mypy_boto3_rds-1.35.25-py3-none-any.whl", hash = "sha256:eddd222b6d3107e7e6825e314510d217e02874aed4f6b59d786ea5b0995a5f09", size = 93552 },
+    { url = "https://files.pythonhosted.org/packages/01/11/8c0d5c4406828a4f8c3f48f812aa0e1af5a47f9b70490eb4f8bcd2ba87fb/mypy_boto3_rds-1.35.31-py3-none-any.whl", hash = "sha256:18fc0f1cc2b1612cf8ab047d48ded8bb5a997a1d463911a8966364bab94139c6", size = 93639 },
 ]
 
 [[package]]
@@ -1351,15 +1351,15 @@ wheels = [
 
 [[package]]
 name = "pyright"
-version = "1.1.382.post1"
+version = "1.1.383"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "nodeenv" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1b/d3/fbf59f51cb74fc62a0c2b791aaa6242c8004db551b30c726783ba4432f05/pyright-1.1.382.post1.tar.gz", hash = "sha256:66a5d4e83be9452853d73e9dd9e95ba0ac3061845270e4e331d0070a597d3445", size = 21965 }
+sdist = { url = "https://files.pythonhosted.org/packages/78/a9/4654d15f4125d8dca6318d7be36a3283a8b3039661291c59bbdd1e576dcf/pyright-1.1.383.tar.gz", hash = "sha256:1df7f12407f3710c9c6df938d98ec53f70053e6c6bbf71ce7bcb038d42f10070", size = 21971 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ed/e2/7661f69927bf052e36d9c162c5087a02c346d0269be238cea2f5ae1e80f2/pyright-1.1.382.post1-py3-none-any.whl", hash = "sha256:21a4749dd1740e209f88d3a601e9f40748670d39481ea32b9d77edf7f3f1fb2e", size = 18669 },
+    { url = "https://files.pythonhosted.org/packages/1c/55/40a6559cea209b551c81dcd31cb351a6ffdb5876e7865ee242e269af72d8/pyright-1.1.383-py3-none-any.whl", hash = "sha256:d864d1182a313f45aaf99e9bfc7d2668eeabc99b29a556b5344894fd73cb1959", size = 18577 },
 ]
 
 [[package]]
@@ -1633,7 +1633,7 @@ wheels = [
 
 [[package]]
 name = "tilebox-datasets"
-version = "0.25.1.post10.dev0+4ee432d"
+version = "0.26.0"
 source = { editable = "tilebox-datasets" }
 dependencies = [
     { name = "cftime" },
@@ -1676,7 +1676,7 @@ dev = [
 
 [[package]]
 name = "tilebox-grpc"
-version = "0.25.1.post10.dev0+4ee432d"
+version = "0.26.0"
 source = { editable = "tilebox-grpc" }
 dependencies = [
     { name = "anyio" },
@@ -1713,7 +1713,7 @@ dev = [
 
 [[package]]
 name = "tilebox-python"
-version = "0.25.1.post10.dev0+4ee432d"
+version = "0.26.0"
 source = { editable = "." }
 dependencies = [
     { name = "tilebox-datasets" },
@@ -1770,7 +1770,7 @@ dev = [
 
 [[package]]
 name = "tilebox-storage"
-version = "0.25.1.post10.dev0+4ee432d"
+version = "0.26.0"
 source = { editable = "tilebox-storage" }
 dependencies = [
     { name = "aiofile" },
@@ -1815,7 +1815,7 @@ dev = [
 
 [[package]]
 name = "tilebox-workflows"
-version = "0.25.1.post10.dev0+4ee432d"
+version = "0.26.0"
 source = { editable = "tilebox-workflows" }
 dependencies = [
     { name = "boto3" },
@@ -1881,11 +1881,11 @@ wheels = [
 
 [[package]]
 name = "types-awscrt"
-version = "0.21.5"
+version = "0.22.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ed/19/727e4a2dba3a12fb4b176ebc707210380aefaccd7e661b4e455fddc247e0/types_awscrt-0.21.5.tar.gz", hash = "sha256:9f7f47de68799cb2bcb9e486f48d77b9f58962b92fba43cb8860da70b3c57d1b", size = 14967 }
+sdist = { url = "https://files.pythonhosted.org/packages/82/52/6f0018663d3528501e1c29cda936d67921dac66325ffe473d4376bdcf4cb/types_awscrt-0.22.0.tar.gz", hash = "sha256:67a660c90bad360c339f6a79310cc17094d12472042c7ca5a41450aaf5fc9a54", size = 14959 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/85/0a/3b27278c9a28d4a9140ad6b3a8bffa88ad358293fc11ce45461048e928eb/types_awscrt-0.21.5-py3-none-any.whl", hash = "sha256:117ff2b1bb657f09d01b7e0ce3fe3fa6e039be12d30b826896182725c9ce85b1", size = 18406 },
+    { url = "https://files.pythonhosted.org/packages/c8/66/dbe4a3fad2a058c0d536e4b62761519312f5662b902d741e38b305bad687/types_awscrt-0.22.0-py3-none-any.whl", hash = "sha256:b2c196bbd3226bab42d80fae13c34548de9ddc195f5a366d79c15d18e5897aa9", size = 18405 },
 ]
 
 [[package]]

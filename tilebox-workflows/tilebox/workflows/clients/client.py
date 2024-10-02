@@ -1,8 +1,8 @@
 import logging
 import os
 
+from _tilebox.grpc.aio.channel import open_channel
 from _tilebox.grpc.aio.syncify import Syncifiable, T_Syncifiable
-from _tilebox.grpc.channel import open_channel
 from tilebox.datasets.aio import Client as DatasetsClient
 from tilebox.workflows.cache import JobCache, NoCache
 from tilebox.workflows.clients.clusters import ClusterClient, ClusterService, cluster_slug

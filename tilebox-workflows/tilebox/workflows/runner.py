@@ -24,10 +24,10 @@ from opentelemetry.trace.status import StatusCode
 from tenacity import retry, retry_if_exception_type, stop_when_event_set, wait_random_exponential
 from tenacity.stop import stop_base
 
+from _tilebox.grpc.aio.channel import open_channel
 from _tilebox.grpc.aio.syncify import Syncifiable
-from _tilebox.grpc.channel import open_channel
 from _tilebox.grpc.error import InternalServerError
-from tilebox.datasets.timeseries import RemoteTimeseriesDataset
+from tilebox.datasets.aio.timeseries import TimeseriesDataset
 from tilebox.workflows.cache import JobCache
 from tilebox.workflows.clients.tasks import TaskService
 from tilebox.workflows.data import ComputedTask, NextTaskToRun, Task, TaskLease
@@ -485,7 +485,7 @@ class ExecutionContext(ExecutionContextBase):
     def runner_context(self) -> RunnerContext:
         return self._runner._context  # noqa: SLF001
 
-    async def _dataset(self, dataset_id: str) -> RemoteTimeseriesDataset:
+    async def _dataset(self, dataset_id: str) -> TimeseriesDataset:
         """Needed by the timeseries integration, to resolve a dataset id to a RemoteTimeseriesDataset."""
         client = self._runner._context.datasets_client  # noqa: SLF001
         if client is None:

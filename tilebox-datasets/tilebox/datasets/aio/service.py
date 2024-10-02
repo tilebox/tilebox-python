@@ -1,10 +1,8 @@
-import os
-import sys
-from importlib.metadata import distributions
 from uuid import UUID
 
 from grpc.aio import Channel
 
+from _tilebox.grpc.aio.error import with_pythonic_errors
 from tilebox.datasets.data.collection import CollectionInfo
 from tilebox.datasets.data.datapoint import (
     Datapoint,
@@ -26,14 +24,13 @@ from tilebox.datasets.datasetsv1.core_pb2 import (
     GetDatasetForIntervalRequest,
 )
 from tilebox.datasets.datasetsv1.tilebox_pb2 import (
-    ClientInfo,
     DeleteDatapointsRequest,
     GetDatasetRequest,
     IngestDatapointsRequest,
     ListDatasetsRequest,
-    Package,
 )
 from tilebox.datasets.datasetsv1.tilebox_pb2_grpc import TileboxServiceStub
+from tilebox.datasets.sync.service import _client_info
 
 
 class TileboxDatasetService:
@@ -44,7 +41,7 @@ class TileboxDatasetService:
         Args:
             channel: The gRPC channel to use for the service.
         """
-        self._service = TileboxServiceStub(channel)
+        self._service = with_pythonic_errors(TileboxServiceStub(channel))
 
     async def list_datasets(self) -> ListDatasetsResponse:
         """List all datasets and dataset groups."""
@@ -176,31 +173,3 @@ class TileboxDatasetService:
             )
         )
         return DeleteDatapointsResponse.from_message(response)
-
-
-def _client_info() -> ClientInfo:
-    tilebox_packages = sorted([pkg for pkg in distributions() if "tilebox" in pkg.name], key=lambda pkg: pkg.name)
-    return ClientInfo(
-        name="Python",
-        environment=_environment_info(),
-        packages=[Package(name=pkg.name, version=pkg.version) for pkg in tilebox_packages],
-    )
-
-
-def _environment_info() -> str:
-    python_version = sys.version.split(" ")[0]
-    try:
-        shell = str(get_ipython())  # type: ignore[name-defined]
-    except NameError:
-        return f"Python {python_version}"  # Probably standard Python interpreter
-
-    if "ZMQInteractiveShell" in shell:
-        if "DATALORE_USER" in os.environ:
-            return f"Jetbrains Datalore using python {python_version}"
-        return f"JupyterLab using python {python_version}"
-    if "TerminalInteractiveShell" in shell:
-        return f"Terminal IPython using python {python_version}"
-    if "google" in shell:
-        return f"Google Colab using python {python_version}"
-
-    return f"Unknown IPython using python {python_version}"

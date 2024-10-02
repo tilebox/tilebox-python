@@ -4,17 +4,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TypeVar
 
-from _tilebox.grpc.error import ArgumentError, AuthenticationError, InternalServerError, NotFoundError
-from grpc import StatusCode, ssl_channel_credentials
-from grpc.aio import (
-    AioRpcError,
+from grpc import (
     Channel,
-    ClientCallDetails,
-    UnaryUnaryCall,
+    UnaryUnaryClientInterceptor,
     insecure_channel,
+    intercept_channel,
     secure_channel,
+    ssl_channel_credentials,
 )
-from grpc.aio._interceptor import UnaryUnaryClientInterceptor
+from grpc.aio import (
+    ClientCallDetails,  # import from aio, since grpc.ClientCallDetails is an empty base class
+)
 
 # We don't specify the service field, so the config applies to all services
 # See https://github.com/grpc/grpc-proto/blob/master/grpc/service_config/service_config.proto#L50-L52
@@ -36,7 +36,7 @@ _SERVICE_CONFIG = {
     ]
 }
 
-_CHANNEL_OPTIONS = [
+CHANNEL_OPTIONS = [
     ("grpc.max_receive_message_length", 512 * 1024 * 1024),  # Max 512 MB
     ("grpc.service_config", json.dumps(_SERVICE_CONFIG)),
 ]
@@ -49,7 +49,7 @@ class ChannelInfo:
 
 
 def open_channel(url: str, auth_token: str | None = None) -> Channel:
-    """Open a gRPC channel to the given URL.
+    """Open a sync gRPC channel to the given URL.
 
     Args:
         url: The URL to open a channel to. Depending on the URL, the channel will be a secure (SSL) or insecure channel.
@@ -57,33 +57,31 @@ def open_channel(url: str, auth_token: str | None = None) -> Channel:
             the given token as metadata to each request.
 
     Returns:
-        A gRPC channel.
+        A sync gRPC channel.
     """
-    channel_info = _parse_channel_info(url)
-    interceptors: list[UnaryUnaryClientInterceptor] = [_ErrorHandlerInterceptor()]
+    channel_info = parse_channel_info(url)
+    interceptors: list[UnaryUnaryClientInterceptor] = []
     if auth_token is not None:
         interceptors = [_AuthMetadataInterceptor(auth_token), *interceptors]  # add auth interceptor as the first one
 
-    return _open_channel(channel_info, interceptors)
+    return intercept_channel(_open_channel(channel_info), *interceptors)
 
 
-def _open_channel(channel_info: ChannelInfo, interceptors: list[UnaryUnaryClientInterceptor]) -> Channel:
+def _open_channel(channel_info: ChannelInfo) -> Channel:
     if channel_info.use_ssl:
-        return secure_channel(
-            channel_info.url_without_protocol, ssl_channel_credentials(), _CHANNEL_OPTIONS, interceptors=interceptors
-        )
-    return insecure_channel(channel_info.url_without_protocol, _CHANNEL_OPTIONS, interceptors=interceptors)
+        return secure_channel(channel_info.url_without_protocol, ssl_channel_credentials(), CHANNEL_OPTIONS)
+    return insecure_channel(channel_info.url_without_protocol, CHANNEL_OPTIONS)
 
 
 _URL_SCHEME = re.compile(r"^(https?://)?([^: ]+)(:\d+)?/?$")
 
 
-def _parse_channel_info(url: str) -> ChannelInfo:
+def parse_channel_info(url: str) -> ChannelInfo:
     """Parse a given url into a ChannelInfo object that can be used to create a gRPC channel.
 
     For opening a gRPC channel we need a URL without a protocol (http/https) and a port number as part of the url.
 
-    Unix domain socket should be formated as unix:path or unix://absolute_path. For example:
+    Unix domain socket should be formatted as unix:path or unix://absolute_path. For example:
         - unix:path/to/socket
         - unix:///absolute/path/to/socket
 
@@ -118,11 +116,12 @@ def _parse_channel_info(url: str) -> ChannelInfo:
 
 
 RequestType = TypeVar("RequestType")
+ResponseType = TypeVar("ResponseType")
 
 
 class _AuthMetadataInterceptor(UnaryUnaryClientInterceptor):
     def __init__(self, auth_token: str) -> None:
-        """A gRPC channel interceptor which adds the authorization token as metadata to every request.
+        """A sync gRPC channel interceptor which adds the authorization token as metadata to every request.
 
         Args:
             auth_token: The authorization token.
@@ -130,54 +129,24 @@ class _AuthMetadataInterceptor(UnaryUnaryClientInterceptor):
         super().__init__()
         self._auth = ("authorization", f"Bearer {auth_token}")
 
-    async def intercept_unary_unary(
+    def intercept_unary_unary(
         self,
-        continuation: Callable[[ClientCallDetails, RequestType], UnaryUnaryCall],
+        continuation: Callable[[ClientCallDetails, RequestType], ResponseType],
         client_call_details: ClientCallDetails,
         request: RequestType,
-    ) -> UnaryUnaryCall:
-        metadata = [] if client_call_details.metadata is None else list(client_call_details.metadata)
-        metadata.append(self._auth)
-
-        new_call_details = ClientCallDetails(
-            client_call_details.method,
-            client_call_details.timeout,
-            metadata,
-            client_call_details.credentials,
-            client_call_details.wait_for_ready,
-        )
-        return await continuation(new_call_details, request)
+    ) -> ResponseType:
+        return continuation(add_metadata(client_call_details, [self._auth]), request)
 
 
-class _ErrorHandlerInterceptor(UnaryUnaryClientInterceptor):
-    def __init__(self) -> None:
-        """A gRPC channel interceptor which catches potential gRPC error codes and translates them into python errors."""
-        super().__init__()
-
-    async def intercept_unary_unary(
-        self,
-        continuation: Callable[[ClientCallDetails, RequestType], UnaryUnaryCall],
-        client_call_details: ClientCallDetails,
-        request: RequestType,
-    ) -> UnaryUnaryCall:
-        try:
-            call = await continuation(client_call_details, request)
-            return await call
-        except AioRpcError as err:
-            _handle_rpc_error(err)
-            raise  # re-raise the error if it wasn't handled
-
-
-def _handle_rpc_error(err: AioRpcError) -> None:
-    # translate specific error codes to more pythonic errors
-    match err.code():
-        case StatusCode.UNAUTHENTICATED:
-            raise AuthenticationError("No authentication token provided") from None
-        case StatusCode.PERMISSION_DENIED:
-            raise AuthenticationError("Invalid token provided") from None
-        case StatusCode.NOT_FOUND:
-            raise NotFoundError(err.details()) from None
-        case StatusCode.INVALID_ARGUMENT:
-            raise ArgumentError(err.details()) from None
-        case _:
-            raise InternalServerError(f"Oops, something went wrong: {err.details()}") from None
+def add_metadata(
+    client_call_details: ClientCallDetails, additional_metadata: list[tuple[str, str]]
+) -> ClientCallDetails:
+    metadata = [] if client_call_details.metadata is None else list(client_call_details.metadata)
+    metadata.extend(additional_metadata)
+    return ClientCallDetails(
+        client_call_details.method,
+        client_call_details.timeout,
+        metadata,
+        client_call_details.credentials,
+        client_call_details.wait_for_ready,
+    )

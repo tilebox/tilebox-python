@@ -1,7 +1,5 @@
-import inspect
 from datetime import datetime, timedelta
-from typing import cast
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -19,6 +17,7 @@ from tests.data.datapoint import (
     paginated_datapoint_for_interval_responses,
 )
 from tests.data.datasets import example_dataset_type
+from tilebox.datasets import TimeseriesCollection, TimeseriesDataset
 from tilebox.datasets.data.collection import Collection, CollectionInfo
 from tilebox.datasets.data.datapoint import Datapoint, DatapointPage
 from tilebox.datasets.data.datasets import Dataset
@@ -28,15 +27,14 @@ from tilebox.datasets.data.time_interval import (
     _convert_to_datetime,
     timestamp_to_datetime,
 )
-from tilebox.datasets.timeseries import RemoteTimeseriesDataset, RemoteTimeseriesDatasetCollection
 
 
-def _mocked_dataset() -> tuple[RemoteTimeseriesDataset, AsyncMock]:
-    service = AsyncMock()
+def _mocked_dataset() -> tuple[TimeseriesDataset, MagicMock]:
+    service = MagicMock()
     # we do not sample/draw from datasets() here, because the values themselves are irrelevant for the tests
     # (we are not testing properties, but rather writing conventional unit tests here, so it doesn't make sense to
     # run them multiple times)
-    dataset = RemoteTimeseriesDataset(
+    dataset = TimeseriesDataset(
         service,
         Dataset(
             id=uuid4(),
@@ -52,13 +50,10 @@ def _mocked_dataset() -> tuple[RemoteTimeseriesDataset, AsyncMock]:
     return dataset, service
 
 
-@pytest.mark.asyncio
 @settings(max_examples=1)
 @given(infos=lists(collection_infos(), min_size=3, max_size=10))
 @pytest.mark.parametrize(("availability", "count"), [(True, True), (True, False), (False, True), (False, False)])
-async def test_timeseries_dataset_list_collections(
-    infos: list[CollectionInfo], availability: bool, count: bool
-) -> None:
+def test_timeseries_dataset_list_collections(infos: list[CollectionInfo], availability: bool, count: bool) -> None:
     """Test that the .collections() methods returns a dict of RemoteTimeseriesDatasetCollection objects."""
     # since the output of collections() is a dict we need distanct collection names:
     assume(len({info.collection.name for info in infos}) == len(infos))
@@ -75,14 +70,14 @@ async def test_timeseries_dataset_list_collections(
     # mock a protobuf message response value for the gRPC endpoint:
     service.get_collections.return_value = infos
 
-    collections = await dataset.collections(availability, count)
+    collections = dataset.collections(availability, count)
 
     service.get_collections.assert_called_once_with(dataset._dataset.id, availability, count)
     assert len(collections) == len(infos)
 
     for info in infos:
         collection = collections[info.collection.name]
-        assert isinstance(collection, RemoteTimeseriesDatasetCollection), "Expected a RemoteTimeseriesDatasetCollection"
+        assert isinstance(collection, TimeseriesCollection), "Expected a RemoteTimeseriesDatasetCollection"
         assert collection.name == info.collection.name, "Name mismatch in collection"
         assert repr(info) in repr(collection), "Expected info to be in collection repr"
         assert collection._info_cache[(availability, count)] == info, "Expected info to be cached"
@@ -97,37 +92,13 @@ def test_timeseries_dataset_get_collection(collection_name: str) -> None:
     assert len(collection._info_cache) == 0, "Expected no info to be cached yet"
 
 
-@given(collection_infos())
-@settings(max_examples=1)
-def test_timeseries_sync_dataset_should_return_sync_collections(info: CollectionInfo) -> None:
-    """Test that a syncified RemoteTimeseriesDataset returns syncified collections as well."""
-    dataset, service = _mocked_dataset()
-    dataset._syncify()
-
-    # mock a protobuf message response value for the gRPC endpoint:
-    service.get_collections.return_value = [info]
-
-    collections = cast(dict[str, RemoteTimeseriesDatasetCollection], dataset.collections())
-    assert not inspect.iscoroutinefunction(collections[info.collection.name].info)
-
-
-@given(collection_names())
-@settings(max_examples=1)
-def test_timeseries_sync_dataset_should_return_sync_collection(collection_name: str) -> None:
-    """Test that a syncified RemoteTimeseriesDataset returns a syncified collection as well."""
-    dataset, _ = _mocked_dataset()
-    dataset._syncify()
-    collection = dataset.collection(collection_name)
-    assert not inspect.iscoroutinefunction(collection.info)
-
-
 @dataclass
 class MockedCollection:
-    dataset: RemoteTimeseriesDataset
+    dataset: TimeseriesDataset
     dataset_info: Dataset
-    collection: RemoteTimeseriesDatasetCollection
+    collection: TimeseriesCollection
     collection_info: CollectionInfo
-    service: AsyncMock
+    service: MagicMock
 
 
 def _mocked_collection(provide_collection_info: bool = False) -> MockedCollection:
@@ -151,8 +122,7 @@ def _mocked_collection(provide_collection_info: bool = False) -> MockedCollectio
     return MockedCollection(dataset, dataset._dataset, collection, collection_info, service)
 
 
-@pytest.mark.asyncio
-async def test_timeseries_dataset_collection_info() -> None:
+def test_timeseries_dataset_collection_info() -> None:
     """Test that .info() of a collection returns the correct CollectionInfo."""
     mocked = _mocked_collection()
     collection = mocked.collection
@@ -163,14 +133,13 @@ async def test_timeseries_dataset_collection_info() -> None:
     # mock a protobuf message response value for the gRPC endpoint:
     mocked.service.get_collection_by_name.return_value = info
 
-    assert await collection.info(availability=availability, count=count) == info
+    assert collection.info(availability=availability, count=count) == info
     mocked.service.get_collection_by_name.assert_called_once_with(
         mocked.dataset_info.id, info.collection.name, availability, count
     )
 
 
-@pytest.mark.asyncio
-async def test_timeseries_dataset_collection_info_cache() -> None:
+def test_timeseries_dataset_collection_info_cache() -> None:
     """Test that .info() of a collection is cached."""
     mocked = _mocked_collection()
     info = mocked.collection_info
@@ -187,23 +156,22 @@ async def test_timeseries_dataset_collection_info_cache() -> None:
                 )
                 mocked.service.get_collection_by_name.return_value = adapted_info
 
-                assert await collection.info(availability=availability, count=count) == adapted_info
+                assert collection.info(availability=availability, count=count) == adapted_info
 
     assert mocked.service.get_collection_by_name.call_count == 4, "Expected the info endpoint responses to be cached"
     assert len(collection._info_cache) == 4
 
 
-@pytest.mark.asyncio
 @settings(max_examples=1)
 @given(datapoints())
-async def test_timeseries_dataset_collection_find(expected_datapoint: Datapoint) -> None:
+def test_timeseries_dataset_collection_find(expected_datapoint: Datapoint) -> None:
     """Test that .find() of a collection returns a datapoint as xarray.Dataset."""
     mocked = _mocked_collection(provide_collection_info=True)
     collection = mocked.collection
     meta = expected_datapoint.meta
 
     mocked.service.get_datapoint_by_id.return_value = expected_datapoint
-    datapoint = await collection.find(meta.id)
+    datapoint = collection.find(meta.id)
 
     assert isinstance(datapoint, xr.Dataset)
     assert timestamp_to_datetime(meta.event_time) == _convert_to_datetime(datapoint.coords["time"].item())
@@ -211,37 +179,36 @@ async def test_timeseries_dataset_collection_find(expected_datapoint: Datapoint)
     assert meta.id == datapoint.coords["id"]
 
 
-@pytest.mark.asyncio
-async def test_timeseries_dataset_collection_find_invalid_id() -> None:
+def test_timeseries_dataset_collection_find_invalid_id() -> None:
     """Test that .find() of a collection raises a ValueError if the datapoint id is invalid."""
     mocked = _mocked_collection(provide_collection_info=True)
     mocked.service.get_datapoint_by_id.side_effect = ArgumentError
     with pytest.raises(ValueError, match="Invalid datapoint id.*"):
-        await mocked.collection.find("invalid")
+        mocked.collection.find("invalid")
 
 
-@pytest.mark.asyncio
-async def test_timeseries_dataset_collection_find_not_found() -> None:
+def test_timeseries_dataset_collection_find_not_found() -> None:
     """Test that .find() of a collection raises a NotFoundError if the datapoint is not found."""
     mocked = _mocked_collection(provide_collection_info=True)
     mocked.service.get_datapoint_by_id.side_effect = NotFoundError
     with pytest.raises(NotFoundError, match="No such datapoint.*"):
-        await mocked.collection.find("14eb91a2-a42f-421f-9397-1dab577f05a9")
+        mocked.collection.find("14eb91a2-a42f-421f-9397-1dab577f05a9")
 
 
-@pytest.mark.asyncio
-@patch("tilebox.datasets.pagination.tqdm")
+@patch("tilebox.datasets.sync.pagination.tqdm")
+@patch("tilebox.datasets.progress.tqdm")
 @settings(deadline=1000, max_examples=3)  # increase deadline to 1s to not timeout because of the progress bar
 @given(pages=paginated_datapoint_for_interval_responses())
 @pytest.mark.parametrize(("show_progress", "skip_data"), [(True, True), (True, False), (False, True), (False, False)])
-async def test_timeseries_dataset_collection_load(
-    tqdm: MagicMock, pages: list[DatapointPage], show_progress: bool, skip_data: bool
+def test_timeseries_dataset_collection_load(
+    tqdm1: MagicMock, tqdm2: MagicMock, pages: list[DatapointPage], show_progress: bool, skip_data: bool
 ) -> None:
     """Test that .load() of a collection returns a dataset as xarray.Dataset."""
     # a mocked tqdm function that can count how many times update() was called
     progress_bar = MagicMock()
     progress_bar.total = 100
-    tqdm.return_value = progress_bar  # support "progress_bar = tqdm()" usage
+    tqdm1.return_value = progress_bar  # support "progress_bar = tqdm()" usage
+    tqdm2.return_value = progress_bar
     progress_bar.__enter__.return_value = progress_bar  # support "with tqdm() as progress_bar:" usage
 
     mocked = _mocked_collection(provide_collection_info=True)
@@ -250,7 +217,7 @@ async def test_timeseries_dataset_collection_load(
     mocked.service.get_dataset_for_time_interval.side_effect = pages
     # the interval doesn't actually matter here, since we mock the response
     interval = TimeInterval(datetime.now(), datetime.now() + timedelta(days=1))
-    dataset = await mocked.collection.load(interval, show_progress=show_progress, skip_data=skip_data)
+    dataset = mocked.collection.load(interval, show_progress=show_progress, skip_data=skip_data)
     _assert_datapoints_match(dataset, pages)
 
     if show_progress:
@@ -258,12 +225,11 @@ async def test_timeseries_dataset_collection_load(
         assert progress_bar.update.call_count == expected_updates
 
 
-@pytest.mark.asyncio
-@patch("tilebox.datasets.pagination.tqdm")
+@patch("tilebox.datasets.sync.pagination.tqdm")
 @settings(deadline=1000, max_examples=3)  # increase deadline to 1s to not timeout because of the progress bar
 @given(pages=paginated_datapoint_for_interval_responses())
 @pytest.mark.parametrize("show_progress", [True, False])
-async def test_timeseries_dataset_collection_find_interval(
+def test_timeseries_dataset_collection_find_interval(
     tqdm: MagicMock, pages: list[DatapointPage], show_progress: bool
 ) -> None:
     """Test that .load() of a collection returns a dataset as xarray.Dataset."""
@@ -278,7 +244,7 @@ async def test_timeseries_dataset_collection_find_interval(
     # the last page will have an empty next_page set, indicating that there are no more pages
     mocked.service.get_dataset_for_datapoint_interval.side_effect = pages
     # the interval doesn't actually matter here, since we mock the response
-    dataset = await mocked.collection._find_interval(("some-id", "some-end-id"), show_progress=show_progress)
+    dataset = mocked.collection._find_interval(("some-id", "some-end-id"), show_progress=show_progress)
     _assert_datapoints_match(dataset, pages)
 
     if show_progress:

@@ -9,17 +9,16 @@ from shapely import Polygon
 
 from _tilebox.grpc.error import NotFoundError
 from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
-from tilebox.datasets.aio import Client
+from tilebox.datasets import Client, TimeseriesDataset
 from tilebox.datasets.data.datapoint import DatapointPage
 from tilebox.datasets.data.time_interval import us_to_datetime
-from tilebox.datasets.timeseries import RemoteTimeseriesDataset
 
 
 def replay_client(replay_file: str, assert_request_matches: bool = True) -> Client:
     replay = Path(__file__).parent / "testdata" / "recordings" / replay_file
     replay_channel = open_replay_channel(replay, assert_request_matches)
 
-    with patch("tilebox.datasets.aio.open_channel") as open_channel_mock:
+    with patch("tilebox.datasets.sync.client.open_channel") as open_channel_mock:
         open_channel_mock.return_value = replay_channel
         client = Client("https://api.tilebox.com", "token")  # url/token doesn't matter since its a mocked channel
         open_channel_mock.assert_called_once()
@@ -35,7 +34,7 @@ def record_client(recording_file: str) -> Client:
         "https://api.tilebox.com", os.environ["TILEBOX_OPENDATA_ONLY_API_KEY"], recording
     )
 
-    with patch("tilebox.datasets.aio.open_channel") as open_channel_mock:
+    with patch("tilebox.datasets.sync.client.open_channel") as open_channel_mock:
         open_channel_mock.return_value = recording_channel
         client = Client("https://api.tilebox.com", "token")  # url/token doesn't matter since its a mocked channel
         open_channel_mock.assert_called_once()
@@ -43,59 +42,54 @@ def record_client(recording_file: str) -> Client:
     return client
 
 
-@pytest.mark.asyncio
-async def test_list_datasets() -> None:
+def test_list_datasets() -> None:
     # we send our package version as client_info, so the outgoing request changes over time, so let's not check it
     client = replay_client("list_datasets.rpcs.bin", assert_request_matches=False)
 
-    datasets = await client.datasets()
+    datasets = client.datasets()
     # let's check that we can access a dataset
-    assert isinstance(datasets.open_data.copernicus.sentinel2_msi, RemoteTimeseriesDataset)
+    assert isinstance(datasets.open_data.copernicus.sentinel2_msi, TimeseriesDataset)
     # let's check that the repr contains the summaries of the datasets
     assert "sentinel2_msi" in repr(datasets)
     assert "Sentinel-2 is equipped with an optical instrument payload that samples" in repr(datasets)
 
 
-@pytest.mark.asyncio
-async def test_list_collections() -> None:
+def test_list_collections() -> None:
     client = replay_client("list_s2_collections.rpcs.bin")
 
-    s2_dataset = await client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
-    collections = await s2_dataset.collections(availability=True, count=False)
+    s2_dataset = client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
+    collections = s2_dataset.collections(availability=True, count=False)
     assert sorted(collections) == ["S2A_S2MSI1C", "S2A_S2MSI2A", "S2B_S2MSI1C", "S2B_S2MSI2A"]
 
 
-@pytest.mark.asyncio
-async def test_collection_info() -> None:
+def test_collection_info() -> None:
     client = replay_client("s2_collection_info.rpcs.bin")
 
-    s2_dataset = await client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
-    collections = await s2_dataset.collections(availability=False, count=False)
+    s2_dataset = client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
+    collections = s2_dataset.collections(availability=False, count=False)
 
     for collection_name in ["S2A_S2MSI1C", "S2A_S2MSI2A"]:
         collection = collections[collection_name]
-        info = await collection.info(availability=True, count=False)
+        info = collection.info(availability=True, count=False)
         assert "Collection S2A_S2MSI" in repr(info)
         assert "[2015-07-04T10:10:06.027 UTC, " in repr(info)
 
 
-@pytest.mark.asyncio
-async def test_dataset_not_found() -> None:
+def test_dataset_not_found() -> None:
     client = replay_client("list_dataset_not_found.rpcs.bin")
 
     with pytest.raises(NotFoundError, match="no such dataset"):
-        await client.dataset("94e06073-ea61-40a2-a61c-446871d47932")
+        client.dataset("94e06073-ea61-40a2-a61c-446871d47932")
 
 
-@pytest.mark.asyncio
-async def test_find_datapoint() -> None:
+def test_find_datapoint() -> None:
     client = replay_client("find_s2_datapoint.rpcs.bin")
 
-    s2_dataset = await client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
+    s2_dataset = client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
     for skip_data in (False, True):
-        datapoint = await collection.find("0181f4ef-2040-1613-3eed-1c970dde6d2b", skip_data=skip_data)
+        datapoint = collection.find("0181f4ef-2040-1613-3eed-1c970dde6d2b", skip_data=skip_data)
         assert isinstance(datapoint, xr.Dataset)
 
         assert datapoint.id.item() == "0181f4ef-2040-1613-3eed-1c970dde6d2b"
@@ -114,26 +108,24 @@ async def test_find_datapoint() -> None:
             assert "geometry" not in datapoint
 
 
-@pytest.mark.asyncio
-async def test_datapoint_not_found() -> None:
+def test_datapoint_not_found() -> None:
     client = replay_client("s2_datapoint_not_found.rpcs.bin")
 
-    s2_dataset = await client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
+    s2_dataset = client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
     with pytest.raises(NotFoundError, match="No such datapoint.*"):
-        await collection.find("0181f4dc-53c0-4912-acda-e35a368994fc")  # is in another collection
+        collection.find("0181f4dc-53c0-4912-acda-e35a368994fc")  # is in another collection
 
 
-@pytest.mark.asyncio
-async def test_load_data() -> None:
+def test_load_data() -> None:
     client = replay_client("load_s2_data_interval.rpcs.bin")
 
-    s2_dataset = await client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
+    s2_dataset = client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
     for skip_data in (False, True):
-        data = await collection.load(("2022-07-13", "2022-07-13T02:00"), skip_data=skip_data)
+        data = collection.load(("2022-07-13", "2022-07-13T02:00"), skip_data=skip_data)
         assert isinstance(data, xr.Dataset)
 
         assert data.sizes["time"] == 378
@@ -147,14 +139,13 @@ async def test_load_data() -> None:
             assert "granule_name" not in data
 
 
-@pytest.mark.asyncio
-async def test_load_data_pagination() -> None:
+def test_load_data_pagination() -> None:
     client = replay_client("load_s2_data_interval_paging.rpcs.bin")
 
-    s2_dataset = await client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
+    s2_dataset = client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
-    pages = [page async for page in collection._iter_pages(("2022-07-13", "2022-07-13T02:00"), page_size=10)]
+    pages = list(collection._iter_pages(("2022-07-13", "2022-07-13T02:00"), page_size=10))
 
     assert len(pages) == 38  # we have 378 datapoints, so 38 pages, and the last page has only 8 datapoints
 

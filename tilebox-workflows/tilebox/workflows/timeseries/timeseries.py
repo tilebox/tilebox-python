@@ -11,11 +11,11 @@ import xarray as xr
 # from python 3.12 onwards: typing.override
 from typing_extensions import dataclass_transform, override
 
+from tilebox.datasets.aio.timeseries import TimeseriesCollection
 from tilebox.datasets.data.collection import Collection, CollectionInfo
 from tilebox.datasets.data.datapoint import DatapointInterval
 from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.datasets.data.timeseries import TimeChunk, TimeseriesDatasetChunk
-from tilebox.datasets.timeseries import RemoteTimeseriesDatasetCollection
 from tilebox.workflows.interceptors import ForwardExecution, execution_interceptor
 from tilebox.workflows.task import AsyncTask, ExecutionContext, SyncTask, Task
 
@@ -117,7 +117,7 @@ class AsyncTimeseriesTask(AsyncTask):
 
 
 async def batch_process_timeseries_dataset(
-    collection: RemoteTimeseriesDatasetCollection, interval: TimeIntervalLike, chunk_size: int
+    collection: TimeseriesCollection, interval: TimeIntervalLike, chunk_size: int
 ) -> TimeseriesDatasetChunk:
     _info = collection.info(availability=True, count=True)
     info: CollectionInfo = await _info if inspect.isawaitable(_info) else _info  # type: ignore[assignment]
