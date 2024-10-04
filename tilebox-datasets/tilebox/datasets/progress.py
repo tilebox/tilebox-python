@@ -1,9 +1,13 @@
+from collections.abc import Callable
 from datetime import datetime
 from types import TracebackType
+from typing import Any
 
 from tqdm.auto import tqdm
 
 from tilebox.datasets.data import TimeInterval
+
+ProgressCallback = Callable[[float], Any]
 
 
 class TimeIntervalProgressBar:

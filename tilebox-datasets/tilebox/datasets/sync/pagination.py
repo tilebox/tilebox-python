@@ -10,7 +10,7 @@ from tilebox.datasets.data import (
 from tilebox.datasets.data.datapoint import DatapointPage
 from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.time_interval import timestamp_to_datetime
-from tilebox.datasets.progress import TimeIntervalProgressBar
+from tilebox.datasets.progress import ProgressCallback, TimeIntervalProgressBar
 
 
 def paginated_request(
@@ -136,7 +136,7 @@ def with_time_progressbar(
 def with_time_progress_callback(
     paginated_request: Iterator[DatapointPage],
     interval: TimeInterval,
-    progress_callback: Callable[[float], None],
+    progress_callback: ProgressCallback,
 ) -> Iterator[DatapointPage]:
     """Make a paginated request to a gRPC service endpoint, and reporting progress percentage to a callback function.
 

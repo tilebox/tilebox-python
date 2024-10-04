@@ -1,5 +1,7 @@
+import asyncio
 import inspect
 from collections.abc import AsyncIterator, Awaitable, Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypeVar
 
 from anyio import EndOfStream, create_memory_object_stream, create_task_group
@@ -48,12 +50,17 @@ async def _consumer(
     """
     Receive messages from a buffered receive stream and forward them to a consumer until no more messages are available.
     """
-    try:
-        while True:
-            message = await receive_stream.receive()
-            result = consume(message)
-            if inspect.iscoroutine(result):
-                await result
-    except EndOfStream:
-        pass
-    receive_stream.close()
+
+    loop = asyncio.get_running_loop()
+
+    with ThreadPoolExecutor() as executor:
+        try:
+            while True:
+                message = await receive_stream.receive()
+                # result = consume(message), but in a background thread so that async loop can continue in the meantime:
+                result = await loop.run_in_executor(executor, consume, message)
+                if inspect.iscoroutine(result):
+                    await result
+        except EndOfStream:
+            pass
+        receive_stream.close()

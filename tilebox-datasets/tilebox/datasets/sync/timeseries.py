@@ -1,5 +1,4 @@
-from collections.abc import Callable, Iterator
-from functools import partial
+from collections.abc import Iterator
 
 import xarray as xr
 
@@ -10,14 +9,15 @@ from tilebox.datasets.data.datapoint import DatapointInterval, DatapointPage
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
+from tilebox.datasets.progress import ProgressCallback
 from tilebox.datasets.protobuf_xarray import TimeseriesToXarrayConverter
+from tilebox.datasets.service import TileboxDatasetService
 from tilebox.datasets.sync.pagination import (
     paginated_request,
     with_progressbar,
     with_time_progress_callback,
     with_time_progressbar,
 )
-from tilebox.datasets.sync.service import TileboxDatasetService
 
 # allow private member access: we allow it here because we want to make as much private as possible so that we can
 # minimize the publicly facing API (which allows us to change internals later, and also limits to auto-completion)
@@ -48,7 +48,7 @@ class TimeseriesDataset:
         Returns:
             A mapping from collection names to collections.
         """
-        collections = self._service.get_collections(self._dataset.id, availability, count)
+        collections = self._service.get_collections(self._dataset.id, availability, count).get()
 
         dataset_collections = {}
         for collection in collections:
@@ -105,7 +105,7 @@ class TimeseriesCollection:
         try:
             info = self._dataset._service.get_collection_by_name(
                 self._dataset._dataset.id, self.name, availability, count
-            )
+            ).get()
         except NotFoundError:
             raise NotFoundError(f"No such collection {self.name}") from None
 
@@ -125,7 +125,7 @@ class TimeseriesCollection:
         """
         collection = self._collection()
         try:
-            datapoint = self._dataset._service.get_datapoint_by_id(collection.id, datapoint_id, skip_data)
+            datapoint = self._dataset._service.get_datapoint_by_id(collection.id, datapoint_id, skip_data).get()
         except ArgumentError:
             raise ValueError(f"Invalid datapoint id: {datapoint_id} is not a valid UUID") from None
         except NotFoundError:
@@ -165,13 +165,11 @@ class TimeseriesCollection:
             start_exclusive=False,
             end_inclusive=end_inclusive,
         )
-        request = partial(
-            self._dataset._service.get_dataset_for_datapoint_interval,
-            collection.id,
-            datapoint_interval,
-            skip_data,
-            False,
-        )
+
+        def request(page: Pagination) -> DatapointPage:
+            return self._dataset._service.get_dataset_for_datapoint_interval(
+                collection.id, datapoint_interval, skip_data, False, page
+            ).get()
 
         initial_page = Pagination()
         pages = paginated_request(request, initial_page)
@@ -185,7 +183,7 @@ class TimeseriesCollection:
         time_or_interval: TimeIntervalLike,
         *,
         skip_data: bool = False,
-        show_progress: bool | Callable[[float], None] = False,
+        show_progress: bool | ProgressCallback = False,
     ) -> xr.Dataset:
         """
         Load a range of datapoints in this collection in a specified interval.
@@ -216,15 +214,16 @@ class TimeseriesCollection:
         time_or_interval: TimeIntervalLike,
         skip_data: bool = False,
         skip_meta: bool = False,
-        show_progress: bool | Callable[[float], None] = False,
+        show_progress: bool | ProgressCallback = False,
         page_size: int | None = None,
     ) -> Iterator[DatapointPage]:
         time_interval = TimeInterval.parse(time_or_interval)
         collection = self._collection()
 
-        request = partial(
-            self._dataset._service.get_dataset_for_time_interval, collection.id, time_interval, skip_data, skip_meta
-        )
+        def request(page: Pagination) -> DatapointPage:
+            return self._dataset._service.get_dataset_for_time_interval(
+                collection.id, time_interval, skip_data, skip_meta, page
+            ).get()
 
         initial_page = Pagination(limit=page_size)
         pages = paginated_request(request, initial_page)

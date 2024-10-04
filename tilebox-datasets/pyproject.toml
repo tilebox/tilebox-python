@@ -30,6 +30,7 @@ dependencies = [
     "tqdm>=4.65",
     "pandas>=2.1",
     "shapely>=2",
+    "promise>=2.3",
 ]
 
 [project.urls]

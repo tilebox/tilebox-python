@@ -9,6 +9,7 @@ from hypothesis import assume, given, settings
 from hypothesis.strategies import (
     lists,
 )
+from promise import Promise
 
 from _tilebox.grpc.error import ArgumentError, NotFoundError
 from tests.data.collection import collection_infos, collection_names
@@ -31,6 +32,7 @@ from tilebox.datasets.data.time_interval import (
 
 def _mocked_dataset() -> tuple[TimeseriesDataset, MagicMock]:
     service = MagicMock()
+
     # we do not sample/draw from datasets() here, because the values themselves are irrelevant for the tests
     # (we are not testing properties, but rather writing conventional unit tests here, so it doesn't make sense to
     # run them multiple times)
@@ -68,7 +70,7 @@ def test_timeseries_dataset_list_collections(infos: list[CollectionInfo], availa
     ]
     dataset, service = _mocked_dataset()
     # mock a protobuf message response value for the gRPC endpoint:
-    service.get_collections.return_value = infos
+    service.get_collections.return_value = Promise.resolve(infos)
 
     collections = dataset.collections(availability, count)
 
@@ -131,7 +133,7 @@ def test_timeseries_dataset_collection_info() -> None:
     count = info.count is not None
 
     # mock a protobuf message response value for the gRPC endpoint:
-    mocked.service.get_collection_by_name.return_value = info
+    mocked.service.get_collection_by_name.return_value = Promise.resolve(info)
 
     assert collection.info(availability=availability, count=count) == info
     mocked.service.get_collection_by_name.assert_called_once_with(
@@ -154,7 +156,7 @@ def test_timeseries_dataset_collection_info_cache() -> None:
                     None if not availability else info.availability or _EMPTY_TIME_INTERVAL,
                     None if not count else info.count or 0,
                 )
-                mocked.service.get_collection_by_name.return_value = adapted_info
+                mocked.service.get_collection_by_name.return_value = Promise.resolve(adapted_info)
 
                 assert collection.info(availability=availability, count=count) == adapted_info
 
@@ -170,7 +172,7 @@ def test_timeseries_dataset_collection_find(expected_datapoint: Datapoint) -> No
     collection = mocked.collection
     meta = expected_datapoint.meta
 
-    mocked.service.get_datapoint_by_id.return_value = expected_datapoint
+    mocked.service.get_datapoint_by_id.return_value = Promise.resolve(expected_datapoint)
     datapoint = collection.find(meta.id)
 
     assert isinstance(datapoint, xr.Dataset)
@@ -214,7 +216,7 @@ def test_timeseries_dataset_collection_load(
     mocked = _mocked_collection(provide_collection_info=True)
     # each call will return the next page in the list
     # the last page will have an empty next_page set, indicating that there are no more pages
-    mocked.service.get_dataset_for_time_interval.side_effect = pages
+    mocked.service.get_dataset_for_time_interval.side_effect = [Promise.resolve(page) for page in pages]
     # the interval doesn't actually matter here, since we mock the response
     interval = TimeInterval(datetime.now(), datetime.now() + timedelta(days=1))
     dataset = mocked.collection.load(interval, show_progress=show_progress, skip_data=skip_data)
@@ -242,7 +244,7 @@ def test_timeseries_dataset_collection_find_interval(
     mocked = _mocked_collection(provide_collection_info=True)
     # each call will return the next page in the list
     # the last page will have an empty next_page set, indicating that there are no more pages
-    mocked.service.get_dataset_for_datapoint_interval.side_effect = pages
+    mocked.service.get_dataset_for_datapoint_interval.side_effect = [Promise.resolve(page) for page in pages]
     # the interval doesn't actually matter here, since we mock the response
     dataset = mocked.collection._find_interval(("some-id", "some-end-id"), show_progress=show_progress)
     _assert_datapoints_match(dataset, pages)

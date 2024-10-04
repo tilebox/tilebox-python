@@ -3,9 +3,8 @@ import sys
 from importlib.metadata import distributions
 from uuid import UUID
 
-from grpc import Channel
+from promise import Promise
 
-from _tilebox.grpc.error import with_pythonic_errors
 from tilebox.datasets.data.collection import CollectionInfo
 from tilebox.datasets.data.datapoint import (
     Datapoint,
@@ -38,26 +37,28 @@ from tilebox.datasets.datasetsv1.tilebox_pb2_grpc import TileboxServiceStub
 
 
 class TileboxDatasetService:
-    def __init__(self, channel: Channel) -> None:
+    def __init__(self, service_stub: TileboxServiceStub) -> None:
         """
         Typed access to the gRPC endpoints of a timeseries dataset.
 
         Args:
             channel: The gRPC channel to use for the service.
         """
-        self._service = with_pythonic_errors(TileboxServiceStub(channel))
+        self._service = service_stub
 
-    def list_datasets(self) -> ListDatasetsResponse:
+    def list_datasets(self) -> Promise[ListDatasetsResponse]:
         """List all datasets and dataset groups."""
-        response = self._service.ListDatasets(ListDatasetsRequest(client_info=_client_info()))
-        return ListDatasetsResponse.from_message(response)
+        return Promise.resolve(self._service.ListDatasets(ListDatasetsRequest(client_info=_client_info()))).then(
+            ListDatasetsResponse.from_message
+        )
 
-    def get_dataset(self, dataset_id: UUID) -> Dataset:
+    def get_dataset(self, dataset_id: UUID) -> Promise[Dataset]:
         """Get a dataset by its id."""
-        response = self._service.GetDataset(GetDatasetRequest(dataset_id=str(dataset_id)))
-        return Dataset.from_message(response)
+        return Promise.resolve(self._service.GetDataset(GetDatasetRequest(dataset_id=str(dataset_id)))).then(
+            Dataset.from_message
+        )
 
-    def create_collection(self, dataset_id: UUID, name: str) -> CollectionInfo:
+    def create_collection(self, dataset_id: UUID, name: str) -> Promise[CollectionInfo]:
         """Create a new collection in a dataset.
 
         Args:
@@ -68,22 +69,22 @@ class TileboxDatasetService:
             The created collection info.
         """
         req = CreateCollectionRequest(dataset_id=uuid_to_uuid_message(dataset_id), name=name)
-        response = self._service.CreateCollection(req)
-        return CollectionInfo.from_message(response)
+        return Promise.resolve(self._service.CreateCollection(req)).then(CollectionInfo.from_message)
 
     def get_collections(
         self, dataset_id: UUID, with_availability: bool = True, with_count: bool = False
-    ) -> list[CollectionInfo]:
+    ) -> Promise[list[CollectionInfo]]:
         """List all available collections in this dataset."""
         req = GetCollectionsRequest(
             dataset_id=uuid_to_uuid_message(dataset_id), with_availability=with_availability, with_count=with_count
         )
-        response = self._service.GetCollections(req)
-        return [CollectionInfo.from_message(collection) for collection in response.data]
+        return Promise.resolve(self._service.GetCollections(req)).then(
+            lambda response: [CollectionInfo.from_message(collection) for collection in response.data],
+        )
 
     def get_collection_by_name(
         self, dataset_id: UUID, collection_name: str, with_availability: bool = True, with_count: bool = False
-    ) -> CollectionInfo:
+    ) -> Promise[CollectionInfo]:
         """Fetch additional metadata about the datapoints in this collection."""
         req = GetCollectionByNameRequest(
             collection_name=collection_name,
@@ -91,14 +92,15 @@ class TileboxDatasetService:
             with_count=with_count,
             dataset_id=uuid_to_uuid_message(dataset_id),
         )
-        response = self._service.GetCollectionByName(req)
-        return CollectionInfo.from_message(response)
-
-    def get_datapoint_by_id(self, collection_id: str, datapoint_id: str, skip_data: bool = False) -> Datapoint:
-        response = self._service.GetDatapointByID(
-            GetDatapointByIdRequest(collection_id=collection_id, id=datapoint_id, skip_data=skip_data)
+        return Promise.resolve(self._service.GetCollectionByName(req)).then(
+            CollectionInfo.from_message,
         )
-        return Datapoint.from_message(response)
+
+    def get_datapoint_by_id(self, collection_id: str, datapoint_id: str, skip_data: bool = False) -> Promise[Datapoint]:
+        req = GetDatapointByIdRequest(collection_id=collection_id, id=datapoint_id, skip_data=skip_data)
+        return Promise.resolve(self._service.GetDatapointByID(req)).then(
+            Datapoint.from_message,
+        )
 
     def get_dataset_for_time_interval(
         self,
@@ -107,17 +109,17 @@ class TileboxDatasetService:
         skip_data: bool,
         skip_meta: bool,
         page: Pagination | None = None,
-    ) -> DatapointPage:
-        response = self._service.GetDatasetForInterval(
-            GetDatasetForIntervalRequest(
-                collection_id=collection_id,
-                time_interval=time_interval.to_message(),
-                skip_data=skip_data,
-                skip_meta=skip_meta,
-                page=page.to_message() if page is not None else None,
-            )
+    ) -> Promise[DatapointPage]:
+        req = GetDatasetForIntervalRequest(
+            collection_id=collection_id,
+            time_interval=time_interval.to_message(),
+            skip_data=skip_data,
+            skip_meta=skip_meta,
+            page=page.to_message() if page is not None else None,
         )
-        return DatapointPage.from_message(response)
+        return Promise.resolve(self._service.GetDatasetForInterval(req)).then(
+            DatapointPage.from_message,
+        )
 
     def get_dataset_for_datapoint_interval(
         self,
@@ -126,21 +128,21 @@ class TileboxDatasetService:
         skip_data: bool,
         skip_meta: bool,
         page: Pagination | None = None,
-    ) -> DatapointPage:
-        response = self._service.GetDatasetForInterval(
-            GetDatasetForIntervalRequest(
-                collection_id=collection_id,
-                datapoint_interval=datapoint_interval.to_message(),
-                skip_data=skip_data,
-                skip_meta=skip_meta,
-                page=page.to_message() if page is not None else None,
-            )
+    ) -> Promise[DatapointPage]:
+        req = GetDatasetForIntervalRequest(
+            collection_id=collection_id,
+            datapoint_interval=datapoint_interval.to_message(),
+            skip_data=skip_data,
+            skip_meta=skip_meta,
+            page=page.to_message() if page is not None else None,
         )
-        return DatapointPage.from_message(response)
+        return Promise.resolve(self._service.GetDatasetForInterval(req)).then(
+            DatapointPage.from_message,
+        )
 
     def ingest_datapoints(
         self, collection_id: UUID, datapoints: DatapointPage, allow_existing: bool
-    ) -> IngestDatapointsResponse:
+    ) -> Promise[IngestDatapointsResponse]:
         """Ingest a batch of datapoints into a collection.
 
         Args:
@@ -151,16 +153,16 @@ class TileboxDatasetService:
         Returns:
             The number of datapoints that were ingested as well as the generated ids for those datapoints.
         """
-        response = self._service.IngestDatapoints(
-            IngestDatapointsRequest(
-                collection_id=uuid_to_uuid_message(collection_id),
-                datapoints=datapoints.to_message(),
-                allow_existing=allow_existing,
-            )
+        req = IngestDatapointsRequest(
+            collection_id=uuid_to_uuid_message(collection_id),
+            datapoints=datapoints.to_message(),
+            allow_existing=allow_existing,
         )
-        return IngestDatapointsResponse.from_message(response)
+        return Promise.resolve(self._service.IngestDatapoints(req)).then(
+            IngestDatapointsResponse.from_message,
+        )
 
-    def delete_datapoints(self, collection_id: UUID, datapoints: list[UUID]) -> DeleteDatapointsResponse:
+    def delete_datapoints(self, collection_id: UUID, datapoints: list[UUID]) -> Promise[DeleteDatapointsResponse]:
         """Delete a batch of datapoints from a collection.
 
         Args:
@@ -170,13 +172,13 @@ class TileboxDatasetService:
         Returns:
             The number of datapoints that were deleted.
         """
-        response = self._service.DeleteDatapoints(
-            DeleteDatapointsRequest(
-                collection_id=uuid_to_uuid_message(collection_id),
-                datapoint_ids=[core_pb2.ID(datapoint.bytes) for datapoint in datapoints],
-            )
+        req = DeleteDatapointsRequest(
+            collection_id=uuid_to_uuid_message(collection_id),
+            datapoint_ids=[core_pb2.ID(datapoint.bytes) for datapoint in datapoints],
         )
-        return DeleteDatapointsResponse.from_message(response)
+        return Promise.resolve(self._service.DeleteDatapoints(req)).then(
+            DeleteDatapointsResponse.from_message,
+        )
 
 
 def _client_info() -> ClientInfo:

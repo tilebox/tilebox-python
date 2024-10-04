@@ -1253,6 +1253,15 @@ wheels = [
 ]
 
 [[package]]
+name = "promise"
+version = "2.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cf/9c/fb5d48abfe5d791cd496e4242ebcf87a4bb2e0c3dcd6e0ae68c11426a528/promise-2.3.tar.gz", hash = "sha256:dfd18337c523ba4b6a58801c164c1904a9d4d1b1747c7d5dbf45b693a49d93d0", size = 19534 }
+
+[[package]]
 name = "proto-plus"
 version = "1.24.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1633,13 +1642,14 @@ wheels = [
 
 [[package]]
 name = "tilebox-datasets"
-version = "0.26.0"
+version = "0.27.0"
 source = { editable = "tilebox-datasets" }
 dependencies = [
     { name = "cftime" },
     { name = "loguru" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "promise" },
     { name = "shapely" },
     { name = "tilebox-grpc" },
     { name = "tqdm" },
@@ -1660,6 +1670,7 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "pandas", specifier = ">=2.1" },
+    { name = "promise", specifier = ">=2.3" },
     { name = "shapely", specifier = ">=2" },
     { name = "tilebox-grpc", editable = "tilebox-grpc" },
     { name = "tqdm", specifier = ">=4.65" },
@@ -1713,7 +1724,7 @@ dev = [
 
 [[package]]
 name = "tilebox-python"
-version = "0.26.0"
+version = "0.26.0.post2.dev0+e23b6b9"
 source = { editable = "." }
 dependencies = [
     { name = "tilebox-datasets" },

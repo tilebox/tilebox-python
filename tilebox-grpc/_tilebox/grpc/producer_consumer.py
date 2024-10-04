@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterator
-from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
+from threading import Thread
 from typing import Any, TypeVar
 
 T = TypeVar("T")
@@ -26,9 +26,13 @@ def concurrent_producer_consumer(
 
     queue = Queue(maxsize=buffer_size)
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        executor.submit(_producer, producer, queue)
-        executor.submit(_consumer, consumer, queue)
+    # offload consuming to a separate thread, so that we can continue producing data on the main thread
+    consumer_thread = Thread(target=_consumer, args=(consumer, queue))
+    consumer_thread.start()
+    # do this on the main thread - the producer may have callbacks (e.g. progress bar updates) and those should
+    # happen on the main thread - otherwise issues may arise with libraries like streamlit
+    _producer(producer, queue)
+    consumer_thread.join()
 
 
 def _producer(producer: Iterator[T], queue: Queue[T | None]) -> None:

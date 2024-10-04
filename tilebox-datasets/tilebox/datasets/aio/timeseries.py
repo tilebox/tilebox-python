@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from functools import partial
 
 import xarray as xr
@@ -11,13 +11,14 @@ from tilebox.datasets.aio.pagination import (
     with_time_progress_callback,
     with_time_progressbar,
 )
-from tilebox.datasets.aio.service import TileboxDatasetService
 from tilebox.datasets.data.collection import Collection, CollectionInfo
 from tilebox.datasets.data.datapoint import DatapointInterval, DatapointPage
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
+from tilebox.datasets.progress import ProgressCallback
 from tilebox.datasets.protobuf_xarray import TimeseriesToXarrayConverter
+from tilebox.datasets.service import TileboxDatasetService
 
 # allow private member access: we allow it here because we want to make as much private as possible so that we can
 # minimize the publicly facing API (which allows us to change internals later, and also limits to auto-completion)
@@ -185,7 +186,7 @@ class TimeseriesCollection:
         time_or_interval: TimeIntervalLike,
         *,
         skip_data: bool = False,
-        show_progress: bool | Callable[[float], None] = False,
+        show_progress: bool | ProgressCallback = False,
     ) -> xr.Dataset:
         """
         Load a range of datapoints in this collection in a specified interval.
@@ -216,7 +217,7 @@ class TimeseriesCollection:
         time_or_interval: TimeIntervalLike,
         skip_data: bool = False,
         skip_meta: bool = False,
-        show_progress: bool | Callable[[float], None] = False,
+        show_progress: bool | ProgressCallback = False,
         page_size: int | None = None,
     ) -> AsyncIterator[DatapointPage]:
         time_interval = TimeInterval.parse(time_or_interval)
