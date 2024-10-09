@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.2] - 2024-10-05
+
+### Added
+
+- Added `format` method to `TimeInterval` to format the interval as a string with custom precision and with or without the endpoint chars.
+
+### Fixed
+
+- `tilebox-workflows`: Fixed a bug where the root logger was not set to DEBUG level, which would cause all DEBUG messages to be discarded.
+
 ## [0.27.1] - 2024-10-04
 
 ### Fixed
@@ -52,7 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.27.1...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.27.2...HEAD
+[0.27.2]: https://github.com/tilebox/tilebox-python/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/tilebox/tilebox-python/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/tilebox/tilebox-python/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/tilebox/tilebox-python/compare/v0.25.1...v0.26.0

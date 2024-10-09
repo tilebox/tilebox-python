@@ -74,20 +74,34 @@ class TimeInterval:
         return (a.start, a.end) == (b.start, b.end)
 
     def __repr__(self) -> str:
-        """Human readable representation of the time interval"""
+        return self.format()
+
+    def format(self, endpoints: bool = True, sep: str = ", ", timespec: str = "milliseconds") -> str:
+        """Human readable representation of the time interval
+
+        Args:
+            endpoints: Whether to format as interval using scientific interval notation [start, end].
+                "[", "]" for closed intervals and "(", ")" for open intervals.
+            sep: The separator to use between the start and end of the interval.
+            timespec: Specifies the number of additional terms of the time to include. Valid options are 'auto',
+                'hours', 'minutes', 'seconds', 'milliseconds' and 'microseconds'.
+        """
         if self == _EMPTY_TIME_INTERVAL:
             return "<empty>"
-        start_ch = "[" if not self.start_exclusive else "("
-        end_ch = "]" if self.end_inclusive else ")"
 
-        start = self.start.isoformat(timespec="milliseconds").replace("+00:00", " UTC")
-        end = self.end.isoformat(timespec="milliseconds").replace("+00:00", " UTC")
+        start = self.start.isoformat(timespec=timespec).replace("+00:00", " UTC")
+        end = self.end.isoformat(timespec=timespec).replace("+00:00", " UTC")
 
-        return f"{start_ch}{start}, {end}{end_ch}"
+        formatted = f"{start}{sep}{end}"
+        if endpoints:
+            start_ch = "[" if not self.start_exclusive else "("
+            end_ch = "]" if self.end_inclusive else ")"
+            formatted = f"{start_ch}{formatted}{end_ch}"
+        return formatted
 
     def __str__(self) -> str:
         """Human readable representation of the time interval"""
-        return repr(self)
+        return self.format()
 
     @classmethod
     def parse(cls, arg: TimeIntervalLike) -> "TimeInterval":

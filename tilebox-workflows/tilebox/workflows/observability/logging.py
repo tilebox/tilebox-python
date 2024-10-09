@@ -5,6 +5,7 @@ import re
 import sys
 import traceback
 from datetime import timedelta
+from functools import lru_cache
 from importlib.metadata import PackageNotFoundError, version
 from typing import ClassVar, TextIO
 from uuid import uuid4
@@ -48,6 +49,16 @@ def _get_default_resource(service: str | Resource | None = None) -> Resource:
             SERVICE_VERSION: workflows_version,
         }
     )
+
+
+@lru_cache
+def _root_logger() -> logging.Logger:
+    root_logger = logging.getLogger(_LOGGING_NAMESPACE)
+    # our root logger needs DEBUG level, otherwise it would always automatically
+    # discard all DEBUG messages and never forward them to any handler, even if they
+    # have a DEBUG level set
+    root_logger.setLevel(logging.DEBUG)
+    return root_logger
 
 
 class OTELLoggingHandler(LoggingHandler):
@@ -147,8 +158,7 @@ def configure_otel_logging(  # noqa: PLR0913
         ValueError: If no endpoint is provided and no OTEL_LOGS_ENDPOINT environment variable is set.
     """
     handler = _otel_handler(level, service, endpoint, headers, export_interval)
-    # add to stdlib logger
-    root_logger = logging.getLogger(_LOGGING_NAMESPACE)
+    root_logger = _root_logger()
 
     # clean up previous handlers:
     # remove the default handler if it exists, and all other OtelHandlers if reconfigure is True
@@ -249,7 +259,7 @@ class ColorfulConsoleFormatter(logging.Formatter):
 
 
 def configure_console_logging(
-    level: int = logging.DEBUG, stream: TextIO | None = None, reconfigure: bool = True
+    level: int = logging.INFO, stream: TextIO | None = None, reconfigure: bool = True
 ) -> None:
     """
     Configure logging to the console (stdout).
@@ -260,7 +270,7 @@ def configure_console_logging(
 
     Args:
         level: The logging level to use for the console handler. Only log messages with a level higher or equal to
-            this will be sent to the console. Defaults to logging.DEBUG.
+            this will be sent to the console. Defaults to logging.INFO.
         stream: The TextIO stream to use as output for logging. Defaults to sys.stdout.
         reconfigure: Only relevant if configure_console_logging is called multiple times. If True, any previously
             configured console logging handlers will be removed. If False, the existing handlers will be kept. Useful
@@ -273,7 +283,7 @@ def configure_console_logging(
     handler.setLevel(level)
     handler.setFormatter(ColorfulConsoleFormatter())
 
-    root_logger = logging.getLogger(_LOGGING_NAMESPACE)
+    root_logger = _root_logger()
 
     # clean up previous handlers:
     # remove the default handler if it exists, and all other ConsoleHandlers if reconfigure is True
@@ -293,7 +303,7 @@ def configure_console_logging(
     root_logger.addHandler(handler)
 
 
-def get_logger(name: str | None = None, level: int = logging.INFO) -> logging.Logger:
+def get_logger(name: str | None = None, level: int = logging.NOTSET) -> logging.Logger:
     """
     Get a logger with a given name and level.
 
@@ -308,8 +318,8 @@ def get_logger(name: str | None = None, level: int = logging.INFO) -> logging.Lo
             explicitly specifying a name.
         level: The logging level to use for the logger. Only log messages with a level higher or equal to this will be
             sent to the logger. Only log messages with a level higher or equal to this will be sent by the logger to
-            configured handlers. Defaults to logging.INFO. Use this to adjust the log level to the one you want to use,
-            e.g. DEBUG for development or INFO, WARNING or ERROR for production.
+            configured handlers. Defaults to logging.NOTSET, which effectively means all messages will be forwarded
+            to the handlers.
 
     Returns:
         A logger capable of logging messages that will be sent to the configured handlers.
@@ -317,7 +327,7 @@ def get_logger(name: str | None = None, level: int = logging.INFO) -> logging.Lo
     if name is None:
         name = f"unnamed_logger_{uuid4()}"
 
-    root_logger = logging.getLogger(_LOGGING_NAMESPACE)
+    root_logger = _root_logger()
     if not root_logger.hasHandlers():
         # no handlers are configured, so we add a standard console handler
         handler = logging.StreamHandler(sys.stdout)
