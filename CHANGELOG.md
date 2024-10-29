@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Changed collection.info count default value to True
+
 ## [0.27.2] - 2024-10-05
 
 ### Added
