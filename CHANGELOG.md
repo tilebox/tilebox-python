@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2024-10-12
+
+### Added
+
+- Added `SubscriptionLimitExceededError` error to indicate subscription rate limiting related errors.
+
 ### Changed
 
-- Changed collection.info count default value to True
+- `client.dataset` method of the datasets client now takes a dataset slug instead of an id as input argument
+- Changed default value of `count` for the `collection.info` method to `True`, since it's no longer an expensive operation
 
 ## [0.27.2] - 2024-10-05
 
@@ -66,7 +73,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.27.2...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/tilebox/tilebox-python/compare/v0.27.2...v0.28.0
 [0.27.2]: https://github.com/tilebox/tilebox-python/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/tilebox/tilebox-python/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/tilebox/tilebox-python/compare/v0.26.0...v0.27.0

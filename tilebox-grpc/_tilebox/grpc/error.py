@@ -21,6 +21,10 @@ class NotFoundError(KeyError):
     """NotFoundError indicates that a given resource was not found on the server side"""
 
 
+class SubscriptionLimitExceededError(IOError):
+    """SubscriptionLimitExceededError indicates that the subscription limit for a resource has been reached"""
+
+
 class InternalServerError(KeyError):
     """InternalServerError indicates that an unexpected error happened on the server side"""
 
@@ -63,6 +67,8 @@ def translate_rpc_error(err: AnyRpcError) -> Exception:
             return AuthenticationError("Invalid token provided")
         case StatusCode.NOT_FOUND:
             return NotFoundError(err.details())
+        case StatusCode.RESOURCE_EXHAUSTED:
+            return SubscriptionLimitExceededError(err.details())
         case StatusCode.INVALID_ARGUMENT:
             return ArgumentError(err.details())
 

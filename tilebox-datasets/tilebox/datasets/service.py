@@ -52,11 +52,9 @@ class TileboxDatasetService:
             ListDatasetsResponse.from_message
         )
 
-    def get_dataset(self, dataset_id: UUID) -> Promise[Dataset]:
+    def get_dataset(self, slug: str) -> Promise[Dataset]:
         """Get a dataset by its id."""
-        return Promise.resolve(self._service.GetDataset(GetDatasetRequest(dataset_id=str(dataset_id)))).then(
-            Dataset.from_message
-        )
+        return Promise.resolve(self._service.GetDataset(GetDatasetRequest(slug=slug))).then(Dataset.from_message)
 
     def create_collection(self, dataset_id: UUID, name: str) -> Promise[CollectionInfo]:
         """Create a new collection in a dataset.

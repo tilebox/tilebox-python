@@ -1,7 +1,6 @@
 import os
 import sys
 from typing import Any, Protocol, TypeVar
-from uuid import UUID
 
 from loguru import logger
 from promise import Promise
@@ -37,21 +36,19 @@ class Client:
             )
         )
 
-    def dataset(self, dataset_id: str | UUID, dataset_type: type[T]) -> Promise[T]:
+    def dataset(self, slug: str, dataset_type: type[T]) -> Promise[T]:
         """
-        Get a dataset by its id.
+        Get a dataset by its slug, e.g. `open_data.copernicus.sentinel1_sar`.
 
         Args:
-            dataset_id: The id of the dataset to get.
+            slug: The slug of the dataset
 
         Returns:
             The dataset if it exists.
         """
-        if isinstance(dataset_id, str):
-            dataset_id = UUID(dataset_id)
 
         return (
-            self._service.get_dataset(dataset_id)
+            self._service.get_dataset(slug)
             .then(_ensure_registered)
             .then(lambda dataset: dataset_type(self._service, dataset))
         )

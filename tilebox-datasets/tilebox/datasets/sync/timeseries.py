@@ -87,7 +87,7 @@ class TimeseriesCollection:
                 return repr(self._info_cache[key])
         return f"Collection {self.name}: <data info not loaded yet>"
 
-    def info(self, availability: bool = True, count: bool = False) -> CollectionInfo:
+    def info(self, availability: bool = True, count: bool = True) -> CollectionInfo:
         """
         Fetch additional metadata about the datapoints in this collection.
 

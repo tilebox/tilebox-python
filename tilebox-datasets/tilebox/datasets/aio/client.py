@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from _tilebox.grpc.aio.channel import open_channel
 from _tilebox.grpc.aio.error import with_pythonic_errors
 from tilebox.datasets.aio.timeseries import TimeseriesDataset
@@ -19,5 +17,5 @@ class Client:
     async def datasets(self) -> Group:
         return await self._client.datasets(TimeseriesDataset)
 
-    async def dataset(self, dataset_id: str | UUID) -> TimeseriesDataset:
-        return await self._client.dataset(dataset_id, TimeseriesDataset)
+    async def dataset(self, slug: str) -> TimeseriesDataset:
+        return await self._client.dataset(slug, TimeseriesDataset)

@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from _tilebox.grpc.channel import open_channel
 from _tilebox.grpc.error import with_pythonic_errors
 from tilebox.datasets.client import Client as BaseClient
@@ -19,5 +17,5 @@ class Client:
     def datasets(self) -> Group:
         return self._client.datasets(TimeseriesDataset).get()
 
-    def dataset(self, dataset_id: str | UUID) -> TimeseriesDataset:
-        return self._client.dataset(dataset_id, TimeseriesDataset).get()
+    def dataset(self, slug: str) -> TimeseriesDataset:
+        return self._client.dataset(slug, TimeseriesDataset).get()

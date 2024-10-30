@@ -349,7 +349,7 @@ class ASFStorageClient(StorageClient):
             raise ValueError("No quicklook available for this granule.")
 
         if self._cache is None:
-            output_file = tempfile.NamedTemporaryFile(prefix="tilebox")
+            output_file = tempfile.NamedTemporaryFile(prefix="tilebox", delete=False)  # noqa: SIM115
         else:
             output_file = self._cache / granule.storage_provider / granule.granule_name / url.rsplit("/", 1)[-1]
             if output_file.exists():
@@ -475,19 +475,19 @@ class UmbraStorageClient(StorageClient):
 
         # we download into a temporary file, which we then move to the final location once the download is complete
         # this way we can be sure that the files in the download location are complete and not partially downloaded
-        download_file = tempfile.NamedTemporaryFile(prefix="tilebox", delete=False)
-        await self._s3.download_object(
-            key,
-            # as "name" for the progress bar we display the relative path to the root of the download
-            relative_path,
-            object_metadata.get("Size", 0),
-            download_file,
-            verify,
-            show_progress,
-        )
+        with tempfile.NamedTemporaryFile(prefix="tilebox", delete=False) as download_file:
+            await self._s3.download_object(
+                key,
+                # as "name" for the progress bar we display the relative path to the root of the download
+                relative_path,
+                object_metadata.get("Size", 0),
+                download_file,
+                verify,
+                show_progress,
+            )
 
-        output_folder.mkdir(parents=True, exist_ok=True)
-        shutil.move(download_file.name, output_file)
+            output_folder.mkdir(parents=True, exist_ok=True)
+            shutil.move(download_file.name, output_file)
 
 
 class CopernicusStorageClient(StorageClient):
@@ -598,16 +598,16 @@ class CopernicusStorageClient(StorageClient):
 
         # we download into a temporary file, which we then move to the final location once the download is complete
         # this way we can be sure that the files in the download location are complete and not partially downloaded
-        download_file = tempfile.NamedTemporaryFile(prefix="tilebox", delete=False)
-        await self._s3.download_object(
-            key,
-            # as "name" for the progress bar we display the relative path to the root of the download
-            relative_path,
-            object_metadata.get("Size", 0),
-            download_file,
-            verify,
-            show_progress,
-        )
+        with tempfile.NamedTemporaryFile(prefix="tilebox", delete=False) as download_file:
+            await self._s3.download_object(
+                key,
+                # as "name" for the progress bar we display the relative path to the root of the download
+                relative_path,
+                object_metadata.get("Size", 0),
+                download_file,
+                verify,
+                show_progress,
+            )
 
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(download_file.name, output_file)
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(download_file.name, output_file)
