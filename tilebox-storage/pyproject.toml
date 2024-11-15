@@ -29,12 +29,8 @@ dependencies = [
     "boto3-stubs[essential]>=1.33",
 ]
 
-[project.urls]
-Homepage = "https://tilebox.com"
-Documentation = "https://docs.tilebox.com/"
-
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "hypothesis>=6.112.1",
     "pytest-httpx>=0.30.0",
     "pytest-asyncio>=0.24.0",
@@ -42,6 +38,10 @@ dev-dependencies = [
     "pytest>=8.3.2",
     "moto>=5",
 ]
+
+[project.urls]
+Homepage = "https://tilebox.com"
+Documentation = "https://docs.tilebox.com/"
 
 [tool.hatch.build.targets.sdist]
 packages = ["tilebox"]

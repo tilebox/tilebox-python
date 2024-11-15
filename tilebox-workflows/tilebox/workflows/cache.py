@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from io import BytesIO
@@ -237,7 +238,10 @@ class AmazonS3Cache(JobCache):
         """
         self.bucket = bucket
         self.prefix = Path(prefix)
-        self._s3 = boto3.client("s3")
+        with warnings.catch_warnings():
+            # https://github.com/boto/boto3/issues/3889
+            warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*datetime.utcnow.*")
+            self._s3 = boto3.client("s3")
 
     def __contains__(self, key: str) -> bool:
         try:

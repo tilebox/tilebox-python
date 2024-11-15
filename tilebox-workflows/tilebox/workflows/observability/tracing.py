@@ -76,7 +76,7 @@ def _otel_tracer_provider(
         endpoint = os.environ.get(_OTEL_TRACES_ENDPOINT_ENV_VAR, None)
     if endpoint is None:
         raise ValueError(
-            f"No OTEL logs endpoint provided and no {_OTEL_TRACES_ENDPOINT_ENV_VAR} environment variable set. Please "
+            f"No OTEL traces endpoint provided and no {_OTEL_TRACES_ENDPOINT_ENV_VAR} environment variable set. Please "
             f"specify an endpoint using the endpoint argument or the environment variable."
         )
 
@@ -206,7 +206,7 @@ def configure_otel_tracing_axiom(
 
     if dataset is None:
         raise ValueError(
-            f"No Axiom logs dataset provided and no {_AXIOM_TRACES_DATASET_ENV_VAR} environment variable set. Please "
+            f"No Axiom traces dataset provided and no {_AXIOM_TRACES_DATASET_ENV_VAR} environment variable set. Please "
             f"specify a dataset using the dataset argument or the environment variable."
         )
     if api_key is None:

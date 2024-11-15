@@ -23,6 +23,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version-file: "pyproject.toml"
+      - name: Sync
+        run: uv sync --all-packages --frozen
       - name: Ruff
         run: uv run ruff format --check . && uv run ruff check .
       - name: Pyright
@@ -33,7 +35,7 @@ jobs:
     strategy:
       matrix:
         os: [Ubuntu]
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,6 +50,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Sync
+        run: uv sync --all-packages --frozen
       - name: Run tests
         run: ./tests.sh
       - name: Test Summary

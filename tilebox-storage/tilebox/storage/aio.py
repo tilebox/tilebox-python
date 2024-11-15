@@ -2,6 +2,7 @@ import hashlib
 import os
 import shutil
 import tempfile
+import warnings
 import zipfile
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
@@ -410,7 +411,13 @@ class UmbraStorageClient(StorageClient):
                no cache is used and the `output_dir` parameter will need be set when downloading data.
         """
         super().__init__(cache_directory)
-        self._s3 = _S3Client(s3=boto3.client("s3", config=Config(signature_version=UNSIGNED)), bucket=self._BUCKET)
+
+        with warnings.catch_warnings():
+            # https://github.com/boto/boto3/issues/3889
+            warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*datetime.utcnow.*")
+            boto3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+
+        self._s3 = _S3Client(s3=boto3_client, bucket=self._BUCKET)
 
     async def download(
         self,
@@ -532,13 +539,18 @@ class CopernicusStorageClient(StorageClient):
                 f"To get access to the Copernicus data, please visit: https://documentation.dataspace.copernicus.eu/APIs/S3.html"
             )
 
-        self._s3 = _S3Client(
-            s3=boto3.client(
+        with warnings.catch_warnings():
+            # https://github.com/boto/boto3/issues/3889
+            warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*datetime.utcnow.*")
+            boto3_client = boto3.client(
                 "s3",
                 aws_access_key_id=access_key,
                 aws_secret_access_key=secret_access_key,
                 endpoint_url=self._ENDPOINT_URL,
-            ),
+            )
+
+        self._s3 = _S3Client(
+            s3=boto3_client,
             bucket=self._BUCKET,
         )
 

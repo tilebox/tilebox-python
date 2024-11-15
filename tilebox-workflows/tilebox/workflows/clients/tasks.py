@@ -3,6 +3,7 @@ from uuid import UUID
 from google.protobuf.duration_pb2 import Duration
 from grpc.aio import Channel
 
+from _tilebox.grpc.error import with_pythonic_errors
 from tilebox.workflows.data import (
     ComputedTask,
     NextTaskToRun,
@@ -29,7 +30,7 @@ class TaskService:
         Args:
             channel: The gRPC channel to use for the service.
         """
-        self.service = TaskServiceStub(channel)
+        self.service = with_pythonic_errors(TaskServiceStub(channel), async_funcs=True)
 
     async def next_task(self, task_to_run: NextTaskToRun | None, computed_task: ComputedTask | None) -> Task | None:
         """Mark a task as computed and ask for the next task to run.

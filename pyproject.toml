@@ -12,17 +12,8 @@ dependencies = [
     "tilebox-workflows",
 ]
 
-[project.scripts]
-copy-protobuf = "tools.copy_protobuf:main"
-
-[tool.hatch.build.targets.sdist]
-packages = ["tools"]
-
-[tool.hatch.build.targets.wheel]
-packages = ["tools"]
-
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     # so we can run pip commands such as 'pip freeze' in the virtualenv
     "pip>=24.2",
     # so we can build the packages using the CLI
@@ -37,15 +28,16 @@ dev-dependencies = [
     "pre-commit>=3.8.0",
     "types-protobuf>=5.27.0.20240907",
     "junitparser>=3.2.0",
-    # specify all the individual dev-dependencies for each package as well:
-    # otherwise pyright will fail, this is necessary until this issue is resolved: https://github.com/astral-sh/uv/issues/7541
-    "hypothesis>=6.112.1",
-    "pytest-httpx>=0.30.0",
-    "pytest-asyncio>=0.24.0",
-    "pytest-cov>=5.0.0",
-    "pytest>=8.3.2",
-    "moto>=5",
 ]
+
+[project.scripts]
+copy-protobuf = "tools.copy_protobuf:main"
+
+[tool.hatch.build.targets.sdist]
+packages = ["tools"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["tools"]
 
 [tool.uv.workspace]
 members = [

@@ -20,7 +20,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "tilebox-grpc",
+    "tilebox-grpc>=0.28.0",
     # cftime is a dependency of xarray, and we need this version at least to support numpy v2.0
     "cftime>=1.6.4",
     # below version pins are some minimum sane versions that we tested against to make sure they are working
@@ -33,17 +33,18 @@ dependencies = [
     "promise>=2.3",
 ]
 
-[project.urls]
-Homepage = "https://tilebox.com"
-Documentation = "https://docs.tilebox.com/datasets/introduction"
-
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "hypothesis>=6.112.1",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=5.0.0",
     "pytest>=8.3.2",
 ]
+
+
+[project.urls]
+Homepage = "https://tilebox.com"
+Documentation = "https://docs.tilebox.com/datasets/introduction"
 
 [tool.hatch.build.targets.sdist]
 packages = ["tilebox"]

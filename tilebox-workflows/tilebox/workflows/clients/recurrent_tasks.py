@@ -4,6 +4,7 @@ from google.protobuf.empty_pb2 import Empty
 from grpc.aio import Channel
 
 from _tilebox.grpc.aio.syncify import Syncifiable
+from _tilebox.grpc.error import with_pythonic_errors
 from tilebox.workflows.data import (
     CronTrigger,
     RecurrentTaskPrototype,
@@ -29,7 +30,7 @@ class RecurrentTaskService:
         Args:
             channel: The gRPC channel to use for the service.
         """
-        self.service = RecurrentTaskServiceStub(channel)
+        self.service = with_pythonic_errors(RecurrentTaskServiceStub(channel), async_funcs=True)
 
     async def list_storage_locations(self) -> list[StorageLocation]:
         """List all storage locations.

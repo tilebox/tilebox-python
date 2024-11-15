@@ -21,27 +21,27 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
     "tilebox-datasets",
-    "tilebox-grpc",
+    "tilebox-grpc>=0.28.0",
     "google-cloud-storage>=2.10",
-    "opentelemetry-api>=1.25",
-    "opentelemetry-exporter-otlp-proto-http>=1.25",
-    "opentelemetry-sdk>=1.25",
+    "opentelemetry-api>=1.28",
+    "opentelemetry-exporter-otlp-proto-http>=1.28",
+    "opentelemetry-sdk>=1.28",
     "tenacity>=8",
     "boto3>=1.33",
 ]
 
-[project.urls]
-Homepage = "https://tilebox.com"
-Documentation = "https://docs.tilebox.com/workflows/introduction"
-
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "hypothesis>=6.112.1",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=5.0.0",
     "pytest>=8.3.2",
     "moto>=5",
 ]
+
+[project.urls]
+Homepage = "https://tilebox.com"
+Documentation = "https://docs.tilebox.com/workflows/introduction"
 
 [tool.hatch.build.targets.sdist]
 packages = ["tilebox"]

@@ -1,4 +1,5 @@
 import re
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -485,7 +486,10 @@ class RunnerContext:
 
     def s3_client(self, location: str) -> S3Client:
         _ = location  # we always use the default s3 client, regardless of the location
-        return boto3.client("s3")
+        with warnings.catch_warnings():
+            # https://github.com/boto/boto3/issues/3889
+            warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*datetime.utcnow.*")
+            return boto3.client("s3")
 
     def local_path(self, location: str) -> Path:
         return Path(location)

@@ -13,7 +13,7 @@ for package in $packages; do
     if [ -d _tilebox ]; then
         module=_tilebox
     fi
-    uv run --package "$package" pytest -Wall -Werror --cov=$module --cov-branch -v --junitxml=test-report.xml . || exit 1
+    uv run --all-packages pytest -Wall -Werror --cov=$module --cov-branch -v --junitxml=test-report.xml . || exit 1
 
     cd .. || exit 1 # cd back to the root of the monorepo
 done

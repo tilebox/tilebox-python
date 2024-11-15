@@ -30,7 +30,7 @@ async def test_producer_consumer_slow_producer_fast_consumer() -> None:
 
     So the total time should be (producer_sleep * n + consumer_sleep) and not ((producer_sleep + consumer_sleep) * n)
     """
-    n, producer_sleep, consumer_sleep = 10, 0.02, 0.01
+    n, producer_sleep, consumer_sleep = 10, 0.1, 0.05
     took = await _run_consumer_producer_example(n, producer_sleep, consumer_sleep)
     assert (producer_sleep * n + consumer_sleep) < took < ((producer_sleep + consumer_sleep) * n)
 
@@ -44,7 +44,7 @@ async def test_producer_consumer_equally_slow_producer_consumer() -> None:
 
     So the total time should be (producer_sleep * n + consumer_sleep) and not ((producer_sleep + consumer_sleep) * n)
     """
-    n, producer_sleep, consumer_sleep = 10, 0.01, 0.01
+    n, producer_sleep, consumer_sleep = 10, 0.1, 0.05
     took = await _run_consumer_producer_example(n, producer_sleep, consumer_sleep)
     assert (producer_sleep * n + consumer_sleep) < took < ((producer_sleep + consumer_sleep) * n)
 
@@ -57,7 +57,7 @@ async def test_producer_consumer_fast_producer_slow_consumer() -> None:
 
     So the total time should be (producer_sleep + consumer_sleep * n) and not ((producer_sleep + consumer_sleep) * n)
     """
-    n, producer_sleep, consumer_sleep = 10, 0.01, 0.02
+    n, producer_sleep, consumer_sleep = 10, 0.1, 0.05
     took = await _run_consumer_producer_example(n, producer_sleep, consumer_sleep)
     assert (producer_sleep + consumer_sleep * n) < took < ((producer_sleep + consumer_sleep) * n)
 

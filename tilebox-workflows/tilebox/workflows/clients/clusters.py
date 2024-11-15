@@ -1,6 +1,7 @@
 from grpc.aio import Channel
 
 from _tilebox.grpc.aio.syncify import Syncifiable
+from _tilebox.grpc.error import with_pythonic_errors
 from tilebox.workflows.data import (
     Cluster,
 )
@@ -24,7 +25,7 @@ class ClusterService:
         Args:
             channel: The gRPC channel to use for the service.
         """
-        self.service = WorkflowsServiceStub(channel)
+        self.service = with_pythonic_errors(WorkflowsServiceStub(channel), async_funcs=True)
 
     async def create(self, cluster_name: str) -> Cluster:
         """Create a new cluster.

@@ -1,5 +1,6 @@
 import os
 import shutil
+import warnings
 from collections.abc import Iterator
 from io import BytesIO
 from pathlib import Path
@@ -159,7 +160,9 @@ def _aws_credentials() -> None:
 
 @pytest.fixture
 def aws(_aws_credentials: None) -> Iterator[S3Client]:
-    with mock_aws():
+    with mock_aws(), warnings.catch_warnings():
+        # https://github.com/boto/boto3/issues/3889
+        warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*datetime.utcnow.*")
         yield boto3.client("s3", region_name="us-east-1")
 
 

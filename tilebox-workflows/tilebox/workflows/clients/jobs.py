@@ -4,6 +4,7 @@ from uuid import UUID
 from grpc.aio import Channel
 
 from _tilebox.grpc.aio.syncify import Syncifiable
+from _tilebox.grpc.error import with_pythonic_errors
 from tilebox.workflows.clients.clusters import cluster_slug
 from tilebox.workflows.data import (
     Cluster,
@@ -49,7 +50,7 @@ class JobService:
         Args:
             channel: The gRPC channel to use for the service.
         """
-        self.service = JobServiceStub(channel)
+        self.service = with_pythonic_errors(JobServiceStub(channel), async_funcs=True)
 
     async def submit(self, job_name: str, trace_parent: str, tasks: list[TaskSubmission]) -> Job:
         """Submit a new job to the processing service.

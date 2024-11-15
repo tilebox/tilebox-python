@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2024-11-14
+
+### Added
+
+- Added support for Python `3.12` and `3.13`
+
+### Fixed
+
+- `tilebox-grpc`: Fixed a dependency version error resulting in an outdated version of the package being installed by `pip` by default.
+- `tilebox-workflows`: Fixed a bug where `grpc` errors were not wrapped in Tilebox Python exceptions.
+
 ## [0.28.0] - 2024-10-12
 
 ### Added
@@ -73,7 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/tilebox/tilebox-python/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/tilebox/tilebox-python/compare/v0.27.2...v0.28.0
 [0.27.2]: https://github.com/tilebox/tilebox-python/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/tilebox/tilebox-python/compare/v0.27.0...v0.27.1

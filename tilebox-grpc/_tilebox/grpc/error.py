@@ -2,7 +2,7 @@
 This module contains error classes for translating various gRPC server response codes into more pythonic exceptions
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from typing import Any, Protocol, TypeVar, cast
 
 from grpc import RpcError, StatusCode
@@ -32,7 +32,7 @@ class InternalServerError(KeyError):
 Stub = TypeVar("Stub")
 
 
-def with_pythonic_errors(stub: Stub) -> Stub:
+def with_pythonic_errors(stub: Stub, async_funcs: bool = False) -> Stub:
     """
     Wrap a sync gRPC stub to translate rpc errors into pythonic exceptions.
 
@@ -41,13 +41,15 @@ def with_pythonic_errors(stub: Stub) -> Stub:
 
     Args:
         stub: The grpc stub to wrap.
+        async_funcs: Whether to wrap the callables as coroutines or not. Defaults to False.
 
     Returns:
         The stub with the rpc methods wrapped.
     """
+    wrap_func = _wrap_rpc if not async_funcs else _async_wrap_rpc
     for name, rpc in stub.__dict__.items():
         if callable(rpc):
-            setattr(stub, name, _wrap_rpc(rpc))
+            setattr(stub, name, wrap_func(rpc))  # type: ignore[assignment]
     return stub
 
 
@@ -79,6 +81,19 @@ def _wrap_rpc(rpc: Callable[[Any], Any]) -> Callable[[Any], Any]:
     def call(*args: Any, **kwargs: Any) -> Any:
         try:
             return rpc(*args, **kwargs)
+        except (RpcError, AioRpcError) as err:
+            error = translate_rpc_error(cast(AnyRpcError, err))
+
+            # raise the appropriate exception for the error code we received
+            raise error from None
+
+    return call
+
+
+def _async_wrap_rpc(rpc: Callable[[Any], Coroutine[Any, Any, Any]]) -> Callable[[Any], Coroutine[Any, Any, Any]]:
+    async def call(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return await rpc(*args, **kwargs)
         except (RpcError, AioRpcError) as err:
             error = translate_rpc_error(cast(AnyRpcError, err))
 
