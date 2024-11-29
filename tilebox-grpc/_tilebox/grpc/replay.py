@@ -14,6 +14,7 @@ from _tilebox.grpc.channel import (
 from _tilebox.grpc.error import AnyRpcError
 from grpc import (
     Channel,
+    Future,
     RpcError,
     StatusCode,
     UnaryUnaryClientInterceptor,
@@ -42,6 +43,37 @@ def open_replay_channel(recording: str | Path, assert_request_matches: bool = Tr
     return _ReplayChannel(recording, assert_request_matches)  # type: ignore[return-value]
 
 
+class _ConcreteValue(Future):
+    def __init__(self, result: Message) -> None:
+        self._result = result
+
+    def cancel(self) -> bool:
+        return False
+
+    def cancelled(self) -> bool:
+        return False
+
+    def running(self) -> bool:
+        return False
+
+    def done(self) -> bool:
+        return True
+
+    def result(self, timeout: float | None = None) -> Message:
+        _ = timeout
+        return self._result
+
+    def exception(self, timeout: float | None = None) -> BaseException | None:
+        _ = timeout
+        return None
+
+    def traceback(self, timeout: float | None = None) -> None:
+        _ = timeout
+
+    def add_done_callback(self, fn: Callable[[Message], None]) -> None:
+        fn(self._result)
+
+
 class _RecordRPCsInterceptor(UnaryUnaryClientInterceptor):
     def __init__(self, recording: str | Path) -> None:
         self.recording = Path(recording)
@@ -51,10 +83,10 @@ class _RecordRPCsInterceptor(UnaryUnaryClientInterceptor):
 
     def intercept_unary_unary(
         self,
-        continuation: Callable[[ClientCallDetails, RequestType], Message],
+        continuation: Callable[[ClientCallDetails, RequestType], Future],
         client_call_details: ClientCallDetails,
         request: RequestType,
-    ) -> Message:
+    ) -> Future:
         request_data = base64.b64encode(request.SerializeToString())  # type: ignore[attr-defined]
         with self.recording.open("ab") as file:
             method = client_call_details.method
@@ -66,8 +98,8 @@ class _RecordRPCsInterceptor(UnaryUnaryClientInterceptor):
             file.write(b"\n")
 
         try:
-            result = continuation(client_call_details, request)
-
+            outcome = continuation(client_call_details, request)
+            result: Message = outcome.result()
             response_data = base64.b64encode(result.SerializeToString())
 
             with self.recording.open("ab") as file:
@@ -87,7 +119,7 @@ class _RecordRPCsInterceptor(UnaryUnaryClientInterceptor):
 
             raise  # re-raise the error
 
-        return result
+        return outcome
 
 
 class _ReplayChannel:

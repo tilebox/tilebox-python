@@ -16,7 +16,7 @@ async def async_producer_consumer(
     buffer_size: int = 10,
 ) -> None:
     """
-    Consume messages from a async producer (e.g. a service endpoint) as they come on. This ensures that the consumer
+    Consume messages from a async producer (e.g. a service endpoint) as they come in. This ensures that the consumer
     is already computing each produced message while the next message is being produced.
 
     If the consumer is actually slower than the producer producing new message, the messages are buffered up to the

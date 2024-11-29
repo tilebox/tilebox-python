@@ -1,14 +1,14 @@
 import functools
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable
 from typing import Any, Protocol, TypeAlias, cast
 
 from tilebox.workflows.task import ExecutionContext, Task, _task_meta
 
-ForwardExecution: TypeAlias = Callable[[ExecutionContext], Coroutine[Any, Any, None]]
+ForwardExecution: TypeAlias = Callable[[ExecutionContext], Any]
 
 
 class Interceptor(Protocol):
-    async def __call__(self, task: Task, call_next: ForwardExecution, context: ExecutionContext) -> None: ...
+    def __call__(self, task: Task, call_next: ForwardExecution, context: ExecutionContext) -> None: ...
 
 
 class InterceptorType(Protocol):
@@ -22,9 +22,9 @@ def execution_interceptor(func: Interceptor) -> InterceptorType:
 
     Example:
     >>> @execution_interceptor
-    >>> async def my_interceptor(task: Task, next: Interceptor, context: ExecutionContext) -> None:
+    >>> def my_interceptor(task: Task, next: Interceptor, context: ExecutionContext) -> None:
     >>>     print("Before")
-    >>>     result = await next(context)
+    >>>     result = next(context)
     >>>     print("After")
     >>>     return result
 
@@ -56,7 +56,7 @@ def execution_interceptor(func: Interceptor) -> InterceptorType:
 
 
 @execution_interceptor
-async def print_executions(task: Task, call_next: ForwardExecution, context: ExecutionContext) -> None:
+def print_executions(task: Task, call_next: ForwardExecution, context: ExecutionContext) -> None:
     """Print executing tasks."""
     print(f"Executing {task}")  # noqa: T201
-    return await call_next(context)
+    return call_next(context)

@@ -20,7 +20,11 @@ def replay_client(replay_file: str, assert_request_matches: bool = True) -> Clie
 
     with patch("tilebox.datasets.sync.client.open_channel") as open_channel_mock:
         open_channel_mock.return_value = replay_channel
-        client = Client("https://api.tilebox.com", "token")  # url/token doesn't matter since its a mocked channel
+        # url/token doesn't matter since its a mocked channel
+        client = Client(
+            url="https://api.tilebox.com",
+            token="token",  # noqa: S106
+        )
         open_channel_mock.assert_called_once()
 
     return client
@@ -36,7 +40,8 @@ def record_client(recording_file: str) -> Client:
 
     with patch("tilebox.datasets.sync.client.open_channel") as open_channel_mock:
         open_channel_mock.return_value = recording_channel
-        client = Client("https://api.tilebox.com", "token")  # url/token doesn't matter since its a mocked channel
+        # url/token doesn't matter since its a mocked channel
+        client = Client(url="https://api.tilebox.com", token="token")  # noqa: S106
         open_channel_mock.assert_called_once()
 
     return client

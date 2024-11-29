@@ -9,7 +9,7 @@ from tilebox.datasets.sync.timeseries import TimeseriesDataset
 
 
 class Client:
-    def __init__(self, url: str = "https://api.tilebox.com", token: str | None = None) -> None:
+    def __init__(self, *, url: str = "https://api.tilebox.com", token: str | None = None) -> None:
         channel = open_channel(url, token_from_env(url, token))
         service = TileboxDatasetService(with_pythonic_errors(TileboxServiceStub(channel)))
         self._client = BaseClient(service)
@@ -19,3 +19,6 @@ class Client:
 
     def dataset(self, slug: str) -> TimeseriesDataset:
         return self._client.dataset(slug, TimeseriesDataset).get()
+
+    def _dataset_by_id(self, dataset_id: str) -> TimeseriesDataset:
+        return self._client._dataset_by_id(dataset_id, TimeseriesDataset).get()  # noqa: SLF001

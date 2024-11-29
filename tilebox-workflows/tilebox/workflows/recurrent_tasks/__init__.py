@@ -1,6 +1,5 @@
-from tilebox.workflows.recurrent_tasks.cron import SyncCronTask as CronTask
-from tilebox.workflows.recurrent_tasks.storage_event import StorageEventType
-from tilebox.workflows.recurrent_tasks.storage_event import SyncStorageEventTask as StorageEventTask
+from tilebox.workflows.recurrent_tasks.cron import CronTask
+from tilebox.workflows.recurrent_tasks.storage_event import StorageEventTask, StorageEventType
 
 __all__ = [
     "CronTask",

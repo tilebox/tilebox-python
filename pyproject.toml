@@ -84,8 +84,6 @@ ignore = [
     "EM",  # flake8-errmsg: str directly in Exception constructor is accetable
     "TCH", # flake8-type-checking: type checking blocks are weird
     # specific rules
-    "ANN101",  # missing-type-self: self doesn't need type information
-    "ANN102",  # missing-type-cls: cls doesn't need type information
     "ANN401",  # any-type: allow Any in *args and **kwargs
     "S101",    # assert: allow usage of assert
     "B008",    # function-call-argument-default: some default argument values make sense to be function calls

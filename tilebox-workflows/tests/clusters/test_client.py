@@ -1,13 +1,12 @@
-import asyncio
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-import nest_asyncio
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, consumes, rule
 from tests.tasks_data import clusters
 
 from _tilebox.grpc.error import NotFoundError
-from tilebox.workflows.clients.clusters import ClusterClient, ClusterService
+from tilebox.workflows.clusters.client import ClusterClient
+from tilebox.workflows.clusters.service import ClusterService
 from tilebox.workflows.data import (
     Cluster,
 )
@@ -21,9 +20,6 @@ from tilebox.workflows.workflowsv1.workflows_pb2 import (
 )
 from tilebox.workflows.workflowsv1.workflows_pb2_grpc import WorkflowsServiceStub
 
-# needed for the asyncio.run calls in the state machine below
-nest_asyncio.apply()
-
 
 class MockClusterService(WorkflowsServiceStub):
     """A mock implementation of the gRPC cluster service, that stores clusters in memory as a dict."""
@@ -31,23 +27,23 @@ class MockClusterService(WorkflowsServiceStub):
     def __init__(self) -> None:
         self.clusters: dict[str, ClusterMessage] = {}
 
-    async def CreateCluster(self, req: CreateClusterRequest) -> ClusterMessage:  # noqa: N802
+    def CreateCluster(self, req: CreateClusterRequest) -> ClusterMessage:  # noqa: N802
         cluster = ClusterMessage(slug=str(uuid4()), display_name=req.name)
         self.clusters[cluster.slug] = cluster
         return cluster
 
-    async def GetCluster(self, req: GetClusterRequest) -> ClusterMessage:  # noqa: N802
+    def GetCluster(self, req: GetClusterRequest) -> ClusterMessage:  # noqa: N802
         if req.cluster_slug in self.clusters:
             return self.clusters[req.cluster_slug]
         raise NotFoundError(f"Cluster {req.cluster_slug} not found")
 
-    async def DeleteCluster(self, req: DeleteClusterRequest) -> None:  # noqa: N802
+    def DeleteCluster(self, req: DeleteClusterRequest) -> None:  # noqa: N802
         if req.cluster_slug in self.clusters:
             del self.clusters[req.cluster_slug]
         else:
             raise NotFoundError(f"Cluster {req.cluster_slug} not found")
 
-    async def ListClusters(self, req: ListClustersRequest) -> ListClustersResponse:  # noqa: N802
+    def ListClusters(self, req: ListClustersRequest) -> ListClustersResponse:  # noqa: N802
         _ = req
         return ListClustersResponse(clusters=list(self.clusters.values()))
 
@@ -77,22 +73,21 @@ class ClusterCRUDOperations(RuleBasedStateMachine):
     @rule(target=inserted_clusters, cluster=clusters())
     def create_cluster(self, cluster: Cluster) -> Cluster:
         self.count_clusters += 1
-        # RuleBasedStateMachine does not support async functions, so we use asyncio.run instead of await
-        return asyncio.run(self.cluster_client.create(cluster.display_name))
+        return self.cluster_client.create(cluster.display_name)
 
     @rule(cluster=inserted_clusters)
     def get_cluster(self, cluster: Cluster) -> None:
-        got = asyncio.run(self.cluster_client.find(cluster.slug))
+        got = self.cluster_client.find(cluster.slug)
         assert got.display_name == cluster.display_name
 
     @rule(cluster=consumes(inserted_clusters))  # consumes -> remove from bundle afterwards
     def delete_cluster(self, cluster: Cluster) -> None:
         self.count_clusters -= 1
-        asyncio.run(self.cluster_client.delete(cluster.slug))
+        self.cluster_client.delete(cluster.slug)
 
     @rule()
     def list_clusters(self) -> None:
-        clusters = asyncio.run(self.cluster_client.all())
+        clusters = self.cluster_client.all()
         assert len(clusters) == self.count_clusters
 
 

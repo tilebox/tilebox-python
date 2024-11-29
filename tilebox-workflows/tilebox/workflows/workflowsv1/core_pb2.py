@@ -23,9 +23,10 @@ _sym_db = _symbol_database.Default()
 
 
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17workflows/v1/core.proto\x12\x0cworkflows.v1\x1a\x1egoogle/protobuf/duration.proto\"@\n\x07\x43luster\x12\x12\n\x04slug\x18\x02 \x01(\tR\x04slug\x12!\n\x0c\x64isplay_name\x18\x03 \x01(\tR\x0b\x64isplayName\"~\n\x03Job\x12\"\n\x02id\x18\x01 \x01(\x0b\x32\x12.workflows.v1.UUIDR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12!\n\x0ctrace_parent\x18\x03 \x01(\tR\x0btraceParent\x12\x1c\n\tcompleted\x18\x04 \x01(\x08R\tcompleted\"\xc0\x03\n\x04Task\x12\"\n\x02id\x18\x01 \x01(\x0b\x32\x12.workflows.v1.UUIDR\x02id\x12<\n\nidentifier\x18\x02 \x01(\x0b\x32\x1c.workflows.v1.TaskIdentifierR\nidentifier\x12-\n\x05state\x18\x03 \x01(\x0e\x32\x17.workflows.v1.TaskStateR\x05state\x12\x19\n\x05input\x18\x04 \x01(\x0cH\x00R\x05input\x88\x01\x01\x12\x1d\n\x07\x64isplay\x18\x05 \x01(\tH\x01R\x07\x64isplay\x88\x01\x01\x12#\n\x03job\x18\x06 \x01(\x0b\x32\x11.workflows.v1.JobR\x03job\x12/\n\tparent_id\x18\x07 \x01(\x0b\x32\x12.workflows.v1.UUIDR\x08parentId\x12\x31\n\ndepends_on\x18\x08 \x03(\x0b\x32\x12.workflows.v1.UUIDR\tdependsOn\x12-\n\x05lease\x18\t \x01(\x0b\x32\x17.workflows.v1.TaskLeaseR\x05lease\x12\x1f\n\x0bretry_count\x18\n \x01(\x03R\nretryCountB\x08\n\x06_inputB\n\n\x08_display\">\n\x0eTaskIdentifier\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\"1\n\x05Tasks\x12(\n\x05tasks\x18\x01 \x03(\x0b\x32\x12.workflows.v1.TaskR\x05tasks\"\xe6\x01\n\x0eTaskSubmission\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\x12<\n\nidentifier\x18\x02 \x01(\x0b\x32\x1c.workflows.v1.TaskIdentifierR\nidentifier\x12\x14\n\x05input\x18\x03 \x01(\x0cR\x05input\x12\x18\n\x07\x64isplay\x18\x04 \x01(\tR\x07\x64isplay\x12\"\n\x0c\x64\x65pendencies\x18\x05 \x03(\x03R\x0c\x64\x65pendencies\x12\x1f\n\x0bmax_retries\x18\x06 \x01(\x03R\nmaxRetries\"\x1a\n\x04UUID\x12\x12\n\x04uuid\x18\x01 \x01(\x0cR\x04uuid\"\xa9\x01\n\tTaskLease\x12/\n\x05lease\x18\x01 \x01(\x0b\x32\x19.google.protobuf.DurationR\x05lease\x12k\n%recommended_wait_until_next_extension\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationR!recommendedWaitUntilNextExtension*\xa0\x01\n\tTaskState\x12\x1a\n\x16TASK_STATE_UNSPECIFIED\x10\x00\x12\x15\n\x11TASK_STATE_QUEUED\x10\x01\x12\x16\n\x12TASK_STATE_RUNNING\x10\x02\x12\x17\n\x13TASK_STATE_COMPUTED\x10\x03\x12\x15\n\x11TASK_STATE_FAILED\x10\x04\x12\x18\n\x14TASK_STATE_CANCELLED\x10\x05\x42\xb2\x01\n\x10\x63om.workflows.v1B\tCoreProtoP\x01ZBgithub.com/tilebox/tilebox-go/protogen/go/workflows/v1;workflowsv1\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17workflows/v1/core.proto\x12\x0cworkflows.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"@\n\x07\x43luster\x12\x12\n\x04slug\x18\x02 \x01(\tR\x04slug\x12!\n\x0c\x64isplay_name\x18\x03 \x01(\tR\x0b\x64isplayName\"\xc2\x02\n\x03Job\x12\"\n\x02id\x18\x01 \x01(\x0b\x32\x12.workflows.v1.UUIDR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12!\n\x0ctrace_parent\x18\x03 \x01(\tR\x0btraceParent\x12\x1c\n\tcompleted\x18\x04 \x01(\x08R\tcompleted\x12\x1a\n\x08\x63\x61nceled\x18\x05 \x01(\x08R\x08\x63\x61nceled\x12,\n\x05state\x18\x06 \x01(\x0e\x32\x16.workflows.v1.JobStateR\x05state\x12=\n\x0csubmitted_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0bsubmittedAt\x12\x39\n\nstarted_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartedAt\"\xc0\x03\n\x04Task\x12\"\n\x02id\x18\x01 \x01(\x0b\x32\x12.workflows.v1.UUIDR\x02id\x12<\n\nidentifier\x18\x02 \x01(\x0b\x32\x1c.workflows.v1.TaskIdentifierR\nidentifier\x12-\n\x05state\x18\x03 \x01(\x0e\x32\x17.workflows.v1.TaskStateR\x05state\x12\x19\n\x05input\x18\x04 \x01(\x0cH\x00R\x05input\x88\x01\x01\x12\x1d\n\x07\x64isplay\x18\x05 \x01(\tH\x01R\x07\x64isplay\x88\x01\x01\x12#\n\x03job\x18\x06 \x01(\x0b\x32\x11.workflows.v1.JobR\x03job\x12/\n\tparent_id\x18\x07 \x01(\x0b\x32\x12.workflows.v1.UUIDR\x08parentId\x12\x31\n\ndepends_on\x18\x08 \x03(\x0b\x32\x12.workflows.v1.UUIDR\tdependsOn\x12-\n\x05lease\x18\t \x01(\x0b\x32\x17.workflows.v1.TaskLeaseR\x05lease\x12\x1f\n\x0bretry_count\x18\n \x01(\x03R\nretryCountB\x08\n\x06_inputB\n\n\x08_display\">\n\x0eTaskIdentifier\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\"1\n\x05Tasks\x12(\n\x05tasks\x18\x01 \x03(\x0b\x32\x12.workflows.v1.TaskR\x05tasks\"\xe6\x01\n\x0eTaskSubmission\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\x12<\n\nidentifier\x18\x02 \x01(\x0b\x32\x1c.workflows.v1.TaskIdentifierR\nidentifier\x12\x14\n\x05input\x18\x03 \x01(\x0cR\x05input\x12\x18\n\x07\x64isplay\x18\x04 \x01(\tR\x07\x64isplay\x12\"\n\x0c\x64\x65pendencies\x18\x05 \x03(\x03R\x0c\x64\x65pendencies\x12\x1f\n\x0bmax_retries\x18\x06 \x01(\x03R\nmaxRetries\"\x1a\n\x04UUID\x12\x12\n\x04uuid\x18\x01 \x01(\x0cR\x04uuid\"\xa9\x01\n\tTaskLease\x12/\n\x05lease\x18\x01 \x01(\x0b\x32\x19.google.protobuf.DurationR\x05lease\x12k\n%recommended_wait_until_next_extension\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationR!recommendedWaitUntilNextExtension\"\x8c\x01\n\nIDInterval\x12\x19\n\x08start_id\x18\x01 \x01(\tR\x07startId\x12\x15\n\x06\x65nd_id\x18\x02 \x01(\tR\x05\x65ndId\x12\'\n\x0fstart_exclusive\x18\x03 \x01(\x08R\x0estartExclusive\x12#\n\rend_inclusive\x18\x04 \x01(\x08R\x0c\x65ndInclusive\"p\n\nPagination\x12\x19\n\x05limit\x18\x01 \x01(\x03H\x00R\x05limit\x88\x01\x01\x12*\n\x0estarting_after\x18\x02 \x01(\tH\x01R\rstartingAfter\x88\x01\x01\x42\x08\n\x06_limitB\x11\n\x0f_starting_after*k\n\x08JobState\x12\x19\n\x15JOB_STATE_UNSPECIFIED\x10\x00\x12\x14\n\x10JOB_STATE_QUEUED\x10\x01\x12\x15\n\x11JOB_STATE_STARTED\x10\x02\x12\x17\n\x13JOB_STATE_COMPLETED\x10\x03*\xa0\x01\n\tTaskState\x12\x1a\n\x16TASK_STATE_UNSPECIFIED\x10\x00\x12\x15\n\x11TASK_STATE_QUEUED\x10\x01\x12\x16\n\x12TASK_STATE_RUNNING\x10\x02\x12\x17\n\x13TASK_STATE_COMPUTED\x10\x03\x12\x15\n\x11TASK_STATE_FAILED\x10\x04\x12\x18\n\x14TASK_STATE_CANCELLED\x10\x05\x42\xb2\x01\n\x10\x63om.workflows.v1B\tCoreProtoP\x01ZBgithub.com/tilebox/tilebox-go/protogen/go/workflows/v1;workflowsv1\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,22 +34,28 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'workflows.v1.core_pb2', _gl
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\020com.workflows.v1B\tCoreProtoP\001ZBgithub.com/tilebox/tilebox-go/protogen/go/workflows/v1;workflowsv1\242\002\003WXX\252\002\014Workflows.V1\312\002\014Workflows\\V1\342\002\030Workflows\\V1\\GPBMetadata\352\002\rWorkflows::V1'
-  _globals['_TASKSTATE']._serialized_start=1267
-  _globals['_TASKSTATE']._serialized_end=1427
-  _globals['_CLUSTER']._serialized_start=73
-  _globals['_CLUSTER']._serialized_end=137
-  _globals['_JOB']._serialized_start=139
-  _globals['_JOB']._serialized_end=265
-  _globals['_TASK']._serialized_start=268
-  _globals['_TASK']._serialized_end=716
-  _globals['_TASKIDENTIFIER']._serialized_start=718
-  _globals['_TASKIDENTIFIER']._serialized_end=780
-  _globals['_TASKS']._serialized_start=782
-  _globals['_TASKS']._serialized_end=831
-  _globals['_TASKSUBMISSION']._serialized_start=834
-  _globals['_TASKSUBMISSION']._serialized_end=1064
-  _globals['_UUID']._serialized_start=1066
-  _globals['_UUID']._serialized_end=1092
-  _globals['_TASKLEASE']._serialized_start=1095
-  _globals['_TASKLEASE']._serialized_end=1264
+  _globals['_JOBSTATE']._serialized_start=1753
+  _globals['_JOBSTATE']._serialized_end=1860
+  _globals['_TASKSTATE']._serialized_start=1863
+  _globals['_TASKSTATE']._serialized_end=2023
+  _globals['_CLUSTER']._serialized_start=106
+  _globals['_CLUSTER']._serialized_end=170
+  _globals['_JOB']._serialized_start=173
+  _globals['_JOB']._serialized_end=495
+  _globals['_TASK']._serialized_start=498
+  _globals['_TASK']._serialized_end=946
+  _globals['_TASKIDENTIFIER']._serialized_start=948
+  _globals['_TASKIDENTIFIER']._serialized_end=1010
+  _globals['_TASKS']._serialized_start=1012
+  _globals['_TASKS']._serialized_end=1061
+  _globals['_TASKSUBMISSION']._serialized_start=1064
+  _globals['_TASKSUBMISSION']._serialized_end=1294
+  _globals['_UUID']._serialized_start=1296
+  _globals['_UUID']._serialized_end=1322
+  _globals['_TASKLEASE']._serialized_start=1325
+  _globals['_TASKLEASE']._serialized_end=1494
+  _globals['_IDINTERVAL']._serialized_start=1497
+  _globals['_IDINTERVAL']._serialized_end=1637
+  _globals['_PAGINATION']._serialized_start=1639
+  _globals['_PAGINATION']._serialized_end=1751
 # @@protoc_insertion_point(module_scope)

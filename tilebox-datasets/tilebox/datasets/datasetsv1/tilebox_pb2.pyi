@@ -7,10 +7,12 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class GetDatasetRequest(_message.Message):
-    __slots__ = ("slug",)
+    __slots__ = ("slug", "id")
     SLUG_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
     slug: str
-    def __init__(self, slug: _Optional[str] = ...) -> None: ...
+    id: str
+    def __init__(self, slug: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
 
 class ClientInfo(_message.Message):
     __slots__ = ("name", "environment", "packages")

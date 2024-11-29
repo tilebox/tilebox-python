@@ -48,7 +48,14 @@ class Client:
         """
 
         return (
-            self._service.get_dataset(slug)
+            self._service.get_dataset_by_slug(slug)
+            .then(_ensure_registered)
+            .then(lambda dataset: dataset_type(self._service, dataset))
+        )
+
+    def _dataset_by_id(self, dataset_id: str, dataset_type: type[T]) -> Promise[T]:
+        return (
+            self._service.get_dataset_by_id(dataset_id)
             .then(_ensure_registered)
             .then(lambda dataset: dataset_type(self._service, dataset))
         )

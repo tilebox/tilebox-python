@@ -91,14 +91,16 @@ def task_inputs(draw: DrawFn) -> bytes:
 
 
 @composite
-def jobs(draw: DrawFn) -> Job:
+def jobs(draw: DrawFn, canceled: bool | None = None) -> Job:
     """A hypothesis strategy for generating random jobs"""
     job_id = draw(uuids(version=4))
     name = draw(alphanumerical_text())
     trace_parent = draw(alphanumerical_text())
     completed = draw(booleans())
+    if canceled is None:
+        canceled = draw(booleans())
 
-    return Job(job_id, name, trace_parent, completed)
+    return Job(job_id, name, trace_parent, completed, canceled)
 
 
 @composite

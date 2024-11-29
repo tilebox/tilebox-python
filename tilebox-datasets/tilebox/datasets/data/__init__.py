@@ -9,8 +9,8 @@ from tilebox.datasets.data.uuid import uuid_message_to_uuid, uuid_to_uuid_messag
 __all__ = [
     "TimeInterval",
     "TimeIntervalLike",
-    "timestamp_to_datetime",
     "datetime_to_timestamp",
+    "timestamp_to_datetime",
     "uuid_message_to_uuid",
     "uuid_to_uuid_message",
 ]

@@ -1,4 +1,3 @@
-import inspect
 import math
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
@@ -11,27 +10,27 @@ import xarray as xr
 # from python 3.12 onwards: typing.override
 from typing_extensions import dataclass_transform, override
 
-from tilebox.datasets.aio.timeseries import TimeseriesCollection
 from tilebox.datasets.data.collection import Collection, CollectionInfo
 from tilebox.datasets.data.datapoint import DatapointInterval
 from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.datasets.data.timeseries import TimeChunk, TimeseriesDatasetChunk
+from tilebox.datasets.sync.timeseries import TimeseriesCollection
 from tilebox.workflows.interceptors import ForwardExecution, execution_interceptor
-from tilebox.workflows.task import AsyncTask, ExecutionContext, SyncTask, Task
+from tilebox.workflows.task import ExecutionContext, Task
 
 _365_DAYS = timedelta(days=365)
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
 @execution_interceptor
-async def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: ExecutionContext) -> None:
-    if not isinstance(task, SyncTimeseriesTask | AsyncTimeseriesTask):
+def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: ExecutionContext) -> None:
+    if not isinstance(task, TimeseriesTask):
         raise TypeError("Task is not a timeseries task. Inherit from TimeseriesTask to mark it as such.")
 
     chunk: TimeseriesDatasetChunk = task.timeseries_data  # type: ignore[attr-defined]
 
     # let's get the collection object
-    dataset = await context.runner_context.datasets_client.dataset(str(chunk.dataset_id))  # type: ignore[attr-defined]
+    dataset = context.runner_context.datasets_client._dataset_by_id(str(chunk.dataset_id))  # type: ignore[attr-defined]  # noqa: SLF001
     collection = dataset.collection("unknown")  # dummy collection, we will inject the right id below:
     # we already know the collection id, so we can skip the lookup (we don't know the name, but don't need it)
     info = CollectionInfo(Collection(str(chunk.collection_id), "unknown"), None, None)
@@ -41,7 +40,7 @@ async def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, con
     if chunk.datapoint_interval:
         datapoint_interval = (chunk.datapoint_interval.start_id, chunk.datapoint_interval.end_id)
         # we already are a leaf task executing for a specific datapoint interval:
-        datapoints = await collection._find_interval(  # noqa: SLF001
+        datapoints = collection._find_interval(  # noqa: SLF001
             datapoint_interval,
             end_inclusive=chunk.datapoint_interval.end_inclusive,
             skip_data=False,
@@ -49,7 +48,7 @@ async def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, con
         )
         for i in range(datapoints.sizes["time"]):
             datapoint = datapoints.isel(time=i)
-            await call_next(context, datapoint)  # type: ignore[call-arg]
+            call_next(context, datapoint)  # type: ignore[call-arg]
 
         return  # we are done
 
@@ -63,7 +62,7 @@ async def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, con
 
     # if we are only a little larger than the chunk size, let's submit leaf tasks next:
     if estimated_datapoints < chunk.chunk_size * (chunk.branch_factor - 0.5):
-        async for page in collection._iter_pages(  # noqa: SLF001
+        for page in collection._iter_pages(  # noqa: SLF001
             interval, skip_data=True, skip_meta=True, show_progress=False, page_size=chunk.chunk_size
         ):
             # pages here only contain datapoint ids, no metadata or data
@@ -98,7 +97,7 @@ async def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, con
 
 @_timeseries_dataset_chunk
 @dataclass_transform()
-class SyncTimeseriesTask(SyncTask):
+class TimeseriesTask(Task):
     timeseries_data: TimeseriesDatasetChunk
 
     @override
@@ -106,21 +105,10 @@ class SyncTimeseriesTask(SyncTask):
         pass
 
 
-@_timeseries_dataset_chunk
-@dataclass_transform()
-class AsyncTimeseriesTask(AsyncTask):
-    timeseries_data: TimeseriesDatasetChunk
-
-    @override
-    async def execute(self, context: ExecutionContext, datapoint: xr.Dataset) -> None:  # type: ignore[override]
-        pass
-
-
-async def batch_process_timeseries_dataset(
+def batch_process_timeseries_dataset(
     collection: TimeseriesCollection, interval: TimeIntervalLike, chunk_size: int
 ) -> TimeseriesDatasetChunk:
-    _info = collection.info(availability=True, count=True)
-    info: CollectionInfo = await _info if inspect.isawaitable(_info) else _info  # type: ignore[assignment]
+    info = collection.info(availability=True, count=True)
 
     assert info.availability is not None
     assert info.count is not None
@@ -142,8 +130,8 @@ async def batch_process_timeseries_dataset(
 
 
 @execution_interceptor
-async def _time_interval_chunk(task: Task, call_next: ForwardExecution, context: ExecutionContext) -> None:
-    if not isinstance(task, SyncTimeIntervalTask | AsyncTimeIntervalTask):
+def _time_interval_chunk(task: Task, call_next: ForwardExecution, context: ExecutionContext) -> None:
+    if not isinstance(task, TimeIntervalTask):
         raise TypeError("Task is not a time interval task. Inherit from TimeIntervalTask to mark it as such.")
 
     chunk: TimeChunk = task.interval  # type: ignore[attr-defined]
@@ -153,7 +141,7 @@ async def _time_interval_chunk(task: Task, call_next: ForwardExecution, context:
 
     n = (end - start) // chunk.chunk_size
     if n <= 1:  # we are already a leaf task
-        return await call_next(context, TimeInterval(start, end))  # type: ignore[call-arg]
+        return call_next(context, TimeInterval(start, end))  # type: ignore[call-arg]
 
     chunks: list[datetime] = []
     if n < 4:  # we are a branch task with less than 4 sub chunks, so a further split is not worth it
@@ -176,21 +164,11 @@ async def _time_interval_chunk(task: Task, call_next: ForwardExecution, context:
 
 @_time_interval_chunk
 @dataclass_transform()
-class SyncTimeIntervalTask(SyncTask):
+class TimeIntervalTask(Task):
     interval: TimeChunk
 
     @override
     def execute(self, context: ExecutionContext, time_interval: TimeInterval) -> None:  # type: ignore[override]
-        pass
-
-
-@_time_interval_chunk
-@dataclass_transform()
-class AsyncTimeIntervalTask(AsyncTask):
-    interval: TimeChunk
-
-    @override
-    async def execute(self, context: ExecutionContext, time_interval: TimeInterval) -> None:  # type: ignore[override]
         pass
 
 

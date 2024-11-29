@@ -1,13 +1,11 @@
-import asyncio
 import contextlib
-import inspect
 import json
 import logging
 import random
 import signal
 import threading
 from base64 import b64encode
-from collections.abc import Callable, Coroutine, Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import timedelta
 from functools import partial
@@ -15,6 +13,7 @@ from multiprocessing import get_context
 from multiprocessing.context import SpawnProcess
 from queue import Empty, Queue
 from threading import Event
+from time import sleep
 from types import FrameType, TracebackType
 from typing import Any, TypeAlias, TypeVar
 from uuid import UUID
@@ -24,16 +23,15 @@ from opentelemetry.trace.status import StatusCode
 from tenacity import retry, retry_if_exception_type, stop_when_event_set, wait_random_exponential
 from tenacity.stop import stop_base
 
-from _tilebox.grpc.aio.channel import open_channel
-from _tilebox.grpc.aio.syncify import Syncifiable
+from _tilebox.grpc.channel import open_channel
 from _tilebox.grpc.error import InternalServerError
-from tilebox.datasets.aio.timeseries import TimeseriesDataset
+from tilebox.datasets.sync.timeseries import TimeseriesDataset
 from tilebox.workflows.cache import JobCache
-from tilebox.workflows.clients.tasks import TaskService
 from tilebox.workflows.data import ComputedTask, NextTaskToRun, Task, TaskLease
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
 from tilebox.workflows.observability.logging import get_logger
 from tilebox.workflows.observability.tracing import WorkflowTracer
+from tilebox.workflows.runner.task_service import TaskService
 from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
 from tilebox.workflows.task import FutureTask, RunnerContext, TaskMeta
 from tilebox.workflows.task import Task as TaskInstance
@@ -67,19 +65,19 @@ def _retry_backoff(func: Callable[..., WrappedFnReturnT], stop: stop_base) -> Ca
     )(func)
 
 
-async def lease_renewer(
-    auth: tuple[str, str | None], new_leases: Queue[tuple[UUID, TaskLease]], done_tasks: Queue[UUID]
+def lease_renewer(
+    url: str, token: str | None, new_leases: Queue[tuple[UUID, TaskLease]], done_tasks: Queue[UUID]
 ) -> None:
-    channel = open_channel(*auth)
+    channel = open_channel(url, token)
     service = TaskService(channel)
 
     while True:
         # Block until we receive a task to extend the lease for
         task_id, task_lease = new_leases.get()
-        await _extend_lease_while_task_is_running(service, task_id, task_lease, done_tasks)
+        _extend_lease_while_task_is_running(service, task_id, task_lease, done_tasks)
 
 
-async def _extend_lease_while_task_is_running(
+def _extend_lease_while_task_is_running(
     service: TaskService,
     task_id: UUID,
     task_lease: TaskLease,
@@ -101,7 +99,7 @@ async def _extend_lease_while_task_is_running(
         try:
             # The first time we call the function, we pass the argument we received
             # After that, we call it with the result of the previous call
-            task_lease = await service.extend_task_lease(task_id, 2 * task_lease.lease)
+            task_lease = service.extend_task_lease(task_id, 2 * task_lease.lease)
             if task_lease.lease == 0:
                 # The server did not return a lease extension, it means that there is no need in trying to extend the lease
                 logger.info(f"task lease extension not granted for task {task_id}")
@@ -132,19 +130,19 @@ async def _extend_lease_while_task_is_running(
 class _LeaseRenewer(SpawnProcess):
     """Daemon process to extend the lease for a task whenever necessary."""
 
-    def __init__(self, auth: tuple[str, str | None]) -> None:
+    def __init__(self, url: str, token: str | None) -> None:
         super().__init__(daemon=True)
-        self._auth = auth
+        self._url = url
+        self._token = token
 
         # we don't want to fork the current process, but instead spawn a new one
-        # this is necessary because we the asyncio event loop the grpc channel are not fork-safe
-        # therefore we extend this class from SpawnProcess, and use the spawn context to create the queues
+        # therefore we need to use the spawn context to create the queues
         ctx = get_context("spawn")
         self._new_leases: Queue[tuple[UUID, TaskLease]] = ctx.Queue()  # type: ignore[assignment]
         self._done_tasks: Queue[UUID] = ctx.Queue()  # type: ignore[assignment]
 
     def run(self) -> None:
-        asyncio.run(lease_renewer(self._auth, self._new_leases, self._done_tasks))
+        lease_renewer(self._url, self._token, self._new_leases, self._done_tasks)
 
     @contextmanager
     def lease_extension(self, task_id: UUID, task_lease: TaskLease) -> Iterator[None]:
@@ -201,9 +199,7 @@ class _GracefulShutdown:
 
         with self._task_mutex:
             if self._task is not None:
-                asyncio.run(
-                    self._service.task_failed(self._task, RunnerShutdown("Task was interrupted"), cancel_job=False)
-                )
+                self._service.task_failed(self._task, RunnerShutdown("Task was interrupted"), cancel_job=False)
 
         # fetch the handler we want to call after the grace period
         original_handler = self._original_sigterm if signum == signal.SIGTERM else self._original_sigint
@@ -214,9 +210,13 @@ class _GracefulShutdown:
         if not callable(original_handler):
             original_handler = signal.default_int_handler
 
-        # it is important to call the signal handler in the same thread that received the signal, so we use the asyncio
-        # event loop to schedule the call
-        asyncio.get_event_loop().call_later(self._grace_period.total_seconds(), lambda: original_handler(signum, frame))
+        with self._task_mutex:
+            if self._task is not None:
+                # if a task is currently running let's delay for the grace period, and then call the original handler
+                sleep(self._grace_period.total_seconds())
+
+        # this will stop the process:
+        original_handler(signum, frame)
 
     def is_shutting_down(self) -> bool:
         """Check whether an interrupt signal has been received."""
@@ -269,7 +269,7 @@ class _GracefulShutdown:
                 self._task = None
 
 
-class TaskRunner(Syncifiable):
+class TaskRunner:
     def __init__(  # noqa: PLR0913
         self,
         service: TaskService,
@@ -317,20 +317,20 @@ class TaskRunner(Syncifiable):
             raise ValueError("Interceptor must be created with @execution_interceptor decorator.")
         self._interceptors.append(interceptor.__original_interceptor_func__)
 
-    async def run_forever(self) -> None:
+    def run_forever(self) -> None:
         """
         Run the task runner forever. This will poll for new tasks and execute them as they come in.
         If no tasks are available, it will sleep for a short time and then try again.
         """
-        await self._run(stop_when_idling=False)
+        self._run(stop_when_idling=False)
 
-    async def run_all(self) -> None:
+    def run_all(self) -> None:
         """
         Run the task runner and execute all tasks, until there are no more tasks available.
         """
-        await self._run(stop_when_idling=True)
+        self._run(stop_when_idling=True)
 
-    async def _run(self, stop_when_idling: bool = True) -> None:
+    def _run(self, stop_when_idling: bool = True) -> None:
         """
         Run the task runner forever. This will poll for new tasks and execute them as they come in.
         If no tasks are available, it will sleep for a short time and then try again.
@@ -344,7 +344,7 @@ class TaskRunner(Syncifiable):
                     if shutdown_context.is_shutting_down():
                         return
                     try:
-                        task = await self._service.next_task(task_to_run=self.tasks_to_run, computed_task=None)
+                        task = self._service.next_task(task_to_run=self.tasks_to_run, computed_task=None)
                     except InternalServerError as e:
                         # We do not need to retry here, since the task runner will sleep for a while and then anyways request this again.
                         self.logger.error(f"Failed to get next task with error {e}")
@@ -352,7 +352,7 @@ class TaskRunner(Syncifiable):
                 if task is not None:  # we have a task to execute
                     if task.retry_count > 0:
                         self.logger.debug(f"Retrying task {task.id} that failed {task.retry_count} times")
-                    task = await self._execute(task, shutdown_context)  # submitting the task gives us the next one
+                    task = self._execute(task, shutdown_context)  # submitting the task gives us the next one
                 else:  # if we didn't get a task, let's sleep for a bit and try work-stealing again
                     self.logger.debug("No task to run")
                     if stop_when_idling:  # if stop_when_idling is set, we can just return
@@ -364,9 +364,9 @@ class TaskRunner(Syncifiable):
                     if shutdown_context.is_shutting_down():
                         return
 
-    async def _execute(self, task: Task, shutdown_context: _GracefulShutdown) -> Task | None:
+    def _execute(self, task: Task, shutdown_context: _GracefulShutdown) -> Task | None:
         try:
-            return await self._try_execute(task, shutdown_context)
+            return self._try_execute(task, shutdown_context)
         except Exception as e:
             task_repr = str(task.id)
             # let's try to get the name of the task class for a better error message:
@@ -376,10 +376,10 @@ class TaskRunner(Syncifiable):
             self.logger.exception(f"Task {task_repr} failed!")
 
             task_failed_retry = _retry_backoff(self._service.task_failed, stop=shutdown_context.stop_if_shutting_down())
-            await task_failed_retry(task, e)
+            task_failed_retry(task, e)
         return None
 
-    async def _try_execute(self, task: Task, shutdown_context: _GracefulShutdown) -> Task | None:
+    def _try_execute(self, task: Task, shutdown_context: _GracefulShutdown) -> Task | None:
         if task.job is None:
             raise ValueError(f"Task {task.id} has no job associated with it.")
 
@@ -424,7 +424,7 @@ class TaskRunner(Syncifiable):
                 # If for some reason it does finish in time, the failed status will be overwritten by the computed
                 # status done later on in this function.
                 with shutdown_context.mark_task_as_failed_on_interrupt(task):
-                    await _execute(task_instance, context, self._interceptors)
+                    _execute(task_instance, context, self._interceptors)
 
                 # if we received a stop signal, we should not request a next task
                 request_new_task = not shutdown_context.is_shutting_down()
@@ -432,7 +432,7 @@ class TaskRunner(Syncifiable):
 
                 next_task_retry = _retry_backoff(self._service.next_task, stop=shutdown_context.stop_if_shutting_down())
                 # mark the task as computed and get the next one
-                return await next_task_retry(
+                return next_task_retry(
                     task_to_run=task_to_run,
                     computed_task=ComputedTask(
                         id=task.id,
@@ -485,35 +485,21 @@ class ExecutionContext(ExecutionContextBase):
     def runner_context(self) -> RunnerContext:
         return self._runner._context  # noqa: SLF001
 
-    async def _dataset(self, dataset_id: str) -> TimeseriesDataset:
+    def _dataset(self, dataset_id: str) -> TimeseriesDataset:
         """Needed by the timeseries integration, to resolve a dataset id to a RemoteTimeseriesDataset."""
         client = self._runner._context.datasets_client  # noqa: SLF001
         if client is None:
             raise ValueError("No datasets client configured.")
 
-        return await client.dataset(dataset_id)
+        return client.dataset(dataset_id)
 
 
-async def _execute(task: TaskInstance, context: ExecutionContext, additional_interceptors: list[Interceptor]) -> None:
+def _execute(task: TaskInstance, context: ExecutionContext, additional_interceptors: list[Interceptor]) -> None:
     interceptors: list[Interceptor] = additional_interceptors + TaskMeta.for_task(task).interceptors
 
-    # before we call execute, we need to run all interceptors. The way we do this is to build a call stack of
-    # functions, and pass each function the next function in the chain. We build this call stack bottom up, starting
-    # with the execute function (the last in the chain)
+    # chain interceptors in reverse order before eventually calling the actual task.execute function:
     next_func = task.execute
-    if not inspect.iscoroutinefunction(next_func):
-        # we support sync and async execute functions in Tasks. But to make our life easier, we just make everything
-        # async by wrapping sync functions in an async function
-        next_func = partial(_make_async, next_func)
-
-    # all interceptors are before that:
-    # currently interceptors always need to be async, because otherwise a sync interceptor would have a hard time
-    # calling the next interceptor or execute function if it's async.
     for interceptor in interceptors[::-1]:
         next_func = partial(interceptor, task, next_func)
 
-    await next_func(context)  # call the first func in the chain, it will call the next one via its passed next()
-
-
-async def _make_async(func: Callable[[Any], None | Coroutine[Any, Any, None]], *args: Any, **kwargs: Any) -> Any:
-    return func(*args, **kwargs)
+    return next_func(context)  # call the first func in the chain, it will call the next one and so on

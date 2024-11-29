@@ -6,7 +6,7 @@ from google.protobuf import message as _message
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class SampleArgs(_message.Message):
-    __slots__ = ("some_string", "some_int")
+    __slots__ = ("some_int", "some_string")
     SOME_STRING_FIELD_NUMBER: _ClassVar[int]
     SOME_INT_FIELD_NUMBER: _ClassVar[int]
     some_string: str

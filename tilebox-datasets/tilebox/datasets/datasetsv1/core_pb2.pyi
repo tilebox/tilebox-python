@@ -1,11 +1,23 @@
 from google.protobuf import descriptor_pb2 as _descriptor_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class DatasetPermission(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DATASET_PERMISSION_UNSPECIFIED: _ClassVar[DatasetPermission]
+    DATASET_PERMISSION_ACCESS_DATA: _ClassVar[DatasetPermission]
+    DATASET_PERMISSION_WRITE_DATA: _ClassVar[DatasetPermission]
+    DATASET_PERMISSION_EDIT_DESCRIPTION: _ClassVar[DatasetPermission]
+DATASET_PERMISSION_UNSPECIFIED: DatasetPermission
+DATASET_PERMISSION_ACCESS_DATA: DatasetPermission
+DATASET_PERMISSION_WRITE_DATA: DatasetPermission
+DATASET_PERMISSION_EDIT_DESCRIPTION: DatasetPermission
 
 class ID(_message.Message):
     __slots__ = ("uuid",)
@@ -100,7 +112,7 @@ class AnnotatedType(_message.Message):
     def __init__(self, descriptor_set: _Optional[_Union[_descriptor_pb2.FileDescriptorSet, _Mapping]] = ..., type_url: _Optional[str] = ..., description: _Optional[str] = ..., field_annotations: _Optional[_Iterable[_Union[FieldAnnotation, _Mapping]]] = ...) -> None: ...
 
 class Dataset(_message.Message):
-    __slots__ = ("id", "group_id", "type", "code_name", "name", "summary", "icon", "description", "writable")
+    __slots__ = ("id", "group_id", "type", "code_name", "name", "summary", "icon", "description", "permissions")
     ID_FIELD_NUMBER: _ClassVar[int]
     GROUP_ID_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -109,7 +121,7 @@ class Dataset(_message.Message):
     SUMMARY_FIELD_NUMBER: _ClassVar[int]
     ICON_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    WRITABLE_FIELD_NUMBER: _ClassVar[int]
+    PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     id: ID
     group_id: ID
     type: AnnotatedType
@@ -118,8 +130,8 @@ class Dataset(_message.Message):
     summary: str
     icon: str
     description: str
-    writable: bool
-    def __init__(self, id: _Optional[_Union[ID, _Mapping]] = ..., group_id: _Optional[_Union[ID, _Mapping]] = ..., type: _Optional[_Union[AnnotatedType, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., summary: _Optional[str] = ..., icon: _Optional[str] = ..., description: _Optional[str] = ..., writable: bool = ...) -> None: ...
+    permissions: _containers.RepeatedScalarFieldContainer[DatasetPermission]
+    def __init__(self, id: _Optional[_Union[ID, _Mapping]] = ..., group_id: _Optional[_Union[ID, _Mapping]] = ..., type: _Optional[_Union[AnnotatedType, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., summary: _Optional[str] = ..., icon: _Optional[str] = ..., description: _Optional[str] = ..., permissions: _Optional[_Iterable[_Union[DatasetPermission, str]]] = ...) -> None: ...
 
 class DatasetGroup(_message.Message):
     __slots__ = ("id", "parent_id", "code_name", "name", "icon")

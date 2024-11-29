@@ -1,4 +1,5 @@
 from google.protobuf import duration_pb2 as _duration_pb2
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -6,6 +7,13 @@ from google.protobuf import message as _message
 from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class JobState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    JOB_STATE_UNSPECIFIED: _ClassVar[JobState]
+    JOB_STATE_QUEUED: _ClassVar[JobState]
+    JOB_STATE_STARTED: _ClassVar[JobState]
+    JOB_STATE_COMPLETED: _ClassVar[JobState]
 
 class TaskState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -15,6 +23,10 @@ class TaskState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     TASK_STATE_COMPUTED: _ClassVar[TaskState]
     TASK_STATE_FAILED: _ClassVar[TaskState]
     TASK_STATE_CANCELLED: _ClassVar[TaskState]
+JOB_STATE_UNSPECIFIED: JobState
+JOB_STATE_QUEUED: JobState
+JOB_STATE_STARTED: JobState
+JOB_STATE_COMPLETED: JobState
 TASK_STATE_UNSPECIFIED: TaskState
 TASK_STATE_QUEUED: TaskState
 TASK_STATE_RUNNING: TaskState
@@ -31,16 +43,24 @@ class Cluster(_message.Message):
     def __init__(self, slug: _Optional[str] = ..., display_name: _Optional[str] = ...) -> None: ...
 
 class Job(_message.Message):
-    __slots__ = ("id", "name", "trace_parent", "completed")
+    __slots__ = ("id", "name", "trace_parent", "completed", "canceled", "state", "submitted_at", "started_at")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TRACE_PARENT_FIELD_NUMBER: _ClassVar[int]
     COMPLETED_FIELD_NUMBER: _ClassVar[int]
+    CANCELED_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    SUBMITTED_AT_FIELD_NUMBER: _ClassVar[int]
+    STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     id: UUID
     name: str
     trace_parent: str
     completed: bool
-    def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ..., name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., completed: bool = ...) -> None: ...
+    canceled: bool
+    state: JobState
+    submitted_at: _timestamp_pb2.Timestamp
+    started_at: _timestamp_pb2.Timestamp
+    def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ..., name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., completed: bool = ..., canceled: bool = ..., state: _Optional[_Union[JobState, str]] = ..., submitted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class Task(_message.Message):
     __slots__ = ("id", "identifier", "state", "input", "display", "job", "parent_id", "depends_on", "lease", "retry_count")
@@ -109,3 +129,23 @@ class TaskLease(_message.Message):
     lease: _duration_pb2.Duration
     recommended_wait_until_next_extension: _duration_pb2.Duration
     def __init__(self, lease: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., recommended_wait_until_next_extension: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...) -> None: ...
+
+class IDInterval(_message.Message):
+    __slots__ = ("start_id", "end_id", "start_exclusive", "end_inclusive")
+    START_ID_FIELD_NUMBER: _ClassVar[int]
+    END_ID_FIELD_NUMBER: _ClassVar[int]
+    START_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    END_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    start_id: str
+    end_id: str
+    start_exclusive: bool
+    end_inclusive: bool
+    def __init__(self, start_id: _Optional[str] = ..., end_id: _Optional[str] = ..., start_exclusive: bool = ..., end_inclusive: bool = ...) -> None: ...
+
+class Pagination(_message.Message):
+    __slots__ = ("limit", "starting_after")
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    STARTING_AFTER_FIELD_NUMBER: _ClassVar[int]
+    limit: int
+    starting_after: str
+    def __init__(self, limit: _Optional[int] = ..., starting_after: _Optional[str] = ...) -> None: ...

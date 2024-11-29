@@ -6,7 +6,7 @@ from loguru import logger
 from tilebox.datasets.sync.client import Client
 from tilebox.datasets.sync.timeseries import TimeseriesCollection, TimeseriesDataset
 
-__all__ = ["Client", "TimeseriesDataset", "TimeseriesCollection"]
+__all__ = ["Client", "TimeseriesCollection", "TimeseriesDataset"]
 
 
 def _init_logging(level: str = "INFO") -> None:

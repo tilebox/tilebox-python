@@ -52,3 +52,19 @@ class VisualizeJobRequest(_message.Message):
     job_id: _core_pb2.UUID
     render_options: _diagram_pb2.RenderOptions
     def __init__(self, job_id: _Optional[_Union[_core_pb2.UUID, _Mapping]] = ..., render_options: _Optional[_Union[_diagram_pb2.RenderOptions, _Mapping]] = ...) -> None: ...
+
+class ListJobsRequest(_message.Message):
+    __slots__ = ("id_interval", "page")
+    ID_INTERVAL_FIELD_NUMBER: _ClassVar[int]
+    PAGE_FIELD_NUMBER: _ClassVar[int]
+    id_interval: _core_pb2.IDInterval
+    page: _core_pb2.Pagination
+    def __init__(self, id_interval: _Optional[_Union[_core_pb2.IDInterval, _Mapping]] = ..., page: _Optional[_Union[_core_pb2.Pagination, _Mapping]] = ...) -> None: ...
+
+class ListJobsResponse(_message.Message):
+    __slots__ = ("jobs", "next_page")
+    JOBS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_FIELD_NUMBER: _ClassVar[int]
+    jobs: _containers.RepeatedCompositeFieldContainer[_core_pb2.Job]
+    next_page: _core_pb2.Pagination
+    def __init__(self, jobs: _Optional[_Iterable[_Union[_core_pb2.Job, _Mapping]]] = ..., next_page: _Optional[_Union[_core_pb2.Pagination, _Mapping]] = ...) -> None: ...

@@ -92,8 +92,8 @@ class _ABCTaskify(ABCMeta, _Taskify):  # the order here is actually relevant: AB
 # as a metaclass. Attributes on the decorated class and its base classes are not considered to be fields.
 # See https://peps.python.org/pep-0681/
 @dataclass_transform()
-class SyncTask(metaclass=_ABCTaskify):
-    """A synchronous task.
+class Task(metaclass=_ABCTaskify):
+    """A Tilebox workflows task.
 
     This is the base class that provides the basic structure and functionality for a task.
 
@@ -114,62 +114,8 @@ class SyncTask(metaclass=_ABCTaskify):
         return serialize_task(self)
 
     @classmethod
-    def _deserialize(cls, task_input: bytes, context: RunnerContext | None = None) -> "SyncTask":  # noqa: ARG003
-        return cast(SyncTask, deserialize_task(cls, task_input))
-
-
-# unfortunately, we cannot define just a single Task type, and annotate it to be either sync or async because no matter
-# which option we try, the type checker will complain about user defined tasks.
-
-# e.g. this will not work:
-# def execute(...) -> None | Coroutine[Any, Any, None]:
-#    pass
-# because then all user derived tasks will have to match the same signature, which is not the case.
-#
-# similarly, this will not work:
-# class Task:
-#    @overload
-#    def execute(self, context: ExecutionContext) -> None:
-#        pass
-#
-#    @overload
-#    async def execute(self, context: ExecutionContext) -> None:
-#        pass
-# because overload only checks the parameters, but not the return type
-
-
-@dataclass_transform()
-class AsyncTask(metaclass=_ABCTaskify):
-    """An asynchronous task.
-
-    This is the base class that provides the basic structure and functionality for a task.
-
-    This class is a dataclass. The task is automatically assigned an identifier based on the class name.
-    """
-
-    async def execute(self, context: "ExecutionContext") -> None:
-        """The entry point for the execution of the task.
-
-        It is called when the task is executed and is responsible for performing the task's operation.
-
-        Args:
-            context: The execution context for the task. It provides access to an API for submitting new tasks as part
-                of the same job, as well as access to a shared cache and features such as logging.
-        """
-
-    def _serialize(self) -> bytes:
-        return serialize_task(self)
-
-    @classmethod
-    def _deserialize(cls, task_input: bytes, context: RunnerContext | None = None) -> "AsyncTask":  # noqa: ARG003
-        return cast(AsyncTask, deserialize_task(cls, task_input))
-
-
-# so our solution is to define two separate types, and then use a type alias to combine them into a single type
-# for all functions that accept tasks as arguments.
-# users will then have to inherit either from SyncTask or AsyncTask, which they can do by either importing
-# the alias tilebox.workflows.Task (SyncTask) or tilebox.workflows.aio.Task (AsyncTask)
-Task = SyncTask | AsyncTask
+    def _deserialize(cls, task_input: bytes, context: RunnerContext | None = None) -> "Task":  # noqa: ARG003
+        return cast(Task, deserialize_task(cls, task_input))
 
 
 def _validate_execute_method(

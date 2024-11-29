@@ -15,20 +15,20 @@ DESCRIPTOR: _descriptor.FileDescriptor
 
 class ExampleDatapoint(_message.Message):
     __slots__ = (
-        "some_string",
-        "some_int",
-        "some_time",
-        "some_duration",
-        "some_repeated_string",
-        "some_repeated_int",
         "some_bytes",
+        "some_duration",
+        "some_enum",
+        "some_geometry",
         "some_id",
-        "some_vec3",
-        "some_quaternion",
+        "some_int",
         "some_latlon",
         "some_latlon_alt",
-        "some_geometry",
-        "some_enum",
+        "some_quaternion",
+        "some_repeated_int",
+        "some_repeated_string",
+        "some_string",
+        "some_time",
+        "some_vec3",
     )
     SOME_STRING_FIELD_NUMBER: _ClassVar[int]
     SOME_INT_FIELD_NUMBER: _ClassVar[int]

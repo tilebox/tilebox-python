@@ -6,9 +6,8 @@ import pytest
 from tests.proto.test_pb2 import SampleArgs
 from tilebox.workflows.data import TaskIdentifier
 from tilebox.workflows.task import (
-    AsyncTask,
     ExecutionContext,
-    SyncTask,
+    Task,
     TaskMeta,
     deserialize_task,
     serialize_task,
@@ -16,7 +15,7 @@ from tilebox.workflows.task import (
 
 
 def test_task_validation_simple_task() -> None:
-    class SimpleTask(SyncTask):
+    class SimpleTask(Task):
         pass
 
     expected_identifier = TaskIdentifier("SimpleTask", "v0.0")
@@ -25,7 +24,7 @@ def test_task_validation_simple_task() -> None:
 
 
 def test_task_validation_simple_task_with_identifier() -> None:
-    class SimpleTask(SyncTask):
+    class SimpleTask(Task):
         @staticmethod
         def identifier() -> tuple[str, str]:
             return "tilebox.tests.SimpleTask", "v3.2"
@@ -35,16 +34,8 @@ def test_task_validation_simple_task_with_identifier() -> None:
 
 
 def test_task_validation_simple_task_executable() -> None:
-    class SimpleTask(SyncTask):
+    class SimpleTask(Task):
         def execute(self, context: ExecutionContext) -> None:
-            pass
-
-    assert TaskMeta.for_task(SimpleTask).executable is True
-
-
-def test_task_validation_simple_task_async_executable() -> None:
-    class SimpleTask(AsyncTask):
-        async def execute(self, context: ExecutionContext) -> None:
             pass
 
     assert TaskMeta.for_task(SimpleTask).executable is True
@@ -53,42 +44,42 @@ def test_task_validation_simple_task_async_executable() -> None:
 def test_task_validation_execute_invalid_signature_no_params() -> None:
     with pytest.raises(TypeError, match="Expected a function signature of"):
         # validation happens at class creation time, that's why we create it in a function
-        class TaskWithInvalidExecuteSignature(AsyncTask):
+        class TaskWithInvalidExecuteSignature(Task):
             @staticmethod
             def identifier() -> tuple[str, str]:
                 return "tilebox.tests.TaskWithInvalidExecuteSignature", "v0.1"
 
-            async def execute(self) -> None:  # type: ignore[override]
+            def execute(self) -> None:  # type: ignore[override]
                 pass
 
 
 def test_task_validation_execute_invalid_signature_too_many_params() -> None:
     with pytest.raises(TypeError, match="Expected a function signature of"):
         # validation happens at class creation time, that's why we create it in a function
-        class TaskWithInvalidExecuteSignature(AsyncTask):
+        class TaskWithInvalidExecuteSignature(Task):
             @staticmethod
             def identifier() -> tuple[str, str]:
                 return "tilebox.tests.TaskWithInvalidExecuteSignature", "v0.1"
 
-            async def execute(self, context: ExecutionContext, invalid: int) -> None:  # type: ignore[override]
+            def execute(self, context: ExecutionContext, invalid: int) -> None:  # type: ignore[override]
                 pass
 
 
 def test_task_validation_execute_invalid_return_type() -> None:
     with pytest.raises(TypeError, match="to not have a return value"):
         # validation happens at class creation time, that's why we create it in a function
-        class TaskWithInvalidExecuteReturnType(AsyncTask):
+        class TaskWithInvalidExecuteReturnType(Task):
             @staticmethod
             def identifier() -> tuple[str, str]:
                 return "tilebox.tests.TaskWithInvalidExecuteReturnType", "v0.1"
 
-            async def execute(self, context: ExecutionContext) -> int:  # type: ignore[override]
+            def execute(self, context: ExecutionContext) -> int:  # type: ignore[override]
                 _ = context
                 return 5
 
 
 def test_task_validation_used_defined_identifier_classmethod() -> None:
-    class SimpleTaskWithClassmethodIdentifier(SyncTask):
+    class SimpleTaskWithClassmethodIdentifier(Task):
         @classmethod
         def identifier(cls) -> tuple[str, str]:
             return "tilebox.tests.SimpleTaskWithClassmethodIdentifier", "v3.2"
@@ -100,7 +91,7 @@ def test_task_validation_used_defined_identifier_classmethod() -> None:
 def test_task_user_defined_identifier_invalid_signature() -> None:
     with pytest.raises(TypeError, match="Failed to invoke"):
 
-        class TaskIdentifierNotStaticMethod(SyncTask):
+        class TaskIdentifierNotStaticMethod(Task):
             def identifier(self) -> tuple[str, str]:
                 return "tilebox.tests.TaskIdentifierNotStaticMethod", "v0.1"
 
@@ -111,7 +102,7 @@ def test_task_user_defined_identifier_invalid_signature() -> None:
 def test_task_user_defined_identifier_no_name() -> None:
     with pytest.raises(TypeError, match="A task name is required"):
 
-        class TaskIdentifierNoName(SyncTask):
+        class TaskIdentifierNoName(Task):
             @staticmethod
             def identifier() -> tuple[str, str]:
                 return "", "v0.1"
@@ -123,7 +114,7 @@ def test_task_user_defined_identifier_no_name() -> None:
 def test_task_user_defined_identifier_name_too_long() -> None:
     with pytest.raises(TypeError, match="The task name is too long"):
 
-        class TaskIdentifierNameTooLong(SyncTask):
+        class TaskIdentifierNameTooLong(Task):
             @staticmethod
             def identifier() -> tuple[str, str]:
                 name = "a" * (256 + 1)
@@ -137,19 +128,19 @@ def test_task_user_defined_identifier_name_too_long() -> None:
 def test_task_user_defined_identifier_invalid_version(version: str) -> None:
     with pytest.raises(TypeError, match="Invalid version"):
 
-        class TaskIdentifierInvalidVersion(SyncTask):
+        class TaskIdentifierInvalidVersion(Task):
             @staticmethod
             def identifier() -> tuple[str, str]:
                 return "tilebox.tests.TaskIdentifierInvalidVersion", version
 
 
-class ExampleTask(SyncTask):
+class ExampleTask(Task):
     @staticmethod
     def identifier() -> tuple[str, str]:
         return "test_task.ExampleTask", "v0.1"
 
 
-class ExampleTaskNoArgs(SyncTask):
+class ExampleTaskNoArgs(Task):
     pass
 
 
@@ -162,7 +153,7 @@ def test_deserialize_no_args() -> None:
     assert deserialize_task(ExampleTaskNoArgs, b"") == ExampleTaskNoArgs()
 
 
-class ExampleTaskWithArg(SyncTask):
+class ExampleTaskWithArg(Task):
     x: str
 
 
@@ -176,7 +167,7 @@ def test_serialize_deserialize_one_arg_json() -> None:
     assert deserialize_task(ExampleTaskWithArg, serialize_task(task)) == task
 
 
-class ExampleTaskWithMultipleArgs(SyncTask):
+class ExampleTaskWithMultipleArgs(Task):
     x: str
     y: int
 
@@ -191,7 +182,7 @@ def test_serialize_deserialize_multiple_args_json() -> None:
     assert deserialize_task(ExampleTaskWithMultipleArgs, serialize_task(task)) == task
 
 
-class ExampleProtobufTaskWithSingleProtobufArg(SyncTask):
+class ExampleProtobufTaskWithSingleProtobufArg(Task):
     arg: SampleArgs
 
 
@@ -216,7 +207,7 @@ class DoublyNestedJson:
     nested: NestedJson
 
 
-class ExampleTaskWithNestedJson(SyncTask):
+class ExampleTaskWithNestedJson(Task):
     x: str
     nested: DoublyNestedJson
 
@@ -226,7 +217,7 @@ def test_serialize_deserialize_task_nested_json() -> None:
     assert deserialize_task(ExampleTaskWithNestedJson, serialize_task(task)) == task
 
 
-class ExampleTaskWithNestedProtobuf(SyncTask):
+class ExampleTaskWithNestedProtobuf(Task):
     x: str
     nested: SampleArgs
 

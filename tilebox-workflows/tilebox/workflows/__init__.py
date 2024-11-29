@@ -3,25 +3,10 @@ import sys
 
 from loguru import logger
 
-from _tilebox.grpc.aio.syncify import T_Syncifiable as _T_Syncifiable
-from tilebox.workflows.clients.client import Client as _AsyncClient
-from tilebox.workflows.task import ExecutionContext
-from tilebox.workflows.task import SyncTask as Task
+from tilebox.workflows.client import Client
+from tilebox.workflows.task import ExecutionContext, Task
 
-
-class Client(_AsyncClient):
-    """A client that can be used to access the tilebox workflows service."""
-
-    def __init__(self, url: str = "https://api.tilebox.com", token: str | None = None) -> None:
-        super().__init__(url, token)
-        self._syncify()
-
-    def _subclient(self, subclient: _T_Syncifiable) -> _T_Syncifiable:
-        subclient._syncify()  # noqa: SLF001
-        return subclient
-
-
-__all__ = ["Client", "Task", "ExecutionContext"]
+__all__ = ["Client", "ExecutionContext", "Task"]
 
 
 def _init_logging(level: str = "INFO") -> None:

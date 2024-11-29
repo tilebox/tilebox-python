@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2024-11-29
+
+### Changed
+
+- Removed `async` API for `tilebox-workflows`.
+- Changed argument order of create recurrent task methods to be consistent with the job client.
+
 ## [0.29.0] - 2024-11-14
 
 ### Added
@@ -84,7 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/tilebox/tilebox-python/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/tilebox/tilebox-python/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/tilebox/tilebox-python/compare/v0.27.2...v0.28.0
 [0.27.2]: https://github.com/tilebox/tilebox-python/compare/v0.27.1...v0.27.2

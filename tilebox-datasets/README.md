@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/tilebox/docs/refs/heads/main/assets/tilebox-banner.svg" alt="Tilebox Logo">
+  <img src="https://storage.googleapis.com/tbx-web-assets-2bad228/banners/tilebox-banner.svg" alt="Tilebox Logo">
   <br>
 </h1>
 

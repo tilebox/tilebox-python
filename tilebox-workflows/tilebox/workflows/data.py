@@ -19,8 +19,8 @@ except ModuleNotFoundError:
     from typing import Any as S3Client
 from opentelemetry.trace import ProxyTracerProvider, Tracer
 
-from tilebox.datasets.aio import Client as DatasetsClient
 from tilebox.datasets.data import datetime_to_timestamp, timestamp_to_datetime
+from tilebox.datasets.sync.client import Client as DatasetsClient
 from tilebox.workflows.workflowsv1 import core_pb2, task_pb2
 from tilebox.workflows.workflowsv1 import recurrent_task_pb2 as recurrent_task_pb
 
@@ -151,18 +151,27 @@ class Job:
     name: str
     trace_parent: str
     completed: bool
+    canceled: bool
 
     @classmethod
     def from_message(cls, job: core_pb2.Job) -> "Job":  # lets use typing.Self once we require python >= 3.11
         """Convert a Job protobuf message to a Job object."""
         return cls(
-            id=uuid_message_to_uuid(job.id), name=job.name, trace_parent=job.trace_parent, completed=job.completed
+            id=uuid_message_to_uuid(job.id),
+            name=job.name,
+            trace_parent=job.trace_parent,
+            completed=job.completed,
+            canceled=job.canceled,
         )
 
     def to_message(self) -> core_pb2.Job:
         """Convert a Job object to a Job protobuf message."""
         return core_pb2.Job(
-            id=uuid_to_uuid_message(self.id), name=self.name, trace_parent=self.trace_parent, completed=self.completed
+            id=uuid_to_uuid_message(self.id),
+            name=self.name,
+            trace_parent=self.trace_parent,
+            completed=self.completed,
+            canceled=self.canceled,
         )
 
 

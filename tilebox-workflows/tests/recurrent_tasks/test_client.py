@@ -1,4 +1,3 @@
-import asyncio
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
@@ -8,7 +7,6 @@ from hypothesis.strategies import lists
 from tests.tasks_data import alphanumerical_text, cron_triggers, storage_event_triggers, task_identifiers
 
 from _tilebox.grpc.error import NotFoundError
-from tilebox.workflows.clients.recurrent_tasks import RecurrentTaskClient, RecurrentTaskService
 from tilebox.workflows.data import (
     CronTrigger,
     RecurrentTaskPrototype,
@@ -18,6 +16,7 @@ from tilebox.workflows.data import (
     uuid_to_uuid_message,
 )
 from tilebox.workflows.recurrent_tasks import CronTask, StorageEventTask
+from tilebox.workflows.recurrent_tasks.client import RecurrentTaskClient, RecurrentTaskService
 from tilebox.workflows.workflowsv1.core_pb2 import UUID as UUIDMessage  # noqa: N811
 from tilebox.workflows.workflowsv1.recurrent_task_pb2 import CronTrigger as CronTriggerMessage
 from tilebox.workflows.workflowsv1.recurrent_task_pb2 import RecurrentTaskPrototype as RecurrentTaskPrototypeMessage
@@ -32,7 +31,7 @@ class MockRecurrentTaskService(RecurrentTaskServiceStub):
     def __init__(self) -> None:
         self.recurrent_tasks: dict[UUID, RecurrentTaskPrototypeMessage] = {}
 
-    async def CreateRecurrentTask(self, req: RecurrentTaskPrototypeMessage) -> RecurrentTaskPrototypeMessage:  # noqa: N802
+    def CreateRecurrentTask(self, req: RecurrentTaskPrototypeMessage) -> RecurrentTaskPrototypeMessage:  # noqa: N802
         task_id = uuid4()
         created = RecurrentTaskPrototypeMessage(
             id=uuid_to_uuid_message(task_id),  # assign an auto generated id to the task
@@ -53,27 +52,27 @@ class MockRecurrentTaskService(RecurrentTaskServiceStub):
         self.recurrent_tasks[task_id] = created
         return created
 
-    async def UpdateRecurrentTask(self, req: RecurrentTaskPrototypeMessage) -> RecurrentTaskPrototypeMessage:  # noqa: N802
+    def UpdateRecurrentTask(self, req: RecurrentTaskPrototypeMessage) -> RecurrentTaskPrototypeMessage:  # noqa: N802
         task_id = uuid_message_to_uuid(req.id)
         if task_id not in self.recurrent_tasks:
             raise NotFoundError(f"Recurrent Task {task_id} not found")
         self.recurrent_tasks[task_id] = req
         return req
 
-    async def GetRecurrentTask(self, req: UUIDMessage) -> RecurrentTaskPrototypeMessage:  # noqa: N802
+    def GetRecurrentTask(self, req: UUIDMessage) -> RecurrentTaskPrototypeMessage:  # noqa: N802
         task_id = uuid_message_to_uuid(req)
         if task_id in self.recurrent_tasks:
             return self.recurrent_tasks[task_id]
         raise NotFoundError(f"Recurrent Task {task_id} not found")
 
-    async def DeleteRecurrentTask(self, req: UUIDMessage) -> None:  # noqa: N802
+    def DeleteRecurrentTask(self, req: UUIDMessage) -> None:  # noqa: N802
         task_id = uuid_message_to_uuid(req)
         if task_id in self.recurrent_tasks:
             del self.recurrent_tasks[task_id]
         else:
             raise NotFoundError(f"Recurrent Task {task_id} not found")
 
-    async def ListRecurrentTasks(self, req: Empty) -> RecurrentTasks:  # noqa: N802
+    def ListRecurrentTasks(self, req: Empty) -> RecurrentTasks:  # noqa: N802
         _ = req
         return RecurrentTasks(tasks=list(self.recurrent_tasks.values()))
 
@@ -126,8 +125,7 @@ class RecurrentTaskCRUDOperations(RuleBasedStateMachine):
 
         task = TestCronTask(task_name)  # task_name reused to serialize the task input
 
-        # RuleBasedStateMachine does not support async functions, so we use asyncio.run instead of await
-        return asyncio.run(self.client.create_recurring_cron_task(task_name, cluster_slug, task, triggers))
+        return self.client.create_recurring_cron_task(task_name, task, triggers, cluster_slug)
 
     @rule(
         target=inserted_recurrent_tasks,
@@ -155,23 +153,22 @@ class RecurrentTaskCRUDOperations(RuleBasedStateMachine):
 
         task = TestStorageEventTask(task_name)  # task_name reused to serialize the task input
 
-        # RuleBasedStateMachine does not support async functions, so we use asyncio.run instead of await
-        return asyncio.run(self.client.create_recurring_storage_event_task(task_name, cluster_slug, task, triggers))
+        return self.client.create_recurring_storage_event_task(task_name, task, triggers, cluster_slug)
 
     @rule(recurrent_task=inserted_recurrent_tasks)
     def get_recurrent_task(self, recurrent_task: RecurrentTaskPrototype) -> None:
-        got = asyncio.run(self.client.find(recurrent_task.id))
+        got = self.client.find(recurrent_task.id)
         assert recurrent_task.id == got.id
         assert recurrent_task.name == got.name
 
     @rule(recurrent_task=consumes(inserted_recurrent_tasks))  # consumes -> remove from bundle afterwards
     def delete_recurrent_task(self, recurrent_task: RecurrentTaskPrototype) -> None:
         self.count_recurrent_tasks -= 1
-        asyncio.run(self.client.delete(recurrent_task))
+        self.client.delete(recurrent_task)
 
     @rule()
     def list_recurrent_tasks(self) -> None:
-        recurrent_tasks = asyncio.run(self.client.all())
+        recurrent_tasks = self.client.all()
         assert len(recurrent_tasks) == self.count_recurrent_tasks
 
 

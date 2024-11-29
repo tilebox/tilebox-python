@@ -52,7 +52,11 @@ class TileboxDatasetService:
             ListDatasetsResponse.from_message
         )
 
-    def get_dataset(self, slug: str) -> Promise[Dataset]:
+    def get_dataset_by_id(self, dataset_id: str) -> Promise[Dataset]:
+        """Get a dataset by its id."""
+        return Promise.resolve(self._service.GetDataset(GetDatasetRequest(id=dataset_id))).then(Dataset.from_message)
+
+    def get_dataset_by_slug(self, slug: str) -> Promise[Dataset]:
         """Get a dataset by its id."""
         return Promise.resolve(self._service.GetDataset(GetDatasetRequest(slug=slug))).then(Dataset.from_message)
 
