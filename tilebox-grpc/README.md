@@ -16,6 +16,8 @@
   <a href="https://docs.tilebox.com/"><b>Documentation</b></a>
   |
   <a href="https://console.tilebox.com/"><b>Console</b></a>
+  |
+  <a href="https://tilebox.com/discord"><b>Discord</b></a>
 </p>
 
 # Tilebox GRPC
