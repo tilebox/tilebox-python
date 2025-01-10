@@ -21,12 +21,12 @@ from tilebox.workflows.runner.task_service import TaskService
 
 class Client:
     def __init__(self, *, url: str = "https://api.tilebox.com", token: str | None = None) -> None:
-        """A client that can be used to access the tilebox workflows service.
+        """
+        Create a Tilebox workflows client.
 
         Args:
-            url: The URL of the tilebox workflows service, defaults to https://api.tilebox.com
-            token: The API key to use for authentication. If not provided, the TILEBOX_API_KEY environment variable
-                will be used.
+            url: Tilebox API Url. Defaults to "https://api.tilebox.com".
+            token: The API Key to authenticate with. If not set the `TILEBOX_API_KEY` environment variable will be used.
         """
         if token is None:  # if no token is provided, try to get it from the environment
             token = os.environ.get("TILEBOX_API_KEY", None)

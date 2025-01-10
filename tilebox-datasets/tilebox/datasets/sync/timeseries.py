@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from functools import partial
 
 import xarray as xr
 
@@ -218,12 +219,8 @@ class TimeseriesCollection:
         page_size: int | None = None,
     ) -> Iterator[DatapointPage]:
         time_interval = TimeInterval.parse(time_or_interval)
-        collection = self._collection()
 
-        def request(page: Pagination) -> DatapointPage:
-            return self._dataset._service.get_dataset_for_time_interval(
-                collection.id, time_interval, skip_data, skip_meta, page
-            ).get()
+        request = partial(self._load_page, time_interval, skip_data, skip_meta)
 
         initial_page = Pagination(limit=page_size)
         pages = paginated_request(request, initial_page)
@@ -241,6 +238,15 @@ class TimeseriesCollection:
                 pages = with_time_progressbar(pages, time_interval, message)
 
         yield from pages
+
+    def _load_page(
+        self, time_interval: TimeInterval, skip_data: bool, skip_meta: bool, page: Pagination | None = None
+    ) -> DatapointPage:
+        collection = self._collection()
+
+        return self._dataset._service.get_dataset_for_time_interval(
+            collection.id, time_interval, skip_data, skip_meta, page
+        ).get()
 
     def _collection(self) -> Collection:
         """

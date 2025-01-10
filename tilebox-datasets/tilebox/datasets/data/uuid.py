@@ -1,3 +1,4 @@
+# allow the uuid module name which shadows the builtin: # noqa: A005
 from uuid import UUID
 
 from tilebox.datasets.datasetsv1 import core_pb2

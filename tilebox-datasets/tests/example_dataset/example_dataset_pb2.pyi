@@ -58,7 +58,7 @@ class ExampleDatapoint(_message.Message):
     some_latlon_alt: _well_known_types_pb2.LatLonAlt
     some_geometry: _well_known_types_pb2.GeobufData
     some_enum: _well_known_types_pb2.ProcessingLevel
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         some_string: str | None = ...,
         some_int: int | None = ...,

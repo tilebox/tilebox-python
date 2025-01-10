@@ -746,10 +746,7 @@ def _create_field_converter(field: FieldDescriptor) -> _FieldConverter:  # noqa:
             enum_type_prefix = _camel_to_uppercase(field.enum_type.name) + "_"
             return _EnumFieldConverter(
                 field.name,
-                {
-                    v.number: str(v.name).removeprefix(enum_type_prefix)
-                    for v in field.enum_type.values  # noqa: PD011
-                },
+                {v.number: str(v.name).removeprefix(enum_type_prefix) for v in field.enum_type.values},
             )
     elif field.label == FieldDescriptor.LABEL_REPEATED and field.type in _PROTOBUF_TYPE_TO_NUMPY_TYPE:  # array fields
         return _ArrayFieldConverter(field.name, _PROTOBUF_TYPE_TO_NUMPY_TYPE[field.type])

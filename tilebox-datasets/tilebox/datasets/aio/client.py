@@ -10,6 +10,13 @@ from tilebox.datasets.service import TileboxDatasetService
 
 class Client:
     def __init__(self, *, url: str = "https://api.tilebox.com", token: str | None = None) -> None:
+        """
+        Create a Tilebox datasets client.
+
+        Args:
+            url: Tilebox API Url. Defaults to "https://api.tilebox.com".
+            token: The API Key to authenticate with. If not set the `TILEBOX_API_KEY` environment variable will be used.
+        """
         channel = open_channel(url, token_from_env(url, token))
         service = TileboxDatasetService(with_pythonic_errors(TileboxServiceStub(channel)))
         self._client = BaseClient(service)

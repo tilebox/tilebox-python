@@ -47,7 +47,7 @@ class _Taskify(type):
             return task_class
 
         # Convert the class to a dataclass
-        task_class = dataclass(task_class)
+        task_class = dataclass(task_class)  # type: ignore[arg-type]
 
         # we allow overriding the execute method, but we still want to validate it
         # so we search for the closest base class that has an execute method and use

@@ -39,7 +39,7 @@ class TimeseriesDataset:
 
     async def collections(self, availability: bool = True, count: bool = False) -> dict[str, "TimeseriesCollection"]:
         """
-        List the available collections in this dataset.
+        List the available collections in a dataset.
 
         Args:
             availability: Whether to include the availability interval (timestamp of the first and the
@@ -189,7 +189,7 @@ class TimeseriesCollection:
         show_progress: bool | ProgressCallback = False,
     ) -> xr.Dataset:
         """
-        Load a range of datapoints in this collection in a specified interval.
+        Load a range of data points in this collection in a specified interval.
 
         The interval can be specified in a number of ways:
         - TimeInterval: interval -> Use the time interval as its given
@@ -221,11 +221,8 @@ class TimeseriesCollection:
         page_size: int | None = None,
     ) -> AsyncIterator[DatapointPage]:
         time_interval = TimeInterval.parse(time_or_interval)
-        collection = await self._collection()
 
-        request = partial(
-            self._dataset._service.get_dataset_for_time_interval, collection.id, time_interval, skip_data, skip_meta
-        )
+        request = partial(self._load_page, time_interval, skip_data, skip_meta)
 
         initial_page = Pagination(limit=page_size)
         pages = paginated_request(request, initial_page)
@@ -244,6 +241,15 @@ class TimeseriesCollection:
 
         async for page in pages:
             yield page
+
+    async def _load_page(
+        self, time_interval: TimeInterval, skip_data: bool, skip_meta: bool, page: Pagination | None = None
+    ) -> DatapointPage:
+        collection = await self._collection()
+
+        return await self._dataset._service.get_dataset_for_time_interval(
+            collection.id, time_interval, skip_data, skip_meta, page
+        )
 
     async def _collection(self) -> Collection:
         """

@@ -42,8 +42,8 @@ class SumResultTask(Task):
 
     def execute(self, context: ExecutionContext) -> None:
         cache: JobCache = context.job_cache  # type: ignore[attr-defined]
-        fib_n_1 = bytes_to_int(cache[f"fib_{self.n-1}"])
-        fib_n_2 = bytes_to_int(cache[f"fib_{self.n-2}"])
+        fib_n_1 = bytes_to_int(cache[f"fib_{self.n - 1}"])
+        fib_n_2 = bytes_to_int(cache[f"fib_{self.n - 2}"])
 
         # Calculate and store result
         cache[f"fib_{self.n}"] = int_to_bytes(fib_n_1 + fib_n_2)

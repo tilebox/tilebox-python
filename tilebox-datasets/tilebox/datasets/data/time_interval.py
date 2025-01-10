@@ -132,8 +132,11 @@ class TimeInterval:
             case point_in_time if isinstance(point_in_time, DatetimeScalar | int):
                 dt = _convert_to_datetime(point_in_time)
                 return TimeInterval(start=dt, end=dt, start_exclusive=False, end_inclusive=True)
-            case arr if isinstance(arr, xr.DataArray) and arr.ndim == 1 and arr.size > 0 and arr.dtype == np.dtype(
-                "datetime64[ns]"
+            case arr if (
+                isinstance(arr, xr.DataArray)
+                and arr.ndim == 1
+                and arr.size > 0
+                and arr.dtype == np.dtype("datetime64[ns]")
             ):
                 start = arr.data[0]
                 end = arr.data[-1]

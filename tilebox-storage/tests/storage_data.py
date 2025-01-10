@@ -42,7 +42,7 @@ def s1_granules(draw: DrawFn) -> ASFStorageGranule:
     """Generate a realistic-looking random Sentinel 1 granule."""
     level = "RAW"
     platform = draw(one_of(just("A"), just("B")))
-    acquisition_mode = draw(one_of(*(just(am) for am in ["IW", "EW", *[f"S{i+1}" for i in range(6)]])))
+    acquisition_mode = draw(one_of(*(just(am) for am in ["IW", "EW", *[f"S{i + 1}" for i in range(6)]])))
     start = draw(datetimes(min_value=datetime(2014, 6, 1), max_value=datetime(2050, 1, 1), timezones=just(None)))
     stop = draw(datetimes(min_value=datetime(2014, 6, 1), max_value=datetime(2050, 1, 1), timezones=just(None)))
     orbit = draw(integers(min_value=1, max_value=999_999))
