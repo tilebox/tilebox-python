@@ -18,11 +18,11 @@ _MODULES_TO_COPY = {
     },
     "workflows": {
         "tilebox-workflows/tilebox/workflows/workflowsv1": [
+            "automation",
             "core",
             "diagram",
             "job",
             "task",
-            "recurrent_task",
             "workflows",
         ],
     },

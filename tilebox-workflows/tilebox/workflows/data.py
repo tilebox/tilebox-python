@@ -21,8 +21,8 @@ from opentelemetry.trace import ProxyTracerProvider, Tracer
 
 from tilebox.datasets.data import datetime_to_timestamp, timestamp_to_datetime
 from tilebox.datasets.sync.client import Client as DatasetsClient
+from tilebox.workflows.workflowsv1 import automation_pb2 as automation_pb
 from tilebox.workflows.workflowsv1 import core_pb2, task_pb2
-from tilebox.workflows.workflowsv1 import recurrent_task_pb2 as recurrent_task_pb
 
 _VERSION_PATTERN = re.compile(r"^v(\d+)\.(\d+)$")  # matches a version string in the format "v3.2"
 
@@ -289,9 +289,9 @@ def uuid_to_uuid_message(uuid: UUID) -> core_pb2.UUID | None:
 
 
 class StorageType(Enum):
-    GCS = recurrent_task_pb.STORAGE_TYPE_GCS  # Google Cloud Storage
-    S3 = recurrent_task_pb.STORAGE_TYPE_S3  # Amazon Web Services S3
-    FS = recurrent_task_pb.STORAGE_TYPE_FS  # Local Filesystem
+    GCS = automation_pb.STORAGE_TYPE_GCS  # Google Cloud Storage
+    S3 = automation_pb.STORAGE_TYPE_S3  # Amazon Web Services S3
+    FS = automation_pb.STORAGE_TYPE_FS  # Local Filesystem
 
 
 _STORAGE_TYPE_TO_ENUM = {storage_type.value: storage_type for storage_type in StorageType}
@@ -305,7 +305,7 @@ class StorageLocation:
     runner_context: "RunnerContext | None" = None
 
     @classmethod  # lets use typing.Self once we require python >= 3.11
-    def from_message(cls, storage_location: recurrent_task_pb.StorageLocation) -> "StorageLocation":
+    def from_message(cls, storage_location: automation_pb.StorageLocation) -> "StorageLocation":
         """Convert a StorageLocation protobuf message to a StorageLocation object."""
         return cls(
             id=uuid_message_to_uuid(storage_location.id),
@@ -321,9 +321,9 @@ class StorageLocation:
             runner_context=runner_context,
         )
 
-    def to_message(self) -> recurrent_task_pb.StorageLocation:
+    def to_message(self) -> automation_pb.StorageLocation:
         """Convert a StorageLocation object to a StorageLocation protobuf message."""
-        return recurrent_task_pb.StorageLocation(
+        return automation_pb.StorageLocation(
             id=uuid_to_uuid_message(self.id), location=self.location, type=self.type.value
         )
 
@@ -355,7 +355,7 @@ class StorageEventTrigger:
     glob_pattern: str
 
     @classmethod
-    def from_message(cls, trigger: recurrent_task_pb.StorageEventTrigger) -> "StorageEventTrigger":
+    def from_message(cls, trigger: automation_pb.StorageEventTrigger) -> "StorageEventTrigger":
         """Convert a StorageEventTrigger protobuf message to a StorageEventTrigger object."""
         return cls(
             id=uuid_message_to_uuid(trigger.id),
@@ -363,9 +363,9 @@ class StorageEventTrigger:
             glob_pattern=trigger.glob_pattern,
         )
 
-    def to_message(self) -> recurrent_task_pb.StorageEventTrigger:
+    def to_message(self) -> automation_pb.StorageEventTrigger:
         """Convert a StorageEventTrigger object to a StorageEventTrigger protobuf message."""
-        return recurrent_task_pb.StorageEventTrigger(
+        return automation_pb.StorageEventTrigger(
             id=uuid_to_uuid_message(self.id),
             storage_location=self.storage_location.to_message(),
             glob_pattern=self.glob_pattern,
@@ -373,7 +373,7 @@ class StorageEventTrigger:
 
 
 class StorageEventType(Enum):
-    CREATED = recurrent_task_pb.STORAGE_EVENT_TYPE_CREATED
+    CREATED = automation_pb.STORAGE_EVENT_TYPE_CREATED
 
 
 _STORAGE_EVENT_TYPE_TO_ENUM = {storage_event_type.value: storage_event_type for storage_event_type in StorageEventType}
@@ -387,7 +387,7 @@ class TriggeredStorageEvent:
 
     @classmethod
     def from_message(
-        cls, event: recurrent_task_pb.TriggeredStorageEvent, locations: dict[UUID, StorageLocation]
+        cls, event: automation_pb.TriggeredStorageEvent, locations: dict[UUID, StorageLocation]
     ) -> "TriggeredStorageEvent":
         """Convert a TriggeredStorageEvent protobuf message to a TriggeredStorageEvent object."""
         storage_location_id = uuid_message_to_uuid(event.storage_location_id)
@@ -403,9 +403,9 @@ class TriggeredStorageEvent:
             location=event.location,
         )
 
-    def to_message(self) -> recurrent_task_pb.TriggeredStorageEvent:
+    def to_message(self) -> automation_pb.TriggeredStorageEvent:
         """Convert a TriggeredStorageEvent object to a TriggeredStorageEvent protobuf message."""
-        return recurrent_task_pb.TriggeredStorageEvent(
+        return automation_pb.TriggeredStorageEvent(
             storage_location_id=uuid_to_uuid_message(self.storage.id),
             type=self.type.value,
             location=self.location,
@@ -418,13 +418,13 @@ class CronTrigger:
     schedule: str
 
     @classmethod
-    def from_message(cls, trigger: recurrent_task_pb.CronTrigger) -> "CronTrigger":
+    def from_message(cls, trigger: automation_pb.CronTrigger) -> "CronTrigger":
         """Convert a CronTrigger protobuf message to a CronTrigger object."""
         return cls(id=uuid_message_to_uuid(trigger.id), schedule=trigger.schedule)
 
-    def to_message(self) -> recurrent_task_pb.CronTrigger:
+    def to_message(self) -> automation_pb.CronTrigger:
         """Convert a CronTrigger object to a CronTrigger protobuf message."""
-        return recurrent_task_pb.CronTrigger(id=uuid_to_uuid_message(self.id), schedule=self.schedule)
+        return automation_pb.CronTrigger(id=uuid_to_uuid_message(self.id), schedule=self.schedule)
 
 
 @dataclass(order=True)
@@ -432,17 +432,17 @@ class TriggeredCronEvent:
     time: datetime
 
     @classmethod
-    def from_message(cls, event: recurrent_task_pb.TriggeredCronEvent) -> "TriggeredCronEvent":
+    def from_message(cls, event: automation_pb.TriggeredCronEvent) -> "TriggeredCronEvent":
         """Convert a TriggeredCronEvent protobuf message to a TriggeredCronEvent object."""
         return cls(time=timestamp_to_datetime(event.trigger_time))
 
-    def to_message(self) -> recurrent_task_pb.TriggeredCronEvent:
+    def to_message(self) -> automation_pb.TriggeredCronEvent:
         """Convert a TriggeredCronEvent object to a TriggeredCronEvent protobuf message."""
-        return recurrent_task_pb.TriggeredCronEvent(trigger_time=datetime_to_timestamp(self.time))
+        return automation_pb.TriggeredCronEvent(trigger_time=datetime_to_timestamp(self.time))
 
 
 @dataclass(order=True)
-class RecurrentTaskPrototype:
+class AutomationPrototype:
     id: UUID
     name: str
     prototype: TaskSubmission
@@ -450,8 +450,8 @@ class RecurrentTaskPrototype:
     cron_triggers: list[CronTrigger]
 
     @classmethod
-    def from_message(cls, task: recurrent_task_pb.RecurrentTaskPrototype) -> "RecurrentTaskPrototype":
-        """Convert a RecurrentTaskPrototype protobuf message to a RecurrentTaskPrototype object."""
+    def from_message(cls, task: automation_pb.AutomationPrototype) -> "AutomationPrototype":
+        """Convert a AutomationPrototype protobuf message to a AutomationPrototype object."""
         return cls(
             id=uuid_message_to_uuid(task.id),
             name=task.name,
@@ -462,9 +462,9 @@ class RecurrentTaskPrototype:
             cron_triggers=[CronTrigger.from_message(trigger) for trigger in task.cron_triggers],
         )
 
-    def to_message(self) -> recurrent_task_pb.RecurrentTaskPrototype:
-        """Convert a RecurrentTaskPrototype object to a RecurrentTaskPrototype protobuf message."""
-        return recurrent_task_pb.RecurrentTaskPrototype(
+    def to_message(self) -> automation_pb.AutomationPrototype:
+        """Convert a AutomationPrototype object to a AutomationPrototype protobuf message."""
+        return automation_pb.AutomationPrototype(
             id=uuid_to_uuid_message(self.id),
             name=self.name,
             prototype=self.prototype.to_message(),

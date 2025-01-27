@@ -1705,7 +1705,7 @@ wheels = [
 
 [[package]]
 name = "tilebox-datasets"
-version = "0.30.0"
+version = "0.30.1"
 source = { editable = "tilebox-datasets" }
 dependencies = [
     { name = "cftime" },
@@ -1750,7 +1750,7 @@ dev = [
 
 [[package]]
 name = "tilebox-grpc"
-version = "0.30.0"
+version = "0.30.1"
 source = { editable = "tilebox-grpc" }
 dependencies = [
     { name = "anyio" },
@@ -1787,7 +1787,7 @@ dev = [
 
 [[package]]
 name = "tilebox-python"
-version = "0.30.0"
+version = "0.30.1"
 source = { editable = "." }
 dependencies = [
     { name = "tilebox-datasets" },
@@ -1832,7 +1832,7 @@ dev = [
 
 [[package]]
 name = "tilebox-storage"
-version = "0.30.0"
+version = "0.30.1"
 source = { editable = "tilebox-storage" }
 dependencies = [
     { name = "aiofile" },
@@ -1877,7 +1877,7 @@ dev = [
 
 [[package]]
 name = "tilebox-workflows"
-version = "0.30.0"
+version = "0.30.1"
 source = { editable = "tilebox-workflows" }
 dependencies = [
     { name = "boto3" },

@@ -43,7 +43,7 @@ class StorageLocations(_message.Message):
     locations: _containers.RepeatedCompositeFieldContainer[StorageLocation]
     def __init__(self, locations: _Optional[_Iterable[_Union[StorageLocation, _Mapping]]] = ...) -> None: ...
 
-class RecurrentTaskPrototype(_message.Message):
+class AutomationPrototype(_message.Message):
     __slots__ = ("id", "name", "prototype", "storage_event_triggers", "cron_triggers")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -57,11 +57,11 @@ class RecurrentTaskPrototype(_message.Message):
     cron_triggers: _containers.RepeatedCompositeFieldContainer[CronTrigger]
     def __init__(self, id: _Optional[_Union[_core_pb2.UUID, _Mapping]] = ..., name: _Optional[str] = ..., prototype: _Optional[_Union[_core_pb2.TaskSubmission, _Mapping]] = ..., storage_event_triggers: _Optional[_Iterable[_Union[StorageEventTrigger, _Mapping]]] = ..., cron_triggers: _Optional[_Iterable[_Union[CronTrigger, _Mapping]]] = ...) -> None: ...
 
-class RecurrentTasks(_message.Message):
-    __slots__ = ("tasks",)
-    TASKS_FIELD_NUMBER: _ClassVar[int]
-    tasks: _containers.RepeatedCompositeFieldContainer[RecurrentTaskPrototype]
-    def __init__(self, tasks: _Optional[_Iterable[_Union[RecurrentTaskPrototype, _Mapping]]] = ...) -> None: ...
+class Automations(_message.Message):
+    __slots__ = ("automations",)
+    AUTOMATIONS_FIELD_NUMBER: _ClassVar[int]
+    automations: _containers.RepeatedCompositeFieldContainer[AutomationPrototype]
+    def __init__(self, automations: _Optional[_Iterable[_Union[AutomationPrototype, _Mapping]]] = ...) -> None: ...
 
 class StorageEventTrigger(_message.Message):
     __slots__ = ("id", "storage_location", "glob_pattern")
@@ -81,7 +81,7 @@ class CronTrigger(_message.Message):
     schedule: str
     def __init__(self, id: _Optional[_Union[_core_pb2.UUID, _Mapping]] = ..., schedule: _Optional[str] = ...) -> None: ...
 
-class RecurrentTask(_message.Message):
+class Automation(_message.Message):
     __slots__ = ("trigger_event", "args")
     TRIGGER_EVENT_FIELD_NUMBER: _ClassVar[int]
     ARGS_FIELD_NUMBER: _ClassVar[int]
@@ -104,3 +104,11 @@ class TriggeredCronEvent(_message.Message):
     TRIGGER_TIME_FIELD_NUMBER: _ClassVar[int]
     trigger_time: _timestamp_pb2.Timestamp
     def __init__(self, trigger_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+
+class DeleteAutomationRequest(_message.Message):
+    __slots__ = ("automation_id", "cancel_jobs")
+    AUTOMATION_ID_FIELD_NUMBER: _ClassVar[int]
+    CANCEL_JOBS_FIELD_NUMBER: _ClassVar[int]
+    automation_id: _core_pb2.UUID
+    cancel_jobs: bool
+    def __init__(self, automation_id: _Optional[_Union[_core_pb2.UUID, _Mapping]] = ..., cancel_jobs: bool = ...) -> None: ...

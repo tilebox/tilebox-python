@@ -47,6 +47,21 @@ class JobServiceStub(object):
                 request_serializer=workflows_dot_v1_dot_job__pb2.ListJobsRequest.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_job__pb2.ListJobsResponse.FromString,
                 _registered_method=True)
+        self.FilterJobs = channel.unary_unary(
+                '/workflows.v1.JobService/FilterJobs',
+                request_serializer=workflows_dot_v1_dot_job__pb2.FilterJobsRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_job__pb2.ListJobsResponse.FromString,
+                _registered_method=True)
+        self.GetJobPrototype = channel.unary_unary(
+                '/workflows.v1.JobService/GetJobPrototype',
+                request_serializer=workflows_dot_v1_dot_job__pb2.GetJobPrototypeRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_job__pb2.GetJobPrototypeResponse.FromString,
+                _registered_method=True)
+        self.CloneJob = channel.unary_unary(
+                '/workflows.v1.JobService/CloneJob',
+                request_serializer=workflows_dot_v1_dot_job__pb2.CloneJobRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_core__pb2.Job.FromString,
+                _registered_method=True)
 
 
 class JobServiceServicer(object):
@@ -89,6 +104,24 @@ class JobServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def FilterJobs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetJobPrototype(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CloneJob(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_JobServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -121,6 +154,21 @@ def add_JobServiceServicer_to_server(servicer, server):
                     servicer.ListJobs,
                     request_deserializer=workflows_dot_v1_dot_job__pb2.ListJobsRequest.FromString,
                     response_serializer=workflows_dot_v1_dot_job__pb2.ListJobsResponse.SerializeToString,
+            ),
+            'FilterJobs': grpc.unary_unary_rpc_method_handler(
+                    servicer.FilterJobs,
+                    request_deserializer=workflows_dot_v1_dot_job__pb2.FilterJobsRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_job__pb2.ListJobsResponse.SerializeToString,
+            ),
+            'GetJobPrototype': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetJobPrototype,
+                    request_deserializer=workflows_dot_v1_dot_job__pb2.GetJobPrototypeRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_job__pb2.GetJobPrototypeResponse.SerializeToString,
+            ),
+            'CloneJob': grpc.unary_unary_rpc_method_handler(
+                    servicer.CloneJob,
+                    request_deserializer=workflows_dot_v1_dot_job__pb2.CloneJobRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_core__pb2.Job.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -286,6 +334,87 @@ class JobService(object):
             '/workflows.v1.JobService/ListJobs',
             workflows_dot_v1_dot_job__pb2.ListJobsRequest.SerializeToString,
             workflows_dot_v1_dot_job__pb2.ListJobsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def FilterJobs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.JobService/FilterJobs',
+            workflows_dot_v1_dot_job__pb2.FilterJobsRequest.SerializeToString,
+            workflows_dot_v1_dot_job__pb2.ListJobsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetJobPrototype(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.JobService/GetJobPrototype',
+            workflows_dot_v1_dot_job__pb2.GetJobPrototypeRequest.SerializeToString,
+            workflows_dot_v1_dot_job__pb2.GetJobPrototypeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CloneJob(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.JobService/CloneJob',
+            workflows_dot_v1_dot_job__pb2.CloneJobRequest.SerializeToString,
+            workflows_dot_v1_dot_core__pb2.Job.FromString,
             options,
             channel_credentials,
             insecure,

@@ -14,8 +14,8 @@ from tilebox.workflows.data import (
     TriggeredStorageEvent,
 )
 from tilebox.workflows.task import RunnerContext, Task, deserialize_task, serialize_task
-from tilebox.workflows.workflowsv1.recurrent_task_pb2 import RecurrentTask as RecurrentTaskMessage
-from tilebox.workflows.workflowsv1.recurrent_task_pb2 import TriggeredStorageEvent as TriggeredStorageEventMessage
+from tilebox.workflows.workflowsv1.automation_pb2 import Automation as AutomationMessage
+from tilebox.workflows.workflowsv1.automation_pb2 import TriggeredStorageEvent as TriggeredStorageEventMessage
 
 _NOT_TRIGGERED = TriggeredStorageEvent(
     StorageLocation(UUID(int=0), "", StorageType.FS),
@@ -36,7 +36,7 @@ class StorageEventTask(Task):
             raise ValueError("StorageEventTask cannot be submitted without being triggered. Use task.once().")
         event = self.trigger.to_message()
         args = self._serialize_args()
-        message = RecurrentTaskMessage(
+        message = AutomationMessage(
             trigger_event=event.SerializeToString(),
             args=args,
         )
@@ -44,7 +44,7 @@ class StorageEventTask(Task):
 
     @classmethod
     def _deserialize(cls, task_input: bytes, context: RunnerContext | None = None) -> Self:
-        message = RecurrentTaskMessage()
+        message = AutomationMessage()
         message.ParseFromString(task_input)
 
         task = cast(cls, deserialize_task(cls, message.args))

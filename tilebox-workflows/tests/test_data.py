@@ -1,10 +1,10 @@
 from hypothesis import given
 
 from tests.tasks_data import (
+    automations,
     clusters,
     computed_tasks,
     jobs,
-    recurrent_tasks,
     storage_locations,
     task_identifiers,
     task_leases,
@@ -12,10 +12,10 @@ from tests.tasks_data import (
     tasks,
 )
 from tilebox.workflows.data import (
+    AutomationPrototype,
     Cluster,
     ComputedTask,
     Job,
-    RecurrentTaskPrototype,
     StorageLocation,
     Task,
     TaskIdentifier,
@@ -70,6 +70,6 @@ def test_buckets_to_message_and_back(storage_location: StorageLocation) -> None:
     assert StorageLocation.from_message(storage_location.to_message()) == storage_location
 
 
-@given(recurrent_tasks())
-def test_recurrent_task_to_message_and_back(recurrent_task: RecurrentTaskPrototype) -> None:
-    assert RecurrentTaskPrototype.from_message(recurrent_task.to_message()) == recurrent_task
+@given(automations())
+def test_automation_to_message_and_back(automation: AutomationPrototype) -> None:
+    assert AutomationPrototype.from_message(automation.to_message()) == automation

@@ -3,8 +3,8 @@ from hypothesis import given
 from tests.proto.test_pb2 import SampleArgs
 from tests.tasks_data import storage_locations
 
+from tilebox.workflows.automations import StorageEventTask
 from tilebox.workflows.data import StorageEventType, StorageLocation
-from tilebox.workflows.recurrent_tasks import StorageEventTask
 from tilebox.workflows.task import RunnerContext
 
 

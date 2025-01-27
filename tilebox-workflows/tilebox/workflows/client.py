@@ -3,6 +3,7 @@ import os
 
 from _tilebox.grpc.channel import open_channel
 from tilebox.datasets.sync.client import Client as DatasetsClient
+from tilebox.workflows.automations.client import AutomationClient, AutomationService
 from tilebox.workflows.cache import JobCache, NoCache
 from tilebox.workflows.clusters.client import ClusterClient, ClusterSlugLike, to_cluster_slug
 from tilebox.workflows.clusters.service import ClusterService
@@ -14,7 +15,6 @@ from tilebox.workflows.jobs.service import JobService
 from tilebox.workflows.observability.tracing import (
     WorkflowTracer,
 )
-from tilebox.workflows.recurrent_tasks.client import RecurrentTaskClient, RecurrentTaskService
 from tilebox.workflows.runner.task_runner import TaskRunner, _LeaseRenewer
 from tilebox.workflows.runner.task_service import TaskService
 
@@ -99,7 +99,7 @@ class Client:
         tracer = self._tracer or WorkflowTracer()
 
         try:
-            storage_locations = self.recurrent_tasks().storage_locations()
+            storage_locations = self.automations().storage_locations()
         except:  # noqa: E722
             # if fetching storage locations fails, we just disable this feature, and don't crash all runners
             # lets refactor this to a lazy loading mechanism in the future
@@ -137,11 +137,11 @@ class Client:
         """
         return ClusterClient(ClusterService(self._channel))
 
-    def recurrent_tasks(self) -> RecurrentTaskClient:
+    def automations(self) -> AutomationClient:
         """
-        Get a client for the recurrent tasks service.
+        Get a client for the automations service.
 
         Returns:
-            A client for the recurrent tasks service.
+            A client for the automations service.
         """
-        return RecurrentTaskClient(RecurrentTaskService(self._channel))
+        return AutomationClient(AutomationService(self._channel))

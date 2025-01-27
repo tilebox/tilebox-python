@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from tests.proto.test_pb2 import SampleArgs
 
-from tilebox.workflows.recurrent_tasks import CronTask
+from tilebox.workflows.automations import CronTask
 
 
 class ExampleCronTask(CronTask):

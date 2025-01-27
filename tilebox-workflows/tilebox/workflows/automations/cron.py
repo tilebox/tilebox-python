@@ -10,8 +10,8 @@ except ImportError:  # Self is only available in Python 3.11+
 
 from tilebox.workflows.data import TriggeredCronEvent
 from tilebox.workflows.task import RunnerContext, Task, deserialize_task, serialize_task
-from tilebox.workflows.workflowsv1.recurrent_task_pb2 import RecurrentTask as RecurrentTaskMessage
-from tilebox.workflows.workflowsv1.recurrent_task_pb2 import TriggeredCronEvent as TriggeredCronEventMessage
+from tilebox.workflows.workflowsv1.automation_pb2 import Automation as AutomationMessage
+from tilebox.workflows.workflowsv1.automation_pb2 import TriggeredCronEvent as TriggeredCronEventMessage
 
 _NOT_TRIGGERED = TriggeredCronEvent(datetime.min.replace(tzinfo=timezone.utc))
 
@@ -28,7 +28,7 @@ class CronTask(Task):
             raise ValueError("CronTask cannot be submitted without being triggered. Use task.once().")
         event = self.trigger.to_message()
         args = self._serialize_args()
-        message = RecurrentTaskMessage(
+        message = AutomationMessage(
             trigger_event=event.SerializeToString(),
             args=args,
         )
@@ -36,7 +36,7 @@ class CronTask(Task):
 
     @classmethod
     def _deserialize(cls, task_input: bytes, context: RunnerContext | None = None) -> Self:  # noqa: ARG003
-        message = RecurrentTaskMessage()
+        message = AutomationMessage()
         message.ParseFromString(task_input)
 
         task = cast(Self, deserialize_task(cls, message.args))

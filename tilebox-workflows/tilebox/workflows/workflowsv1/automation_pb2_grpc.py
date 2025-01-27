@@ -3,13 +3,12 @@
 import grpc
 
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
+from tilebox.workflows.workflowsv1 import automation_pb2 as workflows_dot_v1_dot_automation__pb2
 from tilebox.workflows.workflowsv1 import core_pb2 as workflows_dot_v1_dot_core__pb2
-from tilebox.workflows.workflowsv1 import recurrent_task_pb2 as workflows_dot_v1_dot_recurrent__task__pb2
 
 
-class RecurrentTaskServiceStub(object):
-    """RecurrentTaskService is a service for managing recurrent tasks. Currently, we support two types of triggers for
-    recurrent tasks:
+class AutomationServiceStub(object):
+    """AutomationService is a service for managing automations. Currently, we support two types of triggers for automations:
     - Bucket triggers, which triggers tasks when an object is uploaded to a storage bucket that matches a glob pattern
     - Cron triggers, which triggers tasks on a schedule
     """
@@ -21,55 +20,54 @@ class RecurrentTaskServiceStub(object):
             channel: A grpc.Channel.
         """
         self.ListStorageLocations = channel.unary_unary(
-                '/workflows.v1.RecurrentTaskService/ListStorageLocations',
+                '/workflows.v1.AutomationService/ListStorageLocations',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_recurrent__task__pb2.StorageLocations.FromString,
+                response_deserializer=workflows_dot_v1_dot_automation__pb2.StorageLocations.FromString,
                 _registered_method=True)
         self.GetStorageLocation = channel.unary_unary(
-                '/workflows.v1.RecurrentTaskService/GetStorageLocation',
+                '/workflows.v1.AutomationService/GetStorageLocation',
                 request_serializer=workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_recurrent__task__pb2.StorageLocation.FromString,
+                response_deserializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.FromString,
                 _registered_method=True)
         self.CreateStorageLocation = channel.unary_unary(
-                '/workflows.v1.RecurrentTaskService/CreateStorageLocation',
-                request_serializer=workflows_dot_v1_dot_recurrent__task__pb2.StorageLocation.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_recurrent__task__pb2.StorageLocation.FromString,
+                '/workflows.v1.AutomationService/CreateStorageLocation',
+                request_serializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.FromString,
                 _registered_method=True)
         self.DeleteStorageLocation = channel.unary_unary(
-                '/workflows.v1.RecurrentTaskService/DeleteStorageLocation',
+                '/workflows.v1.AutomationService/DeleteStorageLocation',
                 request_serializer=workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
-        self.ListRecurrentTasks = channel.unary_unary(
-                '/workflows.v1.RecurrentTaskService/ListRecurrentTasks',
+        self.ListAutomations = channel.unary_unary(
+                '/workflows.v1.AutomationService/ListAutomations',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTasks.FromString,
+                response_deserializer=workflows_dot_v1_dot_automation__pb2.Automations.FromString,
                 _registered_method=True)
-        self.GetRecurrentTask = channel.unary_unary(
-                '/workflows.v1.RecurrentTaskService/GetRecurrentTask',
+        self.GetAutomation = channel.unary_unary(
+                '/workflows.v1.AutomationService/GetAutomation',
                 request_serializer=workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.FromString,
+                response_deserializer=workflows_dot_v1_dot_automation__pb2.AutomationPrototype.FromString,
                 _registered_method=True)
-        self.CreateRecurrentTask = channel.unary_unary(
-                '/workflows.v1.RecurrentTaskService/CreateRecurrentTask',
-                request_serializer=workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.FromString,
+        self.CreateAutomation = channel.unary_unary(
+                '/workflows.v1.AutomationService/CreateAutomation',
+                request_serializer=workflows_dot_v1_dot_automation__pb2.AutomationPrototype.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_automation__pb2.AutomationPrototype.FromString,
                 _registered_method=True)
-        self.UpdateRecurrentTask = channel.unary_unary(
-                '/workflows.v1.RecurrentTaskService/UpdateRecurrentTask',
-                request_serializer=workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.FromString,
+        self.UpdateAutomation = channel.unary_unary(
+                '/workflows.v1.AutomationService/UpdateAutomation',
+                request_serializer=workflows_dot_v1_dot_automation__pb2.AutomationPrototype.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_automation__pb2.AutomationPrototype.FromString,
                 _registered_method=True)
-        self.DeleteRecurrentTask = channel.unary_unary(
-                '/workflows.v1.RecurrentTaskService/DeleteRecurrentTask',
-                request_serializer=workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
+        self.DeleteAutomation = channel.unary_unary(
+                '/workflows.v1.AutomationService/DeleteAutomation',
+                request_serializer=workflows_dot_v1_dot_automation__pb2.DeleteAutomationRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
 
 
-class RecurrentTaskServiceServicer(object):
-    """RecurrentTaskService is a service for managing recurrent tasks. Currently, we support two types of triggers for
-    recurrent tasks:
+class AutomationServiceServicer(object):
+    """AutomationService is a service for managing automations. Currently, we support two types of triggers for automations:
     - Bucket triggers, which triggers tasks when an object is uploaded to a storage bucket that matches a glob pattern
     - Cron triggers, which triggers tasks on a schedule
     """
@@ -102,100 +100,99 @@ class RecurrentTaskServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ListRecurrentTasks(self, request, context):
-        """ListRecurrentTasks lists all the recurrent tasks that are currently registered in a namespace.
+    def ListAutomations(self, request, context):
+        """ListAutomations lists all the automations that are currently registered in a namespace.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetRecurrentTask(self, request, context):
-        """GetRecurrentTask gets a recurrent task by its ID.
+    def GetAutomation(self, request, context):
+        """GetAutomation gets an automation by its ID.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def CreateRecurrentTask(self, request, context):
-        """CreateRecurrentTask creates a new recurrent task in a namespace.
+    def CreateAutomation(self, request, context):
+        """CreateAutomation creates a new automation in a namespace.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def UpdateRecurrentTask(self, request, context):
-        """UpdateRecurrentTask updates a recurrent task in a namespace.
+    def UpdateAutomation(self, request, context):
+        """UpdateAutomation updates an automation in a namespace.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def DeleteRecurrentTask(self, request, context):
-        """DeleteRecurrentTask deletes a recurrent task from a namespace.
+    def DeleteAutomation(self, request, context):
+        """DeleteAutomation deletes an automation from a namespace.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
 
-def add_RecurrentTaskServiceServicer_to_server(servicer, server):
+def add_AutomationServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ListStorageLocations': grpc.unary_unary_rpc_method_handler(
                     servicer.ListStorageLocations,
                     request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-                    response_serializer=workflows_dot_v1_dot_recurrent__task__pb2.StorageLocations.SerializeToString,
+                    response_serializer=workflows_dot_v1_dot_automation__pb2.StorageLocations.SerializeToString,
             ),
             'GetStorageLocation': grpc.unary_unary_rpc_method_handler(
                     servicer.GetStorageLocation,
                     request_deserializer=workflows_dot_v1_dot_core__pb2.UUID.FromString,
-                    response_serializer=workflows_dot_v1_dot_recurrent__task__pb2.StorageLocation.SerializeToString,
+                    response_serializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.SerializeToString,
             ),
             'CreateStorageLocation': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateStorageLocation,
-                    request_deserializer=workflows_dot_v1_dot_recurrent__task__pb2.StorageLocation.FromString,
-                    response_serializer=workflows_dot_v1_dot_recurrent__task__pb2.StorageLocation.SerializeToString,
+                    request_deserializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.FromString,
+                    response_serializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.SerializeToString,
             ),
             'DeleteStorageLocation': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteStorageLocation,
                     request_deserializer=workflows_dot_v1_dot_core__pb2.UUID.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
-            'ListRecurrentTasks': grpc.unary_unary_rpc_method_handler(
-                    servicer.ListRecurrentTasks,
+            'ListAutomations': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListAutomations,
                     request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-                    response_serializer=workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTasks.SerializeToString,
+                    response_serializer=workflows_dot_v1_dot_automation__pb2.Automations.SerializeToString,
             ),
-            'GetRecurrentTask': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetRecurrentTask,
+            'GetAutomation': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAutomation,
                     request_deserializer=workflows_dot_v1_dot_core__pb2.UUID.FromString,
-                    response_serializer=workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.SerializeToString,
+                    response_serializer=workflows_dot_v1_dot_automation__pb2.AutomationPrototype.SerializeToString,
             ),
-            'CreateRecurrentTask': grpc.unary_unary_rpc_method_handler(
-                    servicer.CreateRecurrentTask,
-                    request_deserializer=workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.FromString,
-                    response_serializer=workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.SerializeToString,
+            'CreateAutomation': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateAutomation,
+                    request_deserializer=workflows_dot_v1_dot_automation__pb2.AutomationPrototype.FromString,
+                    response_serializer=workflows_dot_v1_dot_automation__pb2.AutomationPrototype.SerializeToString,
             ),
-            'UpdateRecurrentTask': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpdateRecurrentTask,
-                    request_deserializer=workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.FromString,
-                    response_serializer=workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.SerializeToString,
+            'UpdateAutomation': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateAutomation,
+                    request_deserializer=workflows_dot_v1_dot_automation__pb2.AutomationPrototype.FromString,
+                    response_serializer=workflows_dot_v1_dot_automation__pb2.AutomationPrototype.SerializeToString,
             ),
-            'DeleteRecurrentTask': grpc.unary_unary_rpc_method_handler(
-                    servicer.DeleteRecurrentTask,
-                    request_deserializer=workflows_dot_v1_dot_core__pb2.UUID.FromString,
+            'DeleteAutomation': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteAutomation,
+                    request_deserializer=workflows_dot_v1_dot_automation__pb2.DeleteAutomationRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'workflows.v1.RecurrentTaskService', rpc_method_handlers)
+            'workflows.v1.AutomationService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('workflows.v1.RecurrentTaskService', rpc_method_handlers)
+    server.add_registered_method_handlers('workflows.v1.AutomationService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
-class RecurrentTaskService(object):
-    """RecurrentTaskService is a service for managing recurrent tasks. Currently, we support two types of triggers for
-    recurrent tasks:
+class AutomationService(object):
+    """AutomationService is a service for managing automations. Currently, we support two types of triggers for automations:
     - Bucket triggers, which triggers tasks when an object is uploaded to a storage bucket that matches a glob pattern
     - Cron triggers, which triggers tasks on a schedule
     """
@@ -214,9 +211,9 @@ class RecurrentTaskService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/workflows.v1.RecurrentTaskService/ListStorageLocations',
+            '/workflows.v1.AutomationService/ListStorageLocations',
             google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-            workflows_dot_v1_dot_recurrent__task__pb2.StorageLocations.FromString,
+            workflows_dot_v1_dot_automation__pb2.StorageLocations.FromString,
             options,
             channel_credentials,
             insecure,
@@ -241,9 +238,9 @@ class RecurrentTaskService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/workflows.v1.RecurrentTaskService/GetStorageLocation',
+            '/workflows.v1.AutomationService/GetStorageLocation',
             workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
-            workflows_dot_v1_dot_recurrent__task__pb2.StorageLocation.FromString,
+            workflows_dot_v1_dot_automation__pb2.StorageLocation.FromString,
             options,
             channel_credentials,
             insecure,
@@ -268,9 +265,9 @@ class RecurrentTaskService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/workflows.v1.RecurrentTaskService/CreateStorageLocation',
-            workflows_dot_v1_dot_recurrent__task__pb2.StorageLocation.SerializeToString,
-            workflows_dot_v1_dot_recurrent__task__pb2.StorageLocation.FromString,
+            '/workflows.v1.AutomationService/CreateStorageLocation',
+            workflows_dot_v1_dot_automation__pb2.StorageLocation.SerializeToString,
+            workflows_dot_v1_dot_automation__pb2.StorageLocation.FromString,
             options,
             channel_credentials,
             insecure,
@@ -295,7 +292,7 @@ class RecurrentTaskService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/workflows.v1.RecurrentTaskService/DeleteStorageLocation',
+            '/workflows.v1.AutomationService/DeleteStorageLocation',
             workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
@@ -309,7 +306,7 @@ class RecurrentTaskService(object):
             _registered_method=True)
 
     @staticmethod
-    def ListRecurrentTasks(request,
+    def ListAutomations(request,
             target,
             options=(),
             channel_credentials=None,
@@ -322,9 +319,9 @@ class RecurrentTaskService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/workflows.v1.RecurrentTaskService/ListRecurrentTasks',
+            '/workflows.v1.AutomationService/ListAutomations',
             google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-            workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTasks.FromString,
+            workflows_dot_v1_dot_automation__pb2.Automations.FromString,
             options,
             channel_credentials,
             insecure,
@@ -336,7 +333,7 @@ class RecurrentTaskService(object):
             _registered_method=True)
 
     @staticmethod
-    def GetRecurrentTask(request,
+    def GetAutomation(request,
             target,
             options=(),
             channel_credentials=None,
@@ -349,9 +346,9 @@ class RecurrentTaskService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/workflows.v1.RecurrentTaskService/GetRecurrentTask',
+            '/workflows.v1.AutomationService/GetAutomation',
             workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
-            workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.FromString,
+            workflows_dot_v1_dot_automation__pb2.AutomationPrototype.FromString,
             options,
             channel_credentials,
             insecure,
@@ -363,7 +360,7 @@ class RecurrentTaskService(object):
             _registered_method=True)
 
     @staticmethod
-    def CreateRecurrentTask(request,
+    def CreateAutomation(request,
             target,
             options=(),
             channel_credentials=None,
@@ -376,9 +373,9 @@ class RecurrentTaskService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/workflows.v1.RecurrentTaskService/CreateRecurrentTask',
-            workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.SerializeToString,
-            workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.FromString,
+            '/workflows.v1.AutomationService/CreateAutomation',
+            workflows_dot_v1_dot_automation__pb2.AutomationPrototype.SerializeToString,
+            workflows_dot_v1_dot_automation__pb2.AutomationPrototype.FromString,
             options,
             channel_credentials,
             insecure,
@@ -390,7 +387,7 @@ class RecurrentTaskService(object):
             _registered_method=True)
 
     @staticmethod
-    def UpdateRecurrentTask(request,
+    def UpdateAutomation(request,
             target,
             options=(),
             channel_credentials=None,
@@ -403,9 +400,9 @@ class RecurrentTaskService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/workflows.v1.RecurrentTaskService/UpdateRecurrentTask',
-            workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.SerializeToString,
-            workflows_dot_v1_dot_recurrent__task__pb2.RecurrentTaskPrototype.FromString,
+            '/workflows.v1.AutomationService/UpdateAutomation',
+            workflows_dot_v1_dot_automation__pb2.AutomationPrototype.SerializeToString,
+            workflows_dot_v1_dot_automation__pb2.AutomationPrototype.FromString,
             options,
             channel_credentials,
             insecure,
@@ -417,7 +414,7 @@ class RecurrentTaskService(object):
             _registered_method=True)
 
     @staticmethod
-    def DeleteRecurrentTask(request,
+    def DeleteAutomation(request,
             target,
             options=(),
             channel_credentials=None,
@@ -430,8 +427,8 @@ class RecurrentTaskService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/workflows.v1.RecurrentTaskService/DeleteRecurrentTask',
-            workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
+            '/workflows.v1.AutomationService/DeleteAutomation',
+            workflows_dot_v1_dot_automation__pb2.DeleteAutomationRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,

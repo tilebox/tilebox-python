@@ -1,21 +1,21 @@
 from uuid import UUID
 
+from tilebox.workflows.automations.cron import CronTask
+from tilebox.workflows.automations.service import AutomationService
+from tilebox.workflows.automations.storage_event import StorageEventTask
 from tilebox.workflows.clusters.client import ClusterSlugLike, to_cluster_slug
 from tilebox.workflows.data import (
+    AutomationPrototype,
     CronTrigger,
-    RecurrentTaskPrototype,
     StorageEventTrigger,
     StorageLocation,
     TaskSubmission,
 )
-from tilebox.workflows.recurrent_tasks.cron import CronTask
-from tilebox.workflows.recurrent_tasks.service import RecurrentTaskService
-from tilebox.workflows.recurrent_tasks.storage_event import StorageEventTask
 from tilebox.workflows.task import _task_meta
 
 
-class RecurrentTaskClient:
-    def __init__(self, service: RecurrentTaskService) -> None:
+class AutomationClient:
+    def __init__(self, service: AutomationService) -> None:
         self._service = service
 
     def storage_locations(self) -> list[StorageLocation]:
@@ -26,46 +26,46 @@ class RecurrentTaskClient:
         """
         return self._service.list_storage_locations()
 
-    def all(self) -> list[RecurrentTaskPrototype]:
-        """List all registered recurrent tasks.
+    def all(self) -> list[AutomationPrototype]:
+        """List all registered automations.
 
         Returns:
-            A list of all registered recurrent tasks.
+            A list of all registered automations.
         """
         return self._service.list()
 
-    def find(self, task_id: UUID | str) -> RecurrentTaskPrototype:
-        """Find a recurrent task by id.
+    def find(self, automation_id: UUID | str) -> AutomationPrototype:
+        """Find an automation by id.
 
         Args:
-            task_id: The id of the recurrent task to find.
+            automation_id: The id of the automation to find.
 
         Returns:
-            The recurrent task for the given task_id.
+            The automation for the given automation_id.
         """
-        if isinstance(task_id, str):
-            task_id = UUID(task_id)
-        return self._service.get_by_id(task_id)
+        if isinstance(automation_id, str):
+            automation_id = UUID(automation_id)
+        return self._service.get_by_id(automation_id)
 
-    def create_recurring_cron_task(
+    def create_cron_automation(
         self,
         name: str,
         task: CronTask,
         cron_schedules: str | list[str],
         cluster: ClusterSlugLike,
         max_retries: int = 0,
-    ) -> RecurrentTaskPrototype:
-        """Create a new recurrent task that is triggered by cron schedules.
+    ) -> AutomationPrototype:
+        """Create a new automation that is triggered by cron schedules.
 
         Args:
-            name: The name of the recurrent task to create.
+            name: The name of the automation to create.
             task: The task to run.
             cron_schedules: The cron schedules to trigger the task.
             cluster: The cluster to run the task on.
             max_retries: The maximum number of retries for the task in case of failure. Defaults to 0.
 
         Returns:
-            The created recurrent task.
+            The created automation.
         """
         if isinstance(cron_schedules, str):
             cron_schedules = [cron_schedules]
@@ -73,7 +73,7 @@ class RecurrentTaskClient:
         if not cron_schedules:
             raise ValueError("At least one cron trigger schedule must be provided.")
 
-        recurrent_task = RecurrentTaskPrototype(
+        automation = AutomationPrototype(
             id=UUID(int=0),
             name=name,
             prototype=TaskSubmission(
@@ -87,27 +87,27 @@ class RecurrentTaskClient:
             storage_event_triggers=[],
             cron_triggers=[CronTrigger(id=UUID(int=0), schedule=s) for s in cron_schedules],
         )
-        return self._service.create(recurrent_task)
+        return self._service.create(automation)
 
-    def create_recurring_storage_event_task(
+    def create_storage_event_automation(
         self,
         name: str,
         task: StorageEventTask,
         triggers: list[tuple[StorageLocation, str]] | tuple[StorageLocation, str],
         cluster: ClusterSlugLike,
         max_retries: int = 0,
-    ) -> RecurrentTaskPrototype:
-        """Create a new recurrent task that is triggered by an object being added to a storage location.
+    ) -> AutomationPrototype:
+        """Create a new automation that is triggered by an object being added to a storage location.
 
         Args:
-            name: The name of the recurrent task to create.
+            name: The name of the automation to create.
             task: The task to run.
             triggers: Tuples of storage location and glob pattern to trigger the task.
             cluster: The cluster to run the task on.
             max_retries: The maximum number of retries for the task in case of failure. Defaults to 0.
 
         Returns:
-            The created recurrent task.
+            The created automation.
         """
         if not isinstance(triggers, list):
             triggers = [triggers]
@@ -115,7 +115,7 @@ class RecurrentTaskClient:
         if not triggers:
             raise ValueError("At least one bucket trigger must be provided.")
 
-        recurrent_task = RecurrentTaskPrototype(
+        automation = AutomationPrototype(
             id=UUID(int=0),
             name=name,
             prototype=TaskSubmission(
@@ -131,19 +131,19 @@ class RecurrentTaskClient:
             ],
             cron_triggers=[],
         )
-        return self._service.create(recurrent_task)
+        return self._service.create(automation)
 
-    def delete(self, task_or_id: RecurrentTaskPrototype | UUID | str) -> None:
-        """Delete a recurrent task by id.
+    def delete(self, automation_or_id: AutomationPrototype | UUID | str) -> None:
+        """Delete an automation by id.
 
         Args:
-            task_id: The id of the recurrent task to delete.
+            automation_or_id: The id of the automation to delete or the automation object itself.
         """
-        if isinstance(task_or_id, str):
-            task_id = UUID(task_or_id)
-        elif isinstance(task_or_id, RecurrentTaskPrototype):
-            task_id = task_or_id.id
+        if isinstance(automation_or_id, str):
+            automation_id = UUID(automation_or_id)
+        elif isinstance(automation_or_id, AutomationPrototype):
+            automation_id = automation_or_id.id
         else:
-            task_id = task_or_id
+            automation_id = automation_or_id
 
-        self._service.delete(task_id)
+        self._service.delete(automation_id)

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.2] - 2025-01-27
+
+### Changed
+
+- Renamed recurrent tasks to automations.
+
 ## [0.30.1] - 2025-01-10
 
 ### Added
@@ -98,7 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.30.1...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.30.2...HEAD
+[0.30.2]: https://github.com/tilebox/tilebox-python/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/tilebox/tilebox-python/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/tilebox/tilebox-python/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/tilebox/tilebox-python/compare/v0.28.0...v0.29.0

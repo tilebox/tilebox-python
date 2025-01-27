@@ -22,11 +22,11 @@ from hypothesis.strategies import (
 )
 
 from tilebox.workflows.data import (
+    AutomationPrototype,
     Cluster,
     ComputedTask,
     CronTrigger,
     Job,
-    RecurrentTaskPrototype,
     StorageEventTrigger,
     StorageLocation,
     StorageType,
@@ -165,9 +165,9 @@ def storage_event_triggers(draw: DrawFn) -> StorageEventTrigger:
 
 
 @composite
-def recurrent_tasks(draw: DrawFn) -> RecurrentTaskPrototype:
-    """A hypothesis strategy for generating random recurrent tasks"""
-    recurrent_task_id = draw(uuids(version=4))
+def automations(draw: DrawFn) -> AutomationPrototype:
+    """A hypothesis strategy for generating random automations"""
+    automation_id = draw(uuids(version=4))
     name = draw(alphanumerical_text())
     prototype = draw(task_submissions())
 
@@ -180,4 +180,4 @@ def recurrent_tasks(draw: DrawFn) -> RecurrentTaskPrototype:
     else:
         storage_event = draw(lists(storage_event_triggers(), min_size=1, max_size=10))
 
-    return RecurrentTaskPrototype(recurrent_task_id, name, prototype, storage_event, cron)
+    return AutomationPrototype(automation_id, name, prototype, storage_event, cron)
