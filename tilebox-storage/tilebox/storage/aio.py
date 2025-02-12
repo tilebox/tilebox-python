@@ -4,7 +4,7 @@ import shutil
 import tempfile
 import warnings
 import zipfile
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 from typing import IO, Any
 
@@ -419,13 +419,25 @@ class UmbraStorageClient(StorageClient):
 
         self._s3 = _S3Client(s3=boto3_client, bucket=self._BUCKET)
 
+    def list_objects(self, datapoint: xr.Dataset | UmbraStorageGranule) -> list[str]:
+        """List all available objects for a given datapoint.
+
+        Args:
+            datapoint: The datapoint to list available objects the data for.
+
+        Returns:
+            List of object keys available for the given datapoint, relative to the granule location."""
+        granule = UmbraStorageGranule.from_data(datapoint)
+        prefix = f"sar-data/tasks/{granule.location}/"
+        keys = [object_metadata.get("Key") for object_metadata in self._s3.list_objects(prefix)]
+        return [k.removeprefix(prefix) for k in keys if k is not None]
+
     async def download(
         self,
         datapoint: xr.Dataset | UmbraStorageGranule,
         output_dir: Path | None = None,
         verify: bool = True,
         show_progress: bool = True,
-        products: list[str] | None = None,
     ) -> Path:
         """Download the data for a given datapoint.
 
@@ -434,12 +446,46 @@ class UmbraStorageClient(StorageClient):
             output_dir: The directory to download the data to. Optional, defaults to the cache directory.
             verify: Whether to verify the md5sum of the downloaded file. Defaults to True.
             show_progress: Whether to show a progress bar while downloading. Defaults to True.
-            products: A list of products to download. If None, all products are downloaded. The products are matched
-                against the object key in the S3 bucket.
 
         Returns:
             The path to the downloaded data directory.
         """
+        return await self._download(datapoint, None, output_dir, verify, show_progress)
+
+    async def download_objects(
+        self,
+        datapoint: xr.Dataset | UmbraStorageGranule,
+        objects: list[str],
+        output_dir: Path | None = None,
+        verify: bool = True,
+        show_progress: bool = True,
+    ) -> Path:
+        """Download a subset of the data for a given datapoint.
+
+        Typically used in conjunction with list_objects to filter the available objects beforehand.
+
+        Args:
+            datapoint: The datapoint to download the data for.
+            objects: A list of objects to download. Only objects that are in this list will be downloaded. See
+                list_objects to get a list of available objects to filter on. Object names are considered relative
+                to the granule location.
+            output_dir: The directory to download the data to. Optional, defaults to the cache directory.
+            verify: Whether to verify the md5sum of the downloaded file. Defaults to True.
+            show_progress: Whether to show a progress bar while downloading. Defaults to True.
+
+        Returns:
+            The path to the downloaded data directory.
+        """
+        return await self._download(datapoint, lambda key: key in objects, output_dir, verify, show_progress)
+
+    async def _download(
+        self,
+        datapoint: xr.Dataset | UmbraStorageGranule,
+        obj_filter_func: Callable[[str], bool] | None = None,
+        output_dir: Path | None = None,
+        verify: bool = True,
+        show_progress: bool = True,
+    ) -> Path:
         granule = UmbraStorageGranule.from_data(datapoint)
 
         base_folder = output_dir or self._cache
@@ -450,16 +496,19 @@ class UmbraStorageClient(StorageClient):
         prefix = f"sar-data/tasks/{granule.location}/"
 
         objects = self._s3.list_objects(prefix)
+        objects = [obj for obj in objects if "Key" in obj]  # Key is optional, so just in case filter out obj without
+
+        if obj_filter_func is not None:
+            # get object names relative to the granule location, so we can pass it to our filter function
+            object_names = [obj["Key"].removeprefix(prefix) for obj in objects if "Key" in obj]
+            objects = [
+                object_metadata
+                for (object_metadata, object_name) in zip(objects, object_names, strict=True)
+                if obj_filter_func(object_name)
+            ]
 
         async with anyio.create_task_group() as task_group:
             for object_metadata in objects:
-                if "Key" not in object_metadata:
-                    continue
-                if products is not None and not any(
-                    object_metadata["Key"].startswith(f"{prefix}{granule.granule_name}_{product}")
-                    for product in products
-                ):
-                    continue
                 task_group.start_soon(
                     self._download_object, object_metadata, prefix, output_folder, verify, show_progress
                 )
@@ -554,6 +603,19 @@ class CopernicusStorageClient(StorageClient):
             bucket=self._BUCKET,
         )
 
+    def list_objects(self, datapoint: xr.Dataset | CopernicusStorageGranule) -> list[str]:
+        """List all available objects for a given datapoint.
+
+        Args:
+            datapoint: The datapoint to list available objects the data for.
+
+        Returns:
+            List of object keys available for the given datapoint, relative to the granule location."""
+        granule = CopernicusStorageGranule.from_data(datapoint)
+        prefix = granule.location.removeprefix("/eodata/") + "/"
+        keys = [object_metadata.get("Key") for object_metadata in self._s3.list_objects(prefix)]
+        return [k.removeprefix(prefix) for k in keys if k is not None]
+
     async def download(
         self,
         datapoint: xr.Dataset | CopernicusStorageGranule,
@@ -572,6 +634,42 @@ class CopernicusStorageClient(StorageClient):
         Returns:
             The path to the downloaded data directory.
         """
+        return await self._download(datapoint, None, output_dir, verify, show_progress)
+
+    async def download_objects(
+        self,
+        datapoint: xr.Dataset | CopernicusStorageGranule,
+        objects: list[str],
+        output_dir: Path | None = None,
+        verify: bool = True,
+        show_progress: bool = True,
+    ) -> Path:
+        """Download a subset of the data for a given datapoint.
+
+        Typically used in conjunction with list_objects to filter the available objects beforehand.
+
+        Args:
+            datapoint: The datapoint to download the data for.
+            objects: A list of objects to download. Only objects that are in this list will be downloaded. See
+                list_objects to get a list of available objects to filter on. Object names are considered relative
+                to the granule location.
+            output_dir: The directory to download the data to. Optional, defaults to the cache directory.
+            verify: Whether to verify the md5sum of the downloaded file. Defaults to True.
+            show_progress: Whether to show a progress bar while downloading. Defaults to True.
+
+        Returns:
+            The path to the downloaded data directory.
+        """
+        return await self._download(datapoint, lambda key: key in objects, output_dir, verify, show_progress)
+
+    async def _download(
+        self,
+        datapoint: xr.Dataset | CopernicusStorageGranule,
+        obj_filter_func: Callable[[str], bool] | None = None,
+        output_dir: Path | None = None,
+        verify: bool = True,
+        show_progress: bool = True,
+    ) -> Path:
         granule = CopernicusStorageGranule.from_data(datapoint)
 
         base_folder = output_dir or self._cache
@@ -581,6 +679,16 @@ class CopernicusStorageClient(StorageClient):
 
         prefix = granule.location.removeprefix("/eodata/") + "/"
         objects = self._s3.list_objects(prefix)
+        objects = [obj for obj in objects if "Key" in obj]  # Key is optional, so just in case filter out obj without
+
+        if obj_filter_func is not None:
+            # get object names relative to the granule location, so we can pass it to our filter function
+            object_names = [obj["Key"].removeprefix(prefix) for obj in objects if "Key" in obj]
+            objects = [
+                object_metadata
+                for (object_metadata, object_name) in zip(objects, object_names, strict=True)
+                if obj_filter_func(object_name)
+            ]
 
         async with anyio.create_task_group() as task_group:
             # even though this is a async task group, the downloads are still synchronous

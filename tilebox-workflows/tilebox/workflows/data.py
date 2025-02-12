@@ -335,7 +335,9 @@ class StorageLocation:
                 with runner_context.tracer.start_as_current_span("gcs.read") as span:
                     span.set_attribute("bucket", self.location)
                     span.set_attribute("path", path)
-                    return runner_context.gcs_client(self.location).blob(path).download_as_bytes()
+                    # GCS library has some weird typing issues, so let's ignore them for now
+                    blob = runner_context.gcs_client(self.location).blob(path)  # type: ignore[arg-type]
+                    return blob.download_as_bytes()  # type: ignore[arg-type]
             case StorageType.S3:
                 with runner_context.tracer.start_as_current_span("s3.read") as span:
                     span.set_attribute("bucket", self.location)

@@ -237,28 +237,28 @@ async def test_download_object_verify(aws: S3Client) -> None:
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 @given(umbra_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
-async def test_umbra_storage_client(aws: S3Client, tmp_path: Path, granules: UmbraStorageGranule) -> None:
+async def test_umbra_storage_client_download(aws: S3Client, tmp_path: Path, granule: UmbraStorageGranule) -> None:
     umbra = UmbraStorageClient(tmp_path)
 
     aws.create_bucket(Bucket=umbra._BUCKET)
     aws.put_object(
         Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/{granules.location}/{granules.granule_name}_GEC.tif",
+        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif",
         Body=b"content1",
         ACL="public-read",
     )
     aws.put_object(
         Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/{granules.location}/{granules.granule_name}_CPHD.cphd",
+        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_CPHD.cphd",
         Body=b"content2",
         ACL="public-read",
     )
 
-    folder = await umbra.download(granules, show_progress=False)
+    folder = await umbra.download(granule, show_progress=False)
     assert folder.exists()
     assert folder.parent.parent.parent == tmp_path / "Umbra"
-    assert (folder / f"{granules.granule_name}_GEC.tif").read_bytes() == b"content1"
-    assert (folder / f"{granules.granule_name}_CPHD.cphd").read_bytes() == b"content2"
+    assert (folder / f"{granule.granule_name}_GEC.tif").read_bytes() == b"content1"
+    assert (folder / f"{granule.granule_name}_CPHD.cphd").read_bytes() == b"content2"
 
     shutil.rmtree(folder)
 
@@ -267,26 +267,65 @@ async def test_umbra_storage_client(aws: S3Client, tmp_path: Path, granules: Umb
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 @given(umbra_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
-async def test_umbra_storage_client_products(aws: S3Client, tmp_path: Path, granules: UmbraStorageGranule) -> None:
-    umbra = UmbraStorageClient(tmp_path)
+async def test_umbra_storage_client_list_objects(aws: S3Client, granule: UmbraStorageGranule) -> None:
+    umbra = UmbraStorageClient()
 
     aws.create_bucket(Bucket=umbra._BUCKET)
     aws.put_object(
         Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/{granules.location}/{granules.granule_name}_GEC.tif",
+        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif",
         Body=b"content1",
         ACL="public-read",
     )
     aws.put_object(
         Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/{granules.location}/{granules.granule_name}_CPHD.cphd",
+        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_CPHD.cphd",
+        Body=b"content2",
+        ACL="public-read",
+    )
+    aws.put_object(
+        Bucket=umbra._BUCKET,
+        Key=f"sar-data/tasks/another_{granule.location}/another_{granule.granule_name}_CPHD.cphd",
         Body=b"content2",
         ACL="public-read",
     )
 
-    folder = await umbra.download(granules, show_progress=False, products=["GEC"])
-    assert (folder / f"{granules.granule_name}_GEC.tif").read_bytes() == b"content1"
-    assert not (folder / f"{granules.granule_name}_CPHD.cphd").exists()
+    objects = umbra.list_objects(granule)
+    assert len(objects) == 2
+    assert sorted(objects) == sorted(
+        [
+            f"{granule.granule_name}_CPHD.cphd",
+            f"{granule.granule_name}_GEC.tif",
+        ]
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@given(umbra_granules())
+@settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
+async def test_umbra_storage_client_download_objects(
+    aws: S3Client, tmp_path: Path, granule: UmbraStorageGranule
+) -> None:
+    umbra = UmbraStorageClient(tmp_path)
+
+    aws.create_bucket(Bucket=umbra._BUCKET)
+    aws.put_object(
+        Bucket=umbra._BUCKET,
+        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif",
+        Body=b"content1",
+        ACL="public-read",
+    )
+    aws.put_object(
+        Bucket=umbra._BUCKET,
+        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_CPHD.cphd",
+        Body=b"content2",
+        ACL="public-read",
+    )
+
+    folder = await umbra.download_objects(granule, [f"{granule.granule_name}_GEC.tif"], show_progress=False)
+    assert (folder / f"{granule.granule_name}_GEC.tif").read_bytes() == b"content1"
+    assert not (folder / f"{granule.granule_name}_CPHD.cphd").exists()
 
     shutil.rmtree(folder)
 
@@ -295,23 +334,23 @@ async def test_umbra_storage_client_products(aws: S3Client, tmp_path: Path, gran
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 @given(umbra_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
-async def test_umbra_storage_client_no_cache(aws: S3Client, tmp_path: Path, granules: UmbraStorageGranule) -> None:
+async def test_umbra_storage_client_no_cache(aws: S3Client, tmp_path: Path, granule: UmbraStorageGranule) -> None:
     umbra = UmbraStorageClient(cache_directory=None)
 
     aws.create_bucket(Bucket=umbra._BUCKET)
     aws.put_object(
         Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/{granules.location}/{granules.granule_name}_GEC.tif",
+        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif",
         Body=b"content1",
         ACL="public-read",
     )
 
     with pytest.raises(ValueError, match="No cache directory or output directory provided."):
-        await umbra.download(granules)
+        await umbra.download(granule)
 
-    folder = await umbra.download(granules, output_dir=tmp_path, show_progress=False)
-    assert (folder / f"{granules.granule_name}_GEC.tif").read_bytes() == b"content1"
-    assert not (folder / f"{granules.granule_name}_CPHD.cphd").exists()
+    folder = await umbra.download(granule, output_dir=tmp_path, show_progress=False)
+    assert (folder / f"{granule.granule_name}_GEC.tif").read_bytes() == b"content1"
+    assert not (folder / f"{granule.granule_name}_CPHD.cphd").exists()
 
     shutil.rmtree(folder)
 
@@ -319,19 +358,76 @@ async def test_umbra_storage_client_no_cache(aws: S3Client, tmp_path: Path, gran
 @pytest.mark.asyncio
 @given(s5p_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
-async def test_copernicus_storage_client(aws: S3Client, tmp_path: Path, granules: CopernicusStorageGranule) -> None:
+async def test_copernicus_storage_client_download(
+    aws: S3Client, tmp_path: Path, granule: CopernicusStorageGranule
+) -> None:
     copernicus = CopernicusStorageClient(access_key="testing", secret_access_key="testing", cache_directory=tmp_path)  # noqa: S106
 
     aws.create_bucket(Bucket=CopernicusStorageClient._BUCKET)
     aws.put_object(
         Bucket=copernicus._BUCKET,
-        Key=f"{granules.location.removeprefix('/eodata/')}/{granules.granule_name}",
+        Key=f"{granule.location.removeprefix('/eodata/')}/{granule.granule_name}",
         Body=b"content1",
         ACL="public-read",
     )
 
-    folder = await copernicus.download(granules, show_progress=False)
+    folder = await copernicus.download(granule, show_progress=False)
     assert folder.exists()
-    assert (folder / granules.granule_name).read_bytes() == b"content1"
+    assert (folder / granule.granule_name).read_bytes() == b"content1"
+
+    shutil.rmtree(folder)
+
+
+@pytest.mark.asyncio
+@given(s5p_granules())
+@settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
+async def test_copernicus_storage_client_list_objects(aws: S3Client, granule: CopernicusStorageGranule) -> None:
+    copernicus = CopernicusStorageClient(access_key="testing", secret_access_key="testing")  # noqa: S106
+
+    aws.create_bucket(Bucket=CopernicusStorageClient._BUCKET)
+    aws.put_object(
+        Bucket=copernicus._BUCKET,
+        Key=f"{granule.location.removeprefix('/eodata/')}/{granule.granule_name}",
+        Body=b"content1",
+        ACL="public-read",
+    )
+    aws.put_object(
+        Bucket=copernicus._BUCKET,
+        Key=f"{granule.location.removeprefix('/eodata/')}_other_granule/{granule.granule_name}",
+        Body=b"content1",
+        ACL="public-read",
+    )
+
+    objects = copernicus.list_objects(granule)
+    assert len(objects) == 1
+    assert objects[0] == granule.granule_name
+
+
+@pytest.mark.asyncio
+@given(s5p_granules())
+@settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
+async def test_copernicus_storage_client_download_objects(
+    aws: S3Client, tmp_path: Path, granule: CopernicusStorageGranule
+) -> None:
+    copernicus = CopernicusStorageClient(access_key="testing", secret_access_key="testing", cache_directory=tmp_path)  # noqa: S106
+
+    aws.create_bucket(Bucket=CopernicusStorageClient._BUCKET)
+    aws.put_object(
+        Bucket=copernicus._BUCKET,
+        Key=f"{granule.location.removeprefix('/eodata/')}/{granule.granule_name}",
+        Body=b"content1",
+        ACL="public-read",
+    )
+    aws.put_object(
+        Bucket=copernicus._BUCKET,
+        Key=f"{granule.location.removeprefix('/eodata/')}/other_product_{granule.granule_name}",
+        Body=b"content1",
+        ACL="public-read",
+    )
+
+    folder = await copernicus.download_objects(granule, [granule.granule_name], show_progress=False)
+    assert folder.exists()
+    assert (folder / granule.granule_name).read_bytes() == b"content1"
+    assert not (folder / f"other_product_{granule.granule_name}").exists()
 
     shutil.rmtree(folder)

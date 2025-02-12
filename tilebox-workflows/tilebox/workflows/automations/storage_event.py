@@ -47,7 +47,7 @@ class StorageEventTask(Task):
         message = AutomationMessage()
         message.ParseFromString(task_input)
 
-        task = cast(cls, deserialize_task(cls, message.args))
+        task = cast(cls, deserialize_task(cls, message.args))  # type: ignore[invalid-type-form]
 
         event_message = TriggeredStorageEventMessage()
         event_message.ParseFromString(message.trigger_event)

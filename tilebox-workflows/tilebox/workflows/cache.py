@@ -198,14 +198,17 @@ class GoogleStorageCache(JobCache):
         return self.bucket.blob(str(self.prefix / key))
 
     def __contains__(self, key: str) -> bool:
-        return self._blob(key).exists()
+        # GCS library has some weird typing issues, so let's ignore them for now
+        return self._blob(key).exists()  # type: ignore[arg-type]
 
     def __setitem__(self, key: str, value: bytes) -> None:
-        self._blob(key).upload_from_file(BytesIO(value))
+        # GCS library has some weird typing issues, so let's ignore them for now
+        self._blob(key).upload_from_file(BytesIO(value))  # type: ignore[arg-type]
 
     def __getitem__(self, key: str) -> bytes:
         try:
-            return self._blob(key).download_as_bytes()
+            # GCS library has some weird typing issues, so let's ignore them for now
+            return self._blob(key).download_as_bytes()  # type: ignore[arg-type]
         except NotFound:
             raise KeyError(f"{key} is not cached!") from None
 
@@ -219,7 +222,10 @@ class GoogleStorageCache(JobCache):
         prefix = str(self.prefix) + "/"
         # by specifying the delimiter as "/", we can emulate a directory structure, and only get the blobs directly
         # in the "folder", and not the ones in subfolders
-        blobs = self.bucket.list_blobs(prefix=prefix, delimiter="/")
+
+        # GCS library has some weird typing issues, so let's ignore them for now
+        blobs = self.bucket.list_blobs(prefix=prefix, delimiter="/")  # type: ignore[arg-type]
+
         # make the names relative to the cache prefix (but including the key in the name)
         for blob in blobs:
             yield str(Path(blob.name).relative_to(self.prefix))
