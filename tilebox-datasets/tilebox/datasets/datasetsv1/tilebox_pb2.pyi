@@ -1,10 +1,21 @@
 from tilebox.datasets.datasetsv1 import core_pb2 as _core_pb2
+from tilebox.datasets.datasetsv1 import dataset_type_pb2 as _dataset_type_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class CreateDatasetRequest(_message.Message):
+    __slots__ = ("name", "type", "summary")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    type: _dataset_type_pb2.DatasetType
+    summary: str
+    def __init__(self, name: _Optional[str] = ..., type: _Optional[_Union[_dataset_type_pb2.DatasetType, _Mapping]] = ..., summary: _Optional[str] = ...) -> None: ...
 
 class GetDatasetRequest(_message.Message):
     __slots__ = ("slug", "id")
@@ -13,6 +24,18 @@ class GetDatasetRequest(_message.Message):
     slug: str
     id: str
     def __init__(self, slug: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
+
+class UpdateDatasetRequest(_message.Message):
+    __slots__ = ("id", "name", "type", "summary")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    id: _core_pb2.ID
+    name: str
+    type: _dataset_type_pb2.DatasetType
+    summary: str
+    def __init__(self, id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., type: _Optional[_Union[_dataset_type_pb2.DatasetType, _Mapping]] = ..., summary: _Optional[str] = ...) -> None: ...
 
 class ClientInfo(_message.Message):
     __slots__ = ("name", "environment", "packages")

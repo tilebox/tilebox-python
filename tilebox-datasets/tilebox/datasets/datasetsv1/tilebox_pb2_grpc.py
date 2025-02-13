@@ -16,9 +16,19 @@ class TileboxServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.CreateDataset = channel.unary_unary(
+                '/datasets.v1.TileboxService/CreateDataset',
+                request_serializer=datasets_dot_v1_dot_tilebox__pb2.CreateDatasetRequest.SerializeToString,
+                response_deserializer=datasets_dot_v1_dot_core__pb2.Dataset.FromString,
+                _registered_method=True)
         self.GetDataset = channel.unary_unary(
                 '/datasets.v1.TileboxService/GetDataset',
                 request_serializer=datasets_dot_v1_dot_tilebox__pb2.GetDatasetRequest.SerializeToString,
+                response_deserializer=datasets_dot_v1_dot_core__pb2.Dataset.FromString,
+                _registered_method=True)
+        self.UpdateDataset = channel.unary_unary(
+                '/datasets.v1.TileboxService/UpdateDataset',
+                request_serializer=datasets_dot_v1_dot_tilebox__pb2.UpdateDatasetRequest.SerializeToString,
                 response_deserializer=datasets_dot_v1_dot_core__pb2.Dataset.FromString,
                 _registered_method=True)
         self.UpdateDatasetDescription = channel.unary_unary(
@@ -72,7 +82,19 @@ class TileboxServiceServicer(object):
     """TileboxService is the service definition for the Tilebox datasets service, which provides access to datasets
     """
 
+    def CreateDataset(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetDataset(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateDataset(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -135,9 +157,19 @@ class TileboxServiceServicer(object):
 
 def add_TileboxServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'CreateDataset': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateDataset,
+                    request_deserializer=datasets_dot_v1_dot_tilebox__pb2.CreateDatasetRequest.FromString,
+                    response_serializer=datasets_dot_v1_dot_core__pb2.Dataset.SerializeToString,
+            ),
             'GetDataset': grpc.unary_unary_rpc_method_handler(
                     servicer.GetDataset,
                     request_deserializer=datasets_dot_v1_dot_tilebox__pb2.GetDatasetRequest.FromString,
+                    response_serializer=datasets_dot_v1_dot_core__pb2.Dataset.SerializeToString,
+            ),
+            'UpdateDataset': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateDataset,
+                    request_deserializer=datasets_dot_v1_dot_tilebox__pb2.UpdateDatasetRequest.FromString,
                     response_serializer=datasets_dot_v1_dot_core__pb2.Dataset.SerializeToString,
             ),
             'UpdateDatasetDescription': grpc.unary_unary_rpc_method_handler(
@@ -198,6 +230,33 @@ class TileboxService(object):
     """
 
     @staticmethod
+    def CreateDataset(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/datasets.v1.TileboxService/CreateDataset',
+            datasets_dot_v1_dot_tilebox__pb2.CreateDatasetRequest.SerializeToString,
+            datasets_dot_v1_dot_core__pb2.Dataset.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetDataset(request,
             target,
             options=(),
@@ -213,6 +272,33 @@ class TileboxService(object):
             target,
             '/datasets.v1.TileboxService/GetDataset',
             datasets_dot_v1_dot_tilebox__pb2.GetDatasetRequest.SerializeToString,
+            datasets_dot_v1_dot_core__pb2.Dataset.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateDataset(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/datasets.v1.TileboxService/UpdateDataset',
+            datasets_dot_v1_dot_tilebox__pb2.UpdateDatasetRequest.SerializeToString,
             datasets_dot_v1_dot_core__pb2.Dataset.FromString,
             options,
             channel_credentials,

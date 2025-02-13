@@ -1,5 +1,5 @@
-from google.protobuf import descriptor_pb2 as _descriptor_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
+from tilebox.datasets.datasetsv1 import dataset_type_pb2 as _dataset_type_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -13,11 +13,22 @@ class DatasetPermission(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DATASET_PERMISSION_UNSPECIFIED: _ClassVar[DatasetPermission]
     DATASET_PERMISSION_ACCESS_DATA: _ClassVar[DatasetPermission]
     DATASET_PERMISSION_WRITE_DATA: _ClassVar[DatasetPermission]
-    DATASET_PERMISSION_EDIT_DESCRIPTION: _ClassVar[DatasetPermission]
+    DATASET_PERMISSION_EDIT: _ClassVar[DatasetPermission]
+
+class Visibility(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    VISIBILITY_UNSPECIFIED: _ClassVar[Visibility]
+    VISIBILITY_PRIVATE: _ClassVar[Visibility]
+    VISIBILITY_SHARED_WITH_ME: _ClassVar[Visibility]
+    VISIBILITY_PUBLIC: _ClassVar[Visibility]
 DATASET_PERMISSION_UNSPECIFIED: DatasetPermission
 DATASET_PERMISSION_ACCESS_DATA: DatasetPermission
 DATASET_PERMISSION_WRITE_DATA: DatasetPermission
-DATASET_PERMISSION_EDIT_DESCRIPTION: DatasetPermission
+DATASET_PERMISSION_EDIT: DatasetPermission
+VISIBILITY_UNSPECIFIED: Visibility
+VISIBILITY_PRIVATE: Visibility
+VISIBILITY_SHARED_WITH_ME: Visibility
+VISIBILITY_PUBLIC: Visibility
 
 class ID(_message.Message):
     __slots__ = ("uuid",)
@@ -91,28 +102,8 @@ class Collections(_message.Message):
     data: _containers.RepeatedCompositeFieldContainer[CollectionInfo]
     def __init__(self, data: _Optional[_Iterable[_Union[CollectionInfo, _Mapping]]] = ...) -> None: ...
 
-class FieldAnnotation(_message.Message):
-    __slots__ = ("description", "example_value")
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    EXAMPLE_VALUE_FIELD_NUMBER: _ClassVar[int]
-    description: str
-    example_value: str
-    def __init__(self, description: _Optional[str] = ..., example_value: _Optional[str] = ...) -> None: ...
-
-class AnnotatedType(_message.Message):
-    __slots__ = ("descriptor_set", "type_url", "description", "field_annotations")
-    DESCRIPTOR_SET_FIELD_NUMBER: _ClassVar[int]
-    TYPE_URL_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    FIELD_ANNOTATIONS_FIELD_NUMBER: _ClassVar[int]
-    descriptor_set: _descriptor_pb2.FileDescriptorSet
-    type_url: str
-    description: str
-    field_annotations: _containers.RepeatedCompositeFieldContainer[FieldAnnotation]
-    def __init__(self, descriptor_set: _Optional[_Union[_descriptor_pb2.FileDescriptorSet, _Mapping]] = ..., type_url: _Optional[str] = ..., description: _Optional[str] = ..., field_annotations: _Optional[_Iterable[_Union[FieldAnnotation, _Mapping]]] = ...) -> None: ...
-
 class Dataset(_message.Message):
-    __slots__ = ("id", "group_id", "type", "code_name", "name", "summary", "icon", "description", "permissions")
+    __slots__ = ("id", "group_id", "type", "code_name", "name", "summary", "icon", "description", "permissions", "visibility")
     ID_FIELD_NUMBER: _ClassVar[int]
     GROUP_ID_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -122,16 +113,18 @@ class Dataset(_message.Message):
     ICON_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    VISIBILITY_FIELD_NUMBER: _ClassVar[int]
     id: ID
     group_id: ID
-    type: AnnotatedType
+    type: _dataset_type_pb2.AnnotatedType
     code_name: str
     name: str
     summary: str
     icon: str
     description: str
     permissions: _containers.RepeatedScalarFieldContainer[DatasetPermission]
-    def __init__(self, id: _Optional[_Union[ID, _Mapping]] = ..., group_id: _Optional[_Union[ID, _Mapping]] = ..., type: _Optional[_Union[AnnotatedType, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., summary: _Optional[str] = ..., icon: _Optional[str] = ..., description: _Optional[str] = ..., permissions: _Optional[_Iterable[_Union[DatasetPermission, str]]] = ...) -> None: ...
+    visibility: Visibility
+    def __init__(self, id: _Optional[_Union[ID, _Mapping]] = ..., group_id: _Optional[_Union[ID, _Mapping]] = ..., type: _Optional[_Union[_dataset_type_pb2.AnnotatedType, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., summary: _Optional[str] = ..., icon: _Optional[str] = ..., description: _Optional[str] = ..., permissions: _Optional[_Iterable[_Union[DatasetPermission, str]]] = ..., visibility: _Optional[_Union[Visibility, str]] = ...) -> None: ...
 
 class DatasetGroup(_message.Message):
     __slots__ = ("id", "parent_id", "code_name", "name", "icon")

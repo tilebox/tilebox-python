@@ -39,7 +39,7 @@ def example_dataset_type() -> AnnotatedType:
     descriptor_set = FileDescriptorSet(file=[descriptor])
 
     type_url = f"{descriptor.package}.{descriptor.message_type[0].name}"
-    annotated_type = AnnotatedType(descriptor_set, type_url, "", [])
+    annotated_type = AnnotatedType(descriptor_set, type_url, [])
     register_once(annotated_type)
     return annotated_type
 

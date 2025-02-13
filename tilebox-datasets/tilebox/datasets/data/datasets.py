@@ -4,7 +4,7 @@ from uuid import UUID
 from google.protobuf.descriptor_pb2 import FileDescriptorSet
 
 from tilebox.datasets.data.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
-from tilebox.datasets.datasetsv1 import core_pb2, tilebox_pb2
+from tilebox.datasets.datasetsv1 import core_pb2, dataset_type_pb2, tilebox_pb2
 
 
 @dataclass(frozen=True)
@@ -13,34 +13,31 @@ class FieldAnnotation:
     example_value: str
 
     @classmethod
-    def from_message(cls, annotation: core_pb2.FieldAnnotation) -> "FieldAnnotation":
+    def from_message(cls, annotation: dataset_type_pb2.FieldAnnotation) -> "FieldAnnotation":
         return cls(description=annotation.description, example_value=annotation.example_value)
 
-    def to_message(self) -> core_pb2.FieldAnnotation:
-        return core_pb2.FieldAnnotation(description=self.description, example_value=self.example_value)
+    def to_message(self) -> dataset_type_pb2.FieldAnnotation:
+        return dataset_type_pb2.FieldAnnotation(description=self.description, example_value=self.example_value)
 
 
 @dataclass(frozen=True)
 class AnnotatedType:
     descriptor_set: FileDescriptorSet
     type_url: str
-    description: str
     field_annotations: list[FieldAnnotation]
 
     @classmethod
-    def from_message(cls, annotated_type: core_pb2.AnnotatedType) -> "AnnotatedType":
+    def from_message(cls, annotated_type: dataset_type_pb2.AnnotatedType) -> "AnnotatedType":
         return cls(
             descriptor_set=annotated_type.descriptor_set,
             type_url=annotated_type.type_url,
-            description=annotated_type.description,
             field_annotations=[FieldAnnotation.from_message(a) for a in annotated_type.field_annotations],
         )
 
-    def to_message(self) -> core_pb2.AnnotatedType:
-        return core_pb2.AnnotatedType(
+    def to_message(self) -> dataset_type_pb2.AnnotatedType:
+        return dataset_type_pb2.AnnotatedType(
             descriptor_set=self.descriptor_set,
             type_url=self.type_url,
-            description=self.description,
             field_annotations=[a.to_message() for a in self.field_annotations],
         )
 

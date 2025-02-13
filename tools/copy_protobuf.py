@@ -14,7 +14,13 @@ from pathlib import Path
 
 _MODULES_TO_COPY = {
     "datasets": {
-        "tilebox-datasets/tilebox/datasets/datasetsv1": ["core", "well_known_types", "tilebox", "timeseries"],
+        "tilebox-datasets/tilebox/datasets/datasetsv1": [
+            "core",
+            "dataset_type",
+            "tilebox",
+            "timeseries",
+            "well_known_types",
+        ],
     },
     "workflows": {
         "tilebox-workflows/tilebox/workflows/workflowsv1": [
