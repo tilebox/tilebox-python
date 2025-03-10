@@ -6,17 +6,12 @@ import pytest
 import xarray as xr
 from attr import dataclass
 from hypothesis import assume, given, settings
-from hypothesis.strategies import (
-    lists,
-)
+from hypothesis.strategies import lists
 from promise import Promise
 
 from _tilebox.grpc.error import ArgumentError, NotFoundError
 from tests.data.collection import collection_infos, collection_names
-from tests.data.datapoint import (
-    datapoints,
-    paginated_datapoint_for_interval_responses,
-)
+from tests.data.datapoint import datapoints, paginated_datapoint_for_interval_responses
 from tests.data.datasets import example_dataset_type
 from tilebox.datasets import TimeseriesCollection, TimeseriesDataset
 from tilebox.datasets.data.collection import Collection, CollectionInfo
@@ -54,8 +49,7 @@ def _mocked_dataset() -> tuple[TimeseriesDataset, MagicMock]:
 
 @settings(max_examples=1)
 @given(infos=lists(collection_infos(), min_size=3, max_size=10))
-@pytest.mark.parametrize(("availability", "count"), [(True, True), (True, False), (False, True), (False, False)])
-def test_timeseries_dataset_list_collections(infos: list[CollectionInfo], availability: bool, count: bool) -> None:
+def test_timeseries_dataset_list_collections(infos: list[CollectionInfo]) -> None:
     """Test that the .collections() methods returns a dict of RemoteTimeseriesDatasetCollection objects."""
     # since the output of collections() is a dict we need distanct collection names:
     assume(len({info.collection.name for info in infos}) == len(infos))
@@ -63,8 +57,8 @@ def test_timeseries_dataset_list_collections(infos: list[CollectionInfo], availa
     infos = [
         CollectionInfo(
             info.collection,
-            None if not availability else info.availability or _EMPTY_TIME_INTERVAL,
-            None if not count else info.count or 0,
+            info.availability or _EMPTY_TIME_INTERVAL,
+            info.count or 0,
         )
         for info in infos
     ]
@@ -72,9 +66,9 @@ def test_timeseries_dataset_list_collections(infos: list[CollectionInfo], availa
     # mock a protobuf message response value for the gRPC endpoint:
     service.get_collections.return_value = Promise.resolve(infos)
 
-    collections = dataset.collections(availability, count)
+    collections = dataset.collections()
 
-    service.get_collections.assert_called_once_with(dataset._dataset.id, availability, count)
+    service.get_collections.assert_called_once_with(dataset._dataset.id, True, True)
     assert len(collections) == len(infos)
 
     for info in infos:
@@ -82,7 +76,7 @@ def test_timeseries_dataset_list_collections(infos: list[CollectionInfo], availa
         assert isinstance(collection, TimeseriesCollection), "Expected a RemoteTimeseriesDatasetCollection"
         assert collection.name == info.collection.name, "Name mismatch in collection"
         assert repr(info) in repr(collection), "Expected info to be in collection repr"
-        assert collection._info_cache[(availability, count)] == info, "Expected info to be cached"
+        assert collection._info == info, "Expected info to be cached"
 
 
 @given(collection_names())
@@ -91,7 +85,6 @@ def test_timeseries_dataset_get_collection(collection_name: str) -> None:
     dataset, _ = _mocked_dataset()
     collection = dataset.collection(collection_name)
     assert collection_name in repr(collection), "Expected collection name to be in repr"
-    assert len(collection._info_cache) == 0, "Expected no info to be cached yet"
 
 
 @dataclass
@@ -103,7 +96,7 @@ class MockedCollection:
     service: MagicMock
 
 
-def _mocked_collection(provide_collection_info: bool = False) -> MockedCollection:
+def _mocked_collection(provide_collection_info: bool = True) -> MockedCollection:
     dataset, service = _mocked_dataset()
 
     # we do not sample/draw from collection_infos() here, because the values themselves are irrelevant for the tests
@@ -120,7 +113,7 @@ def _mocked_collection(provide_collection_info: bool = False) -> MockedCollectio
 
     collection = dataset.collection(collection_info.collection.name)
     if provide_collection_info:
-        collection._info_cache[(False, False)] = collection_info
+        collection._info = collection_info
     return MockedCollection(dataset, dataset._dataset, collection, collection_info, service)
 
 
@@ -129,16 +122,8 @@ def test_timeseries_dataset_collection_info() -> None:
     mocked = _mocked_collection()
     collection = mocked.collection
     info = mocked.collection_info
-    availability = info.availability is not None
-    count = info.count is not None
 
-    # mock a protobuf message response value for the gRPC endpoint:
-    mocked.service.get_collection_by_name.return_value = Promise.resolve(info)
-
-    assert collection.info(availability=availability, count=count) == info
-    mocked.service.get_collection_by_name.assert_called_once_with(
-        mocked.dataset_info.id, info.collection.name, availability, count
-    )
+    assert collection.info() == info
 
 
 def test_timeseries_dataset_collection_info_cache() -> None:
@@ -147,21 +132,11 @@ def test_timeseries_dataset_collection_info_cache() -> None:
     info = mocked.collection_info
     collection = mocked.collection
 
-    for _ in range(3):  # call each combination of availability and count three times to ensure caching works
-        for availability in (True, False):
-            for count in (True, False):
-                # mock a protobuf message response value for the gRPC endpoint:
-                adapted_info = CollectionInfo(
-                    info.collection,
-                    None if not availability else info.availability or _EMPTY_TIME_INTERVAL,
-                    None if not count else info.count or 0,
-                )
-                mocked.service.get_collection_by_name.return_value = Promise.resolve(adapted_info)
+    for _ in range(3):  # call three times to ensure caching works
+        mocked.service.get_collection_by_name.return_value = Promise.resolve(info)
+        assert collection.info() == info
 
-                assert collection.info(availability=availability, count=count) == adapted_info
-
-    assert mocked.service.get_collection_by_name.call_count == 4, "Expected the info endpoint responses to be cached"
-    assert len(collection._info_cache) == 4
+    assert mocked.service.get_collection_by_name.call_count == 1, "Expected the info endpoint responses to be cached"
 
 
 @settings(max_examples=1)

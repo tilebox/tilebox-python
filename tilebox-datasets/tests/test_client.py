@@ -62,20 +62,27 @@ def test_list_datasets() -> None:
 def test_list_collections() -> None:
     client = replay_client("list_s2_collections.rpcs.bin")
 
-    s2_dataset = client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
-    collections = s2_dataset.collections(availability=True, count=False)
-    assert sorted(collections) == ["S2A_S2MSI1C", "S2A_S2MSI2A", "S2B_S2MSI1C", "S2B_S2MSI2A"]
+    s2_dataset = client.dataset("open_data.copernicus.sentinel2_msi")
+    collections = s2_dataset.collections()
+    assert sorted(collections) == [
+        "S2A_S2MSI1C",
+        "S2A_S2MSI2A",
+        "S2B_S2MSI1C",
+        "S2B_S2MSI2A",
+        "S2C_S2MSI1C",
+        "S2C_S2MSI2A",
+    ]
 
 
 def test_collection_info() -> None:
     client = replay_client("s2_collection_info.rpcs.bin")
 
-    s2_dataset = client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
-    collections = s2_dataset.collections(availability=False, count=False)
+    s2_dataset = client.dataset("open_data.copernicus.sentinel2_msi")
+    collections = s2_dataset.collections()
 
     for collection_name in ["S2A_S2MSI1C", "S2A_S2MSI2A"]:
         collection = collections[collection_name]
-        info = collection.info(availability=True, count=False)
+        info = collection.info()
         assert "Collection S2A_S2MSI" in repr(info)
         assert "[2015-07-04T10:10:06.027 UTC, " in repr(info)
 
@@ -84,13 +91,13 @@ def test_dataset_not_found() -> None:
     client = replay_client("list_dataset_not_found.rpcs.bin")
 
     with pytest.raises(NotFoundError, match="no such dataset"):
-        client.dataset("94e06073-ea61-40a2-a61c-446871d47932")
+        client.dataset("this.dataset.does.not.exist")
 
 
 def test_find_datapoint() -> None:
     client = replay_client("find_s2_datapoint.rpcs.bin")
 
-    s2_dataset = client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
+    s2_dataset = client.dataset("open_data.copernicus.sentinel2_msi")
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
     for skip_data in (False, True):
@@ -116,7 +123,7 @@ def test_find_datapoint() -> None:
 def test_datapoint_not_found() -> None:
     client = replay_client("s2_datapoint_not_found.rpcs.bin")
 
-    s2_dataset = client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
+    s2_dataset = client.dataset("open_data.copernicus.sentinel2_msi")
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
     with pytest.raises(NotFoundError, match="No such datapoint.*"):
@@ -126,14 +133,14 @@ def test_datapoint_not_found() -> None:
 def test_load_data() -> None:
     client = replay_client("load_s2_data_interval.rpcs.bin")
 
-    s2_dataset = client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
+    s2_dataset = client.dataset("open_data.copernicus.sentinel2_msi")
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
     for skip_data in (False, True):
         data = collection.load(("2022-07-13", "2022-07-13T02:00"), skip_data=skip_data)
         assert isinstance(data, xr.Dataset)
 
-        assert data.sizes["time"] == 378
+        assert data.sizes["time"] == 756
         assert data.id[0] == "0181f4ef-2040-0566-def5-50246aabcabc"
         assert data.id[-1] == "0181f506-51c0-ffb7-20cb-a2ab4f5057cf"
 
@@ -147,19 +154,19 @@ def test_load_data() -> None:
 def test_load_data_pagination() -> None:
     client = replay_client("load_s2_data_interval_paging.rpcs.bin")
 
-    s2_dataset = client.dataset("0190bbe6-1215-a90d-e8ce-0086add856c2")
+    s2_dataset = client.dataset("open_data.copernicus.sentinel2_msi")
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
     pages = list(collection._iter_pages(("2022-07-13", "2022-07-13T02:00"), page_size=10))
 
-    assert len(pages) == 38  # we have 378 datapoints, so 38 pages, and the last page has only 8 datapoints
+    assert len(pages) == 76  # we have 756 datapoints, so 76 pages, and the last page has only 6 datapoints
 
     for i, page in enumerate(pages):
         assert isinstance(page, DatapointPage)
         assert page.meta[0].id >= "0181f4ef-2040-0566-def5-50246aabcabc"
         assert page.meta[-1].id <= "0181f506-51c0-ffb7-20cb-a2ab4f5057cf"
         is_last_page = i == len(pages) - 1
-        expected_len = 8 if is_last_page else 10
+        expected_len = 6 if is_last_page else 10
         assert len(page.meta) == expected_len
 
 

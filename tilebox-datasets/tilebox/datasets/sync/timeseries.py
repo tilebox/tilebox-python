@@ -1,11 +1,12 @@
 from collections.abc import Iterator
 from functools import partial
+from warnings import warn
 
 import xarray as xr
 
 from _tilebox.grpc.error import ArgumentError, NotFoundError
 from _tilebox.grpc.producer_consumer import concurrent_producer_consumer
-from tilebox.datasets.data.collection import Collection, CollectionInfo
+from tilebox.datasets.data.collection import CollectionInfo
 from tilebox.datasets.data.datapoint import DatapointInterval, DatapointPage
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.data.pagination import Pagination
@@ -37,31 +38,80 @@ class TimeseriesDataset:
         self.name = dataset.name
         self._dataset = dataset
 
-    def collections(self, availability: bool = True, count: bool = False) -> dict[str, "TimeseriesCollection"]:
+    def collections(
+        self, availability: bool | None = None, count: bool | None = None
+    ) -> dict[str, "TimeseriesCollection"]:
         """
         List the available collections in this dataset.
 
         Args:
-            availability: Whether to include the availability interval (timestamp of the first and the
-                last available data point) of each collection
-            count: Whether to include the number of datapoints in each collection
+            availability: Unused.
+            count: Unused.
 
         Returns:
             A mapping from collection names to collections.
         """
-        collections = self._service.get_collections(self._dataset.id, availability, count).get()
+        if availability is not None:
+            warn("availability is unused", DeprecationWarning, stacklevel=2)
+        if count is not None:
+            warn("count is unused", DeprecationWarning, stacklevel=2)
+
+        collections = self._service.get_collections(self._dataset.id, True, True).get()
 
         dataset_collections = {}
         for collection in collections:
             remote_collection = TimeseriesCollection(self, collection.collection.name)
-            remote_collection._info_cache[(availability, count)] = collection
+            remote_collection._info = collection
             dataset_collections[collection.collection.name] = remote_collection
 
         return dataset_collections
 
+    def get_or_create_collection(self, name: str) -> "TimeseriesCollection":
+        """Get a collection by its name, or create it if it doesn't exist.
+
+        Args:
+            name: The name of the collection to get or create.
+
+        Returns:
+            The collection with the given name.
+        """
+        collection = self.collection(name)
+        if collection is None:
+            return self.create_collection(name)
+        return collection
+
+    def create_collection(self, name: str) -> "TimeseriesCollection":
+        """Create a new collection in this dataset.
+
+        Args:
+            name: The name of the collection to create.
+
+        Returns:
+            The created collection.
+        """
+        info = self._service.create_collection(self._dataset.id, name).get()
+
+        collection = TimeseriesCollection(self, info.collection.name)
+        collection._info = info
+        return collection
+
     def collection(self, collection: str) -> "TimeseriesCollection":
-        """Create a client for querying data in a specific collection in this dataset."""
-        return TimeseriesCollection(self, collection)
+        """Get a collection by its name.
+
+        Args:
+            collection: The name of the collection to get.
+
+        Returns:
+            The collection with the given name.
+        """
+        try:
+            info = self._service.get_collection_by_name(self._dataset.id, collection, True, True).get()
+        except NotFoundError:
+            raise NotFoundError(f"No such collection {collection}") from None
+
+        found_collection = TimeseriesCollection(self, collection)
+        found_collection._info = info
+        return found_collection
 
     def __repr__(self) -> str:
         return f"{self.name} [Timeseries Dataset]: {self._dataset.summary}"
@@ -77,41 +127,29 @@ class TimeseriesCollection:
     ) -> None:
         self._dataset = dataset
         self.name = collection_name
-        # avoid unnecessary info requests by caching the info responses
-        self._info_cache: dict[tuple[bool, bool], CollectionInfo] = {}
+        self._info: CollectionInfo
 
     def __repr__(self) -> str:
         """Human readable representation of the collection."""
-        # find the cached info with the most information
-        for key in [(True, True), (True, False), (False, True), (False, False)]:
-            if key in self._info_cache:
-                return repr(self._info_cache[key])
-        return f"Collection {self.name}: <data info not loaded yet>"
+        return repr(self._info)
 
-    def info(self, availability: bool = True, count: bool = True) -> CollectionInfo:
+    def info(self, availability: bool | None = None, count: bool | None = None) -> CollectionInfo:
         """
-        Fetch additional metadata about the datapoints in this collection.
+        Return metadata about the datapoints in this collection.
 
         Args:
-            availability: Whether to include the availability interval (timestamp of the first and the
-                last available data point) of each collection
-            count: Whether to include the number of datapoints in each collection
+            availability: Unused.
+            count: Unused.
 
         Returns:
             collection info for the current collection
         """
-        if (availability, count) in self._info_cache:
-            return self._info_cache[(availability, count)]
+        if availability is not None:
+            warn("availability is unused", DeprecationWarning, stacklevel=2)
+        if count is not None:
+            warn("count is unused", DeprecationWarning, stacklevel=2)
 
-        try:
-            info = self._dataset._service.get_collection_by_name(
-                self._dataset._dataset.id, self.name, availability, count
-            ).get()
-        except NotFoundError:
-            raise NotFoundError(f"No such collection {self.name}") from None
-
-        self._info_cache[(availability, count)] = info
-        return info
+        return self._info
 
     def find(self, datapoint_id: str, skip_data: bool = False) -> xr.Dataset:
         """
@@ -124,9 +162,10 @@ class TimeseriesCollection:
         Returns:
             The datapoint as an xarray dataset
         """
-        collection = self._collection()
         try:
-            datapoint = self._dataset._service.get_datapoint_by_id(collection.id, datapoint_id, skip_data).get()
+            datapoint = self._dataset._service.get_datapoint_by_id(
+                self._info.collection.id, datapoint_id, skip_data
+            ).get()
         except ArgumentError:
             raise ValueError(f"Invalid datapoint id: {datapoint_id} is not a valid UUID") from None
         except NotFoundError:
@@ -159,7 +198,6 @@ class TimeseriesCollection:
         """
         start_id, end_id = datapoint_id_interval
 
-        collection = self._collection()
         datapoint_interval = DatapointInterval(
             start_id=start_id,
             end_id=end_id,
@@ -169,7 +207,7 @@ class TimeseriesCollection:
 
         def request(page: Pagination) -> DatapointPage:
             return self._dataset._service.get_dataset_for_datapoint_interval(
-                collection.id, datapoint_interval, skip_data, False, page
+                self._info.collection.id, datapoint_interval, skip_data, False, page
             ).get()
 
         initial_page = Pagination()
@@ -242,21 +280,9 @@ class TimeseriesCollection:
     def _load_page(
         self, time_interval: TimeInterval, skip_data: bool, skip_meta: bool, page: Pagination | None = None
     ) -> DatapointPage:
-        collection = self._collection()
-
         return self._dataset._service.get_dataset_for_time_interval(
-            collection.id, time_interval, skip_data, skip_meta, page
+            self._info.collection.id, time_interval, skip_data, skip_meta, page
         ).get()
-
-    def _collection(self) -> Collection:
-        """
-        Return the collection object (containing name and id). If this information is already cached, it is returned.
-
-        Otherwise a info request is made to the server to retrieve the collection information.
-        """
-        if len(self._info_cache) >= 1:
-            return next(iter(self._info_cache.values())).collection
-        return (self.info(availability=False, count=False)).collection
 
 
 def _convert_to_dataset(pages: Iterator[DatapointPage]) -> xr.Dataset:

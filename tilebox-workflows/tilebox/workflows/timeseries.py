@@ -33,8 +33,7 @@ def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: 
     dataset = context.runner_context.datasets_client._dataset_by_id(str(chunk.dataset_id))  # type: ignore[attr-defined]  # noqa: SLF001
     collection = dataset.collection("unknown")  # dummy collection, we will inject the right id below:
     # we already know the collection id, so we can skip the lookup (we don't know the name, but don't need it)
-    info = CollectionInfo(Collection(str(chunk.collection_id), "unknown"), None, None)
-    collection._info_cache[(False, False)] = info  # noqa: SLF001
+    collection._info = CollectionInfo(Collection(str(chunk.collection_id), "unknown"), None, None)  # noqa: SLF001
 
     # leaf case: we are already executing a specific batch of datapoints fitting in the chunk size, so let's load them and process them
     if chunk.datapoint_interval:

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `get_or_create_collection` and `create_collection` method to timeseries dataset
+- Added deprecation warning for `availability` and `count` for collection info
+- Add dataset_type protobuf files
+
 ## [0.31.0] - 2025-02-12
 
 ### Added
