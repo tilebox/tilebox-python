@@ -6,6 +6,7 @@ import pytest
 import xarray as xr
 from attr import dataclass
 from hypothesis import assume, given, settings
+from hypothesis.stateful import Bundle, RuleBasedStateMachine, invariant, rule
 from hypothesis.strategies import lists
 from promise import Promise
 
@@ -23,6 +24,16 @@ from tilebox.datasets.data.time_interval import (
     _convert_to_datetime,
     timestamp_to_datetime,
 )
+from tilebox.datasets.datasetsv1.core_pb2 import Collection as CollectionMessage
+from tilebox.datasets.datasetsv1.core_pb2 import CollectionInfo as CollectionInfoMessage
+from tilebox.datasets.datasetsv1.core_pb2 import (
+    Collections,
+    CreateCollectionRequest,
+    GetCollectionByNameRequest,
+    GetCollectionsRequest,
+)
+from tilebox.datasets.datasetsv1.tilebox_pb2_grpc import TileboxServiceStub
+from tilebox.datasets.service import TileboxDatasetService
 
 
 def _mocked_dataset() -> tuple[TimeseriesDataset, MagicMock]:
@@ -51,7 +62,7 @@ def _mocked_dataset() -> tuple[TimeseriesDataset, MagicMock]:
 @given(infos=lists(collection_infos(), min_size=3, max_size=10))
 def test_timeseries_dataset_list_collections(infos: list[CollectionInfo]) -> None:
     """Test that the .collections() methods returns a dict of RemoteTimeseriesDatasetCollection objects."""
-    # since the output of collections() is a dict we need distanct collection names:
+    # since the output of collections() is a dict we need distinct collection names:
     assume(len({info.collection.name for info in infos}) == len(infos))
 
     infos = [
@@ -82,8 +93,15 @@ def test_timeseries_dataset_list_collections(infos: list[CollectionInfo]) -> Non
 @given(collection_names())
 @settings(max_examples=1)
 def test_timeseries_dataset_get_collection(collection_name: str) -> None:
-    dataset, _ = _mocked_dataset()
+    dataset, service = _mocked_dataset()
+    mocked = _mocked_collection()
+    info = mocked.collection_info
+    info.collection.name = collection_name
+    service.get_collection_by_name.return_value = Promise.resolve(info)
+
     collection = dataset.collection(collection_name)
+
+    service.get_collection_by_name.assert_called_once_with(dataset._dataset.id, collection_name, True, True)
     assert collection_name in repr(collection), "Expected collection name to be in repr"
 
 
@@ -246,3 +264,84 @@ def _assert_datapoints_match(dataset: xr.Dataset, pages: list[DatapointPage]) ->
             datapoint.coords["ingestion_time"].item()
         )
         assert meta.id == datapoint.coords["id"]
+
+
+class MockCollectionService(TileboxServiceStub):
+    """A mock implementation of the gRPC collection service, that stores collections in memory as a dict."""
+
+    def __init__(self) -> None:
+        self.collections: dict[str, CollectionInfoMessage] = {}
+
+    def CreateCollection(self, req: CreateCollectionRequest) -> CollectionInfoMessage:  # noqa: N802
+        collection = CollectionInfoMessage(
+            collection=CollectionMessage(id=str(uuid4()), name=req.name), availability=None, count=None
+        )
+        self.collections[req.name] = collection
+        return collection
+
+    def GetCollectionByName(self, req: GetCollectionByNameRequest) -> CollectionInfoMessage:  # noqa: N802
+        if req.collection_name in self.collections:
+            return self.collections[req.collection_name]
+        raise NotFoundError(f"Collection {req.collection_name} not found")
+
+    def GetCollections(self, req: GetCollectionsRequest) -> Collections:  # noqa: N802
+        _ = req
+        return Collections(data=list(self.collections.values()))
+
+
+class CollectionCRUDOperations(RuleBasedStateMachine):
+    """
+    A state machine that tests the CRUD operations of the Clusters client.
+
+    The rules defined here will be executed in random order by Hypothesis, and each rule can be called any number of
+    times. The state of the state machine is defined by the bundles, which are collections of objects that can be
+    inserted into the state machine by the rules. Rules can also consume objects from the bundles, which will remove
+    them from the state machine state.
+
+    For more information see:
+    https://hypothesis.readthedocs.io/en/latest/stateful.html
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        dataset_client, _ = _mocked_dataset()
+        dataset_client._service = TileboxDatasetService(MockCollectionService())  # mock the gRPC service
+        self.dataset_client = dataset_client
+        self.count_collections = 0
+
+    inserted_collections: Bundle[TimeseriesCollection] = Bundle("collections")
+
+    @rule(target=inserted_collections, collection=collection_infos())
+    def get_or_create_collection_enfore_create(self, collection: CollectionInfo) -> TimeseriesCollection:
+        collections = self.dataset_client.collections()
+        assume(collection.collection.name not in collections)
+
+        self.count_collections += 1
+        return self.dataset_client.get_or_create_collection(collection.collection.name)
+
+    @rule(collection=inserted_collections)
+    def get_or_create_collection_enfore_get(self, collection: TimeseriesCollection) -> None:
+        got = self.dataset_client.get_or_create_collection(collection.name)
+        assert got.info() == collection.info()
+
+    @rule(target=inserted_collections, collection=collection_infos())
+    def create_collection(self, collection: CollectionInfo) -> TimeseriesCollection:
+        collections = self.dataset_client.collections()
+        assume(collection.collection.name not in collections)
+
+        self.count_collections += 1
+        return self.dataset_client.create_collection(collection.collection.name)
+
+    @rule(collection=inserted_collections)
+    def get_collection(self, collection: TimeseriesCollection) -> None:
+        got = self.dataset_client.collection(collection.name)
+        assert got.info() == collection.info()
+
+    @invariant()
+    def list_collections(self) -> None:
+        collections = self.dataset_client.collections()
+        assert len(collections) == self.count_collections
+
+
+# make pytest pick up the test cases from the state machine
+TestCollectionCRUDOperations = CollectionCRUDOperations.TestCase

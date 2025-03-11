@@ -1,21 +1,11 @@
 import string
 from datetime import timezone
 
-from hypothesis.strategies import (
-    DrawFn,
-    composite,
-    integers,
-    just,
-    none,
-    text,
-    uuids,
-)
+from hypothesis.strategies import DrawFn, composite, integers, just, none, text, uuids
 
 from tests.data.time_interval import time_intervals
 from tilebox.datasets.data.collection import Collection, CollectionInfo
-from tilebox.datasets.data.time_interval import (
-    _EMPTY_TIME_INTERVAL,
-)
+from tilebox.datasets.data.time_interval import _EMPTY_TIME_INTERVAL
 
 
 @composite

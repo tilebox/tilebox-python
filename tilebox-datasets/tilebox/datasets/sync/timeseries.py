@@ -75,8 +75,9 @@ class TimeseriesDataset:
         Returns:
             The collection with the given name.
         """
-        collection = self.collection(name)
-        if collection is None:
+        try:
+            collection = self.collection(name)
+        except NotFoundError:
             return self.create_collection(name)
         return collection
 
@@ -95,7 +96,7 @@ class TimeseriesDataset:
         collection._info = info
         return collection
 
-    def collection(self, collection: str) -> "TimeseriesCollection":
+    def collection(self, name: str) -> "TimeseriesCollection":
         """Get a collection by its name.
 
         Args:
@@ -105,13 +106,13 @@ class TimeseriesDataset:
             The collection with the given name.
         """
         try:
-            info = self._service.get_collection_by_name(self._dataset.id, collection, True, True).get()
+            info = self._service.get_collection_by_name(self._dataset.id, name, True, True).get()
         except NotFoundError:
-            raise NotFoundError(f"No such collection {collection}") from None
+            raise NotFoundError(f"No such collection {name}") from None
 
-        found_collection = TimeseriesCollection(self, collection)
-        found_collection._info = info
-        return found_collection
+        collection = TimeseriesCollection(self, name)
+        collection._info = info
+        return collection
 
     def __repr__(self) -> str:
         return f"{self.name} [Timeseries Dataset]: {self._dataset.summary}"
