@@ -10,6 +10,7 @@ from tilebox.datasets.data.datapoint import (
     Datapoint,
     DatapointInterval,
     DatapointPage,
+    Datapoints,
     DeleteDatapointsResponse,
     IngestDatapointsResponse,
 )
@@ -18,47 +19,56 @@ from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.time_interval import TimeInterval
 from tilebox.datasets.data.uuid import uuid_to_uuid_message
 from tilebox.datasets.datasetsv1 import core_pb2
-from tilebox.datasets.datasetsv1.core_pb2 import (
+from tilebox.datasets.datasetsv1.collections_pb2 import (
     CreateCollectionRequest,
     GetCollectionByNameRequest,
-    GetCollectionsRequest,
-    GetDatapointByIdRequest,
-    GetDatasetForIntervalRequest,
+    ListCollectionsRequest,
 )
-from tilebox.datasets.datasetsv1.tilebox_pb2 import (
-    ClientInfo,
-    DeleteDatapointsRequest,
-    GetDatasetRequest,
-    IngestDatapointsRequest,
-    ListDatasetsRequest,
-    Package,
-)
-from tilebox.datasets.datasetsv1.tilebox_pb2_grpc import TileboxServiceStub
+from tilebox.datasets.datasetsv1.collections_pb2_grpc import CollectionServiceStub
+from tilebox.datasets.datasetsv1.data_access_pb2 import GetDatapointByIdRequest, GetDatasetForIntervalRequest
+from tilebox.datasets.datasetsv1.data_access_pb2_grpc import DataAccessServiceStub
+from tilebox.datasets.datasetsv1.data_ingestion_pb2 import DeleteDatapointsRequest, IngestDatapointsRequest
+from tilebox.datasets.datasetsv1.data_ingestion_pb2_grpc import DataIngestionServiceStub
+from tilebox.datasets.datasetsv1.datasets_pb2 import ClientInfo, GetDatasetRequest, ListDatasetsRequest, Package
+from tilebox.datasets.datasetsv1.datasets_pb2_grpc import DatasetServiceStub
 
 
 class TileboxDatasetService:
-    def __init__(self, service_stub: TileboxServiceStub) -> None:
+    def __init__(
+        self,
+        dataset_service_stub: DatasetServiceStub,
+        collection_service_stub: CollectionServiceStub,
+        data_access_service_stub: DataAccessServiceStub,
+        data_ingestion_service_stub: DataIngestionServiceStub,
+    ) -> None:
         """
         Typed access to the gRPC endpoints of a timeseries dataset.
 
         Args:
             channel: The gRPC channel to use for the service.
         """
-        self._service = service_stub
+        self._dataset_service = dataset_service_stub
+        self._collection_service = collection_service_stub
+        self._data_access_service = data_access_service_stub
+        self._data_ingestion_service = data_ingestion_service_stub
 
     def list_datasets(self) -> Promise[ListDatasetsResponse]:
         """List all datasets and dataset groups."""
-        return Promise.resolve(self._service.ListDatasets(ListDatasetsRequest(client_info=_client_info()))).then(
-            ListDatasetsResponse.from_message
-        )
+        return Promise.resolve(
+            self._dataset_service.ListDatasets(ListDatasetsRequest(client_info=_client_info()))
+        ).then(ListDatasetsResponse.from_message)
 
     def get_dataset_by_id(self, dataset_id: str) -> Promise[Dataset]:
         """Get a dataset by its id."""
-        return Promise.resolve(self._service.GetDataset(GetDatasetRequest(id=dataset_id))).then(Dataset.from_message)
+        return Promise.resolve(self._dataset_service.GetDataset(GetDatasetRequest(id=dataset_id))).then(
+            Dataset.from_message
+        )
 
     def get_dataset_by_slug(self, slug: str) -> Promise[Dataset]:
         """Get a dataset by its id."""
-        return Promise.resolve(self._service.GetDataset(GetDatasetRequest(slug=slug))).then(Dataset.from_message)
+        return Promise.resolve(self._dataset_service.GetDataset(GetDatasetRequest(slug=slug))).then(
+            Dataset.from_message
+        )
 
     def create_collection(self, dataset_id: UUID, name: str) -> Promise[CollectionInfo]:
         """Create a new collection in a dataset.
@@ -71,16 +81,16 @@ class TileboxDatasetService:
             The created collection info.
         """
         req = CreateCollectionRequest(dataset_id=uuid_to_uuid_message(dataset_id), name=name)
-        return Promise.resolve(self._service.CreateCollection(req)).then(CollectionInfo.from_message)
+        return Promise.resolve(self._collection_service.CreateCollection(req)).then(CollectionInfo.from_message)
 
     def get_collections(
         self, dataset_id: UUID, with_availability: bool = True, with_count: bool = False
     ) -> Promise[list[CollectionInfo]]:
         """List all available collections in this dataset."""
-        req = GetCollectionsRequest(
+        req = ListCollectionsRequest(
             dataset_id=uuid_to_uuid_message(dataset_id), with_availability=with_availability, with_count=with_count
         )
-        return Promise.resolve(self._service.GetCollections(req)).then(
+        return Promise.resolve(self._collection_service.ListCollections(req)).then(
             lambda response: [CollectionInfo.from_message(collection) for collection in response.data],
         )
 
@@ -94,13 +104,13 @@ class TileboxDatasetService:
             with_count=with_count,
             dataset_id=uuid_to_uuid_message(dataset_id),
         )
-        return Promise.resolve(self._service.GetCollectionByName(req)).then(
+        return Promise.resolve(self._collection_service.GetCollectionByName(req)).then(
             CollectionInfo.from_message,
         )
 
     def get_datapoint_by_id(self, collection_id: str, datapoint_id: str, skip_data: bool = False) -> Promise[Datapoint]:
         req = GetDatapointByIdRequest(collection_id=collection_id, id=datapoint_id, skip_data=skip_data)
-        return Promise.resolve(self._service.GetDatapointByID(req)).then(
+        return Promise.resolve(self._data_access_service.GetDatapointByID(req)).then(
             Datapoint.from_message,
         )
 
@@ -119,7 +129,7 @@ class TileboxDatasetService:
             skip_meta=skip_meta,
             page=page.to_message() if page is not None else None,
         )
-        return Promise.resolve(self._service.GetDatasetForInterval(req)).then(
+        return Promise.resolve(self._data_access_service.GetDatasetForInterval(req)).then(
             DatapointPage.from_message,
         )
 
@@ -138,12 +148,12 @@ class TileboxDatasetService:
             skip_meta=skip_meta,
             page=page.to_message() if page is not None else None,
         )
-        return Promise.resolve(self._service.GetDatasetForInterval(req)).then(
+        return Promise.resolve(self._data_access_service.GetDatasetForInterval(req)).then(
             DatapointPage.from_message,
         )
 
     def ingest_datapoints(
-        self, collection_id: UUID, datapoints: DatapointPage, allow_existing: bool
+        self, collection_id: UUID, datapoints: Datapoints, allow_existing: bool
     ) -> Promise[IngestDatapointsResponse]:
         """Ingest a batch of datapoints into a collection.
 
@@ -160,7 +170,7 @@ class TileboxDatasetService:
             datapoints=datapoints.to_message(),
             allow_existing=allow_existing,
         )
-        return Promise.resolve(self._service.IngestDatapoints(req)).then(
+        return Promise.resolve(self._data_ingestion_service.IngestDatapoints(req)).then(
             IngestDatapointsResponse.from_message,
         )
 
@@ -178,7 +188,7 @@ class TileboxDatasetService:
             collection_id=uuid_to_uuid_message(collection_id),
             datapoint_ids=[core_pb2.ID(datapoint.bytes) for datapoint in datapoints],
         )
-        return Promise.resolve(self._service.DeleteDatapoints(req)).then(
+        return Promise.resolve(self._data_ingestion_service.DeleteDatapoints(req)).then(
             DeleteDatapointsResponse.from_message,
         )
 

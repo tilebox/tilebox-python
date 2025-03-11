@@ -24,15 +24,15 @@ from tilebox.datasets.data.time_interval import (
     _convert_to_datetime,
     timestamp_to_datetime,
 )
-from tilebox.datasets.datasetsv1.core_pb2 import Collection as CollectionMessage
-from tilebox.datasets.datasetsv1.core_pb2 import CollectionInfo as CollectionInfoMessage
-from tilebox.datasets.datasetsv1.core_pb2 import (
-    Collections,
+from tilebox.datasets.datasetsv1.collections_pb2 import (
     CreateCollectionRequest,
     GetCollectionByNameRequest,
-    GetCollectionsRequest,
+    ListCollectionsRequest,
 )
-from tilebox.datasets.datasetsv1.tilebox_pb2_grpc import TileboxServiceStub
+from tilebox.datasets.datasetsv1.collections_pb2_grpc import CollectionServiceStub
+from tilebox.datasets.datasetsv1.core_pb2 import Collection as CollectionMessage
+from tilebox.datasets.datasetsv1.core_pb2 import CollectionInfo as CollectionInfoMessage
+from tilebox.datasets.datasetsv1.core_pb2 import CollectionInfos as CollectionInfosMessage
 from tilebox.datasets.service import TileboxDatasetService
 
 
@@ -266,7 +266,7 @@ def _assert_datapoints_match(dataset: xr.Dataset, pages: list[DatapointPage]) ->
         assert meta.id == datapoint.coords["id"]
 
 
-class MockCollectionService(TileboxServiceStub):
+class MockCollectionService(CollectionServiceStub):
     """A mock implementation of the gRPC collection service, that stores collections in memory as a dict."""
 
     def __init__(self) -> None:
@@ -284,9 +284,9 @@ class MockCollectionService(TileboxServiceStub):
             return self.collections[req.collection_name]
         raise NotFoundError(f"Collection {req.collection_name} not found")
 
-    def GetCollections(self, req: GetCollectionsRequest) -> Collections:  # noqa: N802
+    def ListCollections(self, req: ListCollectionsRequest) -> CollectionInfosMessage:  # noqa: N802
         _ = req
-        return Collections(data=list(self.collections.values()))
+        return CollectionInfosMessage(data=list(self.collections.values()))
 
 
 class CollectionCRUDOperations(RuleBasedStateMachine):
@@ -305,7 +305,9 @@ class CollectionCRUDOperations(RuleBasedStateMachine):
     def __init__(self) -> None:
         super().__init__()
         dataset_client, _ = _mocked_dataset()
-        dataset_client._service = TileboxDatasetService(MockCollectionService())  # mock the gRPC service
+        dataset_client._service = TileboxDatasetService(
+            MagicMock(), MockCollectionService(), MagicMock(), MagicMock()
+        )  # mock the gRPC service
         self.dataset_client = dataset_client
         self.count_collections = 0
 

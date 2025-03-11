@@ -4,7 +4,7 @@ from uuid import UUID
 from google.protobuf.descriptor_pb2 import FileDescriptorSet
 
 from tilebox.datasets.data.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
-from tilebox.datasets.datasetsv1 import core_pb2, dataset_type_pb2, tilebox_pb2
+from tilebox.datasets.datasetsv1 import core_pb2, dataset_type_pb2, datasets_pb2
 
 
 @dataclass(frozen=True)
@@ -116,15 +116,15 @@ class ListDatasetsResponse:
     server_message: str | None
 
     @classmethod
-    def from_message(cls, response: tilebox_pb2.ListDatasetsResponse) -> "ListDatasetsResponse":
+    def from_message(cls, response: datasets_pb2.ListDatasetsResponse) -> "ListDatasetsResponse":
         return cls(
             datasets=[Dataset.from_message(dataset) for dataset in response.datasets],
             groups=[DatasetGroup.from_message(group) for group in response.groups],
             server_message=response.server_message,
         )
 
-    def to_message(self) -> tilebox_pb2.ListDatasetsResponse:
-        return tilebox_pb2.ListDatasetsResponse(
+    def to_message(self) -> datasets_pb2.ListDatasetsResponse:
+        return datasets_pb2.ListDatasetsResponse(
             datasets=[dataset.to_message() for dataset in self.datasets],
             groups=[group.to_message() for group in self.groups],
             server_message=self.server_message,

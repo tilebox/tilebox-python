@@ -3,7 +3,7 @@ from uuid import UUID
 
 from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.uuid import uuid_message_to_uuid
-from tilebox.datasets.datasetsv1 import core_pb2, tilebox_pb2
+from tilebox.datasets.datasetsv1 import core_pb2, data_ingestion_pb2
 
 
 @dataclass(frozen=True)
@@ -72,7 +72,7 @@ class Datapoint:
 
     @classmethod
     def from_message(
-        cls, datapoint: tilebox_pb2.Datapoint
+        cls, datapoint: core_pb2.Datapoint
     ) -> "Datapoint":  # lets use typing.Self once we require python >= 3.11
         """Convert a Datapoint protobuf message to a Datapoint object."""
         return cls(
@@ -80,11 +80,24 @@ class Datapoint:
             data=Any.from_message(datapoint.data),
         )
 
-    def to_message(self) -> tilebox_pb2.Datapoint:
-        return tilebox_pb2.Datapoint(
+    def to_message(self) -> core_pb2.Datapoint:
+        return core_pb2.Datapoint(
             meta=self.meta,
             data=self.data.to_message(),
         )
+
+
+@dataclass(frozen=True)
+class Datapoints:
+    meta: list[core_pb2.DatapointMetadata]  # we keep this as protobuf message to easily convert to/from xarray
+    data: RepeatedAny
+
+    @classmethod
+    def from_message(cls, datapoints: core_pb2.Datapoints) -> "Datapoints":
+        return cls(meta=list(datapoints.meta), data=RepeatedAny.from_message(datapoints.data))
+
+    def to_message(self) -> core_pb2.Datapoints:
+        return core_pb2.Datapoints(meta=self.meta, data=self.data.to_message())
 
 
 @dataclass(frozen=True)
@@ -95,7 +108,7 @@ class DatapointPage:
     byte_size: int = field(compare=False)
 
     @classmethod
-    def from_message(cls, datapoints: tilebox_pb2.Datapoints) -> "DatapointPage":
+    def from_message(cls, datapoints: core_pb2.DatapointPage) -> "DatapointPage":
         return cls(
             meta=list(datapoints.meta),
             data=RepeatedAny.from_message(datapoints.data),
@@ -103,8 +116,8 @@ class DatapointPage:
             byte_size=datapoints.ByteSize(),  # useful for progress bars
         )
 
-    def to_message(self) -> tilebox_pb2.Datapoints:
-        return tilebox_pb2.Datapoints(
+    def to_message(self) -> core_pb2.DatapointPage:
+        return core_pb2.DatapointPage(
             meta=self.meta,
             data=self.data.to_message(),
             next_page=self.next_page.to_message() if self.next_page else None,
@@ -118,15 +131,15 @@ class IngestDatapointsResponse:
     datapoint_ids: list[UUID]
 
     @classmethod
-    def from_message(cls, response: tilebox_pb2.IngestDatapointsResponse) -> "IngestDatapointsResponse":
+    def from_message(cls, response: data_ingestion_pb2.IngestDatapointsResponse) -> "IngestDatapointsResponse":
         return cls(
             num_created=response.num_created,
             num_existing=response.num_existing,
             datapoint_ids=[uuid_message_to_uuid(datapoint_id) for datapoint_id in response.datapoint_ids],
         )
 
-    def to_message(self) -> tilebox_pb2.IngestDatapointsResponse:
-        return tilebox_pb2.IngestDatapointsResponse(
+    def to_message(self) -> data_ingestion_pb2.IngestDatapointsResponse:
+        return data_ingestion_pb2.IngestDatapointsResponse(
             num_created=self.num_created,
             num_existing=self.num_existing,
             datapoint_ids=[core_pb2.ID(uuid=datapoint_id.bytes) for datapoint_id in self.datapoint_ids],
@@ -138,12 +151,12 @@ class DeleteDatapointsResponse:
     num_deleted: int
 
     @classmethod
-    def from_message(cls, response: tilebox_pb2.DeleteDatapointsResponse) -> "DeleteDatapointsResponse":
+    def from_message(cls, response: data_ingestion_pb2.DeleteDatapointsResponse) -> "DeleteDatapointsResponse":
         return cls(
             num_deleted=response.num_deleted,
         )
 
-    def to_message(self) -> tilebox_pb2.DeleteDatapointsResponse:
-        return tilebox_pb2.DeleteDatapointsResponse(
+    def to_message(self) -> data_ingestion_pb2.DeleteDatapointsResponse:
+        return data_ingestion_pb2.DeleteDatapointsResponse(
             num_deleted=self.num_deleted,
         )

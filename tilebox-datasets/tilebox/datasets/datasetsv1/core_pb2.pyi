@@ -68,6 +68,22 @@ class Pagination(_message.Message):
     starting_after: str
     def __init__(self, limit: _Optional[int] = ..., starting_after: _Optional[str] = ...) -> None: ...
 
+class Any(_message.Message):
+    __slots__ = ("type_url", "value")
+    TYPE_URL_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    type_url: str
+    value: bytes
+    def __init__(self, type_url: _Optional[str] = ..., value: _Optional[bytes] = ...) -> None: ...
+
+class RepeatedAny(_message.Message):
+    __slots__ = ("type_url", "value")
+    TYPE_URL_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    type_url: str
+    value: _containers.RepeatedScalarFieldContainer[bytes]
+    def __init__(self, type_url: _Optional[str] = ..., value: _Optional[_Iterable[bytes]] = ...) -> None: ...
+
 class DatapointMetadata(_message.Message):
     __slots__ = ("event_time", "ingestion_time", "id")
     EVENT_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -77,6 +93,32 @@ class DatapointMetadata(_message.Message):
     ingestion_time: _timestamp_pb2.Timestamp
     id: str
     def __init__(self, event_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., ingestion_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
+
+class Datapoints(_message.Message):
+    __slots__ = ("meta", "data")
+    META_FIELD_NUMBER: _ClassVar[int]
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    meta: _containers.RepeatedCompositeFieldContainer[DatapointMetadata]
+    data: RepeatedAny
+    def __init__(self, meta: _Optional[_Iterable[_Union[DatapointMetadata, _Mapping]]] = ..., data: _Optional[_Union[RepeatedAny, _Mapping]] = ...) -> None: ...
+
+class DatapointPage(_message.Message):
+    __slots__ = ("meta", "data", "next_page")
+    META_FIELD_NUMBER: _ClassVar[int]
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_FIELD_NUMBER: _ClassVar[int]
+    meta: _containers.RepeatedCompositeFieldContainer[DatapointMetadata]
+    data: RepeatedAny
+    next_page: Pagination
+    def __init__(self, meta: _Optional[_Iterable[_Union[DatapointMetadata, _Mapping]]] = ..., data: _Optional[_Union[RepeatedAny, _Mapping]] = ..., next_page: _Optional[_Union[Pagination, _Mapping]] = ...) -> None: ...
+
+class Datapoint(_message.Message):
+    __slots__ = ("meta", "data")
+    META_FIELD_NUMBER: _ClassVar[int]
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    meta: DatapointMetadata
+    data: Any
+    def __init__(self, meta: _Optional[_Union[DatapointMetadata, _Mapping]] = ..., data: _Optional[_Union[Any, _Mapping]] = ...) -> None: ...
 
 class Collection(_message.Message):
     __slots__ = ("id", "name")
@@ -96,7 +138,7 @@ class CollectionInfo(_message.Message):
     count: int
     def __init__(self, collection: _Optional[_Union[Collection, _Mapping]] = ..., availability: _Optional[_Union[TimeInterval, _Mapping]] = ..., count: _Optional[int] = ...) -> None: ...
 
-class Collections(_message.Message):
+class CollectionInfos(_message.Message):
     __slots__ = ("data",)
     DATA_FIELD_NUMBER: _ClassVar[int]
     data: _containers.RepeatedCompositeFieldContainer[CollectionInfo]
@@ -139,75 +181,3 @@ class DatasetGroup(_message.Message):
     name: str
     icon: str
     def __init__(self, id: _Optional[_Union[ID, _Mapping]] = ..., parent_id: _Optional[_Union[ID, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., icon: _Optional[str] = ...) -> None: ...
-
-class CreateCollectionRequest(_message.Message):
-    __slots__ = ("dataset_id", "name")
-    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    dataset_id: ID
-    name: str
-    def __init__(self, dataset_id: _Optional[_Union[ID, _Mapping]] = ..., name: _Optional[str] = ...) -> None: ...
-
-class GetCollectionsRequest(_message.Message):
-    __slots__ = ("dataset_id", "with_availability", "with_count")
-    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
-    WITH_AVAILABILITY_FIELD_NUMBER: _ClassVar[int]
-    WITH_COUNT_FIELD_NUMBER: _ClassVar[int]
-    dataset_id: ID
-    with_availability: bool
-    with_count: bool
-    def __init__(self, dataset_id: _Optional[_Union[ID, _Mapping]] = ..., with_availability: bool = ..., with_count: bool = ...) -> None: ...
-
-class GetCollectionByNameRequest(_message.Message):
-    __slots__ = ("collection_name", "with_availability", "with_count", "dataset_id")
-    COLLECTION_NAME_FIELD_NUMBER: _ClassVar[int]
-    WITH_AVAILABILITY_FIELD_NUMBER: _ClassVar[int]
-    WITH_COUNT_FIELD_NUMBER: _ClassVar[int]
-    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
-    collection_name: str
-    with_availability: bool
-    with_count: bool
-    dataset_id: ID
-    def __init__(self, collection_name: _Optional[str] = ..., with_availability: bool = ..., with_count: bool = ..., dataset_id: _Optional[_Union[ID, _Mapping]] = ...) -> None: ...
-
-class GetDatasetForIntervalRequest(_message.Message):
-    __slots__ = ("collection_id", "time_interval", "datapoint_interval", "page", "skip_data", "skip_meta")
-    COLLECTION_ID_FIELD_NUMBER: _ClassVar[int]
-    TIME_INTERVAL_FIELD_NUMBER: _ClassVar[int]
-    DATAPOINT_INTERVAL_FIELD_NUMBER: _ClassVar[int]
-    PAGE_FIELD_NUMBER: _ClassVar[int]
-    SKIP_DATA_FIELD_NUMBER: _ClassVar[int]
-    SKIP_META_FIELD_NUMBER: _ClassVar[int]
-    collection_id: str
-    time_interval: TimeInterval
-    datapoint_interval: DatapointInterval
-    page: Pagination
-    skip_data: bool
-    skip_meta: bool
-    def __init__(self, collection_id: _Optional[str] = ..., time_interval: _Optional[_Union[TimeInterval, _Mapping]] = ..., datapoint_interval: _Optional[_Union[DatapointInterval, _Mapping]] = ..., page: _Optional[_Union[Pagination, _Mapping]] = ..., skip_data: bool = ..., skip_meta: bool = ...) -> None: ...
-
-class GetDatapointByIdRequest(_message.Message):
-    __slots__ = ("collection_id", "id", "skip_data")
-    COLLECTION_ID_FIELD_NUMBER: _ClassVar[int]
-    ID_FIELD_NUMBER: _ClassVar[int]
-    SKIP_DATA_FIELD_NUMBER: _ClassVar[int]
-    collection_id: str
-    id: str
-    skip_data: bool
-    def __init__(self, collection_id: _Optional[str] = ..., id: _Optional[str] = ..., skip_data: bool = ...) -> None: ...
-
-class Any(_message.Message):
-    __slots__ = ("type_url", "value")
-    TYPE_URL_FIELD_NUMBER: _ClassVar[int]
-    VALUE_FIELD_NUMBER: _ClassVar[int]
-    type_url: str
-    value: bytes
-    def __init__(self, type_url: _Optional[str] = ..., value: _Optional[bytes] = ...) -> None: ...
-
-class RepeatedAny(_message.Message):
-    __slots__ = ("type_url", "value")
-    TYPE_URL_FIELD_NUMBER: _ClassVar[int]
-    VALUE_FIELD_NUMBER: _ClassVar[int]
-    type_url: str
-    value: _containers.RepeatedScalarFieldContainer[bytes]
-    def __init__(self, type_url: _Optional[str] = ..., value: _Optional[_Iterable[bytes]] = ...) -> None: ...
