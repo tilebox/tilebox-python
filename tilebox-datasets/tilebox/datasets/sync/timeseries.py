@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from functools import partial
+from uuid import UUID
 from warnings import warn
 
 import xarray as xr
@@ -284,6 +285,36 @@ class TimeseriesCollection:
         return self._dataset._service.get_dataset_for_time_interval(
             self._info.collection.id, time_interval, skip_data, skip_meta, page
         ).get()
+
+    def delete(self, datapoints: xr.Dataset) -> int:
+        """Delete datapoints from the collection.
+
+        Datapoints are identified and deleted by their ids.
+
+        Args:
+            datapoints: An xarray.Dataset containing an "id" variable consisting of
+                 datapoint IDs to delete.
+
+        Returns:
+            The number of datapoints that were deleted.
+
+        Raises:
+            NotFoundError: If one or more of the datapoints to delete doesn't exist - no datapoints
+                will be deleted if any of the requested deletions doesn't exist.
+        """
+        return self.delete_ids([UUID(datapoint.item()) for datapoint in datapoints.coords["id"]])
+
+    def delete_ids(self, datapoints_ids: list[UUID]) -> int:
+        """Delete datapoint from the collection by their ids.
+
+        Args:
+            datapoints_ids: The ids of the datapoints to delete.
+
+        Returns:
+            The number of datapoints that were deleted.
+        """
+        response = self._dataset._service.delete_datapoints(UUID(self._info.collection.id), datapoints_ids).get()
+        return response.num_deleted
 
 
 def _convert_to_dataset(pages: Iterator[DatapointPage]) -> xr.Dataset:
