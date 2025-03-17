@@ -101,6 +101,21 @@ class Datapoints:
 
 
 @dataclass(frozen=True)
+class IngestDatapoints:
+    """IngestDatapoints is similar to Datapoints, except that it doesn't contain a type_url"""
+
+    meta: list[core_pb2.DatapointMetadata]  # we keep this as protobuf message to easily convert to/from xarray
+    data: list[bytes]
+
+    @classmethod
+    def from_message(cls, datapoints: core_pb2.Datapoints) -> "IngestDatapoints":
+        return cls(meta=list(datapoints.meta), data=RepeatedAny.from_message(datapoints.data).value)
+
+    def to_message(self) -> core_pb2.Datapoints:
+        return core_pb2.Datapoints(meta=self.meta, data=core_pb2.RepeatedAny(value=self.data))
+
+
+@dataclass(frozen=True)
 class DatapointPage:
     meta: list[core_pb2.DatapointMetadata]  # we keep this as protobuf message to easily convert to/from xarray
     data: RepeatedAny
@@ -143,20 +158,4 @@ class IngestDatapointsResponse:
             num_created=self.num_created,
             num_existing=self.num_existing,
             datapoint_ids=[core_pb2.ID(uuid=datapoint_id.bytes) for datapoint_id in self.datapoint_ids],
-        )
-
-
-@dataclass(frozen=True)
-class DeleteDatapointsResponse:
-    num_deleted: int
-
-    @classmethod
-    def from_message(cls, response: data_ingestion_pb2.DeleteDatapointsResponse) -> "DeleteDatapointsResponse":
-        return cls(
-            num_deleted=response.num_deleted,
-        )
-
-    def to_message(self) -> data_ingestion_pb2.DeleteDatapointsResponse:
-        return data_ingestion_pb2.DeleteDatapointsResponse(
-            num_deleted=self.num_deleted,
         )

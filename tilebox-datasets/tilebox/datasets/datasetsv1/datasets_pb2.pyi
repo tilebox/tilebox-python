@@ -72,11 +72,15 @@ class ListDatasetsRequest(_message.Message):
     def __init__(self, client_info: _Optional[_Union[ClientInfo, _Mapping]] = ...) -> None: ...
 
 class ListDatasetsResponse(_message.Message):
-    __slots__ = ("datasets", "groups", "server_message")
+    __slots__ = ("datasets", "groups", "server_message", "nb_created_datasets", "nb_created_datasets_limit")
     DATASETS_FIELD_NUMBER: _ClassVar[int]
     GROUPS_FIELD_NUMBER: _ClassVar[int]
     SERVER_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    NB_CREATED_DATASETS_FIELD_NUMBER: _ClassVar[int]
+    NB_CREATED_DATASETS_LIMIT_FIELD_NUMBER: _ClassVar[int]
     datasets: _containers.RepeatedCompositeFieldContainer[_core_pb2.Dataset]
     groups: _containers.RepeatedCompositeFieldContainer[_core_pb2.DatasetGroup]
     server_message: str
-    def __init__(self, datasets: _Optional[_Iterable[_Union[_core_pb2.Dataset, _Mapping]]] = ..., groups: _Optional[_Iterable[_Union[_core_pb2.DatasetGroup, _Mapping]]] = ..., server_message: _Optional[str] = ...) -> None: ...
+    nb_created_datasets: int
+    nb_created_datasets_limit: int
+    def __init__(self, datasets: _Optional[_Iterable[_Union[_core_pb2.Dataset, _Mapping]]] = ..., groups: _Optional[_Iterable[_Union[_core_pb2.DatasetGroup, _Mapping]]] = ..., server_message: _Optional[str] = ..., nb_created_datasets: _Optional[int] = ..., nb_created_datasets_limit: _Optional[int] = ...) -> None: ...

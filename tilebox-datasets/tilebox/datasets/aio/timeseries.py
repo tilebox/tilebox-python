@@ -18,8 +18,15 @@ from tilebox.datasets.data.datapoint import DatapointInterval, DatapointPage
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
+from tilebox.datasets.message_pool import get_message_type
 from tilebox.datasets.progress import ProgressCallback
-from tilebox.datasets.protobuf_xarray import TimeseriesToXarrayConverter
+from tilebox.datasets.protobuf_conversion.protobuf_xarray import TimeseriesToXarrayConverter
+from tilebox.datasets.protobuf_conversion.to_protobuf import (
+    DatapointIDs,
+    IngestionData,
+    extract_datapoint_ids,
+    to_timeseries_datapoints,
+)
 from tilebox.datasets.service import TileboxDatasetService
 
 # allow private member access: we allow it here because we want to make as much private as possible so that we can
@@ -53,9 +60,19 @@ class TimeseriesDataset:
             A mapping from collection names to collections.
         """
         if availability is not None:
-            warn("availability is unused", DeprecationWarning, stacklevel=2)
+            warn(
+                "The availability arg has been deprecated, and will be removed in a future version. "
+                "Collection availability information is now always returned instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if count is not None:
-            warn("count is unused", DeprecationWarning, stacklevel=2)
+            warn(
+                "The count arg has been deprecated, and will be removed in a future version. "
+                "Collection counts are now always returned instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         collections = await self._service.get_collections(self._dataset.id, True, True)
 
@@ -147,9 +164,19 @@ class TimeseriesCollection:
             collection info for the current collection
         """
         if availability is not None:
-            warn("availability is unused", DeprecationWarning, stacklevel=2)
+            warn(
+                "The availability arg has been deprecated, and will be removed in a future version. "
+                "Collection availability information is now always returned instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if count is not None:
-            warn("count is unused", DeprecationWarning, stacklevel=2)
+            warn(
+                "The count arg has been deprecated, and will be removed in a future version. "
+                "Collection counts are now always returned instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         return self._info
 
@@ -289,14 +316,41 @@ class TimeseriesCollection:
             self._info.collection.id, time_interval, skip_data, skip_meta, page
         )
 
-    async def delete(self, datapoints: xr.Dataset) -> int:
+    async def ingest(self, data: IngestionData, allow_existing: bool = True) -> list[UUID]:
+        """Ingest data into the collection.
+
+        Args:
+            data: The data to ingest. Supported data types are:
+                - xr.Dataset: Ingest a dataset such as it is returned by the output of `collection.load()`
+                - pd.DataFrame: Ingest a pandas DataFrame, mapping the column names to the dataset fields
+                - Iterable, dict or nd-array: Ingest any object that can be converted to a pandas DataFrame,
+                    equivalent to `ingest(pd.DataFrame(data))`
+            allow_existing: Whether to allow existing datapoints. Datapoints will only be overwritten if
+                all of their fields are exactly equal to already existing datapoints. Tilebox will never create
+                duplicate datapoints, but will raise an error if the datapoint already exists. Setting this to
+                `True` will not raise an error and skip the duplicate datapoints instead.
+
+        Returns:
+            List of datapoint ids that were ingested.
+        """
+        message_type = get_message_type(self._dataset._dataset.type.type_url)
+        datapoints = to_timeseries_datapoints(data, message_type)
+        response = await self._dataset._service.ingest_datapoints(
+            UUID(self._info.collection.id), datapoints, allow_existing
+        )
+        return response.datapoint_ids
+
+    async def delete(self, datapoints: DatapointIDs) -> int:
         """Delete datapoints from the collection.
 
         Datapoints are identified and deleted by their ids.
 
         Args:
-            datapoints: An xarray.Dataset containing an "id" variable consisting of
-                 datapoint IDs to delete.
+            datapoints: The datapoints to delete. Supported types are:
+                - xr.Dataset: An xarray.Dataset containing an "id" variable/coord consisting of datapoint IDs to delete.
+                - pd.DataFrame: A pandas DataFrame containing a "id" column consisting of datapoint IDs to delete.
+                - xr.DataArray, np.ndarray, pd.Series, list[UUID]: Array of UUIDs to delete
+                - list[str], list[UUID]: List of datapoint IDs to delete
 
         Returns:
             The number of datapoints that were deleted.
@@ -305,19 +359,8 @@ class TimeseriesCollection:
             NotFoundError: If one or more of the datapoints to delete doesn't exist - no datapoints
                 will be deleted if any of the requested deletions doesn't exist.
         """
-        return await self.delete_ids([UUID(datapoint.item()) for datapoint in datapoints.coords["id"]])
-
-    async def delete_ids(self, datapoints_ids: list[UUID]) -> int:
-        """Delete datapoint from the collection by their ids.
-
-        Args:
-            datapoints_ids: The ids of the datapoints to delete.
-
-        Returns:
-            The number of datapoints that were deleted.
-        """
-        response = await self._dataset._service.delete_datapoints(UUID(self._info.collection.id), datapoints_ids)
-        return response.num_deleted
+        datapoint_ids = extract_datapoint_ids(datapoints)
+        return await self._dataset._service.delete_datapoints(UUID(self._info.collection.id), datapoint_ids)
 
 
 async def _convert_to_dataset(pages: AsyncIterator[DatapointPage]) -> xr.Dataset:

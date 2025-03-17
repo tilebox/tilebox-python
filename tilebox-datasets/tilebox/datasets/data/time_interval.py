@@ -185,7 +185,7 @@ _EMPTY_TIME_INTERVAL = TimeInterval(_EPOCH, _EPOCH, start_exclusive=True, end_in
 
 def _convert_to_datetime(arg: DatetimeScalar) -> datetime:
     """Convert the given datetime scalar to a datetime object in the UTC timezone"""
-    dt: datetime = to_datetime(arg).to_pydatetime()
+    dt: datetime = to_datetime(arg, utc=True).to_pydatetime()
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)

@@ -1,10 +1,10 @@
-from pathlib import Path
 from uuid import UUID
 
 import pytest
 from hypothesis import given, settings
 from hypothesis.strategies import lists
-from numpy.testing import assert_array_equal
+from numpy.testing import assert_array_almost_equal, assert_array_equal
+from pandas import to_datetime
 from shapely import MultiPolygon, Polygon
 from xarray.testing import assert_equal
 
@@ -12,12 +12,15 @@ from tests.data.datapoint import datapoint_pages, datapoints, example_datapoints
 from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
 from tilebox.datasets.data.datapoint import Datapoint, DatapointPage
 from tilebox.datasets.data.time_interval import timestamp_to_datetime, us_to_datetime
-from tilebox.datasets.datasetsv1.well_known_types_pb2 import GeobufData, ProcessingLevel
-from tilebox.datasets.protobuf_xarray import MessageToXarrayConverter, TimeseriesToXarrayConverter, _parse_geobuf
+from tilebox.datasets.datasetsv1.well_known_types_pb2 import ProcessingLevel
+from tilebox.datasets.protobuf_conversion.protobuf_xarray import (
+    MessageToXarrayConverter,
+    TimeseriesToXarrayConverter,
+)
 
 
 @given(example_datapoints(missing_fields=False))
-def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:
+def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR0915
     converter = MessageToXarrayConverter()
     converter.convert(datapoint)
     dataset = converter.finalize("time")
@@ -29,19 +32,26 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:
     assert dataset.sizes["lat_lon_alt"] == 3
     assert dataset.sizes["n_some_repeated_string"] == len(datapoint.some_repeated_string)
     assert dataset.sizes["n_some_repeated_int"] == len(datapoint.some_repeated_int)
-    assert dataset.sizes["n_some_bytes"] == len(datapoint.some_bytes)
+    assert dataset.sizes["n_some_repeated_bytes"] == len(datapoint.some_repeated_bytes)
+    assert dataset.sizes["n_some_repeated_bool"] == len(datapoint.some_repeated_bool)
+    assert dataset.sizes["n_some_repeated_time"] == len(datapoint.some_repeated_time)
+    assert dataset.sizes["n_some_repeated_duration"] == len(datapoint.some_repeated_duration)
+    assert dataset.sizes["n_some_repeated_identifier"] == len(datapoint.some_repeated_identifier)
+    assert dataset.sizes["n_some_repeated_vec3"] == len(datapoint.some_repeated_vec3)
+    assert dataset.sizes["n_some_repeated_geometry"] == len(datapoint.some_repeated_geometry)
 
     dataset = dataset.isel(time=0)  # select the only datapoint in the dataset
     assert dataset.some_string.item() == datapoint.some_string
     assert dataset.some_int.item() == datapoint.some_int
+    assert dataset.some_double.item() == pytest.approx(datapoint.some_double)
     time = dataset.some_time.item()  # timestamp in nanoseconds from the numpy/xarray dataset
-    assert us_to_datetime(time // 1000) == timestamp_to_datetime(datapoint.some_time)
+    assert us_to_datetime(to_datetime(time, utc=True).value // 1000) == timestamp_to_datetime(datapoint.some_time)
     assert dataset.some_duration.item() == int(datapoint.some_duration.seconds * 10**9 + datapoint.some_duration.nanos)
 
-    assert_array_equal(dataset.some_repeated_string.to_numpy(), datapoint.some_repeated_string)
-    assert_array_equal(dataset.some_repeated_int.to_numpy(), datapoint.some_repeated_int)
-    assert dataset.some_bytes.to_numpy().tobytes() == datapoint.some_bytes
-    assert dataset.some_id.item() == str(UUID(bytes=datapoint.some_id.uuid))
+    assert dataset.some_bytes.item() == datapoint.some_bytes
+    assert dataset.some_bool.item() == datapoint.some_bool
+
+    assert dataset.some_identifier.item() == str(UUID(bytes=datapoint.some_identifier.uuid))
     assert_array_equal(
         dataset.some_vec3.to_numpy(), [datapoint.some_vec3.x, datapoint.some_vec3.y, datapoint.some_vec3.z]
     )
@@ -61,9 +71,39 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:
         dataset.some_latlon_alt.to_numpy(),
         [datapoint.some_latlon_alt.latitude, datapoint.some_latlon_alt.longitude, datapoint.some_latlon_alt.altitude],
     )
-    assert isinstance(dataset.some_geometry.item(), Polygon)
+    assert isinstance(dataset.some_geometry.item(), Polygon | MultiPolygon)
     expected_level = {v: k for k, v in ProcessingLevel.items()}[datapoint.some_enum].removeprefix("PROCESSING_LEVEL_")
     assert dataset.some_enum.item() == expected_level
+
+    assert_array_equal(dataset.some_repeated_string.to_numpy(), datapoint.some_repeated_string)
+    assert_array_equal(dataset.some_repeated_int.to_numpy(), datapoint.some_repeated_int)
+    assert_array_almost_equal(dataset.some_repeated_double.to_numpy(), datapoint.some_repeated_double)
+
+    assert list(dataset.some_repeated_string.to_numpy()) == list(datapoint.some_repeated_string)
+    assert list(dataset.some_repeated_int.to_numpy()) == list(datapoint.some_repeated_int)
+    assert list(dataset.some_repeated_bytes.to_numpy()) == list(datapoint.some_repeated_bytes)
+    assert list(dataset.some_repeated_bool.to_numpy()) == list(datapoint.some_repeated_bool)
+
+    expected_timestamps = [timestamp_to_datetime(t) for t in datapoint.some_repeated_time]
+    actual_timestamps = [
+        us_to_datetime(to_datetime(t, utc=True).value // 1000) for t in dataset.some_repeated_time.to_numpy()
+    ]
+    assert actual_timestamps == expected_timestamps
+
+    expected_durations = [int(d.seconds * 10**9 + d.nanos) for d in datapoint.some_repeated_duration]
+    actual_durations = [int(d) for d in dataset.some_repeated_duration.to_numpy()]
+    assert actual_durations == expected_durations
+
+    assert list(dataset.some_repeated_identifier.to_numpy()) == [
+        str(UUID(bytes=u.uuid)) for u in datapoint.some_repeated_identifier
+    ]
+
+    expected_vec3 = [(v.x, v.y, v.z) for v in datapoint.some_repeated_vec3]
+    actual_vec3 = [(v[0], v[1], v[2]) for v in dataset.some_repeated_vec3.to_numpy()]
+    assert actual_vec3 == expected_vec3
+
+    for i in range(len(datapoint.some_repeated_geometry)):
+        assert isinstance(dataset.some_repeated_geometry[i].item(), Polygon | MultiPolygon)
 
 
 @given(datapoints(missing_fields=True))
@@ -81,9 +121,7 @@ def test_convert_timeseries_datapoint(datapoint: Datapoint) -> None:
 
 
 @given(lists(example_datapoints(missing_fields=True), min_size=5, max_size=30))
-def test_convert_datapoints(
-    datapoints: list[ExampleDatapoint],
-) -> None:
+def test_convert_datapoints(datapoints: list[ExampleDatapoint]) -> None:  # noqa: C901, PLR0912
     converter = MessageToXarrayConverter()
     converter.convert_all(datapoints)
     dataset = converter.finalize("time")
@@ -100,9 +138,37 @@ def test_convert_datapoints(
         n_some_repeated_int = max(len(dp.some_repeated_int) for dp in datapoints)
         assert dataset.sizes["n_some_repeated_int"] == n_some_repeated_int
 
-    if "some_bytes" in dataset:
-        n_some_bytes = max(len(dp.some_bytes) for dp in datapoints)
-        assert dataset.sizes["n_some_bytes"] == n_some_bytes
+    if "some_repeated_double" in dataset:
+        n_some_repeated_double = max(len(dp.some_repeated_double) for dp in datapoints)
+        assert dataset.sizes["n_some_repeated_double"] == n_some_repeated_double
+
+    if "some_repeated_bytes" in dataset:
+        n_some_repeated_bytes = max(len(dp.some_repeated_bytes) for dp in datapoints)
+        assert dataset.sizes["n_some_repeated_bytes"] == n_some_repeated_bytes
+
+    if "some_repeated_bool" in dataset:
+        n_some_repeated_bool = max(len(dp.some_repeated_bool) for dp in datapoints)
+        assert dataset.sizes["n_some_repeated_bool"] == n_some_repeated_bool
+
+    if "some_repeated_time" in dataset:
+        n_some_repeated_time = max(len(dp.some_repeated_time) for dp in datapoints)
+        assert dataset.sizes["n_some_repeated_time"] == n_some_repeated_time
+
+    if "some_repeated_duration" in dataset:
+        n_some_repeated_duration = max(len(dp.some_repeated_duration) for dp in datapoints)
+        assert dataset.sizes["n_some_repeated_duration"] == n_some_repeated_duration
+
+    if "some_repeated_identifier" in dataset:
+        n_some_repeated_identifier = max(len(dp.some_repeated_identifier) for dp in datapoints)
+        assert dataset.sizes["n_some_repeated_identifier"] == n_some_repeated_identifier
+
+    if "some_repeated_vec3" in dataset:
+        n_some_repeated_vec3 = max(len(dp.some_repeated_vec3) for dp in datapoints)
+        assert dataset.sizes["n_some_repeated_vec3"] == n_some_repeated_vec3
+
+    if "some_repeated_geometry" in dataset:
+        n_some_repeated_geometry = max(len(dp.some_repeated_geometry) for dp in datapoints)
+        assert dataset.sizes["n_some_repeated_geometry"] == n_some_repeated_geometry
 
     if "some_id" in dataset:
         for uuid in dataset.some_id.to_numpy():
@@ -115,6 +181,14 @@ def test_convert_datapoints(
     if "some_repeated_string" in dataset:
         for string in dataset.some_repeated_string.to_numpy().ravel():
             assert string is None or isinstance(string, str)
+
+    # bytes should be stored as object arrays, with None as the fill value if missing
+    if "some_bytes" in dataset:
+        for bytes_ in dataset.some_bytes.to_numpy():
+            assert bytes_ is None or isinstance(bytes_, bytes)
+    if "some_repeated_bytes" in dataset:
+        for bytes_ in dataset.some_repeated_bytes.to_numpy().ravel():
+            assert bytes_ is None or isinstance(bytes_, bytes)
 
 
 @given(datapoint_pages(empty_next_page=True, missing_fields=True))
@@ -149,72 +223,3 @@ def test_convert_datapoints_all_at_once_or_one_by_one_same_result(
     dataset2 = converter2.finalize("time")
 
     assert_equal(dataset1, dataset2)
-
-
-def _read_geobuf(name: str) -> GeobufData:
-    file = Path(__file__).parent / "testdata" / "geobuf" / name
-
-    with file.open("rb") as f:
-        data = f.read()
-
-    obj = GeobufData()
-    obj.ParseFromString(data)
-    return obj
-
-
-def test_decode_polygon_geobuf() -> None:
-    poly_geobuf = _read_geobuf("polygon.binpb")
-
-    poly = _parse_geobuf(poly_geobuf)
-    assert poly.bounds == (pytest.approx(-180.0), pytest.approx(65.808014), pytest.approx(180.0), pytest.approx(90.0))
-
-
-def test_decode_multipolygon_geobuf() -> None:
-    multipoly_geobuf = _read_geobuf("multipolygon.binpb")
-
-    poly = _parse_geobuf(multipoly_geobuf)
-    assert isinstance(poly, MultiPolygon)
-    sub_polys = list(poly.geoms)
-    assert len(sub_polys) == 2, "Expected 2 sub-polygons"
-    assert sub_polys[0].bounds == (
-        pytest.approx(-180.0),
-        pytest.approx(57.88233),
-        pytest.approx(-123.409134),
-        pytest.approx(83.292342425),
-    )
-    assert sub_polys[1].bounds == (
-        pytest.approx(126.83469),
-        pytest.approx(62.794425427),
-        pytest.approx(180.0),
-        pytest.approx(84.15669),
-    )
-
-
-def test_decode_multipolygon_with_holes_geobuf() -> None:
-    multipoly_geobuf = _read_geobuf("multipolygon_with_holes.binpb")
-
-    poly = _parse_geobuf(multipoly_geobuf)
-    assert isinstance(poly, MultiPolygon)
-    sub_polys = list(poly.geoms)
-    assert len(sub_polys) == 2, "Expected 2 sub-polygons"
-
-    assert sub_polys[0].bounds == (
-        pytest.approx(-180.0),
-        pytest.approx(-89.999987328),
-        pytest.approx(180),
-        pytest.approx(89.552340092),
-    )
-    assert len(sub_polys[0].interiors) == 1, "Expected one hole in subpolygon 0"
-    assert sub_polys[0].interiors[0].bounds == (
-        pytest.approx(0),
-        pytest.approx(80.1859136),
-        pytest.approx(55.376515584),
-        pytest.approx(85.43048645),
-    )
-
-    assert sub_polys[1].bounds == (
-        pytest.approx(0),
-        pytest.approx(-89.690675287),
-        pytest.approx(1.547255492),
-        pytest.approx(-85.05115885),
-    )

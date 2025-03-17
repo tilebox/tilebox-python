@@ -10,8 +10,7 @@ from tilebox.datasets.data.datapoint import (
     Datapoint,
     DatapointInterval,
     DatapointPage,
-    Datapoints,
-    DeleteDatapointsResponse,
+    IngestDatapoints,
     IngestDatapointsResponse,
 )
 from tilebox.datasets.data.datasets import Dataset, ListDatasetsResponse
@@ -153,7 +152,7 @@ class TileboxDatasetService:
         )
 
     def ingest_datapoints(
-        self, collection_id: UUID, datapoints: Datapoints, allow_existing: bool
+        self, collection_id: UUID, datapoints: IngestDatapoints, allow_existing: bool
     ) -> Promise[IngestDatapointsResponse]:
         """Ingest a batch of datapoints into a collection.
 
@@ -174,7 +173,7 @@ class TileboxDatasetService:
             IngestDatapointsResponse.from_message,
         )
 
-    def delete_datapoints(self, collection_id: UUID, datapoints: list[UUID]) -> Promise[DeleteDatapointsResponse]:
+    def delete_datapoints(self, collection_id: UUID, datapoints: list[UUID]) -> Promise[int]:
         """Delete a batch of datapoints from a collection.
 
         Args:
@@ -189,7 +188,7 @@ class TileboxDatasetService:
             datapoint_ids=[core_pb2.ID(datapoint.bytes) for datapoint in datapoints],
         )
         return Promise.resolve(self._data_ingestion_service.DeleteDatapoints(req)).then(
-            DeleteDatapointsResponse.from_message,
+            lambda response: response.num_deleted,
         )
 
 

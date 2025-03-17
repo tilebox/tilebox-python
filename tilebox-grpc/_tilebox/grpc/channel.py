@@ -6,6 +6,7 @@ from typing import TypeVar
 
 from grpc import (
     Channel,
+    Compression,
     UnaryUnaryClientInterceptor,
     insecure_channel,
     intercept_channel,
@@ -69,8 +70,13 @@ def open_channel(url: str, auth_token: str | None = None) -> Channel:
 
 def _open_channel(channel_info: ChannelInfo) -> Channel:
     if channel_info.use_ssl:
-        return secure_channel(channel_info.url_without_protocol, ssl_channel_credentials(), CHANNEL_OPTIONS)
-    return insecure_channel(channel_info.url_without_protocol, CHANNEL_OPTIONS)
+        return secure_channel(
+            channel_info.url_without_protocol,
+            ssl_channel_credentials(),
+            CHANNEL_OPTIONS,
+            compression=Compression.Gzip,
+        )
+    return insecure_channel(channel_info.url_without_protocol, CHANNEL_OPTIONS, compression=Compression.NoCompression)
 
 
 _URL_SCHEME = re.compile(r"^(https?://)?([^: ]+)(:\d+)?/?$")

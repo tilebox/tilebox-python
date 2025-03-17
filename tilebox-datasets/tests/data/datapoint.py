@@ -1,11 +1,15 @@
 import string
+from datetime import timedelta
 
+import pandas as pd
 from hypothesis.strategies import (
     DrawFn,
     binary,
     booleans,
     composite,
+    floats,
     integers,
+    just,
     lists,
     none,
     one_of,
@@ -19,11 +23,12 @@ from tests.data.time_interval import i64_datetimes
 from tests.data.well_known_types import (
     datetime_messages,
     duration_messages,
-    geobuf_messages,
+    geometry_messages,
     latlon_messages,
     latlonalt_messages,
     processing_levels,
     quaternion_messages,
+    shapely_polygons,
     uuid_messages,
     vec3_messages,
 )
@@ -33,7 +38,6 @@ from tilebox.datasets.data.datapoint import (
     Datapoint,
     DatapointInterval,
     DatapointPage,
-    DeleteDatapointsResponse,
     IngestDatapointsResponse,
     RepeatedAny,
 )
@@ -70,21 +74,86 @@ def example_datapoints(draw: DrawFn, missing_fields: bool = False) -> ExampleDat
 
     return ExampleDatapoint(
         some_string=draw(text(alphabet=string.ascii_letters + string.digits, min_size=1, max_size=10) | maybe_none),
-        some_int=draw(integers(min_value=0, max_value=100) | maybe_none),
+        some_int=draw(integers(min_value=1, max_value=100) | maybe_none),
+        some_double=draw(floats(min_value=1.0, max_value=100.0) | maybe_none),
         some_time=draw(datetime_messages() | maybe_none),
         some_duration=draw(duration_messages() | maybe_none),
-        some_repeated_string=draw(
-            lists(text(alphabet=string.ascii_letters, min_size=1, max_size=10), min_size=1, max_size=10) | maybe_none
-        ),
-        some_repeated_int=draw(lists(integers(min_value=-100, max_value=100), min_size=1, max_size=10) | maybe_none),
         some_bytes=draw(binary(min_size=1, max_size=10) | maybe_none),
-        some_id=draw(uuid_messages() | maybe_none),
+        some_bool=draw(booleans() | maybe_none),  # type: ignore[arg-type]
+        # well-known types
+        some_identifier=draw(uuid_messages() | maybe_none),
         some_vec3=draw(vec3_messages() | maybe_none),
         some_quaternion=draw(quaternion_messages() | maybe_none),
         some_latlon=draw(latlon_messages() | maybe_none),
         some_latlon_alt=draw(latlonalt_messages() | maybe_none),
-        some_geometry=draw(geobuf_messages() | maybe_none),
+        some_geometry=draw(geometry_messages() | maybe_none),
+        # enum
         some_enum=draw(processing_levels() | maybe_none),
+        # repeated fields
+        some_repeated_string=draw(
+            lists(text(alphabet=string.ascii_letters, min_size=1, max_size=10), min_size=1, max_size=5) | maybe_none
+        ),
+        some_repeated_int=draw(lists(integers(min_value=1, max_value=100), min_size=1, max_size=5) | maybe_none),
+        some_repeated_double=draw(lists(floats(min_value=1.0, max_value=100.0), min_size=1, max_size=5) | maybe_none),
+        some_repeated_bytes=draw(lists(binary(min_size=1, max_size=10), min_size=1, max_size=5) | maybe_none),
+        # only True, to avoid trimming of fill values at the end
+        some_repeated_bool=draw(lists(just(True), min_size=1, max_size=5) | maybe_none),
+        some_repeated_time=draw(lists(datetime_messages(), min_size=1, max_size=5) | maybe_none),
+        some_repeated_duration=draw(lists(duration_messages(), min_size=1, max_size=5) | maybe_none),
+        some_repeated_identifier=draw(lists(uuid_messages(), min_size=1, max_size=5) | maybe_none),
+        some_repeated_vec3=draw(lists(vec3_messages(), min_size=1, max_size=5) | maybe_none),
+        some_repeated_geometry=draw(lists(geometry_messages(), min_size=1, max_size=3) | maybe_none),
+    )
+
+
+@composite
+def example_pandas_datapoints(draw: DrawFn) -> pd.DataFrame:
+    vec3 = draw(vec3_messages())
+    quaternion = draw(quaternion_messages())
+    latlon = draw(latlon_messages())
+    latlonalt = draw(latlonalt_messages())
+
+    return pd.DataFrame(
+        {
+            "time": [draw(i64_datetimes)],
+            "some_string": [draw(text(alphabet=string.ascii_letters + string.digits, min_size=1, max_size=10))],
+            "some_int": [draw(integers(min_value=1, max_value=100))],
+            "some_double": [draw(floats(min_value=1.0, max_value=100.0))],
+            "some_time": [draw(i64_datetimes)],
+            "some_duration": [timedelta(seconds=draw(integers(min_value=0, max_value=1000)))],
+            "some_bytes": [draw(binary(min_size=1, max_size=10))],
+            "some_bool": [draw(booleans())],
+            # well-known types
+            "some_identifier": [draw(uuids(version=4))],
+            "some_vec3": [(vec3.x, vec3.y, vec3.z)],
+            "some_quaternion": [(quaternion.q1, quaternion.q2, quaternion.q3, quaternion.q4)],
+            "some_latlon": [(latlon.latitude, latlon.longitude)],
+            "some_latlon_alt": [(latlonalt.latitude, latlonalt.longitude, latlonalt.altitude)],
+            "some_geometry": [draw(shapely_polygons())],
+            # enum
+            "some_enum": [draw(processing_levels())],
+            # repeated fields
+            "some_repeated_string": [
+                draw(lists(text(alphabet=string.ascii_letters, min_size=1, max_size=10), min_size=1, max_size=5))
+            ],
+            "some_repeated_int": [draw(lists(integers(min_value=1, max_value=100), min_size=1, max_size=5))],
+            "some_repeated_double": [draw(lists(floats(min_value=1.0, max_value=100.0), min_size=1, max_size=5))],
+            "some_repeated_bytes": [draw(lists(binary(min_size=1, max_size=10), min_size=1, max_size=5))],
+            # here we can use booleans, not only True, since no fill value trimming is done from pandas
+            "some_repeated_bool": [draw(lists(booleans(), min_size=1, max_size=5))],
+            "some_repeated_time": [draw(lists(i64_datetimes, min_size=1, max_size=5))],
+            "some_repeated_duration": [
+                [
+                    timedelta(seconds=s)
+                    for s in draw(lists(integers(min_value=0, max_value=1000), min_size=1, max_size=5))
+                ]
+            ],
+            "some_repeated_identifier": [draw(lists(uuids(version=4), min_size=1, max_size=5))],
+            "some_repeated_vec3": [
+                [(vec3.x, vec3.y, vec3.z) for vec3 in draw(lists(vec3_messages(), min_size=1, max_size=5))]
+            ],
+            "some_repeated_geometry": [draw(lists(shapely_polygons(), min_size=1, max_size=3))],
+        }
     )
 
 
@@ -157,10 +226,3 @@ def ingest_datapoints_responses(draw: DrawFn) -> IngestDatapointsResponse:
         lists(uuids(), min_size=num_created + num_existing, max_size=num_created + num_existing, unique=True)
     )
     return IngestDatapointsResponse(num_created, num_existing, datapoint_ids)
-
-
-@composite
-def delete_datapoints_responses(draw: DrawFn) -> DeleteDatapointsResponse:
-    """A hypothesis strategy for generating random delete datapoints responses"""
-    num_deleted = draw(integers(min_value=0, max_value=5_000))
-    return DeleteDatapointsResponse(num_deleted)

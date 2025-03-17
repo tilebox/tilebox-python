@@ -5,7 +5,6 @@ from tests.data.datapoint import (
     datapoint_intervals,
     datapoint_pages,
     datapoints,
-    delete_datapoints_responses,
     ingest_datapoints_responses,
     repeated_anys,
 )
@@ -14,7 +13,6 @@ from tilebox.datasets.data.datapoint import (
     Datapoint,
     DatapointInterval,
     DatapointPage,
-    DeleteDatapointsResponse,
     IngestDatapointsResponse,
     RepeatedAny,
 )
@@ -48,8 +46,3 @@ def test_datapoint_pages_to_message_and_back(page: DatapointPage) -> None:
 @given(ingest_datapoints_responses())
 def test_ingest_datapoints_responses_to_message_and_back(response: IngestDatapointsResponse) -> None:
     assert IngestDatapointsResponse.from_message(response.to_message()) == response
-
-
-@given(delete_datapoints_responses())
-def test_delete_datapoints_responses_to_message_and_back(response: DeleteDatapointsResponse) -> None:
-    assert DeleteDatapointsResponse.from_message(response.to_message()) == response

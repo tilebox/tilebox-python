@@ -166,6 +166,12 @@ class LatLonAlt(_message.Message):
     altitude: float
     def __init__(self, latitude: _Optional[float] = ..., longitude: _Optional[float] = ..., altitude: _Optional[float] = ...) -> None: ...
 
+class Geometry(_message.Message):
+    __slots__ = ("wkb",)
+    WKB_FIELD_NUMBER: _ClassVar[int]
+    wkb: bytes
+    def __init__(self, wkb: _Optional[bytes] = ...) -> None: ...
+
 class GeobufData(_message.Message):
     __slots__ = ("keys", "dimensions", "precision", "feature_collection", "feature", "geometry")
     class Feature(_message.Message):
