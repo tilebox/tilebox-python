@@ -60,7 +60,9 @@ class MessageToXarrayConverter:
         for message in messages:
             self._convert(message)
 
-    def finalize(self, dim_name: str, dataset: xr.Dataset | None = None) -> xr.Dataset:
+    def finalize(
+        self, dim_name: str, dataset: xr.Dataset | None = None, ensure_coords: list[str] | None = None
+    ) -> xr.Dataset:
         """
         Assemble all converted messages into a final xarray Dataset and return it
 
@@ -89,6 +91,13 @@ class MessageToXarrayConverter:
                 converter.finalize(dataset, self.count, (dim_name, array_dim_name))
             else:
                 converter.finalize(dataset, self.count, (dim_name,))
+
+        if ensure_coords is not None:
+            for coord in ensure_coords:  # promote all variables with the given coord names to coordinates
+                if coord in dataset.variables:
+                    data = dataset[coord]
+                    dataset = dataset.drop_vars(coord)
+                    dataset.coords[coord] = data
         return dataset
 
     def _convert(self, message: Message) -> None:
@@ -156,24 +165,33 @@ class TimeseriesToXarrayConverter:
             self._data_converter.convert_all([message_type.FromString(val) for val in datapoints.data.value])
 
     def finalize(self) -> xr.Dataset:
-        dataset = self._meta_converter.finalize("time")
-        for var in dataset.variables:  # promote all of the fields of the meta message to coordinates
+        meta_dataset = self._meta_converter.finalize("time")
+        for var in meta_dataset.variables:  # promote all of the fields of the meta message to coordinates
             if var in _TIMESERIES_VAR_REMAPPING:
-                data = dataset[var]
-                dataset = dataset.drop_vars(str(var))
-                dataset.coords[_TIMESERIES_VAR_REMAPPING[str(var)]] = data
+                data = meta_dataset[var]
+                meta_dataset = meta_dataset.drop_vars(str(var))
+                meta_dataset.coords[_TIMESERIES_VAR_REMAPPING[str(var)]] = data
             else:
-                data = dataset[var]
+                data = meta_dataset[var]
                 if var == "id":
                     data = data.astype(str)
-                dataset.coords[var] = data
+                meta_dataset.coords[var] = data
 
+        dataset = None
         if self._data_converter.count > 0:
             if self._data_converter.count != self._meta_converter.count:
                 raise ValueError(
                     "Failed to convert to xarray Dataset: Length mismatch between received data and meta messages"
                 )
-            self._data_converter.finalize("time", dataset)
+            dataset = self._data_converter.finalize("time")
+
+        if dataset is not None:
+            for meta_coord in meta_dataset.coords:
+                if str(meta_coord) in dataset.variables:
+                    dataset = dataset.drop_vars(str(meta_coord))
+            dataset = xr.merge([meta_dataset, dataset])
+        else:
+            dataset = meta_dataset
 
         for finalizer in self._finalizers:
             dataset = finalizer(dataset)

@@ -1,4 +1,4 @@
-# allow the logging module name which shadows the builtin: # noqa: A005
+# allow the logging module name which shadows the builtin:
 import contextlib
 import logging
 import os

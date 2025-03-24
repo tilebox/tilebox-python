@@ -35,7 +35,7 @@ def record_client(recording_file: str) -> Client:
     # this will open a channel to api.tilebox.com, which will send real requests to the server, and record them
     # for later offline replay
     recording_channel = open_recording_channel(
-        "https://api.tilebox.com", os.environ["TILEBOX_OPENDATA_ONLY_API_KEY"], recording
+        "http://localhost:8083", os.environ["TILEBOX_OPENDATA_ONLY_API_KEY"], recording
     )
 
     with patch("tilebox.datasets.sync.client.open_channel") as open_channel_mock:
@@ -157,7 +157,7 @@ def test_load_data_pagination() -> None:
     s2_dataset = client.dataset("open_data.copernicus.sentinel2_msi")
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
-    pages = list(collection._iter_pages(("2022-07-13", "2022-07-13T02:00"), page_size=10))
+    pages = list(collection._iter_pages_legacy(("2022-07-13", "2022-07-13T02:00"), page_size=10))
 
     assert len(pages) == 76  # we have 756 datapoints, so 76 pages, and the last page has only 6 datapoints
 

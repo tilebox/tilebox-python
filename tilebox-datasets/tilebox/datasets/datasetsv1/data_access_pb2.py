@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from tilebox.datasets.datasetsv1 import core_pb2 as datasets_dot_v1_dot_core__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1d\x64\x61tasets/v1/data_access.proto\x12\x0b\x64\x61tasets.v1\x1a\x16\x64\x61tasets/v1/core.proto\"\xc7\x02\n\x1cGetDatasetForIntervalRequest\x12#\n\rcollection_id\x18\x01 \x01(\tR\x0c\x63ollectionId\x12>\n\rtime_interval\x18\x02 \x01(\x0b\x32\x19.datasets.v1.TimeIntervalR\x0ctimeInterval\x12M\n\x12\x64\x61tapoint_interval\x18\x06 \x01(\x0b\x32\x1e.datasets.v1.DatapointIntervalR\x11\x64\x61tapointInterval\x12\x30\n\x04page\x18\x03 \x01(\x0b\x32\x17.datasets.v1.PaginationH\x00R\x04page\x88\x01\x01\x12\x1b\n\tskip_data\x18\x04 \x01(\x08R\x08skipData\x12\x1b\n\tskip_meta\x18\x05 \x01(\x08R\x08skipMetaB\x07\n\x05_page\"k\n\x17GetDatapointByIdRequest\x12#\n\rcollection_id\x18\x01 \x01(\tR\x0c\x63ollectionId\x12\x0e\n\x02id\x18\x02 \x01(\tR\x02id\x12\x1b\n\tskip_data\x18\x03 \x01(\x08R\x08skipData2\xc9\x01\n\x11\x44\x61taAccessService\x12`\n\x15GetDatasetForInterval\x12).datasets.v1.GetDatasetForIntervalRequest\x1a\x1a.datasets.v1.DatapointPage\"\x00\x12R\n\x10GetDatapointByID\x12$.datasets.v1.GetDatapointByIdRequest\x1a\x16.datasets.v1.Datapoint\"\x00\x42\xb1\x01\n\x0f\x63om.datasets.v1B\x0f\x44\x61taAccessProtoP\x01Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1d\x64\x61tasets/v1/data_access.proto\x12\x0b\x64\x61tasets.v1\x1a\x16\x64\x61tasets/v1/core.proto\"\xcd\x02\n\x1cGetDatasetForIntervalRequest\x12#\n\rcollection_id\x18\x01 \x01(\tR\x0c\x63ollectionId\x12>\n\rtime_interval\x18\x02 \x01(\x0b\x32\x19.datasets.v1.TimeIntervalR\x0ctimeInterval\x12M\n\x12\x64\x61tapoint_interval\x18\x06 \x01(\x0b\x32\x1e.datasets.v1.DatapointIntervalR\x11\x64\x61tapointInterval\x12\x36\n\x04page\x18\x03 \x01(\x0b\x32\x1d.datasets.v1.LegacyPaginationH\x00R\x04page\x88\x01\x01\x12\x1b\n\tskip_data\x18\x04 \x01(\x08R\x08skipData\x12\x1b\n\tskip_meta\x18\x05 \x01(\x08R\x08skipMetaB\x07\n\x05_page\"k\n\x17GetDatapointByIdRequest\x12#\n\rcollection_id\x18\x01 \x01(\tR\x0c\x63ollectionId\x12\x0e\n\x02id\x18\x02 \x01(\tR\x02id\x12\x1b\n\tskip_data\x18\x03 \x01(\x08R\x08skipData\"\x88\x01\n\x10QueryByIDRequest\x12\x36\n\x0e\x63ollection_ids\x18\x01 \x03(\x0b\x32\x0f.datasets.v1.IDR\rcollectionIds\x12\x1f\n\x02id\x18\x02 \x01(\x0b\x32\x0f.datasets.v1.IDR\x02id\x12\x1b\n\tskip_data\x18\x03 \x01(\x08R\x08skipData\"\xb6\x01\n\x0cQueryFilters\x12@\n\rtime_interval\x18\x01 \x01(\x0b\x32\x19.datasets.v1.TimeIntervalH\x00R\x0ctimeInterval\x12O\n\x12\x64\x61tapoint_interval\x18\x02 \x01(\x0b\x32\x1e.datasets.v1.DatapointIntervalH\x00R\x11\x64\x61tapointIntervalB\x13\n\x11temporal_interval\"\xd3\x01\n\x0cQueryRequest\x12\x36\n\x0e\x63ollection_ids\x18\x01 \x03(\x0b\x32\x0f.datasets.v1.IDR\rcollectionIds\x12\x33\n\x07\x66ilters\x18\x02 \x01(\x0b\x32\x19.datasets.v1.QueryFiltersR\x07\x66ilters\x12\x30\n\x04page\x18\x03 \x01(\x0b\x32\x17.datasets.v1.PaginationH\x00R\x04page\x88\x01\x01\x12\x1b\n\tskip_data\x18\x04 \x01(\x08R\x08skipDataB\x07\n\x05_page\"\x88\x01\n\x0fQueryResultPage\x12,\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x18.datasets.v1.RepeatedAnyR\x04\x64\x61ta\x12\x39\n\tnext_page\x18\x02 \x01(\x0b\x32\x17.datasets.v1.PaginationH\x00R\x08nextPage\x88\x01\x01\x42\x0c\n\n_next_page2\xcd\x02\n\x11\x44\x61taAccessService\x12`\n\x15GetDatasetForInterval\x12).datasets.v1.GetDatasetForIntervalRequest\x1a\x1a.datasets.v1.DatapointPage\"\x00\x12R\n\x10GetDatapointByID\x12$.datasets.v1.GetDatapointByIdRequest\x1a\x16.datasets.v1.Datapoint\"\x00\x12>\n\tQueryByID\x12\x1d.datasets.v1.QueryByIDRequest\x1a\x10.datasets.v1.Any\"\x00\x12\x42\n\x05Query\x12\x19.datasets.v1.QueryRequest\x1a\x1c.datasets.v1.QueryResultPage\"\x00\x42\xb1\x01\n\x0f\x63om.datasets.v1B\x0f\x44\x61taAccessProtoP\x01Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,9 +34,17 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\017com.datasets.v1B\017DataAccessProtoP\001Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\242\002\003DXX\252\002\013Datasets.V1\312\002\013Datasets\\V1\342\002\027Datasets\\V1\\GPBMetadata\352\002\014Datasets::V1'
   _globals['_GETDATASETFORINTERVALREQUEST']._serialized_start=71
-  _globals['_GETDATASETFORINTERVALREQUEST']._serialized_end=398
-  _globals['_GETDATAPOINTBYIDREQUEST']._serialized_start=400
-  _globals['_GETDATAPOINTBYIDREQUEST']._serialized_end=507
-  _globals['_DATAACCESSSERVICE']._serialized_start=510
-  _globals['_DATAACCESSSERVICE']._serialized_end=711
+  _globals['_GETDATASETFORINTERVALREQUEST']._serialized_end=404
+  _globals['_GETDATAPOINTBYIDREQUEST']._serialized_start=406
+  _globals['_GETDATAPOINTBYIDREQUEST']._serialized_end=513
+  _globals['_QUERYBYIDREQUEST']._serialized_start=516
+  _globals['_QUERYBYIDREQUEST']._serialized_end=652
+  _globals['_QUERYFILTERS']._serialized_start=655
+  _globals['_QUERYFILTERS']._serialized_end=837
+  _globals['_QUERYREQUEST']._serialized_start=840
+  _globals['_QUERYREQUEST']._serialized_end=1051
+  _globals['_QUERYRESULTPAGE']._serialized_start=1054
+  _globals['_QUERYRESULTPAGE']._serialized_end=1190
+  _globals['_DATAACCESSSERVICE']._serialized_start=1193
+  _globals['_DATAACCESSSERVICE']._serialized_end=1526
 # @@protoc_insertion_point(module_scope)

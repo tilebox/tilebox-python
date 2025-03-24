@@ -15,6 +15,9 @@ DESCRIPTOR: _descriptor.FileDescriptor
 
 class ExampleDatapoint(_message.Message):
     __slots__ = (
+        "geometry",
+        "id",
+        "ingestion_time",
         "some_bool",
         "some_bytes",
         "some_double",
@@ -23,8 +26,6 @@ class ExampleDatapoint(_message.Message):
         "some_geometry",
         "some_identifier",
         "some_int",
-        "some_latlon",
-        "some_latlon_alt",
         "some_quaternion",
         "some_repeated_bool",
         "some_repeated_bytes",
@@ -39,7 +40,12 @@ class ExampleDatapoint(_message.Message):
         "some_string",
         "some_time",
         "some_vec3",
+        "time",
     )
+    TIME_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    INGESTION_TIME_FIELD_NUMBER: _ClassVar[int]
+    GEOMETRY_FIELD_NUMBER: _ClassVar[int]
     SOME_STRING_FIELD_NUMBER: _ClassVar[int]
     SOME_INT_FIELD_NUMBER: _ClassVar[int]
     SOME_DOUBLE_FIELD_NUMBER: _ClassVar[int]
@@ -50,8 +56,6 @@ class ExampleDatapoint(_message.Message):
     SOME_IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
     SOME_VEC3_FIELD_NUMBER: _ClassVar[int]
     SOME_QUATERNION_FIELD_NUMBER: _ClassVar[int]
-    SOME_LATLON_FIELD_NUMBER: _ClassVar[int]
-    SOME_LATLON_ALT_FIELD_NUMBER: _ClassVar[int]
     SOME_GEOMETRY_FIELD_NUMBER: _ClassVar[int]
     SOME_ENUM_FIELD_NUMBER: _ClassVar[int]
     SOME_REPEATED_STRING_FIELD_NUMBER: _ClassVar[int]
@@ -64,6 +68,10 @@ class ExampleDatapoint(_message.Message):
     SOME_REPEATED_IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
     SOME_REPEATED_VEC3_FIELD_NUMBER: _ClassVar[int]
     SOME_REPEATED_GEOMETRY_FIELD_NUMBER: _ClassVar[int]
+    time: _timestamp_pb2.Timestamp
+    id: _well_known_types_pb2.UUID
+    ingestion_time: _timestamp_pb2.Timestamp
+    geometry: _well_known_types_pb2.Geometry
     some_string: str
     some_int: int
     some_double: float
@@ -74,8 +82,6 @@ class ExampleDatapoint(_message.Message):
     some_identifier: _well_known_types_pb2.UUID
     some_vec3: _well_known_types_pb2.Vec3
     some_quaternion: _well_known_types_pb2.Quaternion
-    some_latlon: _well_known_types_pb2.LatLon
-    some_latlon_alt: _well_known_types_pb2.LatLonAlt
     some_geometry: _well_known_types_pb2.Geometry
     some_enum: _well_known_types_pb2.ProcessingLevel
     some_repeated_string: _containers.RepeatedScalarFieldContainer[str]
@@ -90,6 +96,10 @@ class ExampleDatapoint(_message.Message):
     some_repeated_geometry: _containers.RepeatedCompositeFieldContainer[_well_known_types_pb2.Geometry]
     def __init__(
         self,
+        time: _timestamp_pb2.Timestamp | _Mapping | None = ...,
+        id: _well_known_types_pb2.UUID | _Mapping | None = ...,  # noqa: A002
+        ingestion_time: _timestamp_pb2.Timestamp | _Mapping | None = ...,
+        geometry: _well_known_types_pb2.Geometry | _Mapping | None = ...,
         some_string: str | None = ...,
         some_int: int | None = ...,
         some_double: float | None = ...,
@@ -100,8 +110,6 @@ class ExampleDatapoint(_message.Message):
         some_identifier: _well_known_types_pb2.UUID | _Mapping | None = ...,
         some_vec3: _well_known_types_pb2.Vec3 | _Mapping | None = ...,
         some_quaternion: _well_known_types_pb2.Quaternion | _Mapping | None = ...,
-        some_latlon: _well_known_types_pb2.LatLon | _Mapping | None = ...,
-        some_latlon_alt: _well_known_types_pb2.LatLonAlt | _Mapping | None = ...,
         some_geometry: _well_known_types_pb2.Geometry | _Mapping | None = ...,
         some_enum: _well_known_types_pb2.ProcessingLevel | str | None = ...,
         some_repeated_string: _Iterable[str] | None = ...,

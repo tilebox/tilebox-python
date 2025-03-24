@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from tilebox.datasets.datasetsv1 import core_pb2 as datasets_dot_v1_dot_core__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n datasets/v1/data_ingestion.proto\x12\x0b\x64\x61tasets.v1\x1a\x16\x64\x61tasets/v1/core.proto\"\xaf\x01\n\x17IngestDatapointsRequest\x12\x34\n\rcollection_id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\x0c\x63ollectionId\x12\x37\n\ndatapoints\x18\x02 \x01(\x0b\x32\x17.datasets.v1.DatapointsR\ndatapoints\x12%\n\x0e\x61llow_existing\x18\x03 \x01(\x08R\rallowExisting\"\x94\x01\n\x18IngestDatapointsResponse\x12\x1f\n\x0bnum_created\x18\x01 \x01(\x03R\nnumCreated\x12!\n\x0cnum_existing\x18\x02 \x01(\x03R\x0bnumExisting\x12\x34\n\rdatapoint_ids\x18\x03 \x03(\x0b\x32\x0f.datasets.v1.IDR\x0c\x64\x61tapointIds\"\x85\x01\n\x17\x44\x65leteDatapointsRequest\x12\x34\n\rcollection_id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\x0c\x63ollectionId\x12\x34\n\rdatapoint_ids\x18\x02 \x03(\x0b\x32\x0f.datasets.v1.IDR\x0c\x64\x61tapointIds\";\n\x18\x44\x65leteDatapointsResponse\x12\x1f\n\x0bnum_deleted\x18\x01 \x01(\x03R\nnumDeleted2\xdc\x01\n\x14\x44\x61taIngestionService\x12\x61\n\x10IngestDatapoints\x12$.datasets.v1.IngestDatapointsRequest\x1a%.datasets.v1.IngestDatapointsResponse\"\x00\x12\x61\n\x10\x44\x65leteDatapoints\x12$.datasets.v1.DeleteDatapointsRequest\x1a%.datasets.v1.DeleteDatapointsResponse\"\x00\x42\xb4\x01\n\x0f\x63om.datasets.v1B\x12\x44\x61taIngestionProtoP\x01Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n datasets/v1/data_ingestion.proto\x12\x0b\x64\x61tasets.v1\x1a\x16\x64\x61tasets/v1/core.proto\"\xaf\x01\n\x17IngestDatapointsRequest\x12\x34\n\rcollection_id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\x0c\x63ollectionId\x12\x37\n\ndatapoints\x18\x02 \x01(\x0b\x32\x17.datasets.v1.DatapointsR\ndatapoints\x12%\n\x0e\x61llow_existing\x18\x03 \x01(\x08R\rallowExisting\"\x84\x01\n\rIngestRequest\x12\x34\n\rcollection_id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\x0c\x63ollectionId\x12\x16\n\x06values\x18\x02 \x03(\x0cR\x06values\x12%\n\x0e\x61llow_existing\x18\x03 \x01(\x08R\rallowExisting\"\x8a\x01\n\x0eIngestResponse\x12\x1f\n\x0bnum_created\x18\x01 \x01(\x03R\nnumCreated\x12!\n\x0cnum_existing\x18\x02 \x01(\x03R\x0bnumExisting\x12\x34\n\rdatapoint_ids\x18\x03 \x03(\x0b\x32\x0f.datasets.v1.IDR\x0c\x64\x61tapointIds\"{\n\rDeleteRequest\x12\x34\n\rcollection_id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\x0c\x63ollectionId\x12\x34\n\rdatapoint_ids\x18\x02 \x03(\x0b\x32\x0f.datasets.v1.IDR\x0c\x64\x61tapointIds\"1\n\x0e\x44\x65leteResponse\x12\x1f\n\x0bnum_deleted\x18\x01 \x01(\x03R\nnumDeleted2\xf9\x01\n\x14\x44\x61taIngestionService\x12W\n\x10IngestDatapoints\x12$.datasets.v1.IngestDatapointsRequest\x1a\x1b.datasets.v1.IngestResponse\"\x00\x12\x43\n\x06Ingest\x12\x1a.datasets.v1.IngestRequest\x1a\x1b.datasets.v1.IngestResponse\"\x00\x12\x43\n\x06\x44\x65lete\x12\x1a.datasets.v1.DeleteRequest\x1a\x1b.datasets.v1.DeleteResponse\"\x00\x42\xb4\x01\n\x0f\x63om.datasets.v1B\x12\x44\x61taIngestionProtoP\x01Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,12 +35,14 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._serialized_options = b'\n\017com.datasets.v1B\022DataIngestionProtoP\001Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\242\002\003DXX\252\002\013Datasets.V1\312\002\013Datasets\\V1\342\002\027Datasets\\V1\\GPBMetadata\352\002\014Datasets::V1'
   _globals['_INGESTDATAPOINTSREQUEST']._serialized_start=74
   _globals['_INGESTDATAPOINTSREQUEST']._serialized_end=249
-  _globals['_INGESTDATAPOINTSRESPONSE']._serialized_start=252
-  _globals['_INGESTDATAPOINTSRESPONSE']._serialized_end=400
-  _globals['_DELETEDATAPOINTSREQUEST']._serialized_start=403
-  _globals['_DELETEDATAPOINTSREQUEST']._serialized_end=536
-  _globals['_DELETEDATAPOINTSRESPONSE']._serialized_start=538
-  _globals['_DELETEDATAPOINTSRESPONSE']._serialized_end=597
-  _globals['_DATAINGESTIONSERVICE']._serialized_start=600
-  _globals['_DATAINGESTIONSERVICE']._serialized_end=820
+  _globals['_INGESTREQUEST']._serialized_start=252
+  _globals['_INGESTREQUEST']._serialized_end=384
+  _globals['_INGESTRESPONSE']._serialized_start=387
+  _globals['_INGESTRESPONSE']._serialized_end=525
+  _globals['_DELETEREQUEST']._serialized_start=527
+  _globals['_DELETEREQUEST']._serialized_end=650
+  _globals['_DELETERESPONSE']._serialized_start=652
+  _globals['_DELETERESPONSE']._serialized_end=701
+  _globals['_DATAINGESTIONSERVICE']._serialized_start=704
+  _globals['_DATAINGESTIONSERVICE']._serialized_end=953
 # @@protoc_insertion_point(module_scope)

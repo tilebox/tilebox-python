@@ -17,4 +17,4 @@ def paginations(draw: DrawFn, empty: bool | None = None) -> Pagination:
 
     if empty:
         return Pagination()
-    return Pagination(limit=draw(integers(min_value=100, max_value=1000)), starting_after=str(draw(uuids(version=4))))
+    return Pagination(limit=draw(integers(min_value=100, max_value=1000)), starting_after=draw(uuids(version=4)))

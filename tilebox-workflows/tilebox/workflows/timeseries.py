@@ -2,7 +2,6 @@ import math
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from itertools import pairwise
-from uuid import UUID
 
 import xarray as xr
 
@@ -33,7 +32,7 @@ def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: 
     dataset = context.runner_context.datasets_client._dataset_by_id(str(chunk.dataset_id))  # type: ignore[attr-defined]  # noqa: SLF001
     collection = dataset.collection("unknown")  # dummy collection, we will inject the right id below:
     # we already know the collection id, so we can skip the lookup (we don't know the name, but don't need it)
-    collection._info = CollectionInfo(Collection(str(chunk.collection_id), "unknown"), None, None)  # noqa: SLF001
+    collection._info = CollectionInfo(Collection(chunk.collection_id, "unknown"), None, None)  # noqa: SLF001
 
     # leaf case: we are already executing a specific batch of datapoints fitting in the chunk size, so let's load them and process them
     if chunk.datapoint_interval:
@@ -62,19 +61,19 @@ def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: 
     # if we are only a little larger than the chunk size, let's submit leaf tasks next:
     if estimated_datapoints < chunk.chunk_size * (chunk.branch_factor - 0.5):
         for page in collection._iter_pages(  # noqa: SLF001
-            interval, skip_data=True, skip_meta=True, show_progress=False, page_size=chunk.chunk_size
+            interval, skip_data=True, show_progress=False, page_size=chunk.chunk_size
         ):
             # pages here only contain datapoint ids, no metadata or data
             # pages are limited to a maximum of chunk_size datapoints, but additionally also server side
             # in case the chunk size is larger than the server side maximum limit
             # in that case we just use an effective chunk size of the server side limit
 
-            if len(page.meta) > 0:
+            if page.n_datapoints > 0:
                 interval_chunk = replace(
                     chunk,
                     time_interval=None,
                     datapoint_interval=DatapointInterval(
-                        start_id=page.meta[0].id, end_id=page.meta[-1].id, start_exclusive=False, end_inclusive=True
+                        start_id=page.min_id(), end_id=page.max_id(), start_exclusive=False, end_inclusive=True
                     ),
                 )
                 sub_chunks.append(interval_chunk)
@@ -119,7 +118,7 @@ def batch_process_timeseries_dataset(
 
     return TimeseriesDatasetChunk(
         dataset_id=collection._dataset._dataset.id,  # noqa: SLF001
-        collection_id=UUID(info.collection.id),
+        collection_id=info.collection.id,
         time_interval=interval,
         datapoint_interval=None,
         branch_factor=2,

@@ -24,8 +24,8 @@ class GetDatasetRequest(_message.Message):
     SLUG_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
     slug: str
-    id: str
-    def __init__(self, slug: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
+    id: _core_pb2.ID
+    def __init__(self, slug: _Optional[str] = ..., id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ...) -> None: ...
 
 class UpdateDatasetRequest(_message.Message):
     __slots__ = ("id", "name", "type", "summary")
@@ -72,15 +72,15 @@ class ListDatasetsRequest(_message.Message):
     def __init__(self, client_info: _Optional[_Union[ClientInfo, _Mapping]] = ...) -> None: ...
 
 class ListDatasetsResponse(_message.Message):
-    __slots__ = ("datasets", "groups", "server_message", "nb_created_datasets", "nb_created_datasets_limit")
+    __slots__ = ("datasets", "groups", "server_message", "owned_datasets", "maximum_owned_datasets")
     DATASETS_FIELD_NUMBER: _ClassVar[int]
     GROUPS_FIELD_NUMBER: _ClassVar[int]
     SERVER_MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    NB_CREATED_DATASETS_FIELD_NUMBER: _ClassVar[int]
-    NB_CREATED_DATASETS_LIMIT_FIELD_NUMBER: _ClassVar[int]
+    OWNED_DATASETS_FIELD_NUMBER: _ClassVar[int]
+    MAXIMUM_OWNED_DATASETS_FIELD_NUMBER: _ClassVar[int]
     datasets: _containers.RepeatedCompositeFieldContainer[_core_pb2.Dataset]
     groups: _containers.RepeatedCompositeFieldContainer[_core_pb2.DatasetGroup]
     server_message: str
-    nb_created_datasets: int
-    nb_created_datasets_limit: int
-    def __init__(self, datasets: _Optional[_Iterable[_Union[_core_pb2.Dataset, _Mapping]]] = ..., groups: _Optional[_Iterable[_Union[_core_pb2.DatasetGroup, _Mapping]]] = ..., server_message: _Optional[str] = ..., nb_created_datasets: _Optional[int] = ..., nb_created_datasets_limit: _Optional[int] = ...) -> None: ...
+    owned_datasets: int
+    maximum_owned_datasets: int
+    def __init__(self, datasets: _Optional[_Iterable[_Union[_core_pb2.Dataset, _Mapping]]] = ..., groups: _Optional[_Iterable[_Union[_core_pb2.DatasetGroup, _Mapping]]] = ..., server_message: _Optional[str] = ..., owned_datasets: _Optional[int] = ..., maximum_owned_datasets: _Optional[int] = ...) -> None: ...

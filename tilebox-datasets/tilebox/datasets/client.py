@@ -1,11 +1,13 @@
 import os
 import sys
 from typing import Any, Protocol, TypeVar
+from uuid import UUID
 
 from loguru import logger
 from promise import Promise
 
 from tilebox.datasets.data.datasets import Dataset, DatasetGroup, ListDatasetsResponse
+from tilebox.datasets.data.uuid import as_uuid
 from tilebox.datasets.group import Group
 from tilebox.datasets.message_pool import register_once
 from tilebox.datasets.service import TileboxDatasetService
@@ -53,9 +55,9 @@ class Client:
             .then(lambda dataset: dataset_type(self._service, dataset))
         )
 
-    def _dataset_by_id(self, dataset_id: str, dataset_type: type[T]) -> Promise[T]:
+    def _dataset_by_id(self, dataset_id: str | UUID, dataset_type: type[T]) -> Promise[T]:
         return (
-            self._service.get_dataset_by_id(dataset_id)
+            self._service.get_dataset_by_id(as_uuid(dataset_id))
             .then(_ensure_registered)
             .then(lambda dataset: dataset_type(self._service, dataset))
         )

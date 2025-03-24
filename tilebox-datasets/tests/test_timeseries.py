@@ -24,6 +24,7 @@ from tilebox.datasets.data.time_interval import (
     _convert_to_datetime,
     timestamp_to_datetime,
 )
+from tilebox.datasets.data.uuid import uuid_to_uuid_message
 from tilebox.datasets.datasetsv1.collections_pb2 import (
     CreateCollectionRequest,
     GetCollectionByNameRequest,
@@ -114,7 +115,7 @@ class MockedCollection:
     service: MagicMock
 
 
-def _mocked_collection(provide_collection_info: bool = True) -> MockedCollection:
+def _mocked_collection() -> MockedCollection:
     dataset, service = _mocked_dataset()
 
     # we do not sample/draw from collection_infos() here, because the values themselves are irrelevant for the tests
@@ -122,7 +123,7 @@ def _mocked_collection(provide_collection_info: bool = True) -> MockedCollection
     # run them multiple times)
     collection_info = CollectionInfo(
         collection=Collection(
-            id=str(uuid4()),
+            id=uuid4(),
             name="some-collection",
         ),
         availability=None,
@@ -130,8 +131,8 @@ def _mocked_collection(provide_collection_info: bool = True) -> MockedCollection
     )
 
     collection = dataset.collection(collection_info.collection.name)
-    if provide_collection_info:
-        collection._info = collection_info
+    collection._info = collection_info
+    collection._use_legacy_api = True  # tests or for the legacy endpoints still
     return MockedCollection(dataset, dataset._dataset, collection, collection_info, service)
 
 
@@ -161,7 +162,7 @@ def test_timeseries_dataset_collection_info_cache() -> None:
 @given(datapoints())
 def test_timeseries_dataset_collection_find(expected_datapoint: Datapoint) -> None:
     """Test that .find() of a collection returns a datapoint as xarray.Dataset."""
-    mocked = _mocked_collection(provide_collection_info=True)
+    mocked = _mocked_collection()
     collection = mocked.collection
     meta = expected_datapoint.meta
 
@@ -176,7 +177,7 @@ def test_timeseries_dataset_collection_find(expected_datapoint: Datapoint) -> No
 
 def test_timeseries_dataset_collection_find_invalid_id() -> None:
     """Test that .find() of a collection raises a ValueError if the datapoint id is invalid."""
-    mocked = _mocked_collection(provide_collection_info=True)
+    mocked = _mocked_collection()
     mocked.service.get_datapoint_by_id.side_effect = ArgumentError
     with pytest.raises(ValueError, match="Invalid datapoint id.*"):
         mocked.collection.find("invalid")
@@ -184,7 +185,7 @@ def test_timeseries_dataset_collection_find_invalid_id() -> None:
 
 def test_timeseries_dataset_collection_find_not_found() -> None:
     """Test that .find() of a collection raises a NotFoundError if the datapoint is not found."""
-    mocked = _mocked_collection(provide_collection_info=True)
+    mocked = _mocked_collection()
     mocked.service.get_datapoint_by_id.side_effect = NotFoundError
     with pytest.raises(NotFoundError, match="No such datapoint.*"):
         mocked.collection.find("14eb91a2-a42f-421f-9397-1dab577f05a9")
@@ -206,7 +207,7 @@ def test_timeseries_dataset_collection_load(
     tqdm2.return_value = progress_bar
     progress_bar.__enter__.return_value = progress_bar  # support "with tqdm() as progress_bar:" usage
 
-    mocked = _mocked_collection(provide_collection_info=True)
+    mocked = _mocked_collection()
     # each call will return the next page in the list
     # the last page will have an empty next_page set, indicating that there are no more pages
     mocked.service.get_dataset_for_time_interval.side_effect = [Promise.resolve(page) for page in pages]
@@ -234,12 +235,12 @@ def test_timeseries_dataset_collection_find_interval(
     tqdm.return_value = progress_bar  # support "progress_bar = tqdm()" usage
     progress_bar.__enter__.return_value = progress_bar  # support "with tqdm() as progress_bar:" usage
 
-    mocked = _mocked_collection(provide_collection_info=True)
+    mocked = _mocked_collection()
     # each call will return the next page in the list
     # the last page will have an empty next_page set, indicating that there are no more pages
     mocked.service.get_dataset_for_datapoint_interval.side_effect = [Promise.resolve(page) for page in pages]
     # the interval doesn't actually matter here, since we mock the response
-    dataset = mocked.collection._find_interval(("some-id", "some-end-id"), show_progress=show_progress)
+    dataset = mocked.collection._find_interval((uuid4(), uuid4()), show_progress=show_progress)
     _assert_datapoints_match(dataset, pages)
 
     if show_progress:
@@ -274,7 +275,7 @@ class MockCollectionService(CollectionServiceStub):
 
     def CreateCollection(self, req: CreateCollectionRequest) -> CollectionInfoMessage:  # noqa: N802
         collection = CollectionInfoMessage(
-            collection=CollectionMessage(id=str(uuid4()), name=req.name), availability=None, count=None
+            collection=CollectionMessage(id=uuid_to_uuid_message(uuid4()), name=req.name), availability=None, count=None
         )
         self.collections[req.name] = collection
         return collection

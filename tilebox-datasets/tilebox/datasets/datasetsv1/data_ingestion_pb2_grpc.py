@@ -18,12 +18,17 @@ class DataIngestionServiceStub(object):
         self.IngestDatapoints = channel.unary_unary(
                 '/datasets.v1.DataIngestionService/IngestDatapoints',
                 request_serializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestDatapointsRequest.SerializeToString,
-                response_deserializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestDatapointsResponse.FromString,
+                response_deserializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestResponse.FromString,
                 _registered_method=True)
-        self.DeleteDatapoints = channel.unary_unary(
-                '/datasets.v1.DataIngestionService/DeleteDatapoints',
-                request_serializer=datasets_dot_v1_dot_data__ingestion__pb2.DeleteDatapointsRequest.SerializeToString,
-                response_deserializer=datasets_dot_v1_dot_data__ingestion__pb2.DeleteDatapointsResponse.FromString,
+        self.Ingest = channel.unary_unary(
+                '/datasets.v1.DataIngestionService/Ingest',
+                request_serializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestRequest.SerializeToString,
+                response_deserializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestResponse.FromString,
+                _registered_method=True)
+        self.Delete = channel.unary_unary(
+                '/datasets.v1.DataIngestionService/Delete',
+                request_serializer=datasets_dot_v1_dot_data__ingestion__pb2.DeleteRequest.SerializeToString,
+                response_deserializer=datasets_dot_v1_dot_data__ingestion__pb2.DeleteResponse.FromString,
                 _registered_method=True)
 
 
@@ -32,12 +37,19 @@ class DataIngestionServiceServicer(object):
     """
 
     def IngestDatapoints(self, request, context):
+        """legacy ingest endpoint, that separates datapoints into meta and data. Will be removed in the future.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Ingest(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def DeleteDatapoints(self, request, context):
+    def Delete(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -49,12 +61,17 @@ def add_DataIngestionServiceServicer_to_server(servicer, server):
             'IngestDatapoints': grpc.unary_unary_rpc_method_handler(
                     servicer.IngestDatapoints,
                     request_deserializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestDatapointsRequest.FromString,
-                    response_serializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestDatapointsResponse.SerializeToString,
+                    response_serializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestResponse.SerializeToString,
             ),
-            'DeleteDatapoints': grpc.unary_unary_rpc_method_handler(
-                    servicer.DeleteDatapoints,
-                    request_deserializer=datasets_dot_v1_dot_data__ingestion__pb2.DeleteDatapointsRequest.FromString,
-                    response_serializer=datasets_dot_v1_dot_data__ingestion__pb2.DeleteDatapointsResponse.SerializeToString,
+            'Ingest': grpc.unary_unary_rpc_method_handler(
+                    servicer.Ingest,
+                    request_deserializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestRequest.FromString,
+                    response_serializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestResponse.SerializeToString,
+            ),
+            'Delete': grpc.unary_unary_rpc_method_handler(
+                    servicer.Delete,
+                    request_deserializer=datasets_dot_v1_dot_data__ingestion__pb2.DeleteRequest.FromString,
+                    response_serializer=datasets_dot_v1_dot_data__ingestion__pb2.DeleteResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -84,7 +101,7 @@ class DataIngestionService(object):
             target,
             '/datasets.v1.DataIngestionService/IngestDatapoints',
             datasets_dot_v1_dot_data__ingestion__pb2.IngestDatapointsRequest.SerializeToString,
-            datasets_dot_v1_dot_data__ingestion__pb2.IngestDatapointsResponse.FromString,
+            datasets_dot_v1_dot_data__ingestion__pb2.IngestResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -96,7 +113,7 @@ class DataIngestionService(object):
             _registered_method=True)
 
     @staticmethod
-    def DeleteDatapoints(request,
+    def Ingest(request,
             target,
             options=(),
             channel_credentials=None,
@@ -109,9 +126,36 @@ class DataIngestionService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/datasets.v1.DataIngestionService/DeleteDatapoints',
-            datasets_dot_v1_dot_data__ingestion__pb2.DeleteDatapointsRequest.SerializeToString,
-            datasets_dot_v1_dot_data__ingestion__pb2.DeleteDatapointsResponse.FromString,
+            '/datasets.v1.DataIngestionService/Ingest',
+            datasets_dot_v1_dot_data__ingestion__pb2.IngestRequest.SerializeToString,
+            datasets_dot_v1_dot_data__ingestion__pb2.IngestResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Delete(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/datasets.v1.DataIngestionService/Delete',
+            datasets_dot_v1_dot_data__ingestion__pb2.DeleteRequest.SerializeToString,
+            datasets_dot_v1_dot_data__ingestion__pb2.DeleteResponse.FromString,
             options,
             channel_credentials,
             insecure,

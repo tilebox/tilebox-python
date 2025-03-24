@@ -54,19 +54,27 @@ class DatapointInterval(_message.Message):
     END_ID_FIELD_NUMBER: _ClassVar[int]
     START_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
     END_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
-    start_id: str
-    end_id: str
+    start_id: ID
+    end_id: ID
     start_exclusive: bool
     end_inclusive: bool
-    def __init__(self, start_id: _Optional[str] = ..., end_id: _Optional[str] = ..., start_exclusive: bool = ..., end_inclusive: bool = ...) -> None: ...
+    def __init__(self, start_id: _Optional[_Union[ID, _Mapping]] = ..., end_id: _Optional[_Union[ID, _Mapping]] = ..., start_exclusive: bool = ..., end_inclusive: bool = ...) -> None: ...
 
-class Pagination(_message.Message):
+class LegacyPagination(_message.Message):
     __slots__ = ("limit", "starting_after")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     STARTING_AFTER_FIELD_NUMBER: _ClassVar[int]
     limit: int
     starting_after: str
     def __init__(self, limit: _Optional[int] = ..., starting_after: _Optional[str] = ...) -> None: ...
+
+class Pagination(_message.Message):
+    __slots__ = ("limit", "starting_after")
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    STARTING_AFTER_FIELD_NUMBER: _ClassVar[int]
+    limit: int
+    starting_after: ID
+    def __init__(self, limit: _Optional[int] = ..., starting_after: _Optional[_Union[ID, _Mapping]] = ...) -> None: ...
 
 class Any(_message.Message):
     __slots__ = ("type_url", "value")
@@ -109,8 +117,8 @@ class DatapointPage(_message.Message):
     NEXT_PAGE_FIELD_NUMBER: _ClassVar[int]
     meta: _containers.RepeatedCompositeFieldContainer[DatapointMetadata]
     data: RepeatedAny
-    next_page: Pagination
-    def __init__(self, meta: _Optional[_Iterable[_Union[DatapointMetadata, _Mapping]]] = ..., data: _Optional[_Union[RepeatedAny, _Mapping]] = ..., next_page: _Optional[_Union[Pagination, _Mapping]] = ...) -> None: ...
+    next_page: LegacyPagination
+    def __init__(self, meta: _Optional[_Iterable[_Union[DatapointMetadata, _Mapping]]] = ..., data: _Optional[_Union[RepeatedAny, _Mapping]] = ..., next_page: _Optional[_Union[LegacyPagination, _Mapping]] = ...) -> None: ...
 
 class Datapoint(_message.Message):
     __slots__ = ("meta", "data")
@@ -121,12 +129,14 @@ class Datapoint(_message.Message):
     def __init__(self, meta: _Optional[_Union[DatapointMetadata, _Mapping]] = ..., data: _Optional[_Union[Any, _Mapping]] = ...) -> None: ...
 
 class Collection(_message.Message):
-    __slots__ = ("id", "name")
-    ID_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("legacy_id", "name", "id")
+    LEGACY_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
-    id: str
+    ID_FIELD_NUMBER: _ClassVar[int]
+    legacy_id: str
     name: str
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+    id: ID
+    def __init__(self, legacy_id: _Optional[str] = ..., name: _Optional[str] = ..., id: _Optional[_Union[ID, _Mapping]] = ...) -> None: ...
 
 class CollectionInfo(_message.Message):
     __slots__ = ("collection", "availability", "count")

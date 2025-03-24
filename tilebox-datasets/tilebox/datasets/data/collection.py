@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from uuid import UUID
 
 from tilebox.datasets.data.time_interval import TimeInterval
+from tilebox.datasets.data.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.datasets.datasetsv1 import core_pb2
 
 
@@ -8,15 +10,15 @@ from tilebox.datasets.datasetsv1 import core_pb2
 class Collection:
     """Basic properties of a collection of datapoints in a timeseries dataset."""
 
-    id: str
+    id: UUID
     name: str
 
     @classmethod
     def from_message(cls, collection: core_pb2.Collection) -> "Collection":
-        return Collection(id=collection.id, name=collection.name)
+        return Collection(id=uuid_message_to_uuid(collection.id), name=collection.name)
 
     def to_message(self) -> core_pb2.Collection:
-        return core_pb2.Collection(id=self.id, name=self.name)
+        return core_pb2.Collection(id=uuid_to_uuid_message(self.id), name=self.name)
 
 
 @dataclass

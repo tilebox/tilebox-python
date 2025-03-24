@@ -10,32 +10,40 @@ import "google/protobuf/timestamp.proto";
 // for reference, to be able to reproduce how the FileDescriptorSet example_dataset.binpb was generated.
 // (by placing it in tilebox-go/apis/datasets/v1/example_dataset.proto and running go generate)
 message ExampleDatapoint {
-  string some_string = 1;
-  int64 some_int = 2;
-  google.protobuf.Timestamp some_time = 3;
-  google.protobuf.Duration some_duration = 4;
-  bytes some_bytes = 5;
-  bool some_bool = 6;
+  // Temporal fields
+  google.protobuf.Timestamp time = 1;
+  datasets.v1.UUID id = 2;
+  google.protobuf.Timestamp ingestion_time = 3;
+  // Also add the geometry field to be able to test that dataset type as well
+  datasets.v1.Geometry geometry = 4;
+
+  // test some fields
+  string some_string = 5;
+  int64 some_int = 6;
+  double some_double = 7;
+  google.protobuf.Timestamp some_time = 8;
+  google.protobuf.Duration some_duration = 9;
+  bytes some_bytes = 10;
+  bool some_bool = 11;
 
   // test our well-known types
-  datasets.v1.UUID some_identifier = 7;
-  datasets.v1.Vec3 some_vec3 = 8;
-  datasets.v1.Quaternion some_quaternion = 9;
-  datasets.v1.LatLon some_latlon = 10;
-  datasets.v1.LatLonAlt some_latlon_alt = 11;
-  datasets.v1.Geometry some_geometry = 12;
+  datasets.v1.UUID some_identifier = 12;
+  datasets.v1.Vec3 some_vec3 = 13;
+  datasets.v1.Quaternion some_quaternion = 14;
+  datasets.v1.Geometry some_geometry = 15;
 
   // test an enum
-  datasets.v1.ProcessingLevel some_enum = 13;
+  datasets.v1.ProcessingLevel some_enum = 16;
 
   // test repeated fields
-  repeated string some_repeated_string = 14;
-  repeated int64 some_repeated_int = 15;
-  repeated bytes some_repeated_bytes = 16;
-  repeated bool some_repeated_bool = 17;
-  repeated google.protobuf.Timestamp some_repeated_time = 18;
-  repeated google.protobuf.Duration some_repeated_duration = 19;
-  repeated datasets.v1.UUID some_repeated_identifier = 20;
-  repeated datasets.v1.Vec3 some_repeated_vec3 = 21;
-  repeated datasets.v1.Geometry some_repeated_geometry = 22;
+  repeated string some_repeated_string = 17;
+  repeated int64 some_repeated_int = 18;
+  repeated double some_repeated_double = 19;
+  repeated bytes some_repeated_bytes = 20;
+  repeated bool some_repeated_bool = 21;
+  repeated google.protobuf.Timestamp some_repeated_time = 22;
+  repeated google.protobuf.Duration some_repeated_duration = 23;
+  repeated datasets.v1.UUID some_repeated_identifier = 24;
+  repeated datasets.v1.Vec3 some_repeated_vec3 = 25;
+  repeated datasets.v1.Geometry some_repeated_geometry = 26;
 }

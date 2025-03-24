@@ -26,7 +26,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 from tilebox.datasets.datasetsv1 import dataset_type_pb2 as datasets_dot_v1_dot_dataset__type__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16\x64\x61tasets/v1/core.proto\x12\x0b\x64\x61tasets.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1e\x64\x61tasets/v1/dataset_type.proto\"\x18\n\x02ID\x12\x12\n\x04uuid\x18\x01 \x01(\x0cR\x04uuid\"\xce\x01\n\x0cTimeInterval\x12\x39\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartTime\x12\x35\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65ndTime\x12\'\n\x0fstart_exclusive\x18\x03 \x01(\x08R\x0estartExclusive\x12#\n\rend_inclusive\x18\x04 \x01(\x08R\x0c\x65ndInclusive\"\x93\x01\n\x11\x44\x61tapointInterval\x12\x19\n\x08start_id\x18\x01 \x01(\tR\x07startId\x12\x15\n\x06\x65nd_id\x18\x02 \x01(\tR\x05\x65ndId\x12\'\n\x0fstart_exclusive\x18\x03 \x01(\x08R\x0estartExclusive\x12#\n\rend_inclusive\x18\x04 \x01(\x08R\x0c\x65ndInclusive\"p\n\nPagination\x12\x19\n\x05limit\x18\x01 \x01(\x03H\x00R\x05limit\x88\x01\x01\x12*\n\x0estarting_after\x18\x02 \x01(\tH\x01R\rstartingAfter\x88\x01\x01\x42\x08\n\x06_limitB\x11\n\x0f_starting_after\"6\n\x03\x41ny\x12\x19\n\x08type_url\x18\x01 \x01(\tR\x07typeUrl\x12\x14\n\x05value\x18\x02 \x01(\x0cR\x05value\">\n\x0bRepeatedAny\x12\x19\n\x08type_url\x18\x01 \x01(\tR\x07typeUrl\x12\x14\n\x05value\x18\x02 \x03(\x0cR\x05value\"\xad\x01\n\x11\x44\x61tapointMetadata\x12\x39\n\nevent_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\teventTime\x12\x41\n\x0eingestion_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ringestionTime\x12\x13\n\x02id\x18\x03 \x01(\tH\x00R\x02id\x88\x01\x01\x42\x05\n\x03_id\"n\n\nDatapoints\x12\x32\n\x04meta\x18\x01 \x03(\x0b\x32\x1e.datasets.v1.DatapointMetadataR\x04meta\x12,\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x18.datasets.v1.RepeatedAnyR\x04\x64\x61ta\"\xba\x01\n\rDatapointPage\x12\x32\n\x04meta\x18\x01 \x03(\x0b\x32\x1e.datasets.v1.DatapointMetadataR\x04meta\x12,\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x18.datasets.v1.RepeatedAnyR\x04\x64\x61ta\x12\x39\n\tnext_page\x18\x03 \x01(\x0b\x32\x17.datasets.v1.PaginationH\x00R\x08nextPage\x88\x01\x01\x42\x0c\n\n_next_page\"e\n\tDatapoint\x12\x32\n\x04meta\x18\x01 \x01(\x0b\x32\x1e.datasets.v1.DatapointMetadataR\x04meta\x12$\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x10.datasets.v1.AnyR\x04\x64\x61ta\"0\n\nCollection\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\"\xc3\x01\n\x0e\x43ollectionInfo\x12\x37\n\ncollection\x18\x01 \x01(\x0b\x32\x17.datasets.v1.CollectionR\ncollection\x12\x42\n\x0c\x61vailability\x18\x02 \x01(\x0b\x32\x19.datasets.v1.TimeIntervalH\x00R\x0c\x61vailability\x88\x01\x01\x12\x19\n\x05\x63ount\x18\x03 \x01(\x04H\x01R\x05\x63ount\x88\x01\x01\x42\x0f\n\r_availabilityB\x08\n\x06_count\"B\n\x0f\x43ollectionInfos\x12/\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32\x1b.datasets.v1.CollectionInfoR\x04\x64\x61ta\"\x82\x03\n\x07\x44\x61taset\x12\x1f\n\x02id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\x02id\x12*\n\x08group_id\x18\x02 \x01(\x0b\x32\x0f.datasets.v1.IDR\x07groupId\x12.\n\x04type\x18\x03 \x01(\x0b\x32\x1a.datasets.v1.AnnotatedTypeR\x04type\x12\x1b\n\tcode_name\x18\x04 \x01(\tR\x08\x63odeName\x12\x12\n\x04name\x18\x05 \x01(\tR\x04name\x12\x18\n\x07summary\x18\x06 \x01(\tR\x07summary\x12\x12\n\x04icon\x18\x07 \x01(\tR\x04icon\x12 \n\x0b\x64\x65scription\x18\x08 \x01(\tR\x0b\x64\x65scription\x12@\n\x0bpermissions\x18\n \x03(\x0e\x32\x1e.datasets.v1.DatasetPermissionR\x0bpermissions\x12\x37\n\nvisibility\x18\x0b \x01(\x0e\x32\x17.datasets.v1.VisibilityR\nvisibility\"\xa2\x01\n\x0c\x44\x61tasetGroup\x12\x1f\n\x02id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\x02id\x12,\n\tparent_id\x18\x02 \x01(\x0b\x32\x0f.datasets.v1.IDR\x08parentId\x12\x1b\n\tcode_name\x18\x03 \x01(\tR\x08\x63odeName\x12\x12\n\x04name\x18\x04 \x01(\tR\x04name\x12\x12\n\x04icon\x18\x05 \x01(\tR\x04icon*\x9b\x01\n\x11\x44\x61tasetPermission\x12\"\n\x1e\x44\x41TASET_PERMISSION_UNSPECIFIED\x10\x00\x12\"\n\x1e\x44\x41TASET_PERMISSION_ACCESS_DATA\x10\x01\x12!\n\x1d\x44\x41TASET_PERMISSION_WRITE_DATA\x10\x02\x12\x1b\n\x17\x44\x41TASET_PERMISSION_EDIT\x10\x03*v\n\nVisibility\x12\x1a\n\x16VISIBILITY_UNSPECIFIED\x10\x00\x12\x16\n\x12VISIBILITY_PRIVATE\x10\x01\x12\x1d\n\x19VISIBILITY_SHARED_WITH_ME\x10\x02\x12\x15\n\x11VISIBILITY_PUBLIC\x10\x03\x42\xab\x01\n\x0f\x63om.datasets.v1B\tCoreProtoP\x01Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16\x64\x61tasets/v1/core.proto\x12\x0b\x64\x61tasets.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1e\x64\x61tasets/v1/dataset_type.proto\"\x18\n\x02ID\x12\x12\n\x04uuid\x18\x01 \x01(\x0cR\x04uuid\"\xce\x01\n\x0cTimeInterval\x12\x39\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartTime\x12\x35\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65ndTime\x12\'\n\x0fstart_exclusive\x18\x03 \x01(\x08R\x0estartExclusive\x12#\n\rend_inclusive\x18\x04 \x01(\x08R\x0c\x65ndInclusive\"\xb5\x01\n\x11\x44\x61tapointInterval\x12*\n\x08start_id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\x07startId\x12&\n\x06\x65nd_id\x18\x02 \x01(\x0b\x32\x0f.datasets.v1.IDR\x05\x65ndId\x12\'\n\x0fstart_exclusive\x18\x03 \x01(\x08R\x0estartExclusive\x12#\n\rend_inclusive\x18\x04 \x01(\x08R\x0c\x65ndInclusive\"v\n\x10LegacyPagination\x12\x19\n\x05limit\x18\x01 \x01(\x03H\x00R\x05limit\x88\x01\x01\x12*\n\x0estarting_after\x18\x02 \x01(\tH\x01R\rstartingAfter\x88\x01\x01\x42\x08\n\x06_limitB\x11\n\x0f_starting_after\"\x81\x01\n\nPagination\x12\x19\n\x05limit\x18\x01 \x01(\x03H\x00R\x05limit\x88\x01\x01\x12;\n\x0estarting_after\x18\x02 \x01(\x0b\x32\x0f.datasets.v1.IDH\x01R\rstartingAfter\x88\x01\x01\x42\x08\n\x06_limitB\x11\n\x0f_starting_after\"6\n\x03\x41ny\x12\x19\n\x08type_url\x18\x01 \x01(\tR\x07typeUrl\x12\x14\n\x05value\x18\x02 \x01(\x0cR\x05value\">\n\x0bRepeatedAny\x12\x19\n\x08type_url\x18\x01 \x01(\tR\x07typeUrl\x12\x14\n\x05value\x18\x02 \x03(\x0cR\x05value\"\xad\x01\n\x11\x44\x61tapointMetadata\x12\x39\n\nevent_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\teventTime\x12\x41\n\x0eingestion_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ringestionTime\x12\x13\n\x02id\x18\x03 \x01(\tH\x00R\x02id\x88\x01\x01\x42\x05\n\x03_id\"n\n\nDatapoints\x12\x32\n\x04meta\x18\x01 \x03(\x0b\x32\x1e.datasets.v1.DatapointMetadataR\x04meta\x12,\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x18.datasets.v1.RepeatedAnyR\x04\x64\x61ta\"\xc0\x01\n\rDatapointPage\x12\x32\n\x04meta\x18\x01 \x03(\x0b\x32\x1e.datasets.v1.DatapointMetadataR\x04meta\x12,\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x18.datasets.v1.RepeatedAnyR\x04\x64\x61ta\x12?\n\tnext_page\x18\x03 \x01(\x0b\x32\x1d.datasets.v1.LegacyPaginationH\x00R\x08nextPage\x88\x01\x01\x42\x0c\n\n_next_page\"e\n\tDatapoint\x12\x32\n\x04meta\x18\x01 \x01(\x0b\x32\x1e.datasets.v1.DatapointMetadataR\x04meta\x12$\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x10.datasets.v1.AnyR\x04\x64\x61ta\"^\n\nCollection\x12\x1b\n\tlegacy_id\x18\x01 \x01(\tR\x08legacyId\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1f\n\x02id\x18\x03 \x01(\x0b\x32\x0f.datasets.v1.IDR\x02id\"\xc3\x01\n\x0e\x43ollectionInfo\x12\x37\n\ncollection\x18\x01 \x01(\x0b\x32\x17.datasets.v1.CollectionR\ncollection\x12\x42\n\x0c\x61vailability\x18\x02 \x01(\x0b\x32\x19.datasets.v1.TimeIntervalH\x00R\x0c\x61vailability\x88\x01\x01\x12\x19\n\x05\x63ount\x18\x03 \x01(\x04H\x01R\x05\x63ount\x88\x01\x01\x42\x0f\n\r_availabilityB\x08\n\x06_count\"B\n\x0f\x43ollectionInfos\x12/\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32\x1b.datasets.v1.CollectionInfoR\x04\x64\x61ta\"\x82\x03\n\x07\x44\x61taset\x12\x1f\n\x02id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\x02id\x12*\n\x08group_id\x18\x02 \x01(\x0b\x32\x0f.datasets.v1.IDR\x07groupId\x12.\n\x04type\x18\x03 \x01(\x0b\x32\x1a.datasets.v1.AnnotatedTypeR\x04type\x12\x1b\n\tcode_name\x18\x04 \x01(\tR\x08\x63odeName\x12\x12\n\x04name\x18\x05 \x01(\tR\x04name\x12\x18\n\x07summary\x18\x06 \x01(\tR\x07summary\x12\x12\n\x04icon\x18\x07 \x01(\tR\x04icon\x12 \n\x0b\x64\x65scription\x18\x08 \x01(\tR\x0b\x64\x65scription\x12@\n\x0bpermissions\x18\n \x03(\x0e\x32\x1e.datasets.v1.DatasetPermissionR\x0bpermissions\x12\x37\n\nvisibility\x18\x0b \x01(\x0e\x32\x17.datasets.v1.VisibilityR\nvisibility\"\xa2\x01\n\x0c\x44\x61tasetGroup\x12\x1f\n\x02id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\x02id\x12,\n\tparent_id\x18\x02 \x01(\x0b\x32\x0f.datasets.v1.IDR\x08parentId\x12\x1b\n\tcode_name\x18\x03 \x01(\tR\x08\x63odeName\x12\x12\n\x04name\x18\x04 \x01(\tR\x04name\x12\x12\n\x04icon\x18\x05 \x01(\tR\x04icon*\x9b\x01\n\x11\x44\x61tasetPermission\x12\"\n\x1e\x44\x41TASET_PERMISSION_UNSPECIFIED\x10\x00\x12\"\n\x1e\x44\x41TASET_PERMISSION_ACCESS_DATA\x10\x01\x12!\n\x1d\x44\x41TASET_PERMISSION_WRITE_DATA\x10\x02\x12\x1b\n\x17\x44\x41TASET_PERMISSION_EDIT\x10\x03*v\n\nVisibility\x12\x1a\n\x16VISIBILITY_UNSPECIFIED\x10\x00\x12\x16\n\x12VISIBILITY_PRIVATE\x10\x01\x12\x1d\n\x19VISIBILITY_SHARED_WITH_ME\x10\x02\x12\x15\n\x11VISIBILITY_PUBLIC\x10\x03\x42\xab\x01\n\x0f\x63om.datasets.v1B\tCoreProtoP\x01Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,38 +34,40 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'datasets.v1.core_pb2', _glo
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\017com.datasets.v1B\tCoreProtoP\001Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\242\002\003DXX\252\002\013Datasets.V1\312\002\013Datasets\\V1\342\002\027Datasets\\V1\\GPBMetadata\352\002\014Datasets::V1'
-  _globals['_DATASETPERMISSION']._serialized_start=2174
-  _globals['_DATASETPERMISSION']._serialized_end=2329
-  _globals['_VISIBILITY']._serialized_start=2331
-  _globals['_VISIBILITY']._serialized_end=2449
+  _globals['_DATASETPERMISSION']._serialized_start=2398
+  _globals['_DATASETPERMISSION']._serialized_end=2553
+  _globals['_VISIBILITY']._serialized_start=2555
+  _globals['_VISIBILITY']._serialized_end=2673
   _globals['_ID']._serialized_start=104
   _globals['_ID']._serialized_end=128
   _globals['_TIMEINTERVAL']._serialized_start=131
   _globals['_TIMEINTERVAL']._serialized_end=337
   _globals['_DATAPOINTINTERVAL']._serialized_start=340
-  _globals['_DATAPOINTINTERVAL']._serialized_end=487
-  _globals['_PAGINATION']._serialized_start=489
-  _globals['_PAGINATION']._serialized_end=601
-  _globals['_ANY']._serialized_start=603
-  _globals['_ANY']._serialized_end=657
-  _globals['_REPEATEDANY']._serialized_start=659
-  _globals['_REPEATEDANY']._serialized_end=721
-  _globals['_DATAPOINTMETADATA']._serialized_start=724
-  _globals['_DATAPOINTMETADATA']._serialized_end=897
-  _globals['_DATAPOINTS']._serialized_start=899
-  _globals['_DATAPOINTS']._serialized_end=1009
-  _globals['_DATAPOINTPAGE']._serialized_start=1012
-  _globals['_DATAPOINTPAGE']._serialized_end=1198
-  _globals['_DATAPOINT']._serialized_start=1200
-  _globals['_DATAPOINT']._serialized_end=1301
-  _globals['_COLLECTION']._serialized_start=1303
-  _globals['_COLLECTION']._serialized_end=1351
-  _globals['_COLLECTIONINFO']._serialized_start=1354
-  _globals['_COLLECTIONINFO']._serialized_end=1549
-  _globals['_COLLECTIONINFOS']._serialized_start=1551
-  _globals['_COLLECTIONINFOS']._serialized_end=1617
-  _globals['_DATASET']._serialized_start=1620
-  _globals['_DATASET']._serialized_end=2006
-  _globals['_DATASETGROUP']._serialized_start=2009
-  _globals['_DATASETGROUP']._serialized_end=2171
+  _globals['_DATAPOINTINTERVAL']._serialized_end=521
+  _globals['_LEGACYPAGINATION']._serialized_start=523
+  _globals['_LEGACYPAGINATION']._serialized_end=641
+  _globals['_PAGINATION']._serialized_start=644
+  _globals['_PAGINATION']._serialized_end=773
+  _globals['_ANY']._serialized_start=775
+  _globals['_ANY']._serialized_end=829
+  _globals['_REPEATEDANY']._serialized_start=831
+  _globals['_REPEATEDANY']._serialized_end=893
+  _globals['_DATAPOINTMETADATA']._serialized_start=896
+  _globals['_DATAPOINTMETADATA']._serialized_end=1069
+  _globals['_DATAPOINTS']._serialized_start=1071
+  _globals['_DATAPOINTS']._serialized_end=1181
+  _globals['_DATAPOINTPAGE']._serialized_start=1184
+  _globals['_DATAPOINTPAGE']._serialized_end=1376
+  _globals['_DATAPOINT']._serialized_start=1378
+  _globals['_DATAPOINT']._serialized_end=1479
+  _globals['_COLLECTION']._serialized_start=1481
+  _globals['_COLLECTION']._serialized_end=1575
+  _globals['_COLLECTIONINFO']._serialized_start=1578
+  _globals['_COLLECTIONINFO']._serialized_end=1773
+  _globals['_COLLECTIONINFOS']._serialized_start=1775
+  _globals['_COLLECTIONINFOS']._serialized_end=1841
+  _globals['_DATASET']._serialized_start=1844
+  _globals['_DATASET']._serialized_end=2230
+  _globals['_DATASETGROUP']._serialized_start=2233
+  _globals['_DATASETGROUP']._serialized_end=2395
 # @@protoc_insertion_point(module_scope)

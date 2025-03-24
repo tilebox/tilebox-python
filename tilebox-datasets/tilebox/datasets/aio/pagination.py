@@ -1,22 +1,24 @@
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import datetime, timezone
+from typing import TypeVar
 
 from tqdm.auto import tqdm
 
 from tilebox.datasets.data import (
     TimeInterval,
 )
-from tilebox.datasets.data.datapoint import DatapointPage
+from tilebox.datasets.data.datapoint import DatapointPage, QueryResultPage
 from tilebox.datasets.data.pagination import Pagination
-from tilebox.datasets.data.time_interval import timestamp_to_datetime
 from tilebox.datasets.progress import ProgressCallback, TimeIntervalProgressBar
+
+ResultPage = TypeVar("ResultPage", bound=DatapointPage | QueryResultPage)
 
 
 async def paginated_request(
-    paging_request: Callable[[Pagination], Awaitable[DatapointPage]],
+    paging_request: Callable[[Pagination], Awaitable[ResultPage]],
     initial_page: Pagination | None = None,
-) -> AsyncIterator[DatapointPage]:
+) -> AsyncIterator[ResultPage]:
     """Make a paginated request to a gRPC service endpoint.
 
     The endpoint is expected to return a next_page field, which is used for subsequent requests. Once no such
@@ -43,9 +45,9 @@ async def paginated_request(
 
 
 async def with_progressbar(
-    paginated_request: AsyncIterator[DatapointPage],
+    paginated_request: AsyncIterator[ResultPage],
     progress_description: str,
-) -> AsyncIterator[DatapointPage]:
+) -> AsyncIterator[ResultPage]:
     """Make a paginated request to a gRPC service endpoint while displaying the progress in a tqdm progress bar.
 
     We don't know the total amount of work beforehand, so the progress bar will just show the number of data points
@@ -65,25 +67,25 @@ async def with_progressbar(
     yield first_page
 
     # no more pages, return immediately to skip the progress bar
-    if not first_page.next_page.starting_after or len(first_page.meta) == 0:
+    if not first_page.next_page.starting_after or first_page.n_datapoints == 0:
         return
 
     with tqdm(
         desc=progress_description,
         unit="datapoints",
     ) as progress_bar:
-        progress_bar.update(len(first_page.meta))  # one page has already been downloaded
+        progress_bar.update(first_page.n_datapoints)  # one page has already been downloaded
         progress_bar.start_t = actual_start_time  # set the start time to the actual start time before the first page
         async for page in paginated_request:  # now loop over the remaining pages
-            progress_bar.update(len(page.meta))
+            progress_bar.update(page.n_datapoints)
             yield page
 
 
 async def with_time_progressbar(
-    paginated_request: AsyncIterator[DatapointPage],
+    paginated_request: AsyncIterator[ResultPage],
     interval: TimeInterval,
     progress_description: str,
-) -> AsyncIterator[DatapointPage]:
+) -> AsyncIterator[ResultPage]:
     """Make a paginated request to a gRPC service endpoint while displaying the progress in a tqdm progress bar.
 
     The given interval is used to estimate a total amount of work for the progress bar. Then the event_time of the
@@ -104,40 +106,40 @@ async def with_time_progressbar(
     yield first_page
 
     # no more pages, return immediately to skip the progress bar
-    if not first_page.next_page.starting_after or len(first_page.meta) == 0:
+    if not first_page.next_page.starting_after or first_page.n_datapoints == 0:
         return
 
     # we have more pages, so lets set up a progress bar
     actual_interval = TimeInterval(
-        start=max(interval.start, timestamp_to_datetime(first_page.meta[0].event_time)),
+        start=max(interval.start, first_page.min_time()),
         end=min(interval.end, datetime.now(tz=timezone.utc)),
     )
 
     with TimeIntervalProgressBar(
         interval=actual_interval,
         description=progress_description,
-        initial_time=timestamp_to_datetime(first_page.meta[-1].event_time),
+        initial_time=first_page.max_time(),
         actual_start_time=actual_start_time,
     ) as progress_bar:
         # provide download information for the first page
         now = time.time()
-        progress_bar.set_download_info(len(first_page.meta), first_page.byte_size, now - actual_start_time)
+        progress_bar.set_download_info(first_page.n_datapoints, first_page.byte_size, now - actual_start_time)
 
         before = now
         async for page in paginated_request:  # now loop over the remaining pages
             now = time.time()
-            if len(page.meta) > 0:
-                progress_bar.set_progress(timestamp_to_datetime(page.meta[-1].event_time))
-                progress_bar.set_download_info(len(page.meta), page.byte_size, now - before)
+            if page.n_datapoints > 0:
+                progress_bar.set_progress(page.max_time())
+                progress_bar.set_download_info(page.n_datapoints, page.byte_size, now - before)
             yield page
             before = now
 
 
 async def with_time_progress_callback(
-    paginated_request: AsyncIterator[DatapointPage],
+    paginated_request: AsyncIterator[ResultPage],
     interval: TimeInterval,
     progress_callback: ProgressCallback,
-) -> AsyncIterator[DatapointPage]:
+) -> AsyncIterator[ResultPage]:
     """Make a paginated request to a gRPC service endpoint, and reporting progress percentage to a callback function.
 
     The given interval is used to estimate a total amount of work for the progress bar. Then the event_time of the
@@ -156,23 +158,23 @@ async def with_time_progress_callback(
     yield first_page
 
     # no more pages, return immediately to skip the progress bar
-    if not first_page.next_page.starting_after or len(first_page.meta) == 0:
+    if not first_page.next_page.starting_after or first_page.n_datapoints == 0:
         progress_callback(1.0)
         return
 
     # we have more pages, so lets set up a progress bar
     actual_interval = TimeInterval(
-        start=max(interval.start, timestamp_to_datetime(first_page.meta[0].event_time)),
+        start=max(interval.start, first_page.min_time()),
         end=min(interval.end, datetime.now(tz=timezone.utc)),
     )
 
     total = (actual_interval.end - actual_interval.start).total_seconds()
-    if len(first_page.meta) > 0:
-        current = (timestamp_to_datetime(first_page.meta[-1].event_time) - actual_interval.start).total_seconds()
+    if first_page.n_datapoints > 0:
+        current = (first_page.max_time() - actual_interval.start).total_seconds()
         progress_callback(current / total)
     async for page in paginated_request:  # now loop over the remaining pages
-        if len(page.meta) > 0:
-            current = (timestamp_to_datetime(page.meta[-1].event_time) - actual_interval.start).total_seconds()
+        if page.n_datapoints > 0:
+            current = (page.max_time() - actual_interval.start).total_seconds()
             progress_callback(current / total)
         yield page
 

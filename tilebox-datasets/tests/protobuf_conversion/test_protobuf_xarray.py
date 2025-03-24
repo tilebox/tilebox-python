@@ -19,7 +19,7 @@ from tilebox.datasets.protobuf_conversion.protobuf_xarray import (
 )
 
 
-@given(example_datapoints(missing_fields=False))
+@given(example_datapoints(generated_fields=True, missing_fields=False))
 def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR0915
     converter = MessageToXarrayConverter()
     converter.convert(datapoint)
@@ -28,8 +28,6 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
     assert dataset.sizes["time"] == 1
     assert dataset.sizes["vec3"] == 3
     assert dataset.sizes["quaternion"] == 4
-    assert dataset.sizes["latlon"] == 2
-    assert dataset.sizes["lat_lon_alt"] == 3
     assert dataset.sizes["n_some_repeated_string"] == len(datapoint.some_repeated_string)
     assert dataset.sizes["n_some_repeated_int"] == len(datapoint.some_repeated_int)
     assert dataset.sizes["n_some_repeated_bytes"] == len(datapoint.some_repeated_bytes)
@@ -40,12 +38,20 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
     assert dataset.sizes["n_some_repeated_vec3"] == len(datapoint.some_repeated_vec3)
     assert dataset.sizes["n_some_repeated_geometry"] == len(datapoint.some_repeated_geometry)
 
+    time = dataset.time.item()  # timestamp in nanoseconds from the numpy/xarray dataset
+    assert us_to_datetime(to_datetime(time, utc=True).value // 1000) == timestamp_to_datetime(datapoint.time)
+    assert dataset.id.item() == str(UUID(bytes=datapoint.id.uuid))
+    ingestion_time = dataset.ingestion_time.item()  # timestamp in nanoseconds from the numpy/xarray dataset
+    assert us_to_datetime(to_datetime(ingestion_time, utc=True).value // 1000) == timestamp_to_datetime(
+        datapoint.ingestion_time
+    )
+
     dataset = dataset.isel(time=0)  # select the only datapoint in the dataset
     assert dataset.some_string.item() == datapoint.some_string
     assert dataset.some_int.item() == datapoint.some_int
     assert dataset.some_double.item() == pytest.approx(datapoint.some_double)
-    time = dataset.some_time.item()  # timestamp in nanoseconds from the numpy/xarray dataset
-    assert us_to_datetime(to_datetime(time, utc=True).value // 1000) == timestamp_to_datetime(datapoint.some_time)
+    some_time = dataset.some_time.item()  # timestamp in nanoseconds from the numpy/xarray dataset
+    assert us_to_datetime(to_datetime(some_time, utc=True).value // 1000) == timestamp_to_datetime(datapoint.some_time)
     assert dataset.some_duration.item() == int(datapoint.some_duration.seconds * 10**9 + datapoint.some_duration.nanos)
 
     assert dataset.some_bytes.item() == datapoint.some_bytes
@@ -64,23 +70,14 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
             datapoint.some_quaternion.q4,
         ],
     )
-    assert_array_equal(
-        dataset.some_latlon.to_numpy(), [datapoint.some_latlon.latitude, datapoint.some_latlon.longitude]
-    )
-    assert_array_equal(
-        dataset.some_latlon_alt.to_numpy(),
-        [datapoint.some_latlon_alt.latitude, datapoint.some_latlon_alt.longitude, datapoint.some_latlon_alt.altitude],
-    )
+
     assert isinstance(dataset.some_geometry.item(), Polygon | MultiPolygon)
     expected_level = {v: k for k, v in ProcessingLevel.items()}[datapoint.some_enum].removeprefix("PROCESSING_LEVEL_")
     assert dataset.some_enum.item() == expected_level
 
-    assert_array_equal(dataset.some_repeated_string.to_numpy(), datapoint.some_repeated_string)
+    assert list(dataset.some_repeated_string.to_numpy()) == list(datapoint.some_repeated_string)
     assert_array_equal(dataset.some_repeated_int.to_numpy(), datapoint.some_repeated_int)
     assert_array_almost_equal(dataset.some_repeated_double.to_numpy(), datapoint.some_repeated_double)
-
-    assert list(dataset.some_repeated_string.to_numpy()) == list(datapoint.some_repeated_string)
-    assert list(dataset.some_repeated_int.to_numpy()) == list(datapoint.some_repeated_int)
     assert list(dataset.some_repeated_bytes.to_numpy()) == list(datapoint.some_repeated_bytes)
     assert list(dataset.some_repeated_bool.to_numpy()) == list(datapoint.some_repeated_bool)
 
@@ -106,7 +103,7 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
         assert isinstance(dataset.some_repeated_geometry[i].item(), Polygon | MultiPolygon)
 
 
-@given(datapoints(missing_fields=True))
+@given(datapoints(generated_fields=False, missing_fields=True))
 def test_convert_timeseries_datapoint(datapoint: Datapoint) -> None:
     converter = TimeseriesToXarrayConverter()
     converter.convert(datapoint)
@@ -120,7 +117,7 @@ def test_convert_timeseries_datapoint(datapoint: Datapoint) -> None:
     assert us_to_datetime(ingestion_time) == timestamp_to_datetime(datapoint.meta.ingestion_time)
 
 
-@given(lists(example_datapoints(missing_fields=True), min_size=5, max_size=30))
+@given(lists(example_datapoints(generated_fields=True, missing_fields=True), min_size=5, max_size=30))
 def test_convert_datapoints(datapoints: list[ExampleDatapoint]) -> None:  # noqa: C901, PLR0912
     converter = MessageToXarrayConverter()
     converter.convert_all(datapoints)

@@ -6,17 +6,19 @@ from uuid import UUID
 from promise import Promise
 
 from tilebox.datasets.data.collection import CollectionInfo
+from tilebox.datasets.data.data_access import QueryFilters
 from tilebox.datasets.data.datapoint import (
+    AnyMessage,
     Datapoint,
     DatapointInterval,
     DatapointPage,
-    IngestDatapoints,
-    IngestDatapointsResponse,
+    IngestResponse,
+    QueryResultPage,
 )
 from tilebox.datasets.data.datasets import Dataset, ListDatasetsResponse
 from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.time_interval import TimeInterval
-from tilebox.datasets.data.uuid import uuid_to_uuid_message
+from tilebox.datasets.data.uuid import must_uuid_to_uuid_message, uuid_to_uuid_message
 from tilebox.datasets.datasetsv1 import core_pb2
 from tilebox.datasets.datasetsv1.collections_pb2 import (
     CreateCollectionRequest,
@@ -24,9 +26,14 @@ from tilebox.datasets.datasetsv1.collections_pb2 import (
     ListCollectionsRequest,
 )
 from tilebox.datasets.datasetsv1.collections_pb2_grpc import CollectionServiceStub
-from tilebox.datasets.datasetsv1.data_access_pb2 import GetDatapointByIdRequest, GetDatasetForIntervalRequest
+from tilebox.datasets.datasetsv1.data_access_pb2 import (
+    GetDatapointByIdRequest,
+    GetDatasetForIntervalRequest,
+    QueryByIDRequest,
+    QueryRequest,
+)
 from tilebox.datasets.datasetsv1.data_access_pb2_grpc import DataAccessServiceStub
-from tilebox.datasets.datasetsv1.data_ingestion_pb2 import DeleteDatapointsRequest, IngestDatapointsRequest
+from tilebox.datasets.datasetsv1.data_ingestion_pb2 import DeleteRequest, IngestRequest
 from tilebox.datasets.datasetsv1.data_ingestion_pb2_grpc import DataIngestionServiceStub
 from tilebox.datasets.datasetsv1.datasets_pb2 import ClientInfo, GetDatasetRequest, ListDatasetsRequest, Package
 from tilebox.datasets.datasetsv1.datasets_pb2_grpc import DatasetServiceStub
@@ -57,11 +64,11 @@ class TileboxDatasetService:
             self._dataset_service.ListDatasets(ListDatasetsRequest(client_info=_client_info()))
         ).then(ListDatasetsResponse.from_message)
 
-    def get_dataset_by_id(self, dataset_id: str) -> Promise[Dataset]:
+    def get_dataset_by_id(self, dataset_id: UUID) -> Promise[Dataset]:
         """Get a dataset by its id."""
-        return Promise.resolve(self._dataset_service.GetDataset(GetDatasetRequest(id=dataset_id))).then(
-            Dataset.from_message
-        )
+        return Promise.resolve(
+            self._dataset_service.GetDataset(GetDatasetRequest(id=uuid_to_uuid_message(dataset_id)))
+        ).then(Dataset.from_message)
 
     def get_dataset_by_slug(self, slug: str) -> Promise[Dataset]:
         """Get a dataset by its id."""
@@ -126,7 +133,7 @@ class TileboxDatasetService:
             time_interval=time_interval.to_message(),
             skip_data=skip_data,
             skip_meta=skip_meta,
-            page=page.to_message() if page is not None else None,
+            page=page.to_legacy_message() if page is not None else None,
         )
         return Promise.resolve(self._data_access_service.GetDatasetForInterval(req)).then(
             DatapointPage.from_message,
@@ -145,15 +152,36 @@ class TileboxDatasetService:
             datapoint_interval=datapoint_interval.to_message(),
             skip_data=skip_data,
             skip_meta=skip_meta,
-            page=page.to_message() if page is not None else None,
+            page=page.to_legacy_message() if page is not None else None,
         )
         return Promise.resolve(self._data_access_service.GetDatasetForInterval(req)).then(
             DatapointPage.from_message,
         )
 
-    def ingest_datapoints(
-        self, collection_id: UUID, datapoints: IngestDatapoints, allow_existing: bool
-    ) -> Promise[IngestDatapointsResponse]:
+    def query_by_id(self, collection_ids: list[UUID], datapoint_id: UUID, skip_data: bool) -> Promise[AnyMessage]:
+        req = QueryByIDRequest(
+            collection_ids=list(map(must_uuid_to_uuid_message, collection_ids)),
+            id=must_uuid_to_uuid_message(datapoint_id),
+            skip_data=skip_data,
+        )
+        return Promise.resolve(self._data_access_service.QueryByID(req)).then(AnyMessage.from_message)
+
+    def query(
+        self,
+        collection_ids: list[UUID],
+        filters: QueryFilters,
+        skip_data: bool,
+        page: Pagination | None = None,
+    ) -> Promise[QueryResultPage]:
+        req = QueryRequest(
+            collection_ids=list(map(must_uuid_to_uuid_message, collection_ids)),
+            filters=filters.to_message(),
+            page=page.to_message() if page is not None else None,
+            skip_data=skip_data,
+        )
+        return Promise.resolve(self._data_access_service.Query(req)).then(QueryResultPage.from_message)
+
+    def ingest(self, collection_id: UUID, values: list[bytes], allow_existing: bool) -> Promise[IngestResponse]:
         """Ingest a batch of datapoints into a collection.
 
         Args:
@@ -164,16 +192,16 @@ class TileboxDatasetService:
         Returns:
             The number of datapoints that were ingested as well as the generated ids for those datapoints.
         """
-        req = IngestDatapointsRequest(
+        req = IngestRequest(
             collection_id=uuid_to_uuid_message(collection_id),
-            datapoints=datapoints.to_message(),
+            values=values,
             allow_existing=allow_existing,
         )
-        return Promise.resolve(self._data_ingestion_service.IngestDatapoints(req)).then(
-            IngestDatapointsResponse.from_message,
+        return Promise.resolve(self._data_ingestion_service.Ingest(req)).then(
+            IngestResponse.from_message,
         )
 
-    def delete_datapoints(self, collection_id: UUID, datapoints: list[UUID]) -> Promise[int]:
+    def delete(self, collection_id: UUID, datapoints: list[UUID]) -> Promise[int]:
         """Delete a batch of datapoints from a collection.
 
         Args:
@@ -183,11 +211,11 @@ class TileboxDatasetService:
         Returns:
             The number of datapoints that were deleted.
         """
-        req = DeleteDatapointsRequest(
+        req = DeleteRequest(
             collection_id=uuid_to_uuid_message(collection_id),
-            datapoint_ids=[core_pb2.ID(datapoint.bytes) for datapoint in datapoints],
+            datapoint_ids=[core_pb2.ID(uuid=datapoint.bytes) for datapoint in datapoints],
         )
-        return Promise.resolve(self._data_ingestion_service.DeleteDatapoints(req)).then(
+        return Promise.resolve(self._data_ingestion_service.Delete(req)).then(
             lambda response: response.num_deleted,
         )
 

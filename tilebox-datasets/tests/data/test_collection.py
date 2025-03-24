@@ -21,8 +21,8 @@ def test_collection_infos_repr(info: CollectionInfo) -> None:
         assert info.collection.name in r
 
         # make sure we hide the collection id in the repr
-        assume(info.collection.id not in info.collection.name)  # otherwise id would be in repr
-        assert info.collection.id not in r, "collection id should not be in repr"
+        assume(str(info.collection.id) not in info.collection.name)  # otherwise id would be in repr
+        assert str(info.collection.id) not in r, "collection id should not be in repr"
 
         if info.availability is None:
             assert "unknown" in r

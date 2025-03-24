@@ -80,6 +80,29 @@ class Dataset:
             description=self.description,
         )
 
+    @property
+    def is_legacy_type(self) -> bool:
+        """
+        Check if the dataset type is a legacy type (without the meta fields in the proto message).
+
+        For those types, we use the legacy query API, until all datasets are fully migrated to the new endpoints.
+        """
+        # helper function to check if the type is a legacy type (without the meta fields in the proto message)
+        files = self.type.descriptor_set.file
+        if not files or len(files) != 1:
+            return False
+        file = files[0]
+        messages = file.message_type
+        if not messages or len(messages) != 1:
+            return False
+        message = messages[0]
+        fields = message.field
+        if not fields or len(fields) < 3:
+            return True  # new style types have at least three fields (time, id, ingestion_time)
+
+        has_new_type_fields = fields[0].name == "time" and fields[1].name == "id" and fields[2].name == "ingestion_time"
+        return not has_new_type_fields
+
 
 @dataclass
 class DatasetGroup:

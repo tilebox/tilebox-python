@@ -26,6 +26,16 @@ class DataAccessServiceStub(object):
                 request_serializer=datasets_dot_v1_dot_data__access__pb2.GetDatapointByIdRequest.SerializeToString,
                 response_deserializer=datasets_dot_v1_dot_core__pb2.Datapoint.FromString,
                 _registered_method=True)
+        self.QueryByID = channel.unary_unary(
+                '/datasets.v1.DataAccessService/QueryByID',
+                request_serializer=datasets_dot_v1_dot_data__access__pb2.QueryByIDRequest.SerializeToString,
+                response_deserializer=datasets_dot_v1_dot_core__pb2.Any.FromString,
+                _registered_method=True)
+        self.Query = channel.unary_unary(
+                '/datasets.v1.DataAccessService/Query',
+                request_serializer=datasets_dot_v1_dot_data__access__pb2.QueryRequest.SerializeToString,
+                response_deserializer=datasets_dot_v1_dot_data__access__pb2.QueryResultPage.FromString,
+                _registered_method=True)
 
 
 class DataAccessServiceServicer(object):
@@ -46,6 +56,20 @@ class DataAccessServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def QueryByID(self, request, context):
+        """QueryByID returns a single data point by its ID.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Query(self, request, context):
+        """Query returns a list of data points matching the given query filters.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DataAccessServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -58,6 +82,16 @@ def add_DataAccessServiceServicer_to_server(servicer, server):
                     servicer.GetDatapointByID,
                     request_deserializer=datasets_dot_v1_dot_data__access__pb2.GetDatapointByIdRequest.FromString,
                     response_serializer=datasets_dot_v1_dot_core__pb2.Datapoint.SerializeToString,
+            ),
+            'QueryByID': grpc.unary_unary_rpc_method_handler(
+                    servicer.QueryByID,
+                    request_deserializer=datasets_dot_v1_dot_data__access__pb2.QueryByIDRequest.FromString,
+                    response_serializer=datasets_dot_v1_dot_core__pb2.Any.SerializeToString,
+            ),
+            'Query': grpc.unary_unary_rpc_method_handler(
+                    servicer.Query,
+                    request_deserializer=datasets_dot_v1_dot_data__access__pb2.QueryRequest.FromString,
+                    response_serializer=datasets_dot_v1_dot_data__access__pb2.QueryResultPage.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -115,6 +149,60 @@ class DataAccessService(object):
             '/datasets.v1.DataAccessService/GetDatapointByID',
             datasets_dot_v1_dot_data__access__pb2.GetDatapointByIdRequest.SerializeToString,
             datasets_dot_v1_dot_core__pb2.Datapoint.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def QueryByID(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/datasets.v1.DataAccessService/QueryByID',
+            datasets_dot_v1_dot_data__access__pb2.QueryByIDRequest.SerializeToString,
+            datasets_dot_v1_dot_core__pb2.Any.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Query(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/datasets.v1.DataAccessService/Query',
+            datasets_dot_v1_dot_data__access__pb2.QueryRequest.SerializeToString,
+            datasets_dot_v1_dot_data__access__pb2.QueryResultPage.FromString,
             options,
             channel_credentials,
             insecure,

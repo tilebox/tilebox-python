@@ -24,8 +24,6 @@ from tests.data.well_known_types import (
     datetime_messages,
     duration_messages,
     geometry_messages,
-    latlon_messages,
-    latlonalt_messages,
     processing_levels,
     quaternion_messages,
     shapely_polygons,
@@ -34,11 +32,12 @@ from tests.data.well_known_types import (
 )
 from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
 from tilebox.datasets.data.datapoint import (
-    Any,
+    AnyMessage,
     Datapoint,
     DatapointInterval,
     DatapointPage,
-    IngestDatapointsResponse,
+    IngestResponse,
+    QueryResultPage,
     RepeatedAny,
 )
 from tilebox.datasets.data.time_interval import (
@@ -50,8 +49,8 @@ from tilebox.datasets.datasetsv1 import core_pb2
 @composite
 def datapoint_intervals(draw: DrawFn) -> DatapointInterval:
     """A hypothesis strategy for generating random datapoint intervals"""
-    start = str(draw(uuids(version=4)))
-    end = str(draw(uuids(version=4)))
+    start = draw(uuids(version=4))
+    end = draw(uuids(version=4))
     start, end = min(start, end), max(start, end)  # make sure start is before end
 
     start_exclusive = draw(booleans())
@@ -61,18 +60,25 @@ def datapoint_intervals(draw: DrawFn) -> DatapointInterval:
 
 
 @composite
-def example_datapoints(draw: DrawFn, missing_fields: bool = False) -> ExampleDatapoint:
+def example_datapoints(draw: DrawFn, generated_fields: bool = False, missing_fields: bool = False) -> ExampleDatapoint:
     """
     A hypothesis strategy for generating random ExampleDatapoint messages
 
     Args:
-        missing_fields: Whether to generate datapoints with missing fields. If True, datapoints
+        generated_fields: Whether to generate datapoints with all generated fields (id and ingestion_time) set as well.
+            If True, datapoints will have all meta fields set. If False, those fields will be set to None, similar
+            to how a datapoint for ingestion would look like.
+        missing_fields: Whether to generate datapoints with missing custom fields. If True, datapoints
             will randomly have some fields missing. If False, all fields will be set with data.
     """
     # empty one_of() will never generate something, so it means always the other strategy will be used
     maybe_none = none() if missing_fields else one_of()
 
     return ExampleDatapoint(
+        time=(draw(datetime_messages()) if generated_fields else None),
+        id=(draw(uuid_messages()) if generated_fields else None),
+        ingestion_time=(draw(datetime_messages()) if generated_fields else None),
+        # geometry=,  # skip for now
         some_string=draw(text(alphabet=string.ascii_letters + string.digits, min_size=1, max_size=10) | maybe_none),
         some_int=draw(integers(min_value=1, max_value=100) | maybe_none),
         some_double=draw(floats(min_value=1.0, max_value=100.0) | maybe_none),
@@ -84,8 +90,6 @@ def example_datapoints(draw: DrawFn, missing_fields: bool = False) -> ExampleDat
         some_identifier=draw(uuid_messages() | maybe_none),
         some_vec3=draw(vec3_messages() | maybe_none),
         some_quaternion=draw(quaternion_messages() | maybe_none),
-        some_latlon=draw(latlon_messages() | maybe_none),
-        some_latlon_alt=draw(latlonalt_messages() | maybe_none),
         some_geometry=draw(geometry_messages() | maybe_none),
         # enum
         some_enum=draw(processing_levels() | maybe_none),
@@ -110,12 +114,11 @@ def example_datapoints(draw: DrawFn, missing_fields: bool = False) -> ExampleDat
 def example_pandas_datapoints(draw: DrawFn) -> pd.DataFrame:
     vec3 = draw(vec3_messages())
     quaternion = draw(quaternion_messages())
-    latlon = draw(latlon_messages())
-    latlonalt = draw(latlonalt_messages())
 
     return pd.DataFrame(
         {
             "time": [draw(i64_datetimes)],
+            # doesn't include ingestion time and id, because the pandas datapoint is used for testing ingestion
             "some_string": [draw(text(alphabet=string.ascii_letters + string.digits, min_size=1, max_size=10))],
             "some_int": [draw(integers(min_value=1, max_value=100))],
             "some_double": [draw(floats(min_value=1.0, max_value=100.0))],
@@ -127,8 +130,6 @@ def example_pandas_datapoints(draw: DrawFn) -> pd.DataFrame:
             "some_identifier": [draw(uuids(version=4))],
             "some_vec3": [(vec3.x, vec3.y, vec3.z)],
             "some_quaternion": [(quaternion.q1, quaternion.q2, quaternion.q3, quaternion.q4)],
-            "some_latlon": [(latlon.latitude, latlon.longitude)],
-            "some_latlon_alt": [(latlonalt.latitude, latlonalt.longitude, latlonalt.altitude)],
             "some_geometry": [draw(shapely_polygons())],
             # enum
             "some_enum": [draw(processing_levels())],
@@ -158,21 +159,25 @@ def example_pandas_datapoints(draw: DrawFn) -> pd.DataFrame:
 
 
 @composite
-def anys(draw: DrawFn, missing_fields: bool = False) -> Any:
+def anys(draw: DrawFn, generated_fields: bool = False, missing_fields: bool = False) -> AnyMessage:
     """A hypothesis strategy for generating random Any messages"""
     # we need a random byte string here, but let's actually use a valid protobuf message, in this
     # case because its easy to generate let's use a DatapointMetadata message
-    datapoint = draw(example_datapoints(missing_fields))
-    return Any(example_dataset_type_url(), datapoint.SerializeToString())
+    datapoint = draw(example_datapoints(generated_fields, missing_fields))
+    return AnyMessage(example_dataset_type_url(), datapoint.SerializeToString())
 
 
 @composite
-def repeated_anys(draw: DrawFn, missing_fields: bool = False, fixed_length: int | None = None) -> RepeatedAny:
+def repeated_anys(
+    draw: DrawFn, generated_fields: bool = False, missing_fields: bool = False, fixed_length: int | None = None
+) -> RepeatedAny:
     """A hypothesis strategy for generating random RepeatedAny messages"""
     if fixed_length is not None:
-        datapoints = draw(lists(example_datapoints(missing_fields), min_size=fixed_length, max_size=fixed_length))
+        datapoints = draw(
+            lists(example_datapoints(generated_fields, missing_fields), min_size=fixed_length, max_size=fixed_length)
+        )
     else:
-        datapoints = draw(lists(example_datapoints(missing_fields), min_size=1, max_size=5))
+        datapoints = draw(lists(example_datapoints(generated_fields, missing_fields), min_size=1, max_size=5))
     return RepeatedAny(example_dataset_type_url(), [dp.SerializeToString() for dp in datapoints])
 
 
@@ -185,27 +190,56 @@ def datapoint_metadata_messages(draw: DrawFn) -> core_pb2.DatapointMetadata:
 
 
 @composite
-def datapoints(draw: DrawFn, missing_fields: bool = False) -> Datapoint:
+def datapoints(draw: DrawFn, generated_fields: bool = False, missing_fields: bool = False) -> Datapoint:
     """A hypothesis strategy for generating random datapoints"""
     meta = draw(datapoint_metadata_messages())
-    data = draw(anys(missing_fields))
+    data = draw(anys(generated_fields, missing_fields))
     return Datapoint(meta, data)
 
 
 @composite
-def datapoint_pages(draw: DrawFn, empty_next_page: bool | None = None, missing_fields: bool = False) -> DatapointPage:
+def datapoint_pages(
+    draw: DrawFn, empty_next_page: bool | None = None, generated_fields: bool = True, missing_fields: bool = False
+) -> DatapointPage:
     """
-    A hypothesis strategy for generating random datapoints
+    A hypothesis strategy for generating random datapoint pages
 
     Args:
         empty_next_page: Whether the next page should be empty or not. If None, it will randomly be either an
             empty or non-empty next page.
+        generated_fields: Whether to generate datapoints with all generated fields (id and ingestion_time) set as well.
+            If True, datapoints will have all meta fields set. If False, those fields will be set to None, similar
+            to how a datapoint for ingestion would look like.
+        missing_fields: Whether to generate datapoints with missing custom fields. If True, datapoints
+            will randomly have some fields missing. If False, all fields will be set with data.
     """
     meta = draw(lists(datapoint_metadata_messages(), min_size=1, max_size=5))
-    data = draw(repeated_anys(missing_fields, fixed_length=len(meta)))
+    data = draw(repeated_anys(generated_fields, missing_fields, fixed_length=len(meta)))
     next_page = draw(paginations(empty_next_page))
     byte_size = sum(len(m) for m in data.value)
     return DatapointPage(meta, data, next_page, byte_size)
+
+
+@composite
+def query_result_pages(
+    draw: DrawFn, empty_next_page: bool | None = None, generated_fields: bool = True, missing_fields: bool = False
+) -> QueryResultPage:
+    """
+    A hypothesis strategy for generating random query result pages
+
+    Args:
+        empty_next_page: Whether the next page should be empty or not. If None, it will randomly be either an
+            empty or non-empty next page.
+        generated_fields: Whether to generate datapoints with all generated fields (id and ingestion_time) set as well.
+            If True, datapoints will have all meta fields set. If False, those fields will be set to None, similar
+            to how a datapoint for ingestion would look like.
+        missing_fields: Whether to generate datapoints with missing custom fields. If True, datapoints
+            will randomly have some fields missing. If False, all fields will be set with data.
+    """
+    data = draw(repeated_anys(generated_fields, missing_fields))
+    next_page = draw(paginations(empty_next_page))
+    byte_size = sum(len(m) for m in data.value)
+    return QueryResultPage(data, next_page, byte_size)
 
 
 @composite
@@ -218,11 +252,11 @@ def paginated_datapoint_for_interval_responses(draw: DrawFn) -> list[DatapointPa
 
 
 @composite
-def ingest_datapoints_responses(draw: DrawFn) -> IngestDatapointsResponse:
+def ingest_datapoints_responses(draw: DrawFn) -> IngestResponse:
     """A hypothesis strategy for generating random ingest datapoints responses"""
     num_created = draw(integers(min_value=0, max_value=50))
     num_existing = draw(integers(min_value=0, max_value=50))
     datapoint_ids = draw(
         lists(uuids(), min_size=num_created + num_existing, max_size=num_created + num_existing, unique=True)
     )
-    return IngestDatapointsResponse(num_created, num_existing, datapoint_ids)
+    return IngestResponse(num_created, num_existing, datapoint_ids)

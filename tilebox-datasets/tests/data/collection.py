@@ -18,7 +18,7 @@ def collection_names(draw: DrawFn) -> str:
 @composite
 def collections(draw: DrawFn) -> Collection:
     """A hypothesis strategy for generating random collections"""
-    return Collection(str(draw(uuids(version=4))), draw(collection_names()))
+    return Collection(draw(uuids(version=4)), draw(collection_names()))
 
 
 uint64s = integers(min_value=0, max_value=2**64 - 1)

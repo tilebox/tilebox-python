@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from functools import partial
+from typing import cast
 from uuid import UUID
 from warnings import warn
 
@@ -14,18 +15,21 @@ from tilebox.datasets.aio.pagination import (
     with_time_progressbar,
 )
 from tilebox.datasets.data.collection import CollectionInfo
-from tilebox.datasets.data.datapoint import DatapointInterval, DatapointPage
+from tilebox.datasets.data.data_access import QueryFilters
+from tilebox.datasets.data.datapoint import DatapointInterval, DatapointPage, QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
+from tilebox.datasets.data.uuid import as_uuid
 from tilebox.datasets.message_pool import get_message_type
 from tilebox.datasets.progress import ProgressCallback
-from tilebox.datasets.protobuf_conversion.protobuf_xarray import TimeseriesToXarrayConverter
+from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter, TimeseriesToXarrayConverter
 from tilebox.datasets.protobuf_conversion.to_protobuf import (
     DatapointIDs,
     IngestionData,
     extract_datapoint_ids,
-    to_timeseries_datapoints,
+    marshal_messages,
+    to_messages,
 )
 from tilebox.datasets.service import TileboxDatasetService
 
@@ -76,13 +80,7 @@ class TimeseriesDataset:
 
         collections = await self._service.get_collections(self._dataset.id, True, True)
 
-        dataset_collections = {}
-        for collection in collections:
-            remote_collection = TimeseriesCollection(self, collection.collection.name)
-            remote_collection._info = collection
-            dataset_collections[collection.collection.name] = remote_collection
-
-        return dataset_collections
+        return {collection.collection.name: TimeseriesCollection(self, collection) for collection in collections}
 
     async def get_or_create_collection(self, name: str) -> "TimeseriesCollection":
         """Get a collection by its name, or create it if it doesn't exist.
@@ -109,10 +107,7 @@ class TimeseriesDataset:
             The created collection.
         """
         info = await self._service.create_collection(self._dataset.id, name)
-
-        collection = TimeseriesCollection(self, info.collection.name)
-        collection._info = info
-        return collection
+        return TimeseriesCollection(self, info)
 
     async def collection(self, name: str) -> "TimeseriesCollection":
         """Get a collection by its name.
@@ -128,9 +123,7 @@ class TimeseriesDataset:
         except NotFoundError:
             raise NotFoundError(f"No such collection {name}") from None
 
-        collection = TimeseriesCollection(self, name)
-        collection._info = info
-        return collection
+        return TimeseriesCollection(self, info)
 
     def __repr__(self) -> str:
         return f"{self.name} [Timeseries Dataset]: {self._dataset.summary}"
@@ -142,15 +135,21 @@ class TimeseriesCollection:
     def __init__(
         self,
         dataset: TimeseriesDataset,
-        collection_name: str,
+        info: CollectionInfo,
     ) -> None:
         self._dataset = dataset
-        self.name = collection_name
-        self._info: CollectionInfo
+        self._use_legacy_api = dataset._dataset.is_legacy_type
+        self._collection = info.collection
+        self._info: CollectionInfo | None = info
 
     def __repr__(self) -> str:
         """Human readable representation of the collection."""
         return repr(self._info)
+
+    @property
+    def name(self) -> str:
+        """The name of the collection."""
+        return self._collection.name
 
     async def info(self, availability: bool | None = None, count: bool | None = None) -> CollectionInfo:
         """
@@ -178,9 +177,20 @@ class TimeseriesCollection:
                 stacklevel=2,
             )
 
+        if self._info is None:  # only load collection info if it hasn't been loaded yet (or it has been invalidated)
+            try:
+                self._info = cast(
+                    CollectionInfo,
+                    await self._dataset._service.get_collection_by_name(
+                        self._dataset._dataset.id, self.name, True, True
+                    ),
+                )
+            except NotFoundError:
+                raise NotFoundError(f"No such collection {self.name}") from None
+
         return self._info
 
-    async def find(self, datapoint_id: str, skip_data: bool = False) -> xr.Dataset:
+    async def find(self, datapoint_id: str | UUID, skip_data: bool = False) -> xr.Dataset:
         """
         Find a specific datapoint in this collection by its id.
 
@@ -191,9 +201,29 @@ class TimeseriesCollection:
         Returns:
             The datapoint as an xarray dataset
         """
+        if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
+            return await self._find_legacy(str(datapoint_id), skip_data)
+
+        try:
+            datapoint = await self._dataset._service.query_by_id(
+                [self._collection.id], as_uuid(datapoint_id), skip_data
+            )
+        except ArgumentError:
+            raise ValueError(f"Invalid datapoint id: {datapoint_id} is not a valid UUID") from None
+        except NotFoundError:
+            raise NotFoundError(f"No such datapoint {datapoint_id}") from None
+
+        message_type = get_message_type(datapoint.type_url)
+        data = message_type.FromString(datapoint.value)
+
+        converter = MessageToXarrayConverter(initial_capacity=1)
+        converter.convert(data)
+        return converter.finalize("time").isel(time=0)
+
+    async def _find_legacy(self, datapoint_id: str, skip_data: bool = False) -> xr.Dataset:
         try:
             datapoint = await self._dataset._service.get_datapoint_by_id(
-                self._info.collection.id, datapoint_id, skip_data
+                str(self._collection.id), datapoint_id, skip_data
             )
         except ArgumentError:
             raise ValueError(f"Invalid datapoint id: {datapoint_id} is not a valid UUID") from None
@@ -206,7 +236,7 @@ class TimeseriesCollection:
 
     async def _find_interval(
         self,
-        datapoint_id_interval: tuple[str, str],
+        datapoint_id_interval: tuple[str, str] | tuple[UUID, UUID],
         end_inclusive: bool = True,
         *,
         skip_data: bool = False,
@@ -225,17 +255,50 @@ class TimeseriesCollection:
         Returns:
             The datapoints in the given interval as an xarray dataset
         """
+        if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
+            return await self._find_interval_legacy(
+                datapoint_id_interval, end_inclusive, skip_data=skip_data, show_progress=show_progress
+            )
+
+        start_id, end_id = datapoint_id_interval
+
+        filters = QueryFilters(
+            temporal_interval=DatapointInterval(
+                start_id=as_uuid(start_id),
+                end_id=as_uuid(end_id),
+                start_exclusive=False,
+                end_inclusive=end_inclusive,
+            )
+        )
+
+        request = partial(self._dataset._service.query, [self._collection.id], filters, skip_data)
+
+        initial_page = Pagination()
+        pages = paginated_request(request, initial_page)
+        if show_progress:
+            pages = with_progressbar(pages, f"Fetching {self._dataset.name}")
+
+        return await _convert_to_dataset(pages)
+
+    async def _find_interval_legacy(
+        self,
+        datapoint_id_interval: tuple[str, str] | tuple[UUID, UUID],
+        end_inclusive: bool = True,
+        *,
+        skip_data: bool = False,
+        show_progress: bool = False,
+    ) -> xr.Dataset:
         start_id, end_id = datapoint_id_interval
 
         datapoint_interval = DatapointInterval(
-            start_id=start_id,
-            end_id=end_id,
+            start_id=as_uuid(start_id),
+            end_id=as_uuid(end_id),
             start_exclusive=False,
             end_inclusive=end_inclusive,
         )
         request = partial(
             self._dataset._service.get_dataset_for_datapoint_interval,
-            self._info.collection.id,
+            str(self._collection.id),
             datapoint_interval,
             skip_data,
             False,
@@ -246,7 +309,7 @@ class TimeseriesCollection:
         if show_progress:
             pages = with_progressbar(pages, f"Fetching {self._dataset.name}")
 
-        return await _convert_to_dataset(pages)
+        return await _convert_to_dataset_legacy(pages)
 
     async def load(
         self,
@@ -276,10 +339,52 @@ class TimeseriesCollection:
         Returns:
             The datapoints in the given interval as an xarray dataset
         """
+        if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
+            return await self._load_legacy(time_or_interval, skip_data=skip_data, show_progress=show_progress)
+
         pages = self._iter_pages(time_or_interval, skip_data, show_progress=show_progress)
         return await _convert_to_dataset(pages)
 
     async def _iter_pages(
+        self,
+        time_or_interval: TimeIntervalLike,
+        skip_data: bool = False,
+        show_progress: bool | ProgressCallback = False,
+        page_size: int | None = None,
+    ) -> AsyncIterator[QueryResultPage]:
+        time_interval = TimeInterval.parse(time_or_interval)
+        filters = QueryFilters(temporal_interval=time_interval)
+
+        request = partial(self._load_page, filters, skip_data)
+
+        initial_page = Pagination(limit=page_size)
+        pages = paginated_request(request, initial_page)
+
+        if callable(show_progress):
+            pages = with_time_progress_callback(pages, time_interval, show_progress)
+        elif show_progress:
+            message = f"Fetching {self._dataset.name}"
+            pages = with_time_progressbar(pages, time_interval, message)
+
+        async for page in pages:
+            yield page
+
+    async def _load_page(
+        self, filters: QueryFilters, skip_data: bool, page: Pagination | None = None
+    ) -> QueryResultPage:
+        return await self._dataset._service.query([self._collection.id], filters, skip_data, page)
+
+    async def _load_legacy(
+        self,
+        time_or_interval: TimeIntervalLike,
+        *,
+        skip_data: bool = False,
+        show_progress: bool | ProgressCallback = False,
+    ) -> xr.Dataset:
+        pages = self._iter_pages_legacy(time_or_interval, skip_data, show_progress=show_progress)
+        return await _convert_to_dataset_legacy(pages)
+
+    async def _iter_pages_legacy(
         self,
         time_or_interval: TimeIntervalLike,
         skip_data: bool = False,
@@ -289,7 +394,7 @@ class TimeseriesCollection:
     ) -> AsyncIterator[DatapointPage]:
         time_interval = TimeInterval.parse(time_or_interval)
 
-        request = partial(self._load_page, time_interval, skip_data, skip_meta)
+        request = partial(self._load_page_legacy, time_interval, skip_data, skip_meta)
 
         initial_page = Pagination(limit=page_size)
         pages = paginated_request(request, initial_page)
@@ -309,11 +414,11 @@ class TimeseriesCollection:
         async for page in pages:
             yield page
 
-    async def _load_page(
+    async def _load_page_legacy(
         self, time_interval: TimeInterval, skip_data: bool, skip_meta: bool, page: Pagination | None = None
     ) -> DatapointPage:
         return await self._dataset._service.get_dataset_for_time_interval(
-            self._info.collection.id, time_interval, skip_data, skip_meta, page
+            str(self._collection.id), time_interval, skip_data, skip_meta, page
         )
 
     async def ingest(self, data: IngestionData, allow_existing: bool = True) -> list[UUID]:
@@ -333,11 +438,15 @@ class TimeseriesCollection:
         Returns:
             List of datapoint ids that were ingested.
         """
+        if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
+            raise ValueError("Ingestion is not supported for this dataset. Please create a new dataset.")
+
         message_type = get_message_type(self._dataset._dataset.type.type_url)
-        datapoints = to_timeseries_datapoints(data, message_type)
-        response = await self._dataset._service.ingest_datapoints(
-            UUID(self._info.collection.id), datapoints, allow_existing
+        messages = marshal_messages(
+            to_messages(data, message_type, required_fields=["time"], ignore_fields=["id", "ingestion_time"])
         )
+        response = await self._dataset._service.ingest(self._collection.id, messages, allow_existing)
+        self._info = None  # invalidate collection info, since we just ingested some data into it
         return response.datapoint_ids
 
     async def delete(self, datapoints: DatapointIDs) -> int:
@@ -360,10 +469,39 @@ class TimeseriesCollection:
                 will be deleted if any of the requested deletions doesn't exist.
         """
         datapoint_ids = extract_datapoint_ids(datapoints)
-        return await self._dataset._service.delete_datapoints(UUID(self._info.collection.id), datapoint_ids)
+        num_deleted = await self._dataset._service.delete(self._collection.id, datapoint_ids)
+        self._info = None  # invalidate collection info, since we just deleted some data from it
+        return num_deleted
 
 
-async def _convert_to_dataset(pages: AsyncIterator[DatapointPage]) -> xr.Dataset:
+async def _convert_to_dataset(pages: AsyncIterator[QueryResultPage]) -> xr.Dataset:
+    """
+    Convert an async iterator of QueryResultPages into a single xarray Dataset
+
+    Parses each incoming page while in parallel already requesting and waiting for the next page from the server.
+
+    Args:
+        pages: Async iterator of QueryResultPages to convert
+
+    Returns:
+        The datapoints from the individual pages converted and combined into a single xarray dataset
+    """
+    converter = MessageToXarrayConverter()
+
+    def convert_page(page: QueryResultPage) -> None:
+        message_type = get_message_type(page.data.type_url)
+        messages = [message_type.FromString(v) for v in page.data.value]
+        converter.convert_all(messages)
+
+    # lets parse the incoming pages already while we wait for the next page from the server
+    # we solve this using a classic producer/consumer with a queue of pages for communication
+    # this would also account for the case where the server sends pages faster than we are converting
+    # them to xarray
+    await async_producer_consumer(pages, convert_page)
+    return converter.finalize("time")
+
+
+async def _convert_to_dataset_legacy(pages: AsyncIterator[DatapointPage]) -> xr.Dataset:
     """
     Convert an async iterator of DatasetIntervals (pages) into a single xarray Dataset
 

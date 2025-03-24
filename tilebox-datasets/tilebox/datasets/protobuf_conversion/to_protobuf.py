@@ -7,15 +7,12 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from google.protobuf.descriptor import FieldDescriptor
-from google.protobuf.timestamp_pb2 import Timestamp
+from google.protobuf.message import Message
 
-from tilebox.datasets.data.datapoint import IngestDatapoints
-from tilebox.datasets.datasetsv1 import core_pb2
 from tilebox.datasets.protobuf_conversion.field_types import (
     GeobufField,
     ProtobufFieldType,
     ProtoFieldValue,
-    TimestampField,
     infer_field_type,
 )
 
@@ -23,18 +20,28 @@ IngestionData = Mapping[str, Collection[Any]] | Iterable[tuple[str, Collection[A
 DatapointIDs = pd.DataFrame | pd.Series | xr.Dataset | xr.DataArray | np.ndarray | Collection[UUID] | Collection[str]
 
 
-def to_timeseries_datapoints(data: IngestionData, message_type: type) -> IngestDatapoints:  # noqa: C901, PLR0912
+def to_messages(  # noqa: C901, PLR0912
+    data: IngestionData,
+    message_type: type,
+    required_fields: list[str] | None = None,
+    ignore_fields: list[str] | None = None,
+) -> list[Message]:
     if not isinstance(data, xr.Dataset) and not isinstance(data, pd.DataFrame):
         try:
             data = pd.DataFrame(data)
-        except (TypeError, ValueError):
-            raise ValueError("Invalid ingestion data. Failed to convert data to a pandas.DataFrame()") from None
+        except (TypeError, ValueError) as err:
+            raise ValueError(f"Invalid ingestion data. Failed to convert data to a pandas.DataFrame(): {err}") from None
 
-    if "time" not in data:
-        raise ValueError("missing time field")
+    if required_fields is None:
+        required_fields = []
 
-    field_descriptors = message_type.DESCRIPTOR.fields_by_name
-    accepted_field_names = set(field_descriptors) | {"time"}
+    for required_field in required_fields:
+        if required_field not in data:
+            raise ValueError(f"Missing required field {required_field}")
+
+    ignore = set(ignore_fields or [])
+
+    field_descriptors_by_name = message_type.DESCRIPTOR.fields_by_name
 
     # let's validate our fields, to make sure that they are all known fields for the given protobuf message
     # and that they are all lists of the same length
@@ -48,16 +55,19 @@ def to_timeseries_datapoints(data: IngestionData, message_type: type) -> IngestD
         field_names.extend(list(set(map(str, data.coords)) & {"time"}))
 
     for field_name in field_names:
+        if field_name in ignore:
+            continue
+
         values = data[field_name]  # this works for pandas series and xarray data arrays
         if not isinstance(values, pd.Series | xr.DataArray | np.ndarray):
             raise TypeError(
                 f"expected a list, pandas.Series or xarray.DataArray of elements for field {field_name}, got {type(values)} instead"
             )
 
-        if field_name not in accepted_field_names:
+        if field_name not in field_descriptors_by_name:
             raise ValueError(
                 f"{field_name} is not a valid field of dataset type {message_type.__name__}. "
-                f"Expected one of {', '.join(field_descriptors.keys())}"
+                f"Expected one of {', '.join(field_descriptors_by_name.keys())}"
             )
 
         if isinstance(values, xr.DataArray):
@@ -68,43 +78,35 @@ def to_timeseries_datapoints(data: IngestionData, message_type: type) -> IngestD
 
         field_lengths[len(values)].append(field_name)  # to validate all fields have the same length
 
-        # special handling, it's not part of the message descriptor
-        if field_name == "time":
-            values = convert_values_to_proto(values, TimestampField(), filter_none=False)
+        descriptor = field_descriptors_by_name[field_name]
+        if descriptor.type == FieldDescriptor.TYPE_ENUM:
+            continue  # skip enums, not supported for now in ingestion
+
+        field_type = infer_field_type(descriptor)
+        if isinstance(field_type, GeobufField):
+            continue  # legacy geometry type, ingestion is only supported for the new geometry type
+
+        if descriptor.label == FieldDescriptor.LABEL_REPEATED:
+            values = convert_repeated_values_to_proto(values, field_type)
         else:
-            descriptor = field_descriptors[field_name]
-            if descriptor.type == FieldDescriptor.TYPE_ENUM:
-                continue  # skip enums, not supported for now in ingestion
-
-            field_type = infer_field_type(descriptor)
-            if isinstance(field_type, GeobufField):
-                continue  # legacy geometry type, ingestion is only supported for the new geometry type
-
-            if descriptor.label == FieldDescriptor.LABEL_REPEATED:
-                values = convert_repeated_values_to_proto(values, field_type)
-            else:
-                values = convert_values_to_proto(values, field_type, filter_none=False)
+            values = convert_values_to_proto(values, field_type, filter_none=False)
 
         fields[field_name] = values  # type: ignore[assignment]
 
     # now convert every datapoint to a protobuf message
-    metas = []
-    values = []
+    if len(field_lengths) == 0:  # early return, no actual data to convert
+        return []
 
-    if len(field_lengths) == 0:  # early return, no actual datapoints to convert
-        return IngestDatapoints(meta=metas, data=values)
-
-    if len(field_lengths) > 1:
+    if len(field_lengths) > 1:  # some fields have different number of elements than others
         msg = [f"- {n}: {', '.join(names)}" for n, names in field_lengths.items()]
         newline = "\n"  # since we can't use it in f-strings due to old python version support
-        raise ValueError(f"Inconsistent number of datapoints:{newline}{newline.join(msg)}")
+        raise ValueError(f"Inconsistent number of datapoints: {newline}{newline.join(msg)}")
 
-    for datapoint in columnar_to_row_based(fields):
-        meta, value = to_ingest_datapoint(message_type, **datapoint)
-        metas.append(meta)
-        values.append(value)
+    return [message_type(**datapoint) for datapoint in columnar_to_row_based(fields)]
 
-    return IngestDatapoints(meta=metas, data=values)
+
+def marshal_messages(messages: list[Message]) -> list[bytes]:
+    return [m.SerializeToString(deterministic=True) for m in messages]
 
 
 def columnar_to_row_based(
@@ -119,14 +121,6 @@ def columnar_to_row_based(
         for name, values in data.items():
             datapoint[name] = values[i]
         yield datapoint
-
-
-def to_ingest_datapoint(
-    message_type: type, time: Timestamp, **kwargs: dict[str, Any]
-) -> tuple[core_pb2.DatapointMetadata, bytes]:
-    meta = core_pb2.DatapointMetadata(event_time=time)
-    message = message_type(**kwargs)
-    return meta, message.SerializeToString()
 
 
 def convert_values_to_proto(

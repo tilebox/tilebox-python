@@ -64,9 +64,9 @@ def translate_rpc_error(err: AnyRpcError) -> Exception:
     # translate specific error codes to more pythonic errors
     match err.code():
         case StatusCode.UNAUTHENTICATED:
-            return AuthenticationError("No authentication token provided")
+            return AuthenticationError(f"Unauthenticated: {err.details()}")
         case StatusCode.PERMISSION_DENIED:
-            return AuthenticationError("Invalid token provided")
+            return AuthenticationError(f"Unauthorized: {err.details()}")
         case StatusCode.NOT_FOUND:
             return NotFoundError(err.details())
         case StatusCode.RESOURCE_EXHAUSTED:
