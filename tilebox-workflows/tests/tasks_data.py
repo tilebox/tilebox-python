@@ -27,6 +27,7 @@ from tilebox.workflows.data import (
     ComputedTask,
     CronTrigger,
     Job,
+    JobState,
     StorageEventTrigger,
     StorageLocation,
     StorageType,
@@ -96,11 +97,11 @@ def jobs(draw: DrawFn, canceled: bool | None = None) -> Job:
     job_id = draw(uuids(version=4))
     name = draw(alphanumerical_text())
     trace_parent = draw(alphanumerical_text())
-    completed = draw(booleans())
+    state = draw(sampled_from(JobState))
     if canceled is None:
         canceled = draw(booleans())
 
-    return Job(job_id, name, trace_parent, completed, canceled)
+    return Job(job_id, name, trace_parent, state, canceled)
 
 
 @composite

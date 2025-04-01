@@ -49,7 +49,6 @@ class MockJobService(JobServiceStub):
             id=uuid_to_uuid_message(job_id),
             name=req.job_name,
             trace_parent=req.trace_parent,
-            completed=False,
             canceled=False,
             state=JobState.JOB_STATE_QUEUED,
             submitted_at=datetime_to_timestamp(datetime.now(tz=timezone.utc)),

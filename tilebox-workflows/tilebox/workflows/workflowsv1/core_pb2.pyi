@@ -43,11 +43,10 @@ class Cluster(_message.Message):
     def __init__(self, slug: _Optional[str] = ..., display_name: _Optional[str] = ...) -> None: ...
 
 class Job(_message.Message):
-    __slots__ = ("id", "name", "trace_parent", "completed", "canceled", "state", "submitted_at", "started_at", "task_summaries", "automation_id")
+    __slots__ = ("id", "name", "trace_parent", "canceled", "state", "submitted_at", "started_at", "task_summaries", "automation_id")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TRACE_PARENT_FIELD_NUMBER: _ClassVar[int]
-    COMPLETED_FIELD_NUMBER: _ClassVar[int]
     CANCELED_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     SUBMITTED_AT_FIELD_NUMBER: _ClassVar[int]
@@ -57,14 +56,13 @@ class Job(_message.Message):
     id: UUID
     name: str
     trace_parent: str
-    completed: bool
     canceled: bool
     state: JobState
     submitted_at: _timestamp_pb2.Timestamp
     started_at: _timestamp_pb2.Timestamp
     task_summaries: _containers.RepeatedCompositeFieldContainer[TaskSummary]
     automation_id: UUID
-    def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ..., name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., completed: bool = ..., canceled: bool = ..., state: _Optional[_Union[JobState, str]] = ..., submitted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., task_summaries: _Optional[_Iterable[_Union[TaskSummary, _Mapping]]] = ..., automation_id: _Optional[_Union[UUID, _Mapping]] = ...) -> None: ...
+    def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ..., name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., canceled: bool = ..., state: _Optional[_Union[JobState, str]] = ..., submitted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., task_summaries: _Optional[_Iterable[_Union[TaskSummary, _Mapping]]] = ..., automation_id: _Optional[_Union[UUID, _Mapping]] = ...) -> None: ...
 
 class TaskSummary(_message.Message):
     __slots__ = ("id", "display", "state", "parent_id", "depends_on", "started_at", "stopped_at")
@@ -158,11 +156,11 @@ class IDInterval(_message.Message):
     END_ID_FIELD_NUMBER: _ClassVar[int]
     START_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
     END_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
-    start_id: str
-    end_id: str
+    start_id: UUID
+    end_id: UUID
     start_exclusive: bool
     end_inclusive: bool
-    def __init__(self, start_id: _Optional[str] = ..., end_id: _Optional[str] = ..., start_exclusive: bool = ..., end_inclusive: bool = ...) -> None: ...
+    def __init__(self, start_id: _Optional[_Union[UUID, _Mapping]] = ..., end_id: _Optional[_Union[UUID, _Mapping]] = ..., start_exclusive: bool = ..., end_inclusive: bool = ...) -> None: ...
 
 class Pagination(_message.Message):
     __slots__ = ("limit", "starting_after")

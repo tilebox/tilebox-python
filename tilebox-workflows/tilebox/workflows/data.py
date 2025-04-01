@@ -36,7 +36,7 @@ class TaskState(Enum):
     CANCELLED = 5
 
 
-_STATES = {state.value: state for state in TaskState}
+_TASK_STATES = {state.value: state for state in TaskState}
 
 
 @dataclass(order=True, eq=True, unsafe_hash=True, frozen=True)
@@ -116,7 +116,7 @@ class Task:
         return cls(
             id=uuid_message_to_uuid(task.id),
             identifier=TaskIdentifier.from_message(task.identifier),
-            state=_STATES[task.state],
+            state=_TASK_STATES[task.state],
             input=task.input,
             display=task.display,
             job=Job.from_message(task.job) if task.job else None,
@@ -145,12 +145,22 @@ class Task:
         )
 
 
+class JobState(Enum):
+    UNSPECIFIED = 0
+    QUEUED = 1
+    STARTED = 2
+    COMPLETED = 3
+
+
+_JOB_STATES = {state.value: state for state in JobState}
+
+
 @dataclass(order=True)
 class Job:
     id: UUID
     name: str
     trace_parent: str
-    completed: bool
+    state: JobState
     canceled: bool
 
     @classmethod
@@ -160,7 +170,7 @@ class Job:
             id=uuid_message_to_uuid(job.id),
             name=job.name,
             trace_parent=job.trace_parent,
-            completed=job.completed,
+            state=_JOB_STATES[job.state],
             canceled=job.canceled,
         )
 
@@ -170,7 +180,7 @@ class Job:
             id=uuid_to_uuid_message(self.id),
             name=self.name,
             trace_parent=self.trace_parent,
-            completed=self.completed,
+            state=f"JOB_STATE_{self.state.name}",
             canceled=self.canceled,
         )
 

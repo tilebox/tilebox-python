@@ -6,6 +6,7 @@ from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
 from tilebox.workflows import ExecutionContext, Task
 from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.client import Client
+from tilebox.workflows.data import JobState
 
 
 def int_to_bytes(n: int) -> bytes:
@@ -108,7 +109,7 @@ def test_runner_with_flaky_task() -> None:
     cache.group(str(job.id))["succeed"] = b"1"
     runner.run_all()  # now task will succeed
     job = job_client.find(job)  # load current job state
-    assert job.completed
+    assert job.state == JobState.COMPLETED
 
 
 def replay_client(replay_file: str, assert_request_matches: bool = True) -> Client:
