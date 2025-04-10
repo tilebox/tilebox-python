@@ -17,6 +17,7 @@ from time import sleep
 from types import FrameType, TracebackType
 from typing import Any, TypeAlias, TypeVar
 from uuid import UUID
+from warnings import warn
 
 from loguru import logger
 from opentelemetry.trace.status import StatusCode
@@ -476,10 +477,20 @@ class ExecutionContext(ExecutionContextBase):
         self._sub_tasks.append(subtask)
         return subtask
 
-    def submit_batch(
+    def submit_subtasks(
         self, tasks: Sequence[TaskInstance], cluster: str | None = None, max_retries: int = 0
     ) -> list[FutureTask]:
         return [self.submit_subtask(task, cluster=cluster, max_retries=max_retries) for task in tasks]
+
+    def submit_batch(
+        self, tasks: Sequence[TaskInstance], cluster: str | None = None, max_retries: int = 0
+    ) -> list[FutureTask]:
+        warn(
+            "submit_batch is deprecated, use submit_subtasks instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.submit_subtasks(tasks, cluster, max_retries)
 
     @property
     def runner_context(self) -> RunnerContext:

@@ -154,7 +154,7 @@ def _time_interval_chunk(task: Task, call_next: ForwardExecution, context: Execu
         TimeChunk(TimeInterval(chunk_start, chunk_end), chunk.chunk_size) for chunk_start, chunk_end in pairwise(chunks)
     ]
 
-    context.submit_batch(
+    context.submit_subtasks(
         [replace(task, interval=time_chunk) for time_chunk in time_chunks]  # type: ignore[misc]
     )
     return None

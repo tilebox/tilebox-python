@@ -267,8 +267,14 @@ class ExecutionContext(ABC):
         """
 
     @abstractmethod
-    def submit_batch(self, tasks: Sequence[Task], cluster: str | None = None, max_retries: int = 0) -> list[FutureTask]:
+    def submit_subtasks(
+        self, tasks: Sequence[Task], cluster: str | None = None, max_retries: int = 0
+    ) -> list[FutureTask]:
         """Submit a batch of subtasks of the current task. Similar to `submit_subtask`, but for multiple tasks."""
+
+    @abstractmethod
+    def submit_batch(self, tasks: Sequence[Task], cluster: str | None = None, max_retries: int = 0) -> list[FutureTask]:
+        """Deprecated. Use `submit_subtasks` instead."""
 
     @property
     @abstractmethod
