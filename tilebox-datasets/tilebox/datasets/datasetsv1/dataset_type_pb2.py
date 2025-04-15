@@ -23,9 +23,11 @@ _sym_db = _symbol_database.Default()
 
 
 from google.protobuf import descriptor_pb2 as google_dot_protobuf_dot_descriptor__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
+from tilebox.datasets.datasetsv1 import well_known_types_pb2 as datasets_dot_v1_dot_well__known__types__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1e\x64\x61tasets/v1/dataset_type.proto\x12\x0b\x64\x61tasets.v1\x1a google/protobuf/descriptor.proto\"\xaa\x01\n\x05\x46ield\x12\x45\n\ndescriptor\x18\x01 \x01(\x0b\x32%.google.protobuf.FieldDescriptorProtoR\ndescriptor\x12<\n\nannotation\x18\x02 \x01(\x0b\x32\x1c.datasets.v1.FieldAnnotationR\nannotation\x12\x1c\n\tqueryable\x18\x03 \x01(\x08R\tqueryable\"X\n\x0f\x46ieldAnnotation\x12 \n\x0b\x64\x65scription\x18\x01 \x01(\tR\x0b\x64\x65scription\x12#\n\rexample_value\x18\x02 \x01(\tR\x0c\x65xampleValue\"g\n\x0b\x44\x61tasetType\x12,\n\x04kind\x18\x01 \x01(\x0e\x32\x18.datasets.v1.DatasetKindR\x04kind\x12*\n\x06\x66ields\x18\x02 \x03(\x0b\x32\x12.datasets.v1.FieldR\x06\x66ields\"\xf4\x01\n\rAnnotatedType\x12I\n\x0e\x64\x65scriptor_set\x18\x01 \x01(\x0b\x32\".google.protobuf.FileDescriptorSetR\rdescriptorSet\x12\x19\n\x08type_url\x18\x02 \x01(\tR\x07typeUrl\x12I\n\x11\x66ield_annotations\x18\x04 \x03(\x0b\x32\x1c.datasets.v1.FieldAnnotationR\x10\x66ieldAnnotations\x12,\n\x04kind\x18\x05 \x01(\x0e\x32\x18.datasets.v1.DatasetKindR\x04kindJ\x04\x08\x03\x10\x04*g\n\x0b\x44\x61tasetKind\x12\x1c\n\x18\x44\x41TASET_KIND_UNSPECIFIED\x10\x00\x12\x19\n\x15\x44\x41TASET_KIND_TEMPORAL\x10\x01\x12\x1f\n\x1b\x44\x41TASET_KIND_SPATIOTEMPORAL\x10\x02\x42\xb2\x01\n\x0f\x63om.datasets.v1B\x10\x44\x61tasetTypeProtoP\x01Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1e\x64\x61tasets/v1/dataset_type.proto\x12\x0b\x64\x61tasets.v1\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\"datasets/v1/well_known_types.proto\"\xaa\x01\n\x05\x46ield\x12\x45\n\ndescriptor\x18\x01 \x01(\x0b\x32%.google.protobuf.FieldDescriptorProtoR\ndescriptor\x12<\n\nannotation\x18\x02 \x01(\x0b\x32\x1c.datasets.v1.FieldAnnotationR\nannotation\x12\x1c\n\tqueryable\x18\x03 \x01(\x08R\tqueryable\"X\n\x0f\x46ieldAnnotation\x12 \n\x0b\x64\x65scription\x18\x01 \x01(\tR\x0b\x64\x65scription\x12#\n\rexample_value\x18\x02 \x01(\tR\x0c\x65xampleValue\"g\n\x0b\x44\x61tasetType\x12,\n\x04kind\x18\x01 \x01(\x0e\x32\x18.datasets.v1.DatasetKindR\x04kind\x12*\n\x06\x66ields\x18\x02 \x03(\x0b\x32\x12.datasets.v1.FieldR\x06\x66ields\"\xf4\x01\n\rAnnotatedType\x12I\n\x0e\x64\x65scriptor_set\x18\x01 \x01(\x0b\x32\".google.protobuf.FileDescriptorSetR\rdescriptorSet\x12\x19\n\x08type_url\x18\x02 \x01(\tR\x07typeUrl\x12I\n\x11\x66ield_annotations\x18\x04 \x03(\x0b\x32\x1c.datasets.v1.FieldAnnotationR\x10\x66ieldAnnotations\x12,\n\x04kind\x18\x05 \x01(\x0e\x32\x18.datasets.v1.DatasetKindR\x04kindJ\x04\x08\x03\x10\x04\"\xa9\x01\n\x11TemporalDatapoint\x12.\n\x04time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x04time\x12!\n\x02id\x18\x02 \x01(\x0b\x32\x11.datasets.v1.UUIDR\x02id\x12\x41\n\x0eingestion_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ringestionTime\"\xe2\x01\n\x17SpatioTemporalDatapoint\x12.\n\x04time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x04time\x12!\n\x02id\x18\x02 \x01(\x0b\x32\x11.datasets.v1.UUIDR\x02id\x12\x41\n\x0eingestion_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ringestionTime\x12\x31\n\x08geometry\x18\x04 \x01(\x0b\x32\x15.datasets.v1.GeometryR\x08geometry*g\n\x0b\x44\x61tasetKind\x12\x1c\n\x18\x44\x41TASET_KIND_UNSPECIFIED\x10\x00\x12\x19\n\x15\x44\x41TASET_KIND_TEMPORAL\x10\x01\x12\x1f\n\x1b\x44\x41TASET_KIND_SPATIOTEMPORAL\x10\x02\x42\xb2\x01\n\x0f\x63om.datasets.v1B\x10\x44\x61tasetTypeProtoP\x01Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,14 +35,18 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'datasets.v1.dataset_type_pb
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\017com.datasets.v1B\020DatasetTypeProtoP\001Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\242\002\003DXX\252\002\013Datasets.V1\312\002\013Datasets\\V1\342\002\027Datasets\\V1\\GPBMetadata\352\002\014Datasets::V1'
-  _globals['_DATASETKIND']._serialized_start=696
-  _globals['_DATASETKIND']._serialized_end=799
-  _globals['_FIELD']._serialized_start=82
-  _globals['_FIELD']._serialized_end=252
-  _globals['_FIELDANNOTATION']._serialized_start=254
-  _globals['_FIELDANNOTATION']._serialized_end=342
-  _globals['_DATASETTYPE']._serialized_start=344
-  _globals['_DATASETTYPE']._serialized_end=447
-  _globals['_ANNOTATEDTYPE']._serialized_start=450
-  _globals['_ANNOTATEDTYPE']._serialized_end=694
+  _globals['_DATASETKIND']._serialized_start=1166
+  _globals['_DATASETKIND']._serialized_end=1269
+  _globals['_FIELD']._serialized_start=151
+  _globals['_FIELD']._serialized_end=321
+  _globals['_FIELDANNOTATION']._serialized_start=323
+  _globals['_FIELDANNOTATION']._serialized_end=411
+  _globals['_DATASETTYPE']._serialized_start=413
+  _globals['_DATASETTYPE']._serialized_end=516
+  _globals['_ANNOTATEDTYPE']._serialized_start=519
+  _globals['_ANNOTATEDTYPE']._serialized_end=763
+  _globals['_TEMPORALDATAPOINT']._serialized_start=766
+  _globals['_TEMPORALDATAPOINT']._serialized_end=935
+  _globals['_SPATIOTEMPORALDATAPOINT']._serialized_start=938
+  _globals['_SPATIOTEMPORALDATAPOINT']._serialized_end=1164
 # @@protoc_insertion_point(module_scope)

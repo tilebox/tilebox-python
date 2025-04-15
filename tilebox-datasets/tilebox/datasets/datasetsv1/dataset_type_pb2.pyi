@@ -1,4 +1,6 @@
 from google.protobuf import descriptor_pb2 as _descriptor_pb2
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
+from tilebox.datasets.datasetsv1 import well_known_types_pb2 as _well_known_types_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -53,3 +55,25 @@ class AnnotatedType(_message.Message):
     field_annotations: _containers.RepeatedCompositeFieldContainer[FieldAnnotation]
     kind: DatasetKind
     def __init__(self, descriptor_set: _Optional[_Union[_descriptor_pb2.FileDescriptorSet, _Mapping]] = ..., type_url: _Optional[str] = ..., field_annotations: _Optional[_Iterable[_Union[FieldAnnotation, _Mapping]]] = ..., kind: _Optional[_Union[DatasetKind, str]] = ...) -> None: ...
+
+class TemporalDatapoint(_message.Message):
+    __slots__ = ("time", "id", "ingestion_time")
+    TIME_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    INGESTION_TIME_FIELD_NUMBER: _ClassVar[int]
+    time: _timestamp_pb2.Timestamp
+    id: _well_known_types_pb2.UUID
+    ingestion_time: _timestamp_pb2.Timestamp
+    def __init__(self, time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., id: _Optional[_Union[_well_known_types_pb2.UUID, _Mapping]] = ..., ingestion_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+
+class SpatioTemporalDatapoint(_message.Message):
+    __slots__ = ("time", "id", "ingestion_time", "geometry")
+    TIME_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    INGESTION_TIME_FIELD_NUMBER: _ClassVar[int]
+    GEOMETRY_FIELD_NUMBER: _ClassVar[int]
+    time: _timestamp_pb2.Timestamp
+    id: _well_known_types_pb2.UUID
+    ingestion_time: _timestamp_pb2.Timestamp
+    geometry: _well_known_types_pb2.Geometry
+    def __init__(self, time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., id: _Optional[_Union[_well_known_types_pb2.UUID, _Mapping]] = ..., ingestion_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., geometry: _Optional[_Union[_well_known_types_pb2.Geometry, _Mapping]] = ...) -> None: ...

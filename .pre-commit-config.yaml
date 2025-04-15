@@ -6,13 +6,13 @@ repos:
       - id: end-of-file-fixer
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     # keep the version here in sync with the version in uv.lock
-    rev: "v0.11.0"
+    rev: "v0.11.5"
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
   - repo: https://github.com/RobertCraigie/pyright-python
     # keep the version here in sync with the version in uv.lock
-    rev: v1.1.397
+    rev: v1.1.399
     hooks:
       - id: pyright

@@ -8,7 +8,7 @@ import xarray as xr
 from _tilebox.grpc.error import ArgumentError, NotFoundError
 from _tilebox.grpc.producer_consumer import concurrent_producer_consumer
 from tilebox.datasets.data.collection import CollectionInfo
-from tilebox.datasets.data.data_access import QueryFilters
+from tilebox.datasets.data.data_access import QueryFilters, SpatialFilter, SpatialFilterLike
 from tilebox.datasets.data.datapoint import DatapointInterval, DatapointPage, QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.data.pagination import Pagination
@@ -255,7 +255,7 @@ class TimeseriesCollection:
         start_id, end_id = datapoint_id_interval
 
         filters = QueryFilters(
-            temporal_interval=DatapointInterval(
+            temporal_extent=DatapointInterval(
                 start_id=as_uuid(start_id),
                 end_id=as_uuid(end_id),
                 start_exclusive=False,
@@ -317,47 +317,96 @@ class TimeseriesCollection:
 
     def load(
         self,
-        time_or_interval: TimeIntervalLike,
+        temporal_extent: TimeIntervalLike,
         *,
         skip_data: bool = False,
         show_progress: bool | ProgressCallback = False,
     ) -> xr.Dataset:
         """
-        Load a range of datapoints in this collection in a specified interval.
+        Load a range of datapoints in this collection for a specified temporal_extent.
 
-        The interval can be specified in a number of ways:
-        - TimeInterval: interval -> Use the time interval as its given
-        - DatetimeScalar: [time, time] -> Construct a TimeInterval with start and end time set to the given value and
-            the end time inclusive
-        - tuple of two DatetimeScalar: [start, end) -> Construct a TimeInterval with the given start and end time
-        - xr.DataArray: [arr[0], arr[-1]] -> Construct a TimeInterval with start and end time set to the first and last
-            value in the array and the end time inclusive
-        - xr.Dataset: [ds.time[0], ds.time[-1]] -> Construct a TimeInterval with start and end time set to the first
-            and last value in the time coordinate of the dataset and the end time inclusive
+        An alias for query() without a spatial extent.
 
         Args:
-            time_or_interval: The interval argument as described above
+            temporal_extent: The temporal extent to load data for.
+                Can be specified in a number of ways:
+                - TimeInterval: interval -> Use the time interval as its given
+                - DatetimeScalar: [time, time] -> Construct a TimeInterval with start and end time set to the given
+                    value and the end time inclusive
+                - tuple of two DatetimeScalar: [start, end) -> Construct a TimeInterval with the given start and
+                    end time
+                - xr.DataArray: [arr[0], arr[-1]] -> Construct a TimeInterval with start and end time set to the
+                    first and last value in the array and the end time inclusive
+                - xr.Dataset: [ds.time[0], ds.time[-1]] -> Construct a TimeInterval with start and end time set to
+                    the first and last value in the time coordinate of the dataset and the end time inclusive
             skip_data: Whether to skip the actual data of the datapoint. If True, only datapoint metadata is returned.
             show_progress: Whether to show a progress bar while loading the data
 
         Returns:
-            The datapoints in the given interval as an xarray dataset
+            Matching datapoints in the given temporal extent as an xarray dataset
         """
         if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
-            return self._load_legacy(time_or_interval, skip_data=skip_data, show_progress=show_progress)
+            return self._load_legacy(temporal_extent, skip_data=skip_data, show_progress=show_progress)
 
-        pages = self._iter_pages(time_or_interval, skip_data, show_progress=show_progress)
+        return self.query(temporal_extent=temporal_extent, skip_data=skip_data, show_progress=show_progress)
+
+    def query(
+        self,
+        *,
+        temporal_extent: TimeIntervalLike,
+        spatial_extent: SpatialFilterLike | None = None,
+        skip_data: bool = False,
+        show_progress: bool | ProgressCallback = False,
+    ) -> xr.Dataset:
+        """
+        Query datapoints in this collection in a specified temporal extent and an optional spatial extent.
+
+        Args:
+            temporal_extent: The temporal extent to query data for. (Required)
+                Can be specified in a number of ways:
+                - TimeInterval: interval -> Use the time interval as its given
+                - DatetimeScalar: [time, time] -> Construct a TimeInterval with start and end time set to the given
+                    value and the end time inclusive
+                - tuple of two DatetimeScalar: [start, end) -> Construct a TimeInterval with the given start and
+                    end time
+                - xr.DataArray: [arr[0], arr[-1]] -> Construct a TimeInterval with start and end time set to the
+                    first and last value in the array and the end time inclusive
+                - xr.Dataset: [ds.time[0], ds.time[-1]] -> Construct a TimeInterval with start and end time set to
+                    the first and last value in the time coordinate of the dataset and the end time inclusive
+            spatial_extent: The spatial extent to query data in. (Optional)
+                Expected to be either a shapely geometry, or a dict with the following keys:
+                - geometry: The geometry to query by. Must be a shapely.Polygon, shapely.MultiPolygon or shapely.Point.
+                - mode: The spatial filter mode to use. Can be one of "intersects" or "contains".
+                    Defaults to "intersects".
+                - coordinate_system: The coordinate system to use for performing geometry calculations. Can be one
+                    of "cartesian" or "spherical".
+                Only supported for spatiotemporal datasets. Will raise an error if used for other dataset types.
+                All datapoints whose geometry intersects the given spatial extent will be returned.
+            skip_data: Whether to skip the actual data of the datapoint. If True, only datapoint metadata is returned.
+            show_progress: Whether to show a progress bar while loading the data
+
+        Returns:
+            Matching datapoints in the given temporal and spatial extent as an xarray dataset
+        """
+        if self._use_legacy_api:
+            raise ValueError("Querying is not supported for this dataset. Please use load() instead.")
+
+        if temporal_extent is None:
+            raise ValueError("A temporal_extent for your query must be specified")
+
+        pages = self._iter_pages(temporal_extent, spatial_extent, skip_data, show_progress=show_progress)
         return _convert_to_dataset(pages)
 
     def _iter_pages(
         self,
-        time_or_interval: TimeIntervalLike,
+        temporal_extent: TimeIntervalLike,
+        spatial_extent: SpatialFilterLike | None = None,
         skip_data: bool = False,
         show_progress: bool | ProgressCallback = False,
         page_size: int | None = None,
     ) -> Iterator[QueryResultPage]:
-        time_interval = TimeInterval.parse(time_or_interval)
-        filters = QueryFilters(temporal_interval=time_interval)
+        time_interval = TimeInterval.parse(temporal_extent)
+        filters = QueryFilters(time_interval, SpatialFilter.parse(spatial_extent) if spatial_extent else None)
 
         request = partial(self._load_page, filters, skip_data)
 
