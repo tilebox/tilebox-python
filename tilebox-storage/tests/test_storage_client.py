@@ -14,7 +14,7 @@ from moto import mock_aws
 from mypy_boto3_s3 import S3Client
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from tests.storage_data import asf_granules, ers_granules, s5p_granules, umbra_granules
+from tests.storage_data import ers_granules, s5p_granules, umbra_granules
 from tilebox.storage.aio import ASFStorageClient, CopernicusStorageClient, UmbraStorageClient, _HttpClient, _S3Client
 from tilebox.storage.granule import ASFStorageGranule, CopernicusStorageGranule, UmbraStorageGranule
 
@@ -78,7 +78,7 @@ async def test_quicklook(httpx_mock: HTTPXMock, granule: ASFStorageGranule) -> N
 
 
 @pytest.mark.asyncio
-@given(asf_granules())
+@given(ers_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
     mock_data = ["my-granule", "some-data", "some-more-data"]
@@ -94,7 +94,7 @@ async def test_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStora
 
 
 @pytest.mark.asyncio
-@given(asf_granules())
+@given(ers_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_download_verify_md5(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
     httpx_mock.add_response(content=b"login-response")
@@ -115,7 +115,7 @@ async def test_cached_download_quicklook(httpx_mock: HTTPXMock, tmp_path: Path, 
     httpx_mock.add_response(content=b"my-quicklook-image")
     client = ASFStorageClient("username", "password", cache_directory=tmp_path)
     downloaded = await client.download_quicklook(granule)
-    expected = tmp_path / granule.storage_provider / granule.granule_name / granule.urls.quicklook.rsplit("/", 1)[-1]
+    expected = tmp_path / "ASF" / granule.granule_name / granule.urls.quicklook.rsplit("/", 1)[-1]
     assert downloaded == expected
     assert downloaded.exists()
     assert downloaded.read_bytes() == b"my-quicklook-image"
@@ -126,7 +126,7 @@ async def test_cached_download_quicklook(httpx_mock: HTTPXMock, tmp_path: Path, 
 
 
 @pytest.mark.asyncio
-@given(asf_granules())
+@given(ers_granules())
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_cached_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: ASFStorageGranule) -> None:
     httpx_mock.reset()  # so we get an accurate request count below
@@ -136,7 +136,7 @@ async def test_cached_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: A
     httpx_mock.add_response(stream=IteratorStream([d.encode() for d in mock_data]))
     client = ASFStorageClient("username", "password", cache_directory=tmp_path)
     downloaded = await client.download(granule, extract=False, show_progress=False)
-    expected = tmp_path / granule.storage_provider / granule.granule_name / granule.urls.data.rsplit("/", 1)[-1]
+    expected = tmp_path / "ASF" / granule.granule_name / granule.urls.data.rsplit("/", 1)[-1]
     assert downloaded == expected
     assert expected.exists()
     assert expected.read_bytes() == "".join(mock_data).encode()

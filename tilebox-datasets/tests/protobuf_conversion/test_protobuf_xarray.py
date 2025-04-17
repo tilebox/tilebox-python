@@ -5,14 +5,13 @@ from hypothesis import given, settings
 from hypothesis.strategies import lists
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 from pandas import to_datetime
-from shapely import MultiPolygon, Polygon
+from shapely import MultiPolygon, Polygon, from_wkb
 from xarray.testing import assert_equal
 
 from tests.data.datapoint import datapoint_pages, datapoints, example_datapoints
 from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
 from tilebox.datasets.data.datapoint import Datapoint, DatapointPage
 from tilebox.datasets.data.time_interval import timestamp_to_datetime, us_to_datetime
-from tilebox.datasets.datasetsv1.well_known_types_pb2 import ProcessingLevel
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import (
     MessageToXarrayConverter,
     TimeseriesToXarrayConverter,
@@ -45,6 +44,7 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
     assert us_to_datetime(to_datetime(ingestion_time, utc=True).value // 1000) == timestamp_to_datetime(
         datapoint.ingestion_time
     )
+    assert dataset.geometry.item() == from_wkb(datapoint.geometry.wkb)
 
     dataset = dataset.isel(time=0)  # select the only datapoint in the dataset
     assert dataset.some_string.item() == datapoint.some_string
@@ -72,8 +72,7 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
     )
 
     assert isinstance(dataset.some_geometry.item(), Polygon | MultiPolygon)
-    expected_level = {v: k for k, v in ProcessingLevel.items()}[datapoint.some_enum].removeprefix("PROCESSING_LEVEL_")
-    assert dataset.some_enum.item() == expected_level
+    assert dataset.some_enum.item() == datapoint.some_enum
 
     assert list(dataset.some_repeated_string.to_numpy()) == list(datapoint.some_repeated_string)
     assert_array_equal(dataset.some_repeated_int.to_numpy(), datapoint.some_repeated_int)

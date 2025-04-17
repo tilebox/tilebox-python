@@ -23,9 +23,6 @@ def test_xarray_dataset_to_protobuf_messages(messages: list[ExampleDatapoint]) -
                 assert not converted_message.HasField(field.name)
                 continue
 
-            if field.name == "some_enum":  # enum ingestion not implemented yet
-                continue
-
             assert getattr(expected_message, field.name) == getattr(converted_message, field.name), (
                 f"Field {field.name} mismatch"
             )

@@ -139,7 +139,7 @@ class TimeseriesCollection:
 
     def __repr__(self) -> str:
         """Human readable representation of the collection."""
-        return repr(self._info)
+        return repr(self.info())
 
     @property
     def name(self) -> str:

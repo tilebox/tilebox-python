@@ -34,35 +34,7 @@ def ers_granules(draw: DrawFn, ensure_quicklook: bool = False) -> ASFStorageGran
         quicklook = f"{_ASF_URL}/BROWSE/E{platform}/{granule_name}.jpg"
     urls = StorageURLs(f"{_ASF_URL}/{level}/E{platform}/{file_name}.zip", quicklook)
 
-    return ASFStorageGranule(time, granule_name, level, "ASF", file_size, md5sum, urls)
-
-
-@composite
-def s1_granules(draw: DrawFn) -> ASFStorageGranule:
-    """Generate a realistic-looking random Sentinel 1 granule."""
-    level = "RAW"
-    platform = draw(one_of(just("A"), just("B")))
-    acquisition_mode = draw(one_of(*(just(am) for am in ["IW", "EW", *[f"S{i + 1}" for i in range(6)]])))
-    start = draw(datetimes(min_value=datetime(2014, 6, 1), max_value=datetime(2050, 1, 1), timezones=just(None)))
-    stop = draw(datetimes(min_value=datetime(2014, 6, 1), max_value=datetime(2050, 1, 1), timezones=just(None)))
-    orbit = draw(integers(min_value=1, max_value=999_999))
-    random_1 = draw(text(alphabet=string.hexdigits, min_size=6, max_size=6)).upper()
-    random_2 = draw(text(alphabet=string.hexdigits, min_size=4, max_size=4)).upper()
-    file_size = draw(integers(min_value=10_000, max_value=999_999_999))
-    md5sum = draw(text(alphabet=string.hexdigits, min_size=32, max_size=32))
-
-    granule_name = (
-        f"S1{platform}_{acquisition_mode}_{level}__0SDV_{start:%Y%m%dT%H%M%S}_{stop:%Y%m%dT%H%M%S}_"
-        f"{orbit:06d}_S{random_1}_{random_2}"
-    )
-
-    urls = StorageURLs(f"{_ASF_URL}/{level}/S{platform}/{granule_name}.zip", None)
-    return ASFStorageGranule(start, granule_name, level, "ASF", file_size, md5sum, urls)
-
-
-@composite
-def asf_granules(draw: DrawFn) -> ASFStorageGranule:
-    return draw(one_of(ers_granules(), s1_granules()))
+    return ASFStorageGranule(time, granule_name, file_size, md5sum, urls)
 
 
 @composite

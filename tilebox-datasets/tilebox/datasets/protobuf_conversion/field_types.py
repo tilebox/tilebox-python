@@ -78,6 +78,25 @@ class BoolField(ProtobufFieldType):
         return bool(value)
 
 
+class EnumField(ProtobufFieldType):
+    def __init__(self, name_lookup: dict[int, str]) -> None:
+        super().__init__(np.uint8)  # we support up to 256 different enum values for now
+        self._values_to_name = name_lookup
+        self._names_to_value = {name: value for value, name in name_lookup.items()}
+
+    def from_proto(self, value: ProtoFieldValue) -> int:
+        if not isinstance(value, int):
+            raise TypeError(f"Expected int message but got {type(value)}")
+        return value  # we don't parse the value when loading, to avoid having huge arrays of strings
+
+    def to_proto(self, value: str | int) -> int:
+        if isinstance(value, (str, np.str_)):
+            return self._names_to_value[value]
+        if int(value) not in self._values_to_name:
+            raise ValueError(f"Invalid enum value {value}")  # during ingestion, we can raise an error here
+        return value
+
+
 class TimestampField(ProtobufFieldType):
     def __init__(self) -> None:
         super().__init__("datetime64[ns]")
@@ -252,6 +271,9 @@ def infer_field_type(field: FieldDescriptor) -> ProtobufFieldType:
 
         return _MESSAGE_NAMES_TO_FIELDS[message_name]
 
+    if field.type == FieldDescriptor.TYPE_ENUM:
+        return EnumField(enum_mapping_from_field_descriptor(field))
+
     if field.type == FieldDescriptor.TYPE_BOOL:
         return BoolField()  # special handling, since we need to convert numpy bools to python bools
 
@@ -259,3 +281,37 @@ def infer_field_type(field: FieldDescriptor) -> ProtobufFieldType:
         raise ValueError(f"Unsupported field type {field.type}")
 
     return ProtobufFieldType(_PROTOBUF_TYPE_TO_NUMPY_TYPE[field.type])
+
+
+def enum_mapping_from_field_descriptor(field: FieldDescriptor) -> dict[int, str]:
+    """Create a mapping from enum values to their names.
+
+    Args:
+        field: The field descriptor to create the mapping for. Must be of type FieldDescriptor.TYPE_ENUM.
+    """
+    if field.type != FieldDescriptor.TYPE_ENUM:
+        raise ValueError("Expected field to be of type FieldDescriptor.TYPE_ENUM")
+
+    # remove the enum type prefix from the enum values
+    # e.g. FLIGHT_DIRECTION_ASCENDING of the FlightDirection enum will result in a value of ASCENDING
+    enum_type_prefix = _camel_to_uppercase(field.enum_type.name) + "_"
+    return {
+        v.number: str(v.name).removeprefix(enum_type_prefix)
+        for v in field.enum_type.values  # noqa: PD011  # enum_type is not a numpy array, even though ruff thinks it is
+    }
+
+
+def _camel_to_uppercase(name: str) -> str:
+    """Convert a camelCase name to an UPPER_CASE name.
+
+    Args:
+        name: The name to convert.
+
+    Returns:
+        The converted name.
+
+    Examples:
+        >>> _camel_to_uppercase("ProcessingLevel")
+        'PROCESSING_LEVEL'
+    """
+    return "".join(["_" + c.lower() if c.isupper() else c for c in name]).lstrip("_").upper()

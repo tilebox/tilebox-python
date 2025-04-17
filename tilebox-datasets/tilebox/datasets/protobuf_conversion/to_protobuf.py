@@ -79,9 +79,6 @@ def to_messages(  # noqa: C901, PLR0912
         field_lengths[len(values)].append(field_name)  # to validate all fields have the same length
 
         descriptor = field_descriptors_by_name[field_name]
-        if descriptor.type == FieldDescriptor.TYPE_ENUM:
-            continue  # skip enums, not supported for now in ingestion
-
         field_type = infer_field_type(descriptor)
         if isinstance(field_type, GeobufField):
             continue  # legacy geometry type, ingestion is only supported for the new geometry type

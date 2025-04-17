@@ -110,7 +110,8 @@ def test_find_datapoint() -> None:
 
         if not skip_data:
             assert datapoint.granule_name.item() == "S2A_MSIL1C_20220713T002201_N0400_R102_T08XNS_20220713T015332.SAFE"
-            assert datapoint.processing_level.item() == "L1C"
+            processing_level = datapoint.processing_level.item()
+            assert datapoint.processing_level.attrs["names"][processing_level] == "L1C"
             assert datapoint.copernicus_id.item() == "65505f82-76dd-5e85-b947-a6c879e07446"
             assert isinstance(datapoint.geometry.item(), Polygon)
         else:

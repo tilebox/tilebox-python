@@ -75,10 +75,10 @@ def example_datapoints(draw: DrawFn, generated_fields: bool = False, missing_fie
     maybe_none = none() if missing_fields else one_of()
 
     return ExampleDatapoint(
-        time=(draw(datetime_messages()) if generated_fields else None),
+        time=draw(datetime_messages()),
         id=(draw(uuid_messages()) if generated_fields else None),
         ingestion_time=(draw(datetime_messages()) if generated_fields else None),
-        # geometry=,  # skip for now
+        geometry=draw(geometry_messages()),
         some_string=draw(text(alphabet=string.ascii_letters + string.digits, min_size=1, max_size=10) | maybe_none),
         some_int=draw(integers(min_value=1, max_value=100) | maybe_none),
         some_double=draw(floats(min_value=1.0, max_value=100.0) | maybe_none),

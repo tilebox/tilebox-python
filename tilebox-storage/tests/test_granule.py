@@ -4,30 +4,28 @@ import xarray as xr
 from hypothesis import given
 from hypothesis.strategies import lists
 
-from tests.storage_data import asf_granules, s5p_granules, umbra_granules
-from tilebox.storage.granule import ASFStorageGranule, CopernicusStorageGranule, UmbraStorageGranule
+from tests.storage_data import ers_granules, s5p_granules, umbra_granules
+from tilebox.storage.granule import ASFStorageGranule, CopernicusStorageGranule, UmbraStorageGranule, _asf_download_urls
 
 
 def _asf_granule_to_datapoint(granule: ASFStorageGranule) -> xr.Dataset:
     datapoint = xr.Dataset()
     datapoint.coords["time"] = np.array(granule.time).astype("datetime64[ns]")
     datapoint["granule_name"] = granule.granule_name
-    datapoint["processing_level"] = granule.processing_level
-    datapoint["storage_provider"] = granule.storage_provider
     datapoint["file_size"] = granule.file_size
     datapoint["md5sum"] = granule.md5sum
     datapoint["quicklook_available"] = granule.urls.quicklook is not None
     return datapoint
 
 
-@given(asf_granules())
+@given(ers_granules())
 def test_granule_from_asf_datapoint(granule: ASFStorageGranule) -> None:
     datapoint = _asf_granule_to_datapoint(granule)
     assert ASFStorageGranule.from_data(datapoint) == granule
     assert ASFStorageGranule.from_data(ASFStorageGranule.from_data(datapoint)) == granule
 
 
-@given(lists(asf_granules(), min_size=2, max_size=5))
+@given(lists(ers_granules(), min_size=2, max_size=5))
 def test_granule_from_asf_datapoints(granules: list[ASFStorageGranule]) -> None:
     datapoints = [_asf_granule_to_datapoint(granule) for granule in granules]
     dataset = xr.concat(datapoints, dim="time")
@@ -36,6 +34,19 @@ def test_granule_from_asf_datapoints(granules: list[ASFStorageGranule]) -> None:
 
     for i in range(len(granules)):  # converting a dataset with a time dimension of 1 should still work though
         assert ASFStorageGranule.from_data(dataset.isel(time=i)) == granules[i]
+
+
+@given(ers_granules())
+def test_ers_download_urls(granule: ASFStorageGranule) -> None:
+    urls = _asf_download_urls(granule.granule_name)
+    platform = granule.granule_name[:2]
+    assert urls.quicklook is not None
+    assert f"BROWSE/{platform}/{granule.granule_name}.jpg" in urls.quicklook
+
+    assert f"L0/{platform}" in urls.data
+    assert f"{granule.granule_name[:8]}" in urls.data
+    assert "_STD_L0_" in urls.data
+    assert f"{granule.granule_name[-4:]}" in urls.data
 
 
 def _umbra_granule_to_datapoint(granule: UmbraStorageGranule) -> xr.Dataset:

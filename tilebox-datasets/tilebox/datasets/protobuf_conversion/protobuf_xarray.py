@@ -14,7 +14,13 @@ from numpy.typing import NDArray
 
 from tilebox.datasets.data.datapoint import Datapoint, DatapointPage
 from tilebox.datasets.message_pool import get_message_type
-from tilebox.datasets.protobuf_conversion.field_types import ProtobufFieldType, ProtoFieldValue, infer_field_type
+from tilebox.datasets.protobuf_conversion.field_types import (
+    EnumField,
+    ProtobufFieldType,
+    ProtoFieldValue,
+    enum_mapping_from_field_descriptor,
+    infer_field_type,
+)
 
 AnyMessage = TypeVar("AnyMessage", bound=Message)
 
@@ -375,21 +381,13 @@ class _EnumFieldConverter(_SimpleFieldConverter):
         Args:
             field_name: The name of enum field in the protobuf message
         """
-        super().__init__(field_name, ProtobufFieldType(np.uint8))  # we support up to 256 different enum values for now
+        super().__init__(field_name, EnumField(enum_names))
         self._enum_names = enum_names
 
     def finalize(self, dataset: xr.Dataset, count: int, dimension_names: tuple[str, ...]) -> str | None:
         field_name = super().finalize(dataset, count, dimension_names)
         if field_name is not None:
-            # convert the numeric enum values to the corresponding string names
-            int_values = dataset[field_name]
-            dataset[field_name] = (
-                int_values.dims,
-                np.vectorize(lambda i: self._enum_names.get(i, ""))(int_values.values),
-            )
-            dataset[field_name].attrs["enum_dict"] = ";".join(
-                f"{name}: {value}" for value, name in self._enum_names.items()
-            )
+            dataset[field_name].attrs["names"] = self._enum_names
         return field_name
 
 
@@ -418,22 +416,6 @@ def _create_field_converters(message: Message, buffer_size: int) -> dict[str, _F
     return converters
 
 
-def _camel_to_uppercase(name: str) -> str:
-    """Convert a camelCase name to an UPPER_CASE name.
-
-    Args:
-        name: The name to convert.
-
-    Returns:
-        The converted name.
-
-    Examples:
-        >>> _camel_to_uppercase("ProcessingLevel")
-        'PROCESSING_LEVEL'
-    """
-    return "".join(["_" + c.lower() if c.isupper() else c for c in name]).lstrip("_").upper()
-
-
 def _create_field_converter(field: FieldDescriptor) -> _FieldConverter:
     """
     Create a field converter for the given protobuf field descriptor.
@@ -450,12 +432,7 @@ def _create_field_converter(field: FieldDescriptor) -> _FieldConverter:
         if field.label == FieldDescriptor.LABEL_REPEATED:
             raise NotImplementedError("Repeated enum fields are not supported")
 
-        # remove the enum type prefix from the enum values
-        enum_type_prefix = _camel_to_uppercase(field.enum_type.name) + "_"
-        return _EnumFieldConverter(
-            field.name,
-            {v.number: str(v.name).removeprefix(enum_type_prefix) for v in field.enum_type.values},
-        )
+        return _EnumFieldConverter(field.name, enum_mapping_from_field_descriptor(field))
 
     field_type = infer_field_type(field)
     if field.label == FieldDescriptor.LABEL_OPTIONAL:  # simple fields (in proto3 every simple field is optional)

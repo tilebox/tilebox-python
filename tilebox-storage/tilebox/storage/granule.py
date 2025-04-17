@@ -3,15 +3,13 @@ from datetime import datetime
 
 import xarray as xr
 
-from tilebox.storage.providers import StorageURLs, download_urls
+from tilebox.storage.providers import StorageURLs
 
 
 @dataclass
 class ASFStorageGranule:
     time: datetime
     granule_name: str
-    processing_level: str
-    storage_provider: str
     file_size: int
     md5sum: str
     urls: StorageURLs
@@ -29,11 +27,9 @@ class ASFStorageGranule:
                 raise ValueError("The given dataset has more than one granule.")
 
         granule_name = dataset.granule_name.item()
-        processing_level = dataset.processing_level.item()
-        storage_provider = dataset.storage_provider.item()
         quicklook_available = "quicklook_available" in dataset and dataset.quicklook_available.item()
 
-        urls = download_urls(storage_provider, granule_name, processing_level)
+        urls = _asf_download_urls(granule_name)
 
         if not quicklook_available and urls.quicklook is not None:
             urls = StorageURLs(urls.data, None)
@@ -43,12 +39,25 @@ class ASFStorageGranule:
         return cls(
             time,
             granule_name,
-            processing_level,
-            storage_provider,
             dataset.file_size.item(),
             dataset.md5sum.item(),
             urls,
         )
+
+
+# ASF - Alaska Satellite Facility
+_ASF_URL = "https://datapool.asf.alaska.edu"
+
+
+def _asf_download_urls(granule_name: str) -> StorageURLs:
+    platform = granule_name.split("_")[0]
+    file_name = granule_name
+    processing_level = "L0"
+    quicklook = None
+    quicklook = f"{_ASF_URL}/BROWSE/{platform}/{granule_name}.jpg"
+    file_name = file_name.replace("STD_", f"STD_{processing_level}_")
+    data = f"{_ASF_URL}/{processing_level}/{platform}/{file_name}.zip"
+    return StorageURLs(data, quicklook)
 
 
 @dataclass

@@ -101,7 +101,7 @@ class _HttpClient(Syncifiable):
         if granule.urls.quicklook is None:
             raise ValueError("No quicklook available for this granule.")
 
-        client = await self._client(granule.storage_provider)
+        client = await self._client("ASF")
         response = await client.get(granule.urls.quicklook, follow_redirects=True)
         response.raise_for_status()
         return response.content
@@ -171,7 +171,7 @@ class _HttpClient(Syncifiable):
         _, download_file = tempfile.mkstemp(prefix="tilebox")
 
         async def downloader() -> AsyncIterator[bytes]:
-            client = await self._client(granule.storage_provider)
+            client = await self._client("ASF")
             async with client.stream("GET", url, follow_redirects=True) as response:
                 response.raise_for_status()
                 async for chunk in response.aiter_bytes():
@@ -290,7 +290,7 @@ class ASFStorageClient(StorageClient):
         base_folder = output_dir or self._cache
         if base_folder is None:
             raise ValueError("No cache directory or output directory provided.")
-        output_zip_file = base_folder / granule.storage_provider / granule.granule_name / url.rsplit("/", 1)[-1]
+        output_zip_file = base_folder / "ASF" / granule.granule_name / url.rsplit("/", 1)[-1]
 
         if not extract:  # we want just the zip file, not the extracted one:
             if output_zip_file.exists():  # we already have the zip file cached
@@ -352,7 +352,7 @@ class ASFStorageClient(StorageClient):
         if self._cache is None:
             output_file = tempfile.NamedTemporaryFile(prefix="tilebox", delete=False)  # noqa: SIM115
         else:
-            output_file = self._cache / granule.storage_provider / granule.granule_name / url.rsplit("/", 1)[-1]
+            output_file = self._cache / "ASF" / granule.granule_name / url.rsplit("/", 1)[-1]
             if output_file.exists():
                 return output_file
 
