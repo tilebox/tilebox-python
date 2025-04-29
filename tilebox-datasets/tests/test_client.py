@@ -9,7 +9,7 @@ from shapely import Polygon
 
 from _tilebox.grpc.error import NotFoundError
 from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
-from tilebox.datasets import Client, TimeseriesDataset
+from tilebox.datasets import Client, DatasetClient
 from tilebox.datasets.data.datapoint import DatapointPage
 from tilebox.datasets.data.time_interval import us_to_datetime
 
@@ -53,7 +53,7 @@ def test_list_datasets() -> None:
 
     datasets = client.datasets()
     # let's check that we can access a dataset
-    assert isinstance(datasets.open_data.copernicus.sentinel2_msi, TimeseriesDataset)
+    assert isinstance(datasets.open_data.copernicus.sentinel2_msi, DatasetClient)
     # let's check that the repr contains the summaries of the datasets
     assert "sentinel2_msi" in repr(datasets)
     assert "Sentinel-2 is equipped with an optical instrument payload that samples" in repr(datasets)

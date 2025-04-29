@@ -26,7 +26,7 @@ from tenacity.stop import stop_base
 
 from _tilebox.grpc.channel import open_channel
 from _tilebox.grpc.error import InternalServerError
-from tilebox.datasets.sync.timeseries import TimeseriesDataset
+from tilebox.datasets.sync.dataset import DatasetClient
 from tilebox.workflows.cache import JobCache
 from tilebox.workflows.data import ComputedTask, NextTaskToRun, Task, TaskLease
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
@@ -496,7 +496,7 @@ class ExecutionContext(ExecutionContextBase):
     def runner_context(self) -> RunnerContext:
         return self._runner._context  # noqa: SLF001
 
-    def _dataset(self, dataset_id: str) -> TimeseriesDataset:
+    def _dataset(self, dataset_id: str) -> DatasetClient:
         """Needed by the timeseries integration, to resolve a dataset id to a RemoteTimeseriesDataset."""
         client = self._runner._context.datasets_client  # noqa: SLF001
         if client is None:

@@ -10,7 +10,7 @@ from tilebox.datasets.datasetsv1.data_ingestion_pb2_grpc import DataIngestionSer
 from tilebox.datasets.datasetsv1.datasets_pb2_grpc import DatasetServiceStub
 from tilebox.datasets.group import Group
 from tilebox.datasets.service import TileboxDatasetService
-from tilebox.datasets.sync.timeseries import TimeseriesDataset
+from tilebox.datasets.sync.dataset import DatasetClient
 
 
 class Client:
@@ -33,10 +33,10 @@ class Client:
         self._client = BaseClient(service)
 
     def datasets(self) -> Group:
-        return self._client.datasets(TimeseriesDataset).get()
+        return self._client.datasets(DatasetClient).get()
 
-    def dataset(self, slug: str) -> TimeseriesDataset:
-        return self._client.dataset(slug, TimeseriesDataset).get()
+    def dataset(self, slug: str) -> DatasetClient:
+        return self._client.dataset(slug, DatasetClient).get()
 
-    def _dataset_by_id(self, dataset_id: str | UUID) -> TimeseriesDataset:
-        return self._client._dataset_by_id(dataset_id, TimeseriesDataset).get()  # noqa: SLF001
+    def _dataset_by_id(self, dataset_id: str | UUID) -> DatasetClient:
+        return self._client._dataset_by_id(dataset_id, DatasetClient).get()  # noqa: SLF001

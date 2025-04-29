@@ -13,7 +13,7 @@ from tilebox.datasets.data.collection import Collection, CollectionInfo
 from tilebox.datasets.data.datapoint import DatapointInterval
 from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.datasets.data.timeseries import TimeChunk, TimeseriesDatasetChunk
-from tilebox.datasets.sync.timeseries import TimeseriesCollection
+from tilebox.datasets.sync.dataset import CollectionClient
 from tilebox.workflows.interceptors import ForwardExecution, execution_interceptor
 from tilebox.workflows.task import ExecutionContext, Task
 
@@ -104,7 +104,7 @@ class TimeseriesTask(Task):
 
 
 def batch_process_timeseries_dataset(
-    collection: TimeseriesCollection, interval: TimeIntervalLike, chunk_size: int
+    collection: CollectionClient, interval: TimeIntervalLike, chunk_size: int
 ) -> TimeseriesDatasetChunk:
     info = collection.info(availability=True, count=True)
 

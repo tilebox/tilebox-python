@@ -1,0 +1,623 @@
+from collections.abc import AsyncIterator
+from functools import partial
+from typing import cast
+from uuid import UUID
+from warnings import warn
+
+import xarray as xr
+from tqdm.auto import tqdm
+
+from _tilebox.grpc.aio.producer_consumer import async_producer_consumer
+from _tilebox.grpc.error import ArgumentError, NotFoundError
+from tilebox.datasets.aio.pagination import (
+    paginated_request,
+    with_progressbar,
+    with_time_progress_callback,
+    with_time_progressbar,
+)
+from tilebox.datasets.data.collection import CollectionInfo
+from tilebox.datasets.data.data_access import QueryFilters, SpatialFilter, SpatialFilterLike
+from tilebox.datasets.data.datapoint import DatapointInterval, DatapointPage, QueryResultPage
+from tilebox.datasets.data.datasets import Dataset
+from tilebox.datasets.data.pagination import Pagination
+from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
+from tilebox.datasets.data.uuid import as_uuid
+from tilebox.datasets.message_pool import get_message_type
+from tilebox.datasets.progress import ProgressCallback
+from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter, TimeseriesToXarrayConverter
+from tilebox.datasets.protobuf_conversion.to_protobuf import (
+    DatapointIDs,
+    IngestionData,
+    extract_datapoint_ids,
+    marshal_messages,
+    to_messages,
+)
+from tilebox.datasets.service import TileboxDatasetService
+
+# allow private member access: we allow it here because we want to make as much private as possible so that we can
+# minimize the publicly facing API (which allows us to change internals later, and also limits to auto-completion)
+# ruff: noqa: SLF001
+
+
+class DatasetClient:
+    """A client for a timeseries dataset."""
+
+    def __init__(
+        self,
+        service: TileboxDatasetService,
+        dataset: Dataset,
+    ) -> None:
+        self._service = service
+        self.name = dataset.name
+        self._dataset = dataset
+
+    async def collections(
+        self, availability: bool | None = None, count: bool | None = None
+    ) -> dict[str, "CollectionClient"]:
+        """
+        List the available collections in a dataset.
+
+        Args:
+            availability: Unused.
+            count: Unused.
+
+        Returns:
+            A mapping from collection names to collections.
+        """
+        if availability is not None:
+            warn(
+                "The availability arg has been deprecated, and will be removed in a future version. "
+                "Collection availability information is now always returned instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        if count is not None:
+            warn(
+                "The count arg has been deprecated, and will be removed in a future version. "
+                "Collection counts are now always returned instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        collections = await self._service.get_collections(self._dataset.id, True, True)
+
+        return {collection.collection.name: CollectionClient(self, collection) for collection in collections}
+
+    async def get_or_create_collection(self, name: str) -> "CollectionClient":
+        """Get a collection by its name, or create it if it doesn't exist.
+
+        Args:
+            name: The name of the collection to get or create.
+
+        Returns:
+            The collection with the given name.
+        """
+        try:
+            collection = await self.collection(name)
+        except NotFoundError:
+            return await self.create_collection(name)
+        return collection
+
+    async def create_collection(self, name: str) -> "CollectionClient":
+        """Create a new collection in this dataset.
+
+        Args:
+            name: The name of the collection to create.
+
+        Returns:
+            The created collection.
+        """
+        info = await self._service.create_collection(self._dataset.id, name)
+        return CollectionClient(self, info)
+
+    async def collection(self, name: str) -> "CollectionClient":
+        """Get a collection by its name.
+
+        Args:
+            collection: The name of the collection to get.
+
+        Returns:
+            The collection with the given name.
+        """
+        try:
+            info = await self._service.get_collection_by_name(self._dataset.id, name, True, True)
+        except NotFoundError:
+            raise NotFoundError(f"No such collection {name}") from None
+
+        return CollectionClient(self, info)
+
+    def __repr__(self) -> str:
+        return f"{self.name} [Timeseries Dataset]: {self._dataset.summary}"
+
+
+# always ingest / delete in batches, to avoid timeout issues for very large datasets
+_INGEST_CHUNK_SIZE = 8192
+_DELETE_CHUNK_SIZE = 8192
+
+
+class CollectionClient:
+    """A client for a datapoint collection in a specific timeseries dataset."""
+
+    def __init__(
+        self,
+        dataset: DatasetClient,
+        info: CollectionInfo,
+    ) -> None:
+        self._dataset = dataset
+        self._use_legacy_api = dataset._dataset.is_legacy_type
+        self._collection = info.collection
+        self._info: CollectionInfo | None = info
+
+    def __repr__(self) -> str:
+        """Human readable representation of the collection."""
+        return repr(self._info)
+
+    @property
+    def name(self) -> str:
+        """The name of the collection."""
+        return self._collection.name
+
+    async def info(self, availability: bool | None = None, count: bool | None = None) -> CollectionInfo:
+        """
+        Return metadata about the datapoints in this collection.
+
+        Args:
+            availability: Unused.
+            count: Unused.
+
+        Returns:
+            collection info for the current collection
+        """
+        if availability is not None:
+            warn(
+                "The availability arg has been deprecated, and will be removed in a future version. "
+                "Collection availability information is now always returned instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        if count is not None:
+            warn(
+                "The count arg has been deprecated, and will be removed in a future version. "
+                "Collection counts are now always returned instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if self._info is None:  # only load collection info if it hasn't been loaded yet (or it has been invalidated)
+            try:
+                self._info = cast(
+                    CollectionInfo,
+                    await self._dataset._service.get_collection_by_name(
+                        self._dataset._dataset.id, self.name, True, True
+                    ),
+                )
+            except NotFoundError:
+                raise NotFoundError(f"No such collection {self.name}") from None
+
+        return self._info
+
+    async def find(self, datapoint_id: str | UUID, skip_data: bool = False) -> xr.Dataset:
+        """
+        Find a specific datapoint in this collection by its id.
+
+        Args:
+            datapoint_id: The id of the datapoint to find
+            skip_data: Whether to skip the actual data of the datapoint. If True, only datapoint metadata is returned.
+
+        Returns:
+            The datapoint as an xarray dataset
+        """
+        if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
+            return await self._find_legacy(str(datapoint_id), skip_data)
+
+        try:
+            datapoint = await self._dataset._service.query_by_id(
+                [self._collection.id], as_uuid(datapoint_id), skip_data
+            )
+        except ArgumentError:
+            raise ValueError(f"Invalid datapoint id: {datapoint_id} is not a valid UUID") from None
+        except NotFoundError:
+            raise NotFoundError(f"No such datapoint {datapoint_id}") from None
+
+        message_type = get_message_type(datapoint.type_url)
+        data = message_type.FromString(datapoint.value)
+
+        converter = MessageToXarrayConverter(initial_capacity=1)
+        converter.convert(data)
+        return converter.finalize("time").isel(time=0)
+
+    async def _find_legacy(self, datapoint_id: str, skip_data: bool = False) -> xr.Dataset:
+        try:
+            datapoint = await self._dataset._service.get_datapoint_by_id(
+                str(self._collection.id), datapoint_id, skip_data
+            )
+        except ArgumentError:
+            raise ValueError(f"Invalid datapoint id: {datapoint_id} is not a valid UUID") from None
+        except NotFoundError:
+            raise NotFoundError(f"No such datapoint {datapoint_id}") from None
+
+        converter = TimeseriesToXarrayConverter(initial_capacity=1)
+        converter.convert(datapoint)
+        return converter.finalize().isel(time=0)
+
+    async def _find_interval(
+        self,
+        datapoint_id_interval: tuple[str, str] | tuple[UUID, UUID],
+        end_inclusive: bool = True,
+        *,
+        skip_data: bool = False,
+        show_progress: bool = False,
+    ) -> xr.Dataset:
+        """
+        Find a range of datapoints in this collection in an interval specified as datapoint ids.
+
+        Args:
+            datapoint_id_interval: tuple of two datapoint ids specifying the interval: [start_id, end_id]
+            end_inclusive: Flag indicating whether the datapoint with the given end_id should be included in the
+                result or not.
+            skip_data: Whether to skip the actual data of the datapoint. If True, only datapoint metadata is returned.
+            show_progress: Whether to show a progress bar while loading the data.
+
+        Returns:
+            The datapoints in the given interval as an xarray dataset
+        """
+        if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
+            return await self._find_interval_legacy(
+                datapoint_id_interval, end_inclusive, skip_data=skip_data, show_progress=show_progress
+            )
+
+        start_id, end_id = datapoint_id_interval
+
+        filters = QueryFilters(
+            temporal_extent=DatapointInterval(
+                start_id=as_uuid(start_id),
+                end_id=as_uuid(end_id),
+                start_exclusive=False,
+                end_inclusive=end_inclusive,
+            )
+        )
+
+        request = partial(self._dataset._service.query, [self._collection.id], filters, skip_data)
+
+        initial_page = Pagination()
+        pages = paginated_request(request, initial_page)
+        if show_progress:
+            pages = with_progressbar(pages, f"Fetching {self._dataset.name}")
+
+        return await _convert_to_dataset(pages)
+
+    async def _find_interval_legacy(
+        self,
+        datapoint_id_interval: tuple[str, str] | tuple[UUID, UUID],
+        end_inclusive: bool = True,
+        *,
+        skip_data: bool = False,
+        show_progress: bool = False,
+    ) -> xr.Dataset:
+        start_id, end_id = datapoint_id_interval
+
+        datapoint_interval = DatapointInterval(
+            start_id=as_uuid(start_id),
+            end_id=as_uuid(end_id),
+            start_exclusive=False,
+            end_inclusive=end_inclusive,
+        )
+        request = partial(
+            self._dataset._service.get_dataset_for_datapoint_interval,
+            str(self._collection.id),
+            datapoint_interval,
+            skip_data,
+            False,
+        )
+
+        initial_page = Pagination()
+        pages = paginated_request(request, initial_page)
+        if show_progress:
+            pages = with_progressbar(pages, f"Fetching {self._dataset.name}")
+
+        return await _convert_to_dataset_legacy(pages)
+
+    async def load(
+        self,
+        temporal_extent: TimeIntervalLike,
+        *,
+        skip_data: bool = False,
+        show_progress: bool | ProgressCallback = False,
+    ) -> xr.Dataset:
+        """
+        Load a range of datapoints in this collection for a specified temporal_extent.
+
+        An alias for query() without a spatial extent.
+
+        Args:
+            temporal_extent: The temporal extent to load data for.
+                Can be specified in a number of ways:
+                - TimeInterval: interval -> Use the time interval as its given
+                - DatetimeScalar: [time, time] -> Construct a TimeInterval with start and end time set to the given
+                    value and the end time inclusive
+                - tuple of two DatetimeScalar: [start, end) -> Construct a TimeInterval with the given start and
+                    end time
+                - xr.DataArray: [arr[0], arr[-1]] -> Construct a TimeInterval with start and end time set to the
+                    first and last value in the array and the end time inclusive
+                - xr.Dataset: [ds.time[0], ds.time[-1]] -> Construct a TimeInterval with start and end time set to
+                    the first and last value in the time coordinate of the dataset and the end time inclusive
+            skip_data: Whether to skip the actual data of the datapoint. If True, only datapoint metadata is returned.
+            show_progress: Whether to show a progress bar while loading the data.
+                If a callable is specified it is used as callback to report progress percentages.
+
+        Returns:
+            Matching datapoints in the given temporal extent as an xarray dataset
+        """
+        if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
+            return await self._load_legacy(temporal_extent, skip_data=skip_data, show_progress=show_progress)
+
+        return await self.query(temporal_extent=temporal_extent, skip_data=skip_data, show_progress=show_progress)
+
+    async def query(
+        self,
+        *,
+        temporal_extent: TimeIntervalLike,
+        spatial_extent: SpatialFilterLike | None = None,
+        skip_data: bool = False,
+        show_progress: bool | ProgressCallback = False,
+    ) -> xr.Dataset:
+        """
+        Query datapoints in this collection in a specified temporal extent and an optional spatial extent.
+
+        Args:
+            temporal_extent: The temporal extent to query data for. (Required)
+                Can be specified in a number of ways:
+                - TimeInterval: interval -> Use the time interval as its given
+                - DatetimeScalar: [time, time] -> Construct a TimeInterval with start and end time set to the given
+                    value and the end time inclusive
+                - tuple of two DatetimeScalar: [start, end) -> Construct a TimeInterval with the given start and
+                    end time
+                - xr.DataArray: [arr[0], arr[-1]] -> Construct a TimeInterval with start and end time set to the
+                    first and last value in the array and the end time inclusive
+                - xr.Dataset: [ds.time[0], ds.time[-1]] -> Construct a TimeInterval with start and end time set to
+                    the first and last value in the time coordinate of the dataset and the end time inclusive
+            spatial_extent: The spatial extent to query data in. (Optional)
+                Expected to be either a shapely geometry, or a dict with the following keys:
+                - geometry: The geometry to query by. Must be a shapely.Polygon, shapely.MultiPolygon or shapely.Point.
+                - mode: The spatial filter mode to use. Can be one of "intersects" or "contains".
+                    Defaults to "intersects".
+                - coordinate_system: The coordinate system to use for performing geometry calculations. Can be one
+                    of "cartesian" or "spherical".
+                Only supported for spatiotemporal datasets. Will raise an error if used for other dataset types.
+                All datapoints whose geometry intersects the given spatial extent will be returned.
+            skip_data: Whether to skip the actual data of the datapoint. If True, only datapoint metadata is returned.
+            show_progress: Whether to show a progress bar while loading the data.
+                If a callable is specified it is used as callback to report progress percentages.
+
+        Returns:
+            Matching datapoints in the given temporal and spatial extent as an xarray dataset
+        """
+        if self._use_legacy_api:
+            raise ValueError("Querying is not supported for this dataset. Please use load() instead.")
+
+        if temporal_extent is None:
+            raise ValueError("A temporal_extent for your query must be specified")
+
+        pages = self._iter_pages(temporal_extent, spatial_extent, skip_data, show_progress=show_progress)
+        return await _convert_to_dataset(pages)
+
+    async def _iter_pages(
+        self,
+        temporal_extent: TimeIntervalLike,
+        spatial_extent: SpatialFilterLike | None = None,
+        skip_data: bool = False,
+        show_progress: bool | ProgressCallback = False,
+        page_size: int | None = None,
+    ) -> AsyncIterator[QueryResultPage]:
+        time_interval = TimeInterval.parse(temporal_extent)
+        filters = QueryFilters(time_interval, SpatialFilter.parse(spatial_extent) if spatial_extent else None)
+
+        request = partial(self._load_page, filters, skip_data)
+
+        initial_page = Pagination(limit=page_size)
+        pages = paginated_request(request, initial_page)
+
+        if callable(show_progress):
+            pages = with_time_progress_callback(pages, time_interval, show_progress)
+        elif show_progress:
+            message = f"Fetching {self._dataset.name}"
+            pages = with_time_progressbar(pages, time_interval, message)
+
+        async for page in pages:
+            yield page
+
+    async def _load_page(
+        self, filters: QueryFilters, skip_data: bool, page: Pagination | None = None
+    ) -> QueryResultPage:
+        return await self._dataset._service.query([self._collection.id], filters, skip_data, page)
+
+    async def _load_legacy(
+        self,
+        time_or_interval: TimeIntervalLike,
+        *,
+        skip_data: bool = False,
+        show_progress: bool | ProgressCallback = False,
+    ) -> xr.Dataset:
+        pages = self._iter_pages_legacy(time_or_interval, skip_data, show_progress=show_progress)
+        return await _convert_to_dataset_legacy(pages)
+
+    async def _iter_pages_legacy(
+        self,
+        time_or_interval: TimeIntervalLike,
+        skip_data: bool = False,
+        skip_meta: bool = False,
+        show_progress: bool | ProgressCallback = False,
+        page_size: int | None = None,
+    ) -> AsyncIterator[DatapointPage]:
+        time_interval = TimeInterval.parse(time_or_interval)
+
+        request = partial(self._load_page_legacy, time_interval, skip_data, skip_meta)
+
+        initial_page = Pagination(limit=page_size)
+        pages = paginated_request(request, initial_page)
+
+        if callable(show_progress):
+            if skip_meta:
+                raise ValueError("Progress callback requires datapoint metadata, but skip_meta is True")
+            else:
+                pages = with_time_progress_callback(pages, time_interval, show_progress)
+        elif show_progress:
+            message = f"Fetching {self._dataset.name}"
+            if skip_meta:  # without metadata we can't estimate progress based on event time (since it is not returned)
+                pages = with_progressbar(pages, message)
+            else:
+                pages = with_time_progressbar(pages, time_interval, message)
+
+        async for page in pages:
+            yield page
+
+    async def _load_page_legacy(
+        self, time_interval: TimeInterval, skip_data: bool, skip_meta: bool, page: Pagination | None = None
+    ) -> DatapointPage:
+        return await self._dataset._service.get_dataset_for_time_interval(
+            str(self._collection.id), time_interval, skip_data, skip_meta, page
+        )
+
+    async def ingest(
+        self,
+        data: IngestionData,
+        allow_existing: bool = True,
+        *,
+        show_progress: bool | ProgressCallback = False,
+    ) -> list[UUID]:
+        """Ingest data into the collection.
+
+        Args:
+            data: The data to ingest. Supported data types are:
+                - xr.Dataset: Ingest a dataset such as it is returned by the output of `collection.load()`
+                - pd.DataFrame: Ingest a pandas DataFrame, mapping the column names to the dataset fields
+                - Iterable, dict or nd-array: Ingest any object that can be converted to a pandas DataFrame,
+                    equivalent to `ingest(pd.DataFrame(data))`
+            allow_existing: Whether to allow existing datapoints. Datapoints will only be overwritten if
+                all of their fields are exactly equal to already existing datapoints. Tilebox will never create
+                duplicate datapoints, but will raise an error if the datapoint already exists. Setting this to
+                `True` will not raise an error and skip the duplicate datapoints instead.
+            show_progress: Whether to show a progress bar while ingestion a large number of datapoints.
+                If a callable is specified it is used as callback to report progress percentages.
+
+        Returns:
+            List of datapoint ids that were ingested.
+        """
+        if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
+            raise ValueError("Ingestion is not supported for this dataset. Please create a new dataset.")
+
+        message_type = get_message_type(self._dataset._dataset.type.type_url)
+        messages = marshal_messages(
+            to_messages(data, message_type, required_fields=["time"], ignore_fields=["id", "ingestion_time"])
+        )
+
+        disable_progress_bar = callable(show_progress) or (not show_progress)
+
+        ingested_ids = []
+        with tqdm(
+            total=len(messages),
+            desc=f"Ingesting into {self._dataset.name}",
+            unit="datapoints",
+            disable=disable_progress_bar,
+        ) as progress_bar:
+            for chunk_start in range(0, len(messages), _INGEST_CHUNK_SIZE):
+                chunk = messages[chunk_start : chunk_start + _INGEST_CHUNK_SIZE]
+                response = await self._dataset._service.ingest(self._collection.id, chunk, allow_existing)
+                ingested_ids.extend(response.datapoint_ids)
+
+                progress_bar.update(len(chunk))
+                if callable(show_progress):
+                    show_progress(len(ingested_ids) / len(messages))
+                self._info = None  # invalidate collection info, since we just ingested some data into it
+        return ingested_ids
+
+    async def delete(self, datapoints: DatapointIDs, *, show_progress: bool | ProgressCallback = False) -> int:
+        """Delete datapoints from the collection.
+
+        Datapoints are identified and deleted by their ids.
+
+        Args:
+            datapoints: The datapoints to delete. Supported types are:
+                - xr.Dataset: An xarray.Dataset containing an "id" variable/coord consisting of datapoint IDs to delete.
+                - pd.DataFrame: A pandas DataFrame containing a "id" column consisting of datapoint IDs to delete.
+                - xr.DataArray, np.ndarray, pd.Series, list[UUID]: Array of UUIDs to delete
+                - list[str], list[UUID]: List of datapoint IDs to delete
+            show_progress: Whether to show a progress bar when deleting a large number of datapoints.
+                If a callable is specified it is used as callback to report progress percentages.
+
+        Returns:
+            The number of datapoints that were deleted.
+
+        Raises:
+            NotFoundError: If one or more of the datapoints to delete doesn't exist - no datapoints
+                will be deleted if any of the requested deletions doesn't exist.
+        """
+        datapoint_ids = extract_datapoint_ids(datapoints)
+        num_deleted = 0
+
+        disable_progress_bar = callable(show_progress) or (not show_progress)
+
+        with tqdm(
+            total=len(datapoint_ids),
+            desc=f"Deleting from {self._dataset.name}",
+            unit="datapoints",
+            disable=disable_progress_bar,
+        ) as progress_bar:
+            for chunk_start in range(0, len(datapoint_ids), _DELETE_CHUNK_SIZE):
+                chunk = datapoint_ids[chunk_start : chunk_start + _DELETE_CHUNK_SIZE]
+                num_deleted += await self._dataset._service.delete(self._collection.id, chunk)
+
+                progress_bar.update(len(chunk))
+                if callable(show_progress):
+                    show_progress(num_deleted / len(datapoint_ids))
+                self._info = None  # invalidate collection info, since we just deleted some data from it
+        return num_deleted
+
+
+async def _convert_to_dataset(pages: AsyncIterator[QueryResultPage]) -> xr.Dataset:
+    """
+    Convert an async iterator of QueryResultPages into a single xarray Dataset
+
+    Parses each incoming page while in parallel already requesting and waiting for the next page from the server.
+
+    Args:
+        pages: Async iterator of QueryResultPages to convert
+
+    Returns:
+        The datapoints from the individual pages converted and combined into a single xarray dataset
+    """
+    converter = MessageToXarrayConverter()
+
+    def convert_page(page: QueryResultPage) -> None:
+        message_type = get_message_type(page.data.type_url)
+        messages = [message_type.FromString(v) for v in page.data.value]
+        converter.convert_all(messages)
+
+    # lets parse the incoming pages already while we wait for the next page from the server
+    # we solve this using a classic producer/consumer with a queue of pages for communication
+    # this would also account for the case where the server sends pages faster than we are converting
+    # them to xarray
+    await async_producer_consumer(pages, convert_page)
+    return converter.finalize("time")
+
+
+async def _convert_to_dataset_legacy(pages: AsyncIterator[DatapointPage]) -> xr.Dataset:
+    """
+    Convert an async iterator of DatasetIntervals (pages) into a single xarray Dataset
+
+    Parses each incoming page while in parallel already requesting and waiting for the next page from the server.
+
+    Args:
+        pages: Async iterator of DatasetIntervals (pages) to convert
+
+    Returns:
+        The datapoints from the individual pages converted and combined into a single xarray dataset
+    """
+
+    converter = TimeseriesToXarrayConverter()
+    # lets parse the incoming pages already while we wait for the next page from the server
+    # we solve this using a classic producer/consumer with a queue of pages for communication
+    # this would also account for the case where the server sends pages faster than we are converting
+    # them to xarray
+    await async_producer_consumer(pages, lambda page: converter.convert_all(page))
+    return converter.finalize()

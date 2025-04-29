@@ -2,7 +2,7 @@ from uuid import UUID
 
 from _tilebox.grpc.aio.channel import open_channel
 from _tilebox.grpc.aio.error import with_pythonic_errors
-from tilebox.datasets.aio.timeseries import TimeseriesDataset
+from tilebox.datasets.aio.dataset import DatasetClient
 from tilebox.datasets.client import Client as BaseClient
 from tilebox.datasets.client import token_from_env
 from tilebox.datasets.datasetsv1.collections_pb2_grpc import CollectionServiceStub
@@ -33,10 +33,10 @@ class Client:
         self._client = BaseClient(service)
 
     async def datasets(self) -> Group:
-        return await self._client.datasets(TimeseriesDataset)
+        return await self._client.datasets(DatasetClient)
 
-    async def dataset(self, slug: str) -> TimeseriesDataset:
-        return await self._client.dataset(slug, TimeseriesDataset)
+    async def dataset(self, slug: str) -> DatasetClient:
+        return await self._client.dataset(slug, DatasetClient)
 
-    async def _dataset_by_id(self, dataset_id: str | UUID) -> TimeseriesDataset:
-        return await self._client._dataset_by_id(dataset_id, TimeseriesDataset)  # noqa: SLF001
+    async def _dataset_by_id(self, dataset_id: str | UUID) -> DatasetClient:
+        return await self._client._dataset_by_id(dataset_id, DatasetClient)  # noqa: SLF001

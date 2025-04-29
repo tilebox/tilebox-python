@@ -14,7 +14,7 @@ from _tilebox.grpc.error import ArgumentError, NotFoundError
 from tests.data.collection import collection_infos, collection_names
 from tests.data.datapoint import datapoints, paginated_datapoint_for_interval_responses
 from tests.data.datasets import example_dataset_type
-from tilebox.datasets import TimeseriesCollection, TimeseriesDataset
+from tilebox.datasets import CollectionClient, DatasetClient
 from tilebox.datasets.data.collection import Collection, CollectionInfo
 from tilebox.datasets.data.datapoint import Datapoint, DatapointPage
 from tilebox.datasets.data.datasets import Dataset
@@ -37,13 +37,13 @@ from tilebox.datasets.datasetsv1.core_pb2 import CollectionInfos as CollectionIn
 from tilebox.datasets.service import TileboxDatasetService
 
 
-def _mocked_dataset() -> tuple[TimeseriesDataset, MagicMock]:
+def _mocked_dataset() -> tuple[DatasetClient, MagicMock]:
     service = MagicMock()
 
     # we do not sample/draw from datasets() here, because the values themselves are irrelevant for the tests
     # (we are not testing properties, but rather writing conventional unit tests here, so it doesn't make sense to
     # run them multiple times)
-    dataset = TimeseriesDataset(
+    dataset = DatasetClient(
         service,
         Dataset(
             id=uuid4(),
@@ -85,7 +85,7 @@ def test_timeseries_dataset_list_collections(infos: list[CollectionInfo]) -> Non
 
     for info in infos:
         collection = collections[info.collection.name]
-        assert isinstance(collection, TimeseriesCollection), "Expected a RemoteTimeseriesDatasetCollection"
+        assert isinstance(collection, CollectionClient), "Expected a RemoteTimeseriesDatasetCollection"
         assert collection.name == info.collection.name, "Name mismatch in collection"
         assert repr(info) in repr(collection), "Expected info to be in collection repr"
         assert collection._info == info, "Expected info to be cached"
@@ -108,9 +108,9 @@ def test_timeseries_dataset_get_collection(collection_name: str) -> None:
 
 @dataclass
 class MockedCollection:
-    dataset: TimeseriesDataset
+    dataset: DatasetClient
     dataset_info: Dataset
-    collection: TimeseriesCollection
+    collection: CollectionClient
     collection_info: CollectionInfo
     service: MagicMock
 
@@ -312,10 +312,10 @@ class CollectionCRUDOperations(RuleBasedStateMachine):
         self.dataset_client = dataset_client
         self.count_collections = 0
 
-    inserted_collections: Bundle[TimeseriesCollection] = Bundle("collections")
+    inserted_collections: Bundle[CollectionClient] = Bundle("collections")
 
     @rule(target=inserted_collections, collection=collection_infos())
-    def get_or_create_collection_enfore_create(self, collection: CollectionInfo) -> TimeseriesCollection:
+    def get_or_create_collection_enfore_create(self, collection: CollectionInfo) -> CollectionClient:
         collections = self.dataset_client.collections()
         assume(collection.collection.name not in collections)
 
@@ -323,12 +323,12 @@ class CollectionCRUDOperations(RuleBasedStateMachine):
         return self.dataset_client.get_or_create_collection(collection.collection.name)
 
     @rule(collection=inserted_collections)
-    def get_or_create_collection_enfore_get(self, collection: TimeseriesCollection) -> None:
+    def get_or_create_collection_enfore_get(self, collection: CollectionClient) -> None:
         got = self.dataset_client.get_or_create_collection(collection.name)
         assert got.info() == collection.info()
 
     @rule(target=inserted_collections, collection=collection_infos())
-    def create_collection(self, collection: CollectionInfo) -> TimeseriesCollection:
+    def create_collection(self, collection: CollectionInfo) -> CollectionClient:
         collections = self.dataset_client.collections()
         assume(collection.collection.name not in collections)
 
@@ -336,7 +336,7 @@ class CollectionCRUDOperations(RuleBasedStateMachine):
         return self.dataset_client.create_collection(collection.collection.name)
 
     @rule(collection=inserted_collections)
-    def get_collection(self, collection: TimeseriesCollection) -> None:
+    def get_collection(self, collection: CollectionClient) -> None:
         got = self.dataset_client.collection(collection.name)
         assert got.info() == collection.info()
 
