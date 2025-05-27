@@ -1,5 +1,5 @@
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import TypeVar
 
@@ -9,39 +9,9 @@ from tilebox.datasets.data import (
     TimeInterval,
 )
 from tilebox.datasets.data.datapoint import DatapointPage, QueryResultPage
-from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.progress import ProgressCallback, TimeIntervalProgressBar
 
 ResultPage = TypeVar("ResultPage", bound=DatapointPage | QueryResultPage)
-
-
-def paginated_request(
-    paging_request: Callable[[Pagination], ResultPage],
-    initial_page: Pagination | None = None,
-) -> Iterator[ResultPage]:
-    """Make a paginated request to a gRPC service endpoint.
-
-    The endpoint is expected to return a next_page field, which is used for subsequent requests. Once no such
-    next_page field is returned, the request is completed.
-
-    Args:
-        paging_request: A function that takes a page as input and returns a Datapoints object
-            Often this will be a functools.partial object that wraps a gRPC service endpoint
-            and only leaves the page argument remaining
-        initial_page: The initial page to request
-
-    Yields:
-        Datapoints: The individual pages of the response
-    """
-    if initial_page is None:
-        initial_page = Pagination()
-
-    response = paging_request(initial_page)
-    yield response
-
-    while response.next_page.starting_after is not None:
-        response = paging_request(response.next_page)
-        yield response
 
 
 def with_progressbar(

@@ -42,15 +42,10 @@ class JobServiceStub(object):
                 request_serializer=workflows_dot_v1_dot_job__pb2.VisualizeJobRequest.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_diagram__pb2.Diagram.FromString,
                 _registered_method=True)
-        self.ListJobs = channel.unary_unary(
-                '/workflows.v1.JobService/ListJobs',
-                request_serializer=workflows_dot_v1_dot_job__pb2.ListJobsRequest.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_job__pb2.ListJobsResponse.FromString,
-                _registered_method=True)
-        self.FilterJobs = channel.unary_unary(
-                '/workflows.v1.JobService/FilterJobs',
-                request_serializer=workflows_dot_v1_dot_job__pb2.FilterJobsRequest.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_job__pb2.ListJobsResponse.FromString,
+        self.QueryJobs = channel.unary_unary(
+                '/workflows.v1.JobService/QueryJobs',
+                request_serializer=workflows_dot_v1_dot_job__pb2.QueryJobsRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_job__pb2.QueryJobsResponse.FromString,
                 _registered_method=True)
         self.GetJobPrototype = channel.unary_unary(
                 '/workflows.v1.JobService/GetJobPrototype',
@@ -98,13 +93,7 @@ class JobServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ListJobs(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def FilterJobs(self, request, context):
+    def QueryJobs(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -150,15 +139,10 @@ def add_JobServiceServicer_to_server(servicer, server):
                     request_deserializer=workflows_dot_v1_dot_job__pb2.VisualizeJobRequest.FromString,
                     response_serializer=workflows_dot_v1_dot_diagram__pb2.Diagram.SerializeToString,
             ),
-            'ListJobs': grpc.unary_unary_rpc_method_handler(
-                    servicer.ListJobs,
-                    request_deserializer=workflows_dot_v1_dot_job__pb2.ListJobsRequest.FromString,
-                    response_serializer=workflows_dot_v1_dot_job__pb2.ListJobsResponse.SerializeToString,
-            ),
-            'FilterJobs': grpc.unary_unary_rpc_method_handler(
-                    servicer.FilterJobs,
-                    request_deserializer=workflows_dot_v1_dot_job__pb2.FilterJobsRequest.FromString,
-                    response_serializer=workflows_dot_v1_dot_job__pb2.ListJobsResponse.SerializeToString,
+            'QueryJobs': grpc.unary_unary_rpc_method_handler(
+                    servicer.QueryJobs,
+                    request_deserializer=workflows_dot_v1_dot_job__pb2.QueryJobsRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_job__pb2.QueryJobsResponse.SerializeToString,
             ),
             'GetJobPrototype': grpc.unary_unary_rpc_method_handler(
                     servicer.GetJobPrototype,
@@ -318,7 +302,7 @@ class JobService(object):
             _registered_method=True)
 
     @staticmethod
-    def ListJobs(request,
+    def QueryJobs(request,
             target,
             options=(),
             channel_credentials=None,
@@ -331,36 +315,9 @@ class JobService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/workflows.v1.JobService/ListJobs',
-            workflows_dot_v1_dot_job__pb2.ListJobsRequest.SerializeToString,
-            workflows_dot_v1_dot_job__pb2.ListJobsResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def FilterJobs(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/workflows.v1.JobService/FilterJobs',
-            workflows_dot_v1_dot_job__pb2.FilterJobsRequest.SerializeToString,
-            workflows_dot_v1_dot_job__pb2.ListJobsResponse.FromString,
+            '/workflows.v1.JobService/QueryJobs',
+            workflows_dot_v1_dot_job__pb2.QueryJobsRequest.SerializeToString,
+            workflows_dot_v1_dot_job__pb2.QueryJobsResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -7,17 +7,18 @@ from warnings import warn
 import xarray as xr
 from tqdm.auto import tqdm
 
+from _tilebox.grpc.aio.pagination import Pagination as PaginationProtocol
+from _tilebox.grpc.aio.pagination import paginated_request
 from _tilebox.grpc.aio.producer_consumer import async_producer_consumer
 from _tilebox.grpc.error import ArgumentError, NotFoundError
 from tilebox.datasets.aio.pagination import (
-    paginated_request,
     with_progressbar,
     with_time_progress_callback,
     with_time_progressbar,
 )
 from tilebox.datasets.data.collection import CollectionInfo
 from tilebox.datasets.data.data_access import QueryFilters, SpatialFilter, SpatialFilterLike
-from tilebox.datasets.data.datapoint import DatapointInterval, DatapointPage, QueryResultPage
+from tilebox.datasets.data.datapoint import DatapointInterval, DatapointIntervalLike, DatapointPage, QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
@@ -242,7 +243,7 @@ class CollectionClient:
 
     async def _find_interval(
         self,
-        datapoint_id_interval: tuple[str, str] | tuple[UUID, UUID],
+        datapoint_id_interval: DatapointIntervalLike,
         end_inclusive: bool = True,
         *,
         skip_data: bool = False,
@@ -266,18 +267,13 @@ class CollectionClient:
                 datapoint_id_interval, end_inclusive, skip_data=skip_data, show_progress=show_progress
             )
 
-        start_id, end_id = datapoint_id_interval
-
         filters = QueryFilters(
-            temporal_extent=DatapointInterval(
-                start_id=as_uuid(start_id),
-                end_id=as_uuid(end_id),
-                start_exclusive=False,
-                end_inclusive=end_inclusive,
-            )
+            temporal_extent=DatapointInterval.parse(datapoint_id_interval, end_inclusive=end_inclusive)
         )
 
-        request = partial(self._dataset._service.query, [self._collection.id], filters, skip_data)
+        async def request(page: PaginationProtocol) -> QueryResultPage:
+            query_page = Pagination(page.limit, page.starting_after)
+            return await self._dataset._service.query([self._collection.id], filters, skip_data, query_page)
 
         initial_page = Pagination()
         pages = paginated_request(request, initial_page)
@@ -288,27 +284,19 @@ class CollectionClient:
 
     async def _find_interval_legacy(
         self,
-        datapoint_id_interval: tuple[str, str] | tuple[UUID, UUID],
+        datapoint_id_interval: DatapointIntervalLike,
         end_inclusive: bool = True,
         *,
         skip_data: bool = False,
         show_progress: bool = False,
     ) -> xr.Dataset:
-        start_id, end_id = datapoint_id_interval
+        datapoint_interval = DatapointInterval.parse(datapoint_id_interval, end_inclusive=end_inclusive)
 
-        datapoint_interval = DatapointInterval(
-            start_id=as_uuid(start_id),
-            end_id=as_uuid(end_id),
-            start_exclusive=False,
-            end_inclusive=end_inclusive,
-        )
-        request = partial(
-            self._dataset._service.get_dataset_for_datapoint_interval,
-            str(self._collection.id),
-            datapoint_interval,
-            skip_data,
-            False,
-        )
+        async def request(page: PaginationProtocol) -> DatapointPage:
+            query_page = Pagination(page.limit, page.starting_after)
+            return await self._dataset._service.get_dataset_for_datapoint_interval(
+                str(self._collection.id), datapoint_interval, skip_data, False, query_page
+            )
 
         initial_page = Pagination()
         pages = paginated_request(request, initial_page)
@@ -427,9 +415,10 @@ class CollectionClient:
             yield page
 
     async def _load_page(
-        self, filters: QueryFilters, skip_data: bool, page: Pagination | None = None
+        self, filters: QueryFilters, skip_data: bool, page: PaginationProtocol | None = None
     ) -> QueryResultPage:
-        return await self._dataset._service.query([self._collection.id], filters, skip_data, page)
+        query_page = Pagination(page.limit, page.starting_after) if page else Pagination()
+        return await self._dataset._service.query([self._collection.id], filters, skip_data, query_page)
 
     async def _load_legacy(
         self,
@@ -472,10 +461,11 @@ class CollectionClient:
             yield page
 
     async def _load_page_legacy(
-        self, time_interval: TimeInterval, skip_data: bool, skip_meta: bool, page: Pagination | None = None
+        self, time_interval: TimeInterval, skip_data: bool, skip_meta: bool, page: PaginationProtocol | None = None
     ) -> DatapointPage:
+        query_page = Pagination(page.limit, page.starting_after) if page else Pagination()
         return await self._dataset._service.get_dataset_for_time_interval(
-            str(self._collection.id), time_interval, skip_data, skip_meta, page
+            str(self._collection.id), time_interval, skip_data, skip_meta, query_page
         )
 
     async def ingest(

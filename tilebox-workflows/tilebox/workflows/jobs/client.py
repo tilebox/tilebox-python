@@ -1,15 +1,21 @@
 from typing import Any, TypeAlias
 from uuid import UUID
 
+from _tilebox.grpc.pagination import Pagination as PaginationProtocol
+from _tilebox.grpc.pagination import paginated_request
+from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.workflows.clusters.client import ClusterSlugLike, to_cluster_slug
 from tilebox.workflows.data import (
+    IDInterval,
+    IDIntervalLike,
     Job,
+    Pagination,
+    QueryFilters,
+    QueryJobsResponse,
+    _TimeInterval,
 )
 from tilebox.workflows.jobs.service import JobService
-from tilebox.workflows.observability.tracing import (
-    WorkflowTracer,
-    get_trace_parent_of_current_span,
-)
+from tilebox.workflows.observability.tracing import WorkflowTracer, get_trace_parent_of_current_span
 from tilebox.workflows.task import FutureTask
 from tilebox.workflows.task import Task as TaskInstance
 
@@ -148,6 +154,68 @@ class JobClient:
             Rendered SVG of the diagram.
         """
         return self._service.visualize(_to_uuid(job), direction, layout, sketchy)
+
+    def query(self, temporal_extent: TimeIntervalLike | IDIntervalLike, automation_id: UUID | None = None) -> list[Job]:
+        """List jobs in the given temporal extent.
+
+        Args:
+            temporal_extent: The temporal extent to filter jobs by. If an IDInterval is given, jobs are filtered by their
+                job id instead of their creation time.
+                Can be specified in a number of ways:
+                - TimeInterval: interval -> Use the time interval as its given
+                - DatetimeScalar: [time, time] -> Construct a TimeInterval with start and end time set to the given
+                    value and the end time inclusive
+                - tuple of two DatetimeScalar: [start, end) -> Construct a TimeInterval with the given start and
+                    end time
+                - IDInterval: interval -> Use the ID interval as its given
+                - tuple of two UUIDs: [start, end) -> Construct an IDInterval with the given start and end id
+                - tuple of two strings: [start, end) -> Construct an IDInterval with the given start and end id
+                    parsed from the strings
+            automation_id: The automation id to filter jobs by. If specified, only jobs created by the given automation
+                are returned.
+
+        Returns:
+            A list of jobs.
+        """
+        time_interval: _TimeInterval | None = None
+        id_interval: IDInterval | None = None
+        match temporal_extent:
+            case (str(), str()):
+                # this is either a tuple of datetimes or a tuple of UUIDs
+                try:
+                    id_interval = IDInterval.parse(temporal_extent)
+                except ValueError:
+                    dataset_time_interval = TimeInterval.parse(temporal_extent)
+                    time_interval = _TimeInterval(
+                        start=dataset_time_interval.start,
+                        end=dataset_time_interval.end,
+                        start_exclusive=dataset_time_interval.start_exclusive,
+                        end_inclusive=dataset_time_interval.end_inclusive,
+                    )
+            case IDInterval(_, _, _, _) | (UUID(), UUID()):
+                id_interval = IDInterval.parse(temporal_extent)
+            case _:
+                dataset_time_interval = TimeInterval.parse(temporal_extent)
+                time_interval = _TimeInterval(
+                    start=dataset_time_interval.start,
+                    end=dataset_time_interval.end,
+                    start_exclusive=dataset_time_interval.start_exclusive,
+                    end_inclusive=dataset_time_interval.end_inclusive,
+                )
+
+        filters = QueryFilters(time_interval=time_interval, id_interval=id_interval, automation_id=automation_id)
+
+        def request(page: PaginationProtocol) -> QueryJobsResponse:
+            query_page = Pagination(page.limit, page.starting_after)
+            return self._service.query(filters, query_page)
+
+        initial_page = Pagination()
+        pages = paginated_request(request, initial_page)
+
+        jobs = []
+        for page in pages:
+            jobs.extend(page.jobs)
+        return jobs
 
 
 def _to_uuid(job_or_id: Job | UUID | str) -> UUID:

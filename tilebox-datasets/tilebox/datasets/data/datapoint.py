@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, TypeAlias
 from uuid import UUID
 
 from tilebox.datasets.data.pagination import Pagination
@@ -8,6 +8,8 @@ from tilebox.datasets.data.time_interval import timestamp_to_datetime
 from tilebox.datasets.data.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.datasets.datasetsv1 import core_pb2, data_access_pb2, data_ingestion_pb2
 from tilebox.datasets.message_pool import get_message_type
+
+DatapointIntervalLike: TypeAlias = "tuple[str, str] | tuple[UUID, UUID] | DatapointInterval"
 
 
 @dataclass(frozen=True)
@@ -33,6 +35,47 @@ class DatapointInterval:
             start_exclusive=self.start_exclusive,
             end_inclusive=self.end_inclusive,
         )
+
+    @classmethod
+    def parse(
+        cls, arg: DatapointIntervalLike, start_exclusive: bool = False, end_inclusive: bool = True
+    ) -> "DatapointInterval":
+        """
+        Convert a variety of input types to a DatapointInterval.
+
+        Supported input types:
+        - DatapointInterval: Return the input as is
+        - tuple of two UUIDs: Return an DatapointInterval with start and end id set to the given values
+        - tuple of two strings: Return an DatapointInterval with start and end id set to the UUIDs parsed from the given strings
+
+        Args:
+            arg: The input to convert
+            start_exclusive: Whether the start id is exclusive
+            end_inclusive: Whether the end id is inclusive
+
+        Returns:
+            DatapointInterval: The parsed ID interval
+        """
+
+        match arg:
+            case DatapointInterval(_, _, _, _):
+                return arg
+            case (UUID(), UUID()):
+                start, end = arg
+                return DatapointInterval(
+                    start_id=start,
+                    end_id=end,
+                    start_exclusive=start_exclusive,
+                    end_inclusive=end_inclusive,
+                )
+            case (str(), str()):
+                start, end = arg
+                return DatapointInterval(
+                    start_id=UUID(start),
+                    end_id=UUID(end),
+                    start_exclusive=start_exclusive,
+                    end_inclusive=end_inclusive,
+                )
 
 
 @dataclass(frozen=True)

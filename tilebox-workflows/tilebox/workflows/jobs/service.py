@@ -5,6 +5,9 @@ from grpc import Channel
 from _tilebox.grpc.error import with_pythonic_errors
 from tilebox.workflows.data import (
     Job,
+    Pagination,
+    QueryFilters,
+    QueryJobsResponse,
     TaskSubmission,
     uuid_to_uuid_message,
 )
@@ -13,11 +16,13 @@ from tilebox.workflows.workflowsv1.diagram_pb2 import Diagram, RenderOptions
 from tilebox.workflows.workflowsv1.job_pb2 import (
     CancelJobRequest,
     GetJobRequest,
+    QueryJobsRequest,
     RetryJobRequest,
     RetryJobResponse,
     SubmitJobRequest,
     VisualizeJobRequest,
 )
+from tilebox.workflows.workflowsv1.job_pb2 import QueryJobsResponse as QueryJobsResponseMessage
 from tilebox.workflows.workflowsv1.job_pb2_grpc import JobServiceStub
 
 
@@ -61,3 +66,11 @@ class JobService:
         )
         response: Diagram = self.service.VisualizeJob(request)
         return response.svg.decode("utf-8")
+
+    def query(self, filters: QueryFilters, page: Pagination | None = None) -> QueryJobsResponse:
+        request = QueryJobsRequest(
+            filters=filters.to_message(),
+            page=page.to_message() if page is not None else None,
+        )
+        response: QueryJobsResponseMessage = self.service.QueryJobs(request)
+        return QueryJobsResponse.from_message(response)

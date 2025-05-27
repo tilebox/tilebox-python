@@ -73,25 +73,25 @@ class VisualizeJobRequest(_message.Message):
     include_job_name: bool
     def __init__(self, job_id: _Optional[_Union[_core_pb2.UUID, _Mapping]] = ..., render_options: _Optional[_Union[_diagram_pb2.RenderOptions, _Mapping]] = ..., theme: _Optional[_Union[WorkflowDiagramTheme, str]] = ..., include_job_name: bool = ...) -> None: ...
 
-class ListJobsRequest(_message.Message):
-    __slots__ = ("id_interval", "page")
+class QueryFilters(_message.Message):
+    __slots__ = ("time_interval", "id_interval", "automation_id")
+    TIME_INTERVAL_FIELD_NUMBER: _ClassVar[int]
     ID_INTERVAL_FIELD_NUMBER: _ClassVar[int]
-    PAGE_FIELD_NUMBER: _ClassVar[int]
-    id_interval: _core_pb2.IDInterval
-    page: _core_pb2.Pagination
-    def __init__(self, id_interval: _Optional[_Union[_core_pb2.IDInterval, _Mapping]] = ..., page: _Optional[_Union[_core_pb2.Pagination, _Mapping]] = ...) -> None: ...
-
-class FilterJobsRequest(_message.Message):
-    __slots__ = ("id_interval", "page", "automation_id")
-    ID_INTERVAL_FIELD_NUMBER: _ClassVar[int]
-    PAGE_FIELD_NUMBER: _ClassVar[int]
     AUTOMATION_ID_FIELD_NUMBER: _ClassVar[int]
+    time_interval: _core_pb2.TimeInterval
     id_interval: _core_pb2.IDInterval
-    page: _core_pb2.Pagination
     automation_id: _core_pb2.UUID
-    def __init__(self, id_interval: _Optional[_Union[_core_pb2.IDInterval, _Mapping]] = ..., page: _Optional[_Union[_core_pb2.Pagination, _Mapping]] = ..., automation_id: _Optional[_Union[_core_pb2.UUID, _Mapping]] = ...) -> None: ...
+    def __init__(self, time_interval: _Optional[_Union[_core_pb2.TimeInterval, _Mapping]] = ..., id_interval: _Optional[_Union[_core_pb2.IDInterval, _Mapping]] = ..., automation_id: _Optional[_Union[_core_pb2.UUID, _Mapping]] = ...) -> None: ...
 
-class ListJobsResponse(_message.Message):
+class QueryJobsRequest(_message.Message):
+    __slots__ = ("filters", "page")
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_FIELD_NUMBER: _ClassVar[int]
+    filters: QueryFilters
+    page: _core_pb2.Pagination
+    def __init__(self, filters: _Optional[_Union[QueryFilters, _Mapping]] = ..., page: _Optional[_Union[_core_pb2.Pagination, _Mapping]] = ...) -> None: ...
+
+class QueryJobsResponse(_message.Message):
     __slots__ = ("jobs", "next_page")
     JOBS_FIELD_NUMBER: _ClassVar[int]
     NEXT_PAGE_FIELD_NUMBER: _ClassVar[int]

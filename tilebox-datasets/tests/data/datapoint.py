@@ -35,6 +35,7 @@ from tilebox.datasets.data.datapoint import (
     AnyMessage,
     Datapoint,
     DatapointInterval,
+    DatapointIntervalLike,
     DatapointPage,
     IngestResponse,
     QueryResultPage,
@@ -57,6 +58,19 @@ def datapoint_intervals(draw: DrawFn) -> DatapointInterval:
     end_inclusive = draw(booleans())
 
     return DatapointInterval(start, end, start_exclusive, end_inclusive)
+
+
+@composite
+def datapoint_intervals_like(draw: DrawFn) -> DatapointIntervalLike:
+    """A hypothesis strategy for generating random datapoint intervals"""
+    interval = draw(datapoint_intervals())
+    return draw(
+        one_of(
+            just(interval),
+            just((str(interval.start_id), str(interval.end_id))),
+            just((interval.start_id, interval.end_id)),
+        )
+    )
 
 
 @composite

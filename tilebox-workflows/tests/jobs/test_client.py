@@ -7,11 +7,7 @@ from tests.tasks_data import jobs
 
 from _tilebox.grpc.error import NotFoundError
 from tilebox.datasets.data.time_interval import datetime_to_timestamp
-from tilebox.workflows.data import (
-    Job,
-    uuid_message_to_uuid,
-    uuid_to_uuid_message,
-)
+from tilebox.workflows.data import Job, uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.workflows.jobs.client import JobClient
 from tilebox.workflows.jobs.service import JobService
 from tilebox.workflows.task import ExecutionContext, Task
@@ -22,8 +18,8 @@ from tilebox.workflows.workflowsv1.job_pb2 import (
     CancelJobRequest,
     CancelJobResponse,
     GetJobRequest,
-    ListJobsRequest,
-    ListJobsResponse,
+    QueryJobsRequest,
+    QueryJobsResponse,
     RetryJobRequest,
     RetryJobResponse,
     SubmitJobRequest,
@@ -96,9 +92,9 @@ class MockJobService(JobServiceStub):
 
         return Diagram(svg=b"<svg><text>Job queued</text></svg>")
 
-    def ListJobs(self, req: ListJobsRequest) -> ListJobsResponse:  # noqa: N802
+    def QueryJobs(self, req: QueryJobsRequest) -> QueryJobsResponse:  # noqa: N802
         _ = req
-        return ListJobsResponse(jobs=list(self.jobs.values()))
+        return QueryJobsResponse(jobs=list(self.jobs.values()))
 
 
 class JobOperations(RuleBasedStateMachine):
@@ -157,8 +153,7 @@ class JobOperations(RuleBasedStateMachine):
 
     @rule()
     def list_jobs(self) -> None:
-        # job_client doesn't have this yet, so we work around it
-        jobs = list(self.job_client._service.service.ListJobs(ListJobsRequest()).jobs)
+        jobs = self.job_client.query((uuid4(), uuid4()))  # dummy id interval
         assert len(jobs) == self.count_total_submitted
 
 

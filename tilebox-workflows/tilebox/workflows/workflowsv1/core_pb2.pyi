@@ -150,6 +150,18 @@ class TaskLease(_message.Message):
     recommended_wait_until_next_extension: _duration_pb2.Duration
     def __init__(self, lease: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., recommended_wait_until_next_extension: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...) -> None: ...
 
+class TimeInterval(_message.Message):
+    __slots__ = ("start_time", "end_time", "start_exclusive", "end_inclusive")
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    START_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    END_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    start_exclusive: bool
+    end_inclusive: bool
+    def __init__(self, start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., start_exclusive: bool = ..., end_inclusive: bool = ...) -> None: ...
+
 class IDInterval(_message.Message):
     __slots__ = ("start_id", "end_id", "start_exclusive", "end_inclusive")
     START_ID_FIELD_NUMBER: _ClassVar[int]
@@ -167,5 +179,5 @@ class Pagination(_message.Message):
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     STARTING_AFTER_FIELD_NUMBER: _ClassVar[int]
     limit: int
-    starting_after: str
-    def __init__(self, limit: _Optional[int] = ..., starting_after: _Optional[str] = ...) -> None: ...
+    starting_after: UUID
+    def __init__(self, limit: _Optional[int] = ..., starting_after: _Optional[_Union[UUID, _Mapping]] = ...) -> None: ...
