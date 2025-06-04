@@ -52,13 +52,13 @@ from tilebox.workflows import Client
 client = Client(token="YOUR_TILEBOX_API_KEY")
 
 jobs = client.jobs()
-jobs.submit("my-very-first-job", "some-compute-cluster", MyFirstTask())
+jobs.submit("my-very-first-job", MyFirstTask())
 ```
 
 And run it:
 
 ```python
-runner = client.runner("some-compute-cluster", tasks=[MyFirstTask])
+runner = client.runner(tasks=[MyFirstTask])
 runner.run_all()
 ```
 
