@@ -1,6 +1,6 @@
-from tilebox.workflows.workflowsv1 import core_pb2 as _core_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
+from tilebox.workflows.workflowsv1 import core_pb2 as _core_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor

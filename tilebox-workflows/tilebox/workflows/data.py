@@ -190,15 +190,16 @@ class Job:
 class Cluster:
     slug: str
     display_name: str
+    deletable: bool
 
     @classmethod  # lets use typing.Self once we require python >= 3.11
     def from_message(cls, cluster: core_pb2.Cluster) -> "Cluster":
         """Convert a Cluster protobuf message to a Cluster object."""
-        return cls(slug=cluster.slug, display_name=cluster.display_name)
+        return cls(slug=cluster.slug, display_name=cluster.display_name, deletable=cluster.deletable)
 
     def to_message(self) -> core_pb2.Cluster:
         """Convert a Cluster object to a Cluster protobuf message."""
-        return core_pb2.Cluster(slug=self.slug, display_name=self.display_name)
+        return core_pb2.Cluster(slug=self.slug, display_name=self.display_name, deletable=self.deletable)
 
 
 @dataclass

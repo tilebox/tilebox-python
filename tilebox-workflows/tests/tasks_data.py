@@ -49,7 +49,9 @@ def alphanumerical_text(draw: DrawFn, min_size: int = 1, max_size: int = 100) ->
 def clusters(draw: DrawFn) -> Cluster:
     """A hypothesis strategy for generating random clusters"""
     slug = draw(alphanumerical_text(min_size=4, max_size=20))
-    return Cluster(slug, draw(alphanumerical_text()))
+    display_name = draw(alphanumerical_text())
+    deletable = draw(booleans())
+    return Cluster(slug, display_name, deletable)
 
 
 @composite

@@ -1,9 +1,7 @@
 from typing import TypeAlias
 
 from tilebox.workflows.clusters.service import ClusterService
-from tilebox.workflows.data import (
-    Cluster,
-)
+from tilebox.workflows.data import Cluster
 
 ClusterSlugLike: TypeAlias = Cluster | str
 

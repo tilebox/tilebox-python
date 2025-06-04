@@ -35,12 +35,14 @@ TASK_STATE_FAILED: TaskState
 TASK_STATE_CANCELLED: TaskState
 
 class Cluster(_message.Message):
-    __slots__ = ("slug", "display_name")
+    __slots__ = ("slug", "display_name", "deletable")
     SLUG_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
+    DELETABLE_FIELD_NUMBER: _ClassVar[int]
     slug: str
     display_name: str
-    def __init__(self, slug: _Optional[str] = ..., display_name: _Optional[str] = ...) -> None: ...
+    deletable: bool
+    def __init__(self, slug: _Optional[str] = ..., display_name: _Optional[str] = ..., deletable: bool = ...) -> None: ...
 
 class Job(_message.Message):
     __slots__ = ("id", "name", "trace_parent", "canceled", "state", "submitted_at", "started_at", "task_summaries", "automation_id")

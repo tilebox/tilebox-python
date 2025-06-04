@@ -48,7 +48,7 @@ class JobClient:
         self,
         job_name: str,
         root_task_or_tasks: TaskInstance | list[TaskInstance],
-        cluster: ClusterSlugLike | list[ClusterSlugLike],
+        cluster: ClusterSlugLike | list[ClusterSlugLike] | None = None,
         max_retries: int = 0,
     ) -> Job:
         """Submit a new job with the given root task(s).
@@ -57,7 +57,8 @@ class JobClient:
             job_name: The name of the job to submit.
             root_task_or_tasks: The root task(s) for the job to submit.
             cluster: The cluster to submit the root task of the given job to. If multiple root tasks are given, a list
-                of clusters can be provided as well, specifying the cluster for each root task.
+                of clusters can be provided as well, specifying the cluster for each root task. If not provided, the default
+                cluster will be used.
             max_retries: The maximum number of retries for the root task(s) in case of failure. Defaults to 0.
 
         Returns:
@@ -65,8 +66,8 @@ class JobClient:
         """
         tasks = root_task_or_tasks if isinstance(root_task_or_tasks, list) else [root_task_or_tasks]
 
-        if isinstance(cluster, ClusterSlugLike):
-            slugs = [to_cluster_slug(cluster)] * len(tasks)
+        if isinstance(cluster, ClusterSlugLike | None):
+            slugs = [to_cluster_slug(cluster or "")] * len(tasks)
         else:
             slugs = [to_cluster_slug(c) for c in cluster]
 

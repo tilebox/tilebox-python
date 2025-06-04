@@ -52,7 +52,7 @@ class AutomationClient:
         name: str,
         task: CronTask,
         cron_schedules: str | list[str],
-        cluster: ClusterSlugLike,
+        cluster: ClusterSlugLike | None = None,
         max_retries: int = 0,
     ) -> AutomationPrototype:
         """Create a new automation that is triggered by cron schedules.
@@ -61,7 +61,7 @@ class AutomationClient:
             name: The name of the automation to create.
             task: The task to run.
             cron_schedules: The cron schedules to trigger the task.
-            cluster: The cluster to run the task on.
+            cluster: The cluster to run the task on. If not provided, the default cluster will be used.
             max_retries: The maximum number of retries for the task in case of failure. Defaults to 0.
 
         Returns:
@@ -77,7 +77,7 @@ class AutomationClient:
             id=UUID(int=0),
             name=name,
             prototype=TaskSubmission(
-                cluster_slug=to_cluster_slug(cluster),
+                cluster_slug=to_cluster_slug(cluster or ""),
                 identifier=_task_meta(task).identifier,
                 input=task._serialize_args(),  # noqa: SLF001
                 dependencies=[],
@@ -94,7 +94,7 @@ class AutomationClient:
         name: str,
         task: StorageEventTask,
         triggers: list[tuple[StorageLocation, str]] | tuple[StorageLocation, str],
-        cluster: ClusterSlugLike,
+        cluster: ClusterSlugLike | None = None,
         max_retries: int = 0,
     ) -> AutomationPrototype:
         """Create a new automation that is triggered by an object being added to a storage location.
@@ -103,7 +103,7 @@ class AutomationClient:
             name: The name of the automation to create.
             task: The task to run.
             triggers: Tuples of storage location and glob pattern to trigger the task.
-            cluster: The cluster to run the task on.
+            cluster: The cluster to run the task on. If not provided, the default cluster will be used.
             max_retries: The maximum number of retries for the task in case of failure. Defaults to 0.
 
         Returns:
@@ -119,7 +119,7 @@ class AutomationClient:
             id=UUID(int=0),
             name=name,
             prototype=TaskSubmission(
-                cluster_slug=to_cluster_slug(cluster),
+                cluster_slug=to_cluster_slug(cluster or ""),
                 identifier=_task_meta(task).identifier,
                 input=task._serialize_args(),  # noqa: SLF001
                 dependencies=[],

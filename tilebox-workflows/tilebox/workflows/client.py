@@ -77,7 +77,7 @@ class Client:
 
     def runner(
         self,
-        cluster: ClusterSlugLike,
+        cluster: ClusterSlugLike | None = None,
         tasks: list[type] | None = None,
         cache: JobCache | None = None,
         context: type[RunnerContext] | None = None,
@@ -85,7 +85,7 @@ class Client:
         """Initialize a task runner.
 
         Args:
-            cluster: The cluster to run tasks on.
+            cluster: The cluster to run tasks on. If not provided, the default cluster will be used.
             tasks: A list of task the runner is able to execute.
             cache: The cache to share between tasks.
             context: The type of the runner context to use. Defaults to RunnerContext.
@@ -97,6 +97,8 @@ class Client:
             cache = NoCache()  # a no-op cache that will raise an error if it's used
 
         tracer = self._tracer or WorkflowTracer()
+
+        found_cluster = self.clusters().find(to_cluster_slug(cluster or ""))
 
         try:
             storage_locations = self.automations().storage_locations()
@@ -114,7 +116,7 @@ class Client:
 
         runner = TaskRunner(
             TaskService(self._channel),
-            to_cluster_slug(cluster),
+            found_cluster.slug,
             cache,
             tracer,
             self._logger,
