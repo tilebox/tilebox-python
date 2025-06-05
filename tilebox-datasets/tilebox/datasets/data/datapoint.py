@@ -111,83 +111,6 @@ class RepeatedAny:
 
 
 @dataclass(frozen=True)
-class Datapoint:
-    """Datapoint contains the metadata for a single data point."""
-
-    meta: core_pb2.DatapointMetadata  # we keep this as protobuf message to easily convert to/from xarray
-    data: AnyMessage
-
-    @classmethod
-    def from_message(
-        cls, datapoint: core_pb2.Datapoint
-    ) -> "Datapoint":  # lets use typing.Self once we require python >= 3.11
-        """Convert a Datapoint protobuf message to a Datapoint object."""
-        return cls(
-            meta=datapoint.meta,
-            data=AnyMessage.from_message(datapoint.data),
-        )
-
-    def to_message(self) -> core_pb2.Datapoint:
-        return core_pb2.Datapoint(
-            meta=self.meta,
-            data=self.data.to_message(),
-        )
-
-
-@dataclass(frozen=True)
-class Datapoints:
-    meta: list[core_pb2.DatapointMetadata]  # we keep this as protobuf message to easily convert to/from xarray
-    data: RepeatedAny
-
-    @classmethod
-    def from_message(cls, datapoints: core_pb2.Datapoints) -> "Datapoints":
-        return cls(meta=list(datapoints.meta), data=RepeatedAny.from_message(datapoints.data))
-
-    def to_message(self) -> core_pb2.Datapoints:
-        return core_pb2.Datapoints(meta=self.meta, data=self.data.to_message())
-
-
-@dataclass(frozen=True)
-class DatapointPage:
-    meta: list[core_pb2.DatapointMetadata]  # we keep this as protobuf message to easily convert to/from xarray
-    data: RepeatedAny
-    next_page: Pagination
-    byte_size: int = field(compare=False)
-
-    @classmethod
-    def from_message(cls, datapoints: core_pb2.DatapointPage) -> "DatapointPage":
-        return cls(
-            meta=list(datapoints.meta),
-            data=RepeatedAny.from_message(datapoints.data),
-            next_page=Pagination.from_legacy_message(datapoints.next_page),
-            byte_size=datapoints.ByteSize(),  # useful for progress bars
-        )
-
-    def to_message(self) -> core_pb2.DatapointPage:
-        return core_pb2.DatapointPage(
-            meta=self.meta,
-            data=self.data.to_message(),
-            next_page=self.next_page.to_legacy_message() if self.next_page else None,
-        )
-
-    @property
-    def n_datapoints(self) -> int:
-        return len(self.data.value)
-
-    def min_id(self) -> UUID:
-        return UUID(self.meta[0].id)
-
-    def max_id(self) -> UUID:
-        return UUID(self.meta[-1].id)
-
-    def min_time(self) -> datetime:
-        return timestamp_to_datetime(self.meta[0].event_time)
-
-    def max_time(self) -> datetime:
-        return timestamp_to_datetime(self.meta[-1].event_time)
-
-
-@dataclass(frozen=True)
 class QueryResultPage:
     data: RepeatedAny
     next_page: Pagination
@@ -211,15 +134,19 @@ class QueryResultPage:
     def n_datapoints(self) -> int:
         return len(self.data.value)
 
+    @property
     def min_id(self) -> UUID:
         return uuid_message_to_uuid(self._parse_message(0).id)
 
+    @property
     def max_id(self) -> UUID:
         return uuid_message_to_uuid(self._parse_message(-1).id)
 
+    @property
     def min_time(self) -> datetime:
         return timestamp_to_datetime(self._parse_message(0).time)
 
+    @property
     def max_time(self) -> datetime:
         return timestamp_to_datetime(self._parse_message(-1).time)
 

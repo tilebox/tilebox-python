@@ -10,7 +10,6 @@ from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.message import Message
 
 from tilebox.datasets.protobuf_conversion.field_types import (
-    GeobufField,
     ProtobufFieldType,
     ProtoFieldValue,
     infer_field_type,
@@ -80,8 +79,6 @@ def to_messages(  # noqa: C901, PLR0912
 
         descriptor = field_descriptors_by_name[field_name]
         field_type = infer_field_type(descriptor)
-        if isinstance(field_type, GeobufField):
-            continue  # legacy geometry type, ingestion is only supported for the new geometry type
 
         if descriptor.label == FieldDescriptor.LABEL_REPEATED:
             values = convert_repeated_values_to_proto(values, field_type)

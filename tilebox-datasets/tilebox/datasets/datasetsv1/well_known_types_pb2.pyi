@@ -1,10 +1,9 @@
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
-from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
+from typing import ClassVar as _ClassVar, Optional as _Optional
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -171,91 +170,3 @@ class Geometry(_message.Message):
     WKB_FIELD_NUMBER: _ClassVar[int]
     wkb: bytes
     def __init__(self, wkb: _Optional[bytes] = ...) -> None: ...
-
-class GeobufData(_message.Message):
-    __slots__ = ("keys", "dimensions", "precision", "feature_collection", "feature", "geometry")
-    class Feature(_message.Message):
-        __slots__ = ("geometry", "id", "int_id", "values", "properties", "custom_properties")
-        GEOMETRY_FIELD_NUMBER: _ClassVar[int]
-        ID_FIELD_NUMBER: _ClassVar[int]
-        INT_ID_FIELD_NUMBER: _ClassVar[int]
-        VALUES_FIELD_NUMBER: _ClassVar[int]
-        PROPERTIES_FIELD_NUMBER: _ClassVar[int]
-        CUSTOM_PROPERTIES_FIELD_NUMBER: _ClassVar[int]
-        geometry: GeobufData.Geometry
-        id: str
-        int_id: int
-        values: _containers.RepeatedCompositeFieldContainer[GeobufData.Value]
-        properties: _containers.RepeatedScalarFieldContainer[int]
-        custom_properties: _containers.RepeatedScalarFieldContainer[int]
-        def __init__(self, geometry: _Optional[_Union[GeobufData.Geometry, _Mapping]] = ..., id: _Optional[str] = ..., int_id: _Optional[int] = ..., values: _Optional[_Iterable[_Union[GeobufData.Value, _Mapping]]] = ..., properties: _Optional[_Iterable[int]] = ..., custom_properties: _Optional[_Iterable[int]] = ...) -> None: ...
-    class Geometry(_message.Message):
-        __slots__ = ("type", "lengths", "coords", "geometries", "values", "custom_properties")
-        class Type(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-            __slots__ = ()
-            TYPE_EMPTY: _ClassVar[GeobufData.Geometry.Type]
-            TYPE_POINT: _ClassVar[GeobufData.Geometry.Type]
-            TYPE_MULTIPOINT: _ClassVar[GeobufData.Geometry.Type]
-            TYPE_LINESTRING: _ClassVar[GeobufData.Geometry.Type]
-            TYPE_MULTILINESTRING: _ClassVar[GeobufData.Geometry.Type]
-            TYPE_POLYGON: _ClassVar[GeobufData.Geometry.Type]
-            TYPE_MULTIPOLYGON: _ClassVar[GeobufData.Geometry.Type]
-            TYPE_GEOMETRYCOLLECTION: _ClassVar[GeobufData.Geometry.Type]
-        TYPE_EMPTY: GeobufData.Geometry.Type
-        TYPE_POINT: GeobufData.Geometry.Type
-        TYPE_MULTIPOINT: GeobufData.Geometry.Type
-        TYPE_LINESTRING: GeobufData.Geometry.Type
-        TYPE_MULTILINESTRING: GeobufData.Geometry.Type
-        TYPE_POLYGON: GeobufData.Geometry.Type
-        TYPE_MULTIPOLYGON: GeobufData.Geometry.Type
-        TYPE_GEOMETRYCOLLECTION: GeobufData.Geometry.Type
-        TYPE_FIELD_NUMBER: _ClassVar[int]
-        LENGTHS_FIELD_NUMBER: _ClassVar[int]
-        COORDS_FIELD_NUMBER: _ClassVar[int]
-        GEOMETRIES_FIELD_NUMBER: _ClassVar[int]
-        VALUES_FIELD_NUMBER: _ClassVar[int]
-        CUSTOM_PROPERTIES_FIELD_NUMBER: _ClassVar[int]
-        type: GeobufData.Geometry.Type
-        lengths: _containers.RepeatedScalarFieldContainer[int]
-        coords: _containers.RepeatedScalarFieldContainer[int]
-        geometries: _containers.RepeatedCompositeFieldContainer[GeobufData.Geometry]
-        values: _containers.RepeatedCompositeFieldContainer[GeobufData.Value]
-        custom_properties: _containers.RepeatedScalarFieldContainer[int]
-        def __init__(self, type: _Optional[_Union[GeobufData.Geometry.Type, str]] = ..., lengths: _Optional[_Iterable[int]] = ..., coords: _Optional[_Iterable[int]] = ..., geometries: _Optional[_Iterable[_Union[GeobufData.Geometry, _Mapping]]] = ..., values: _Optional[_Iterable[_Union[GeobufData.Value, _Mapping]]] = ..., custom_properties: _Optional[_Iterable[int]] = ...) -> None: ...
-    class FeatureCollection(_message.Message):
-        __slots__ = ("features", "values", "custom_properties")
-        FEATURES_FIELD_NUMBER: _ClassVar[int]
-        VALUES_FIELD_NUMBER: _ClassVar[int]
-        CUSTOM_PROPERTIES_FIELD_NUMBER: _ClassVar[int]
-        features: _containers.RepeatedCompositeFieldContainer[GeobufData.Feature]
-        values: _containers.RepeatedCompositeFieldContainer[GeobufData.Value]
-        custom_properties: _containers.RepeatedScalarFieldContainer[int]
-        def __init__(self, features: _Optional[_Iterable[_Union[GeobufData.Feature, _Mapping]]] = ..., values: _Optional[_Iterable[_Union[GeobufData.Value, _Mapping]]] = ..., custom_properties: _Optional[_Iterable[int]] = ...) -> None: ...
-    class Value(_message.Message):
-        __slots__ = ("string_value", "double_value", "pos_int_value", "neg_int_value", "bool_value", "json_value")
-        STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
-        DOUBLE_VALUE_FIELD_NUMBER: _ClassVar[int]
-        POS_INT_VALUE_FIELD_NUMBER: _ClassVar[int]
-        NEG_INT_VALUE_FIELD_NUMBER: _ClassVar[int]
-        BOOL_VALUE_FIELD_NUMBER: _ClassVar[int]
-        JSON_VALUE_FIELD_NUMBER: _ClassVar[int]
-        string_value: str
-        double_value: float
-        pos_int_value: int
-        neg_int_value: int
-        bool_value: bool
-        json_value: bytes
-        def __init__(self, string_value: _Optional[str] = ..., double_value: _Optional[float] = ..., pos_int_value: _Optional[int] = ..., neg_int_value: _Optional[int] = ..., bool_value: bool = ..., json_value: _Optional[bytes] = ...) -> None: ...
-    KEYS_FIELD_NUMBER: _ClassVar[int]
-    DIMENSIONS_FIELD_NUMBER: _ClassVar[int]
-    PRECISION_FIELD_NUMBER: _ClassVar[int]
-    FEATURE_COLLECTION_FIELD_NUMBER: _ClassVar[int]
-    FEATURE_FIELD_NUMBER: _ClassVar[int]
-    GEOMETRY_FIELD_NUMBER: _ClassVar[int]
-    keys: _containers.RepeatedScalarFieldContainer[str]
-    dimensions: int
-    precision: int
-    feature_collection: GeobufData.FeatureCollection
-    feature: GeobufData.Feature
-    geometry: GeobufData.Geometry
-    def __init__(self, keys: _Optional[_Iterable[str]] = ..., dimensions: _Optional[int] = ..., precision: _Optional[int] = ..., feature_collection: _Optional[_Union[GeobufData.FeatureCollection, _Mapping]] = ..., feature: _Optional[_Union[GeobufData.Feature, _Mapping]] = ..., geometry: _Optional[_Union[GeobufData.Geometry, _Mapping]] = ...) -> None: ...

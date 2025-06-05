@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import TypeVar
 
 from _tilebox.grpc.channel import CHANNEL_OPTIONS, ChannelInfo, add_metadata, parse_channel_info
@@ -6,11 +6,12 @@ from grpc import ssl_channel_credentials
 from grpc.aio import (
     Channel,
     ClientCallDetails,
+    ClientInterceptor,
     UnaryUnaryCall,
+    UnaryUnaryClientInterceptor,
     insecure_channel,
     secure_channel,
 )
-from grpc.aio._interceptor import UnaryUnaryClientInterceptor
 
 
 def open_channel(url: str, auth_token: str | None = None) -> Channel:
@@ -25,14 +26,14 @@ def open_channel(url: str, auth_token: str | None = None) -> Channel:
         A gRPC channel.
     """
     channel_info = parse_channel_info(url)
-    interceptors: list[UnaryUnaryClientInterceptor] = []
+    interceptors: list[ClientInterceptor] = []
     if auth_token is not None:
         interceptors = [_AuthMetadataInterceptor(auth_token), *interceptors]  # add auth interceptor as the first one
 
     return _open_channel(channel_info, interceptors)
 
 
-def _open_channel(channel_info: ChannelInfo, interceptors: list[UnaryUnaryClientInterceptor]) -> Channel:
+def _open_channel(channel_info: ChannelInfo, interceptors: Sequence[ClientInterceptor]) -> Channel:
     if channel_info.use_ssl:
         return secure_channel(
             channel_info.url_without_protocol, ssl_channel_credentials(), CHANNEL_OPTIONS, interceptors=interceptors

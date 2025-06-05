@@ -19,8 +19,8 @@ from opentelemetry.exporter.otlp.proto.http._log_exporter import (
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.resources import SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_VERSION, Resource
-from opentelemetry.semconv.trace import SpanAttributes
-from opentelemetry.util.types import Attributes
+from opentelemetry.semconv.attributes import exception_attributes
+from opentelemetry.util.types import _ExtendedAttributes
 
 # prefix for stdlib loggers
 _LOGGING_NAMESPACE = "tilebox.workflows"
@@ -64,19 +64,21 @@ def _root_logger() -> logging.Logger:
 
 class OTELLoggingHandler(LoggingHandler):
     @staticmethod
-    def _get_attributes(record: logging.LogRecord) -> Attributes:
+    def _get_attributes(record: logging.LogRecord) -> _ExtendedAttributes:
         attributes = {}
         # the default implementation returns attributes for the filepath, lineno and function of the log record
         # we don't want that by default, so we override it to return an empty dict
         if record.exc_info:
             exctype, value, tb = record.exc_info
             if exctype is not None:
-                attributes[SpanAttributes.EXCEPTION_TYPE] = exctype.__name__
+                attributes[exception_attributes.EXCEPTION_TYPE] = exctype.__name__
             if value is not None and value.args:
-                attributes[SpanAttributes.EXCEPTION_MESSAGE] = value.args[0]
+                attributes[exception_attributes.EXCEPTION_MESSAGE] = value.args[0]
             if tb is not None:
                 # https://github.com/open-telemetry/opentelemetry-specification/blob/9fa7c656b26647b27e485a6af7e38dc716eba98a/specification/trace/semantic_conventions/exceptions.md#stacktrace-representation
-                attributes[SpanAttributes.EXCEPTION_STACKTRACE] = "".join(traceback.format_exception(*record.exc_info))
+                attributes[exception_attributes.EXCEPTION_STACKTRACE] = "".join(
+                    traceback.format_exception(*record.exc_info)
+                )
         return attributes
 
 

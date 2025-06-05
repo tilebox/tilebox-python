@@ -73,7 +73,7 @@ def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: 
                     chunk,
                     time_interval=None,
                     datapoint_interval=DatapointInterval(
-                        start_id=page.min_id(), end_id=page.max_id(), start_exclusive=False, end_inclusive=True
+                        start_id=page.min_id, end_id=page.max_id, start_exclusive=False, end_inclusive=True
                     ),
                 )
                 sub_chunks.append(interval_chunk)

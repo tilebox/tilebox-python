@@ -14,8 +14,7 @@ from pandas.core.tools.timedeltas import to_timedelta
 from shapely import from_wkb
 
 from tilebox.datasets.datasetsv1.well_known_types_pb2 import UUID as UUIDMessage  # noqa: N811
-from tilebox.datasets.datasetsv1.well_known_types_pb2 import GeobufData, Geometry, LatLon, LatLonAlt, Quaternion, Vec3
-from tilebox.datasets.protobuf_conversion.geobuf import parse_geobuf
+from tilebox.datasets.datasetsv1.well_known_types_pb2 import Geometry, LatLon, LatLonAlt, Quaternion, Vec3
 
 ProtoFieldValue = Message | float | str | bool | bytes | Sized | None
 
@@ -165,19 +164,6 @@ class GeometryField(ProtobufFieldType):
         return Geometry(wkb=value.wkb)
 
 
-class GeobufField(ProtobufFieldType):
-    def __init__(self) -> None:
-        super().__init__(object)
-
-    def from_proto(self, value: ProtoFieldValue) -> Any:
-        if not isinstance(value, GeobufData):
-            raise TypeError(f"Expected GeobufData message but got {type(value)}")
-        return parse_geobuf(value)
-
-    def to_proto(self, value: Any) -> GeobufData | None:  # noqa: ARG002
-        return None
-
-
 class Vec3Field(ProtobufFieldType):
     def __init__(self) -> None:
         super().__init__(float, value_dim=3, value_dim_meta=("vec3", ["x", "y", "z"]))
@@ -255,7 +241,6 @@ _MESSAGE_NAMES_TO_FIELDS = {
     "google.protobuf.Duration": TimeDeltaField(),
     "datasets.v1.UUID": UUIDField(),
     "datasets.v1.Geometry": GeometryField(),
-    "datasets.v1.GeobufData": GeobufField(),
     "datasets.v1.Vec3": Vec3Field(),
     "datasets.v1.Quaternion": QuaternionField(),
     "datasets.v1.LatLon": LatLonField(),

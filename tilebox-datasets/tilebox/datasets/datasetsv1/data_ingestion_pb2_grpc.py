@@ -15,11 +15,6 @@ class DataIngestionServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.IngestDatapoints = channel.unary_unary(
-                '/datasets.v1.DataIngestionService/IngestDatapoints',
-                request_serializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestDatapointsRequest.SerializeToString,
-                response_deserializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestResponse.FromString,
-                _registered_method=True)
         self.Ingest = channel.unary_unary(
                 '/datasets.v1.DataIngestionService/Ingest',
                 request_serializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestRequest.SerializeToString,
@@ -36,13 +31,6 @@ class DataIngestionServiceServicer(object):
     """DataIngestionService provides data ingestion and deletion capabilities for Tilebox datasets.
     """
 
-    def IngestDatapoints(self, request, context):
-        """legacy ingest endpoint, that separates datapoints into meta and data. Will be removed in the future.
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def Ingest(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -58,11 +46,6 @@ class DataIngestionServiceServicer(object):
 
 def add_DataIngestionServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'IngestDatapoints': grpc.unary_unary_rpc_method_handler(
-                    servicer.IngestDatapoints,
-                    request_deserializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestDatapointsRequest.FromString,
-                    response_serializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestResponse.SerializeToString,
-            ),
             'Ingest': grpc.unary_unary_rpc_method_handler(
                     servicer.Ingest,
                     request_deserializer=datasets_dot_v1_dot_data__ingestion__pb2.IngestRequest.FromString,
@@ -84,33 +67,6 @@ def add_DataIngestionServiceServicer_to_server(servicer, server):
 class DataIngestionService(object):
     """DataIngestionService provides data ingestion and deletion capabilities for Tilebox datasets.
     """
-
-    @staticmethod
-    def IngestDatapoints(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/datasets.v1.DataIngestionService/IngestDatapoints',
-            datasets_dot_v1_dot_data__ingestion__pb2.IngestDatapointsRequest.SerializeToString,
-            datasets_dot_v1_dot_data__ingestion__pb2.IngestResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
 
     @staticmethod
     def Ingest(request,

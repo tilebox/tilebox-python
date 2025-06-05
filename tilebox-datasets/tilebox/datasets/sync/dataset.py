@@ -12,14 +12,14 @@ from _tilebox.grpc.pagination import paginated_request
 from _tilebox.grpc.producer_consumer import concurrent_producer_consumer
 from tilebox.datasets.data.collection import CollectionInfo
 from tilebox.datasets.data.data_access import QueryFilters, SpatialFilter, SpatialFilterLike
-from tilebox.datasets.data.datapoint import DatapointInterval, DatapointIntervalLike, DatapointPage, QueryResultPage
+from tilebox.datasets.data.datapoint import DatapointInterval, DatapointIntervalLike, QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.datasets.data.uuid import as_uuid
 from tilebox.datasets.message_pool import get_message_type
 from tilebox.datasets.progress import ProgressCallback
-from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter, TimeseriesToXarrayConverter
+from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
 from tilebox.datasets.protobuf_conversion.to_protobuf import (
     DatapointIDs,
     IngestionData,
@@ -138,7 +138,6 @@ class CollectionClient:
 
     def __init__(self, dataset: DatasetClient, info: CollectionInfo) -> None:
         self._dataset = dataset
-        self._use_legacy_api = dataset._dataset.is_legacy_type
         self._collection = info.collection
         self._info: CollectionInfo | None = info
 
@@ -198,9 +197,6 @@ class CollectionClient:
         Returns:
             The datapoint as an xarray dataset
         """
-        if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
-            return self._find_legacy(str(datapoint_id), skip_data)
-
         try:
             datapoint = self._dataset._service.query_by_id(
                 [self._collection.id], as_uuid(datapoint_id), skip_data
@@ -215,21 +211,7 @@ class CollectionClient:
 
         converter = MessageToXarrayConverter(initial_capacity=1)
         converter.convert(data)
-        return converter.finalize("time").isel(time=0)
-
-    def _find_legacy(self, datapoint_id: str, skip_data: bool = False) -> xr.Dataset:
-        try:
-            datapoint = self._dataset._service.get_datapoint_by_id(
-                str(self._collection.id), datapoint_id, skip_data
-            ).get()
-        except ArgumentError:
-            raise ValueError(f"Invalid datapoint id: {datapoint_id} is not a valid UUID") from None
-        except NotFoundError:
-            raise NotFoundError(f"No such datapoint {datapoint_id}") from None
-
-        converter = TimeseriesToXarrayConverter(initial_capacity=1)
-        converter.convert(datapoint)
-        return converter.finalize().isel(time=0)
+        return converter.finalize("time", skip_empty_fields=skip_data).isel(time=0)
 
     def _find_interval(
         self,
@@ -252,11 +234,6 @@ class CollectionClient:
         Returns:
             The datapoints in the given interval as an xarray dataset
         """
-        if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
-            return self._find_interval_legacy(
-                datapoint_id_interval, end_inclusive, skip_data=skip_data, show_progress=show_progress
-            )
-
         filters = QueryFilters(
             temporal_extent=DatapointInterval.parse(datapoint_id_interval, end_inclusive=end_inclusive)
         )
@@ -270,43 +247,7 @@ class CollectionClient:
         if show_progress:
             pages = with_progressbar(pages, f"Fetching {self._dataset.name}")
 
-        return _convert_to_dataset(pages)
-
-    def _find_interval_legacy(
-        self,
-        datapoint_id_interval: DatapointIntervalLike,
-        end_inclusive: bool = True,
-        *,
-        skip_data: bool = False,
-        show_progress: bool = False,
-    ) -> xr.Dataset:
-        """
-        Find a range of datapoints in this collection in an interval specified as datapoint ids.
-
-        Args:
-            datapoint_id_interval: tuple of two datapoint ids specifying the interval: [start_id, end_id]
-            end_inclusive: Flag indicating whether the datapoint with the given end_id should be included in the
-                result or not.
-            skip_data: Whether to skip the actual data of the datapoint. If True, only datapoint metadata is returned.
-            show_progress: Whether to show a progress bar while loading the data.
-
-        Returns:
-            The datapoints in the given interval as an xarray dataset
-        """
-        datapoint_interval = DatapointInterval.parse(datapoint_id_interval, end_inclusive=end_inclusive)
-
-        def request(page: PaginationProtocol) -> DatapointPage:
-            query_page = Pagination(page.limit, page.starting_after)
-            return self._dataset._service.get_dataset_for_datapoint_interval(
-                str(self._collection.id), datapoint_interval, skip_data, False, query_page
-            ).get()
-
-        initial_page = Pagination()
-        pages = paginated_request(request, initial_page)
-        if show_progress:
-            pages = with_progressbar(pages, f"Fetching {self._dataset.name}")
-
-        return _convert_to_dataset_legacy(pages)
+        return _convert_to_dataset(pages, skip_empty_fields=skip_data)
 
     def load(
         self,
@@ -339,9 +280,11 @@ class CollectionClient:
         Returns:
             Matching datapoints in the given temporal extent as an xarray dataset
         """
-        if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
-            return self._load_legacy(temporal_extent, skip_data=skip_data, show_progress=show_progress)
-
+        warn(
+            "collection.load(interval) is deprecated. Please use collection.query(temporal_extent=interval) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.query(temporal_extent=temporal_extent, skip_data=skip_data, show_progress=show_progress)
 
     def query(
@@ -383,14 +326,11 @@ class CollectionClient:
         Returns:
             Matching datapoints in the given temporal and spatial extent as an xarray dataset
         """
-        if self._use_legacy_api:
-            raise ValueError("Querying is not supported for this dataset. Please use load() instead.")
-
         if temporal_extent is None:
             raise ValueError("A temporal_extent for your query must be specified")
 
         pages = self._iter_pages(temporal_extent, spatial_extent, skip_data, show_progress=show_progress)
-        return _convert_to_dataset(pages)
+        return _convert_to_dataset(pages, skip_empty_fields=skip_data)
 
     def _iter_pages(
         self,
@@ -403,7 +343,7 @@ class CollectionClient:
         time_interval = TimeInterval.parse(temporal_extent)
         filters = QueryFilters(time_interval, SpatialFilter.parse(spatial_extent) if spatial_extent else None)
 
-        request = partial(self._load_page, filters, skip_data)
+        request = partial(self._query_page, filters, skip_data)
 
         initial_page = Pagination(limit=page_size)
         pages = paginated_request(request, initial_page)
@@ -416,58 +356,11 @@ class CollectionClient:
 
         yield from pages
 
-    def _load_page(
+    def _query_page(
         self, filters: QueryFilters, skip_data: bool, page: PaginationProtocol | None = None
     ) -> QueryResultPage:
         query_page = Pagination(page.limit, page.starting_after) if page else Pagination()
         return self._dataset._service.query([self._collection.id], filters, skip_data, query_page).get()
-
-    def _load_legacy(
-        self,
-        time_or_interval: TimeIntervalLike,
-        *,
-        skip_data: bool = False,
-        show_progress: bool | ProgressCallback = False,
-    ) -> xr.Dataset:
-        pages = self._iter_pages_legacy(time_or_interval, skip_data, show_progress=show_progress)
-        return _convert_to_dataset_legacy(pages)
-
-    def _iter_pages_legacy(
-        self,
-        time_or_interval: TimeIntervalLike,
-        skip_data: bool = False,
-        skip_meta: bool = False,
-        show_progress: bool | ProgressCallback = False,
-        page_size: int | None = None,
-    ) -> Iterator[DatapointPage]:
-        time_interval = TimeInterval.parse(time_or_interval)
-
-        request = partial(self._load_page_legacy, time_interval, skip_data, skip_meta)
-
-        initial_page = Pagination(limit=page_size)
-        pages = paginated_request(request, initial_page)
-
-        if callable(show_progress):
-            if skip_meta:
-                raise ValueError("Progress callback requires datapoint metadata, but skip_meta is True")
-            else:
-                pages = with_time_progress_callback(pages, time_interval, show_progress)
-        elif show_progress:
-            message = f"Fetching {self._dataset.name}"
-            if skip_meta:  # without metadata we can't estimate progress based on event time (since it is not returned)
-                pages = with_progressbar(pages, message)
-            else:
-                pages = with_time_progressbar(pages, time_interval, message)
-
-        yield from pages
-
-    def _load_page_legacy(
-        self, time_interval: TimeInterval, skip_data: bool, skip_meta: bool, page: PaginationProtocol | None = None
-    ) -> DatapointPage:
-        query_page = Pagination(page.limit, page.starting_after) if page else Pagination()
-        return self._dataset._service.get_dataset_for_time_interval(
-            str(self._collection.id), time_interval, skip_data, skip_meta, query_page
-        ).get()
 
     def ingest(
         self,
@@ -494,10 +387,6 @@ class CollectionClient:
         Returns:
             List of datapoint ids that were ingested.
         """
-
-        if self._use_legacy_api:  # remove this once all datasets are fully migrated to the new endpoints
-            raise ValueError("Ingestion is not supported for this dataset. Please create a new dataset.")
-
         message_type = get_message_type(self._dataset._dataset.type.type_url)
         messages = marshal_messages(
             to_messages(data, message_type, required_fields=["time"], ignore_fields=["id", "ingestion_time"])
@@ -566,7 +455,7 @@ class CollectionClient:
         return num_deleted
 
 
-def _convert_to_dataset(pages: Iterator[QueryResultPage]) -> xr.Dataset:
+def _convert_to_dataset(pages: Iterator[QueryResultPage], skip_empty_fields: bool = False) -> xr.Dataset:
     """
     Convert an iterator of QueryResultPages into a single xarray Dataset
 
@@ -574,6 +463,7 @@ def _convert_to_dataset(pages: Iterator[QueryResultPage]) -> xr.Dataset:
 
     Args:
         pages: Iterator of QueryResultPages to convert
+        skip_empty_fields: Whether to omit fields from the output dataset in case no values are set
 
     Returns:
         The datapoints from the individual pages converted and combined into a single xarray dataset
@@ -590,25 +480,4 @@ def _convert_to_dataset(pages: Iterator[QueryResultPage]) -> xr.Dataset:
     # this would also account for the case where the server sends pages faster than we are converting
     # them to xarray
     concurrent_producer_consumer(pages, convert_page)
-    return converter.finalize("time")
-
-
-def _convert_to_dataset_legacy(pages: Iterator[DatapointPage]) -> xr.Dataset:
-    """
-    Convert an iterator of DatasetIntervals (pages) into a single xarray Dataset
-
-    Parses each incoming page while in parallel already requesting and waiting for the next page from the server.
-
-    Args:
-        pages: Iterator of DatasetIntervals (pages) to convert
-
-    Returns:
-        The datapoints from the individual pages converted and combined into a single xarray dataset
-    """
-    converter = TimeseriesToXarrayConverter()
-    # lets parse the incoming pages already while we wait for the next page from the server
-    # we solve this using a classic producer/consumer with a queue of pages for communication
-    # this would also account for the case where the server sends pages faster than we are converting
-    # them to xarray
-    concurrent_producer_consumer(pages, lambda page: converter.convert_all(page))
-    return converter.finalize()
+    return converter.finalize("time", skip_empty_fields=skip_empty_fields)

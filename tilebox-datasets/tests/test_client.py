@@ -10,7 +10,7 @@ from shapely import Polygon
 from _tilebox.grpc.error import NotFoundError
 from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
 from tilebox.datasets import Client, DatasetClient
-from tilebox.datasets.data.datapoint import DatapointPage
+from tilebox.datasets.data.datapoint import QueryResultPage
 from tilebox.datasets.data.time_interval import us_to_datetime
 
 
@@ -35,7 +35,7 @@ def record_client(recording_file: str) -> Client:
     # this will open a channel to api.tilebox.com, which will send real requests to the server, and record them
     # for later offline replay
     recording_channel = open_recording_channel(
-        "http://localhost:8083", os.environ["TILEBOX_OPENDATA_ONLY_API_KEY"], recording
+        "https://api.tilebox.com", os.environ["TILEBOX_OPENDATA_ONLY_API_KEY"], recording
     )
 
     with patch("tilebox.datasets.sync.client.open_channel") as open_channel_mock:
@@ -101,12 +101,11 @@ def test_find_datapoint() -> None:
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
     for skip_data in (False, True):
-        datapoint = collection.find("0181f4ef-2040-1613-3eed-1c970dde6d2b", skip_data=skip_data)
+        datapoint = collection.find("0181f4ef-2040-13e7-ba1f-d5575e2a32a4", skip_data=skip_data)
         assert isinstance(datapoint, xr.Dataset)
 
-        assert datapoint.id.item() == "0181f4ef-2040-1613-3eed-1c970dde6d2b"
+        assert datapoint.id.item() == "0181f4ef-2040-13e7-ba1f-d5575e2a32a4"
         assert _dt(datapoint.time.item()) == datetime(2022, 7, 13, 0, 22, 1, 24000, tzinfo=timezone.utc)
-        assert _dt(datapoint.ingestion_time.item()) == datetime(2024, 7, 17, 4, 14, 29, 349263, tzinfo=timezone.utc)
 
         if not skip_data:
             assert datapoint.granule_name.item() == "S2A_MSIL1C_20220713T002201_N0400_R102_T08XNS_20220713T015332.SAFE"
@@ -128,47 +127,47 @@ def test_datapoint_not_found() -> None:
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
     with pytest.raises(NotFoundError, match="No such datapoint.*"):
-        collection.find("0181f4dc-53c0-4912-acda-e35a368994fc")  # is in another collection
+        collection.find("0181f4ef-2040-101a-1423-d818e4d1895e")  # is in another collection
 
 
-def test_load_data() -> None:
-    client = replay_client("load_s2_data_interval.rpcs.bin")
+def test_query() -> None:
+    client = replay_client("query_sentinel2.rpcs.bin")
 
     s2_dataset = client.dataset("open_data.copernicus.sentinel2_msi")
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
     for skip_data in (False, True):
-        data = collection.load(("2022-07-13", "2022-07-13T02:00"), skip_data=skip_data)
+        data = collection.query(temporal_extent=("2022-07-13", "2022-07-13T02:00"), skip_data=skip_data)
         assert isinstance(data, xr.Dataset)
 
         assert data.sizes["time"] == 756
-        assert data.id[0] == "0181f4ef-2040-0566-def5-50246aabcabc"
-        assert data.id[-1] == "0181f506-51c0-ffb7-20cb-a2ab4f5057cf"
+        assert data.id[0] == "0181f4ef-2040-1004-5540-5bca22067ac8"
+        assert data.id[-1] == "0181f506-51c0-a351-f295-6502e81f8ecf"
 
         if not skip_data:
-            assert data.granule_name[0] == "S2A_MSIL1C_20220713T002201_N0400_R102_T09XWK_20220713T015332.SAFE"
-            assert data.granule_name[-1] == "S2A_MSIL1C_20220713T004721_N0400_R102_T53HNA_20220713T021615.SAFE"
+            assert data.granule_name[0] == "S2A_MSIL1C_20220713T002201_N0400_R102_T09XWL_20220713T015332.SAFE"
+            assert data.granule_name[-1] == "S2A_MSIL1C_20220713T004721_N0400_R102_T53HPV_20220713T021615.SAFE"
         else:
             assert "granule_name" not in data
 
 
-def test_load_data_pagination() -> None:
-    client = replay_client("load_s2_data_interval_paging.rpcs.bin")
+def test_query_pagination() -> None:
+    client = replay_client("query_sentinel2_paging.rpcs.bin")
 
     s2_dataset = client.dataset("open_data.copernicus.sentinel2_msi")
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
-    pages = list(collection._iter_pages_legacy(("2022-07-13", "2022-07-13T02:00"), page_size=10))
+    pages = list(collection._iter_pages(("2022-07-13", "2022-07-13T02:00"), page_size=10))
 
     assert len(pages) == 76  # we have 756 datapoints, so 76 pages, and the last page has only 6 datapoints
 
     for i, page in enumerate(pages):
-        assert isinstance(page, DatapointPage)
-        assert page.meta[0].id >= "0181f4ef-2040-0566-def5-50246aabcabc"
-        assert page.meta[-1].id <= "0181f506-51c0-ffb7-20cb-a2ab4f5057cf"
+        assert isinstance(page, QueryResultPage)
+        assert str(page.min_id) >= "0181f4ef-2040-1004-5540-5bca22067ac8"
+        assert str(page.max_id) <= "0181f506-51c0-a351-f295-6502e81f8ecf"
         is_last_page = i == len(pages) - 1
         expected_len = 6 if is_last_page else 10
-        assert len(page.meta) == expected_len
+        assert page.n_datapoints == expected_len
 
 
 def _dt(timestamp_nano: int) -> datetime:

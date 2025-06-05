@@ -8,14 +8,10 @@ from pandas import to_datetime
 from shapely import MultiPolygon, Polygon, from_wkb
 from xarray.testing import assert_equal
 
-from tests.data.datapoint import datapoint_pages, datapoints, example_datapoints
+from tests.data.datapoint import example_datapoints
 from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
-from tilebox.datasets.data.datapoint import Datapoint, DatapointPage
 from tilebox.datasets.data.time_interval import timestamp_to_datetime, us_to_datetime
-from tilebox.datasets.protobuf_conversion.protobuf_xarray import (
-    MessageToXarrayConverter,
-    TimeseriesToXarrayConverter,
-)
+from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
 
 
 @given(example_datapoints(generated_fields=True, missing_fields=False))
@@ -102,20 +98,6 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
         assert isinstance(dataset.some_repeated_geometry[i].item(), Polygon | MultiPolygon)
 
 
-@given(datapoints(generated_fields=False, missing_fields=True))
-def test_convert_timeseries_datapoint(datapoint: Datapoint) -> None:
-    converter = TimeseriesToXarrayConverter()
-    converter.convert(datapoint)
-    dataset = converter.finalize()
-
-    assert dataset.sizes["time"] == 1
-    assert dataset.id.item() == datapoint.meta.id
-    event_time = dataset.time.item() // 1000
-    assert us_to_datetime(event_time) == timestamp_to_datetime(datapoint.meta.event_time)
-    ingestion_time = dataset.ingestion_time.item() // 1000
-    assert us_to_datetime(ingestion_time) == timestamp_to_datetime(datapoint.meta.ingestion_time)
-
-
 @given(lists(example_datapoints(generated_fields=True, missing_fields=True), min_size=5, max_size=30))
 def test_convert_datapoints(datapoints: list[ExampleDatapoint]) -> None:  # noqa: C901, PLR0912
     converter = MessageToXarrayConverter()
@@ -185,23 +167,6 @@ def test_convert_datapoints(datapoints: list[ExampleDatapoint]) -> None:  # noqa
     if "some_repeated_bytes" in dataset:
         for bytes_ in dataset.some_repeated_bytes.to_numpy().ravel():
             assert bytes_ is None or isinstance(bytes_, bytes)
-
-
-@given(datapoint_pages(empty_next_page=True, missing_fields=True))
-def test_convert_timeseries_datapoints(page: DatapointPage) -> None:
-    converter = TimeseriesToXarrayConverter()
-    converter.convert_all(page)
-    dataset = converter.finalize()
-
-    assert dataset.sizes["time"] == len(page.meta)
-    for i in range(len(page.meta)):
-        datapoint = dataset.isel(time=i)
-        meta = page.meta[i]
-        assert datapoint.id.item() == meta.id
-        event_time = datapoint.time.item() // 1000
-        assert us_to_datetime(event_time) == timestamp_to_datetime(meta.event_time)
-        ingestion_time = datapoint.ingestion_time.item() // 1000
-        assert us_to_datetime(ingestion_time) == timestamp_to_datetime(meta.ingestion_time)
 
 
 @given(lists(example_datapoints(missing_fields=True), min_size=1, max_size=10))

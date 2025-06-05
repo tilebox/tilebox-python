@@ -23,8 +23,9 @@ dev = [
     # DeprecationWarning: Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0)
     "pyarrow>=17.0.0",
     # some dev tooling
-    "ruff>=0.6.4",
-    "pyright>=1.1.379",
+    "ruff>=0.11.10",
+    # pyright 1.1.401 reports many wrong false positives, let's wait until that is fixed before upgrading
+    "pyright>=1.1.379,<1.1.401",
     "pre-commit>=3.8.0",
     "types-protobuf>=5.27.0.20240907",
     "junitparser>=3.2.0",

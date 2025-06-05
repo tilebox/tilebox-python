@@ -33,10 +33,8 @@ from tests.data.well_known_types import (
 from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
 from tilebox.datasets.data.datapoint import (
     AnyMessage,
-    Datapoint,
     DatapointInterval,
     DatapointIntervalLike,
-    DatapointPage,
     IngestResponse,
     QueryResultPage,
     RepeatedAny,
@@ -204,37 +202,6 @@ def datapoint_metadata_messages(draw: DrawFn) -> core_pb2.DatapointMetadata:
 
 
 @composite
-def datapoints(draw: DrawFn, generated_fields: bool = False, missing_fields: bool = False) -> Datapoint:
-    """A hypothesis strategy for generating random datapoints"""
-    meta = draw(datapoint_metadata_messages())
-    data = draw(anys(generated_fields, missing_fields))
-    return Datapoint(meta, data)
-
-
-@composite
-def datapoint_pages(
-    draw: DrawFn, empty_next_page: bool | None = None, generated_fields: bool = True, missing_fields: bool = False
-) -> DatapointPage:
-    """
-    A hypothesis strategy for generating random datapoint pages
-
-    Args:
-        empty_next_page: Whether the next page should be empty or not. If None, it will randomly be either an
-            empty or non-empty next page.
-        generated_fields: Whether to generate datapoints with all generated fields (id and ingestion_time) set as well.
-            If True, datapoints will have all meta fields set. If False, those fields will be set to None, similar
-            to how a datapoint for ingestion would look like.
-        missing_fields: Whether to generate datapoints with missing custom fields. If True, datapoints
-            will randomly have some fields missing. If False, all fields will be set with data.
-    """
-    meta = draw(lists(datapoint_metadata_messages(), min_size=1, max_size=5))
-    data = draw(repeated_anys(generated_fields, missing_fields, fixed_length=len(meta)))
-    next_page = draw(paginations(empty_next_page))
-    byte_size = sum(len(m) for m in data.value)
-    return DatapointPage(meta, data, next_page, byte_size)
-
-
-@composite
 def query_result_pages(
     draw: DrawFn, empty_next_page: bool | None = None, generated_fields: bool = True, missing_fields: bool = False
 ) -> QueryResultPage:
@@ -257,11 +224,11 @@ def query_result_pages(
 
 
 @composite
-def paginated_datapoint_for_interval_responses(draw: DrawFn) -> list[DatapointPage]:
+def paginated_query_results(draw: DrawFn) -> list[QueryResultPage]:
     """A hypothesis strategy for generating random datapoint pages for a time interval"""
     # let's generate a couple of pages, that each have a next page set, indicating that there are more pages
-    first_pages = draw(lists(datapoint_pages(empty_next_page=False), min_size=0, max_size=5))
-    last_page = draw(datapoint_pages(empty_next_page=True))
+    first_pages = draw(lists(query_result_pages(empty_next_page=False), min_size=0, max_size=5))
+    last_page = draw(query_result_pages(empty_next_page=True))
     return [*first_pages, last_page]
 
 

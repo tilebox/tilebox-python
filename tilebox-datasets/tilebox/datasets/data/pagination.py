@@ -19,15 +19,3 @@ class Pagination:
 
     def to_message(self) -> core_pb2.Pagination:
         return core_pb2.Pagination(limit=self.limit, starting_after=uuid_to_uuid_message(self.starting_after))
-
-    @classmethod
-    def from_legacy_message(cls, page: core_pb2.LegacyPagination | None) -> "Pagination":
-        if page is None:
-            return cls()
-        # convert falsish values (0 or empty string) to None
-        return cls(limit=page.limit or None, starting_after=UUID(page.starting_after) if page.starting_after else None)
-
-    def to_legacy_message(self) -> core_pb2.LegacyPagination:
-        return core_pb2.LegacyPagination(
-            limit=self.limit, starting_after=str(self.starting_after) if self.starting_after else None
-        )

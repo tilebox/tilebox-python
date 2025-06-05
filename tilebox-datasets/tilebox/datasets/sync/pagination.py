@@ -8,10 +8,10 @@ from tqdm.auto import tqdm
 from tilebox.datasets.data import (
     TimeInterval,
 )
-from tilebox.datasets.data.datapoint import DatapointPage, QueryResultPage
+from tilebox.datasets.data.datapoint import QueryResultPage
 from tilebox.datasets.progress import ProgressCallback, TimeIntervalProgressBar
 
-ResultPage = TypeVar("ResultPage", bound=DatapointPage | QueryResultPage)
+ResultPage = TypeVar("ResultPage", bound=QueryResultPage)
 
 
 def with_progressbar(
@@ -81,14 +81,14 @@ def with_time_progressbar(
 
     # we have more pages, so lets set up a progress bar
     actual_interval = TimeInterval(
-        start=max(interval.start, first_page.min_time()),
+        start=max(interval.start, first_page.min_time),
         end=min(interval.end, datetime.now(tz=timezone.utc)),
     )
 
     with TimeIntervalProgressBar(
         interval=actual_interval,
         description=progress_description,
-        initial_time=first_page.max_time(),
+        initial_time=first_page.max_time,
         actual_start_time=actual_start_time,
     ) as progress_bar:
         # provide download information for the first page
@@ -99,7 +99,7 @@ def with_time_progressbar(
         for page in paginated_request:  # now loop over the remaining pages
             now = time.time()
             if page.n_datapoints > 0:
-                progress_bar.set_progress(page.max_time())
+                progress_bar.set_progress(page.max_time)
                 progress_bar.set_download_info(page.n_datapoints, page.byte_size, now - before)
             yield page
             before = now
@@ -134,17 +134,17 @@ def with_time_progress_callback(
 
     # we have more pages, so lets set up a progress bar
     actual_interval = TimeInterval(
-        start=max(interval.start, first_page.min_time()),
+        start=max(interval.start, first_page.min_time),
         end=min(interval.end, datetime.now(tz=timezone.utc)),
     )
 
     total = (actual_interval.end - actual_interval.start).total_seconds()
     if first_page.n_datapoints > 0:
-        current = (first_page.max_time() - actual_interval.start).total_seconds()
+        current = (first_page.max_time - actual_interval.start).total_seconds()
         progress_callback(current / total)
     for page in paginated_request:  # now loop over the remaining pages
         if page.n_datapoints > 0:
-            current = (page.max_time() - actual_interval.start).total_seconds()
+            current = (page.max_time - actual_interval.start).total_seconds()
             progress_callback(current / total)
         yield page
 

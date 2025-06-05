@@ -43,14 +43,14 @@ class DataAccessServiceServicer(object):
     """
 
     def GetDatasetForInterval(self, request, context):
-        """GetDatasetForInterval returns a list of data points for a given time interval and collection.
+        """legacy endpoint, kept around for backwards compatibility with older python clients for now
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetDatapointByID(self, request, context):
-        """GetDatapointByID returns a single datapoint by its ID.
+        """legacy endpoint, kept around for backwards compatibility with older python clients for now
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

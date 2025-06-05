@@ -9,15 +9,11 @@ from tilebox.datasets.data.collection import CollectionInfo
 from tilebox.datasets.data.data_access import QueryFilters
 from tilebox.datasets.data.datapoint import (
     AnyMessage,
-    Datapoint,
-    DatapointInterval,
-    DatapointPage,
     IngestResponse,
     QueryResultPage,
 )
 from tilebox.datasets.data.datasets import Dataset, ListDatasetsResponse
 from tilebox.datasets.data.pagination import Pagination
-from tilebox.datasets.data.time_interval import TimeInterval
 from tilebox.datasets.data.uuid import must_uuid_to_uuid_message, uuid_to_uuid_message
 from tilebox.datasets.datasetsv1 import core_pb2
 from tilebox.datasets.datasetsv1.collections_pb2 import (
@@ -27,8 +23,6 @@ from tilebox.datasets.datasetsv1.collections_pb2 import (
 )
 from tilebox.datasets.datasetsv1.collections_pb2_grpc import CollectionServiceStub
 from tilebox.datasets.datasetsv1.data_access_pb2 import (
-    GetDatapointByIdRequest,
-    GetDatasetForIntervalRequest,
     QueryByIDRequest,
     QueryRequest,
 )
@@ -112,50 +106,6 @@ class TileboxDatasetService:
         )
         return Promise.resolve(self._collection_service.GetCollectionByName(req)).then(
             CollectionInfo.from_message,
-        )
-
-    def get_datapoint_by_id(self, collection_id: str, datapoint_id: str, skip_data: bool = False) -> Promise[Datapoint]:
-        req = GetDatapointByIdRequest(collection_id=collection_id, id=datapoint_id, skip_data=skip_data)
-        return Promise.resolve(self._data_access_service.GetDatapointByID(req)).then(
-            Datapoint.from_message,
-        )
-
-    def get_dataset_for_time_interval(
-        self,
-        collection_id: str,
-        time_interval: TimeInterval,
-        skip_data: bool,
-        skip_meta: bool,
-        page: Pagination | None = None,
-    ) -> Promise[DatapointPage]:
-        req = GetDatasetForIntervalRequest(
-            collection_id=collection_id,
-            time_interval=time_interval.to_message(),
-            skip_data=skip_data,
-            skip_meta=skip_meta,
-            page=page.to_legacy_message() if page is not None else None,
-        )
-        return Promise.resolve(self._data_access_service.GetDatasetForInterval(req)).then(
-            DatapointPage.from_message,
-        )
-
-    def get_dataset_for_datapoint_interval(
-        self,
-        collection_id: str,
-        datapoint_interval: DatapointInterval,
-        skip_data: bool,
-        skip_meta: bool,
-        page: Pagination | None = None,
-    ) -> Promise[DatapointPage]:
-        req = GetDatasetForIntervalRequest(
-            collection_id=collection_id,
-            datapoint_interval=datapoint_interval.to_message(),
-            skip_data=skip_data,
-            skip_meta=skip_meta,
-            page=page.to_legacy_message() if page is not None else None,
-        )
-        return Promise.resolve(self._data_access_service.GetDatasetForInterval(req)).then(
-            DatapointPage.from_message,
         )
 
     def query_by_id(self, collection_ids: list[UUID], datapoint_id: UUID, skip_data: bool) -> Promise[AnyMessage]:

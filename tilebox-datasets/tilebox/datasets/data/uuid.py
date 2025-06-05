@@ -1,18 +1,18 @@
 # allow the uuid module name which shadows the builtin:
 from uuid import UUID
 
-from tilebox.datasets.datasetsv1 import core_pb2
+from tilebox.datasets.datasetsv1 import core_pb2, well_known_types_pb2
 
 _NIL_UUID = UUID(int=0)
 
 
-def uuid_message_to_uuid(uuid_message: core_pb2.ID) -> UUID:
+def uuid_message_to_uuid(uuid_message: core_pb2.ID | well_known_types_pb2.UUID) -> UUID:
     if uuid_message.uuid == b"":
         return _NIL_UUID
     return UUID(bytes=uuid_message.uuid)
 
 
-def uuid_message_to_optional_uuid(uuid_message: core_pb2.ID | None) -> UUID | None:
+def uuid_message_to_optional_uuid(uuid_message: core_pb2.ID | well_known_types_pb2.UUID | None) -> UUID | None:
     if uuid_message is None:
         return None
     if uuid_message.uuid == b"":

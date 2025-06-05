@@ -70,18 +70,6 @@ def latlonalt_messages(draw: DrawFn) -> well_known_types_pb2.LatLonAlt:
 
 
 @composite
-def geobuf_messages(draw: DrawFn) -> well_known_types_pb2.GeobufData:
-    encoded_geobufs = [
-        # POLYGON ((-24.7917 80.1388, -20.6726 80.9065, -42.9612 82.8902, -45.6082 81.9369, -24.7917 80.1388))
-        b"\x10\x02\x18\x042\x1e\x08\x05\x12\x01\x04\x1a\x17\xd9\xa1\x1e\xd8\xe9a\xce\x83\x05\xfaw\xcb\x9a\x1b\xfa\xb5\x02\xcb\x9d\x03\xf9\x94\x01",
-        # POLYGON ((37.1165 82.5691, 60.97982545 85.05115, 3.218114686 85.05115, 3.0578 83.8312, 37.1165 82.5691))
-        b"\x10\x02\x18\t2/\x08\x05\x12\x01\x04\x1a(\xc0\xe0\x86\xc5\x94\x02\xc0\xeb\x83\x98\xe7\x04\x94\xcc\xeb\xe5\xb1\x01\xa0\xcf\x88\xbf\x12\xd7\x8a\xee\xad\xae\x03\x00\xfb\xd4\xf1\x98\x01\xdf\xd6\xb7\x8b\t",
-    ]
-    data = draw(sampled_from(encoded_geobufs))
-    return well_known_types_pb2.GeobufData.FromString(data)
-
-
-@composite
 def shapely_polygons(draw: DrawFn) -> Polygon:
     xmin = draw(floats(min_value=-180, max_value=160))
     ymin = draw(floats(min_value=-90, max_value=70))
