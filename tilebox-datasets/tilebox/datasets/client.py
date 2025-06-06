@@ -1,5 +1,6 @@
 import os
 import sys
+from urllib.parse import urlparse
 from typing import Any, Protocol, TypeVar
 from uuid import UUID
 
@@ -66,7 +67,9 @@ class Client:
 def token_from_env(url: str, token: str | None) -> str | None:
     if token is None:  # if no token is provided, try to get it from the environment
         token = os.environ.get("TILEBOX_API_KEY", None)
-    if "api.tilebox.com" in url and token is None:
+    from urllib.parse import urlparse
+    parsed_url = urlparse(url)
+    if parsed_url.hostname == "api.tilebox.com" and token is None:
         raise ValueError(
             "No API key provided and no TILEBOX_API_KEY environment variable set. Please specify an API key using "
             "the token argument. For example: `Client(token='YOUR_TILEBOX_API_KEY')`"
