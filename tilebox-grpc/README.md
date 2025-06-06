@@ -10,6 +10,15 @@
   <a href="https://pypi.org/project/tilebox-grpc/">
     <img src="https://img.shields.io/pypi/pyversions/tilebox-grpc.svg?style=flat-square&logo=python&color=f43f5e&logoColor=f43f5e" alt="Required Python Version badge"/>
   </a>
+  <a href="https://github.com/tilebox/tilebox-python/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/tilebox/tilebox-python.svg?style=flat-square&color=f43f5e" alt="MIT License"/>
+  </a>
+  <a href="https://github.com/tilebox/tilebox-python/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/tilebox/tilebox-python/main.yml?style=flat-square&color=f43f5e" alt="Build Status"/>
+  </a>
+  <a href="https://tilebox.com/discord">
+    <img src="https://img.shields.io/badge/Discord-%235865F2.svg?style=flat-square&logo=discord&logoColor=white" alt="Join us on Discord"/>
+  </a>
 </div>
 
 <p align="center">
@@ -17,7 +26,7 @@
   |
   <a href="https://console.tilebox.com/"><b>Console</b></a>
   |
-  <a href="https://tilebox.com/discord"><b>Discord</b></a>
+  <a href="https://examples.tilebox.com/"><b>Example Gallery</b></a>
 </p>
 
 # Tilebox GRPC

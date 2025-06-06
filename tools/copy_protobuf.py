@@ -7,6 +7,9 @@ This will put them in the right place, and automatically fix the imports as well
 
 Usage (from repo root):
 uv run copy-protobuf <path-to-tilebox-go-repo> <path-to-tilebox-python-repo>
+
+Requires tilebox-go (https://github.com/tilebox/tilebox-go) to be checked out, and protos to be generated.
+This can be done by running `go generate ./...` in the root of the tilebox-go repository.
 """
 
 import sys

@@ -10,6 +10,15 @@
   <a href="https://pypi.org/project/tilebox-datasets/">
     <img src="https://img.shields.io/pypi/pyversions/tilebox-datasets.svg?style=flat-square&logo=python&color=f43f5e&logoColor=f43f5e" alt="Required Python Version badge"/>
   </a>
+  <a href="https://github.com/tilebox/tilebox-python/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/tilebox/tilebox-python.svg?style=flat-square&color=f43f5e" alt="MIT License"/>
+  </a>
+  <a href="https://github.com/tilebox/tilebox-python/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/tilebox/tilebox-python/main.yml?style=flat-square&color=f43f5e" alt="Build Status"/>
+  </a>
+  <a href="https://tilebox.com/discord">
+    <img src="https://img.shields.io/badge/Discord-%235865F2.svg?style=flat-square&logo=discord&logoColor=white" alt="Join us on Discord"/>
+  </a>
 </div>
 
 <p align="center">
@@ -17,7 +26,7 @@
   |
   <a href="https://console.tilebox.com/"><b>Console</b></a>
   |
-  <a href="https://tilebox.com/discord"><b>Discord</b></a>
+  <a href="https://examples.tilebox.com/"><b>Example Gallery</b></a>
 </p>
 
 # Tilebox Datasets
@@ -37,48 +46,48 @@ Instantiate a client:
 ```python
 from tilebox.datasets import Client
 
-# create your API key at
-# https://console.tilebox.com
+# create your API key at https://console.tilebox.com
 client = Client(token="YOUR_TILEBOX_API_KEY")
 ```
 
-Explore datasets:
+Explore datasets and collections:
 
 ```python
 datasets = client.datasets()
 print(datasets)
 
-sentinel1_sar = datasets.open_data.copernicus.sentinel1_sar
-collections = sentinel1_sar.collections()
+sentinel2_msi = client.dataset("open_data.copernicus.sentinel2_msi")
+collections = sentinel2_msi.collections()
 print(collections)
 ```
 
-Load data:
+Query data:
 
 ```python
-s1a_raw = collections["S1A_IW_RAW__0S"]
-interval = ("2017-01-01", "2023-01-01")
-raw_data = s1a_raw.load(interval, show_progress=True)
-print(raw_data)
+s2a_l1c = sentinel2_msi.collection("S2A_S2MSI1C")
+results = s2a_l1c.query(
+  temporal_extent=("2017-01-01", "2023-01-01"),
+  show_progress=True
+)
+print(f"Found {results.sizes['time']} datapoints")  # Found 220542 datapoints
 ```
 
-```plaintext
-<xarray.Dataset> Size: 725MB
-Dimensions:                (time: 1109597, latlon: 2)
-Coordinates:
-    ingestion_time         (time) datetime64[ns] 9MB 2024-06-21T11:03:33.8524...
-    id                     (time) <U36 160MB '01595763-bae7-a646-99a5-d7f40d7...
-  * time                   (time) datetime64[ns] 9MB 2017-01-01T00:17:50.8230...
-  * latlon                 (latlon) <U9 72B 'latitude' 'longitude'
-Data variables: (12/30)
-    granule_name           (time) object 9MB 'S1A_IW_RAW__0SSV_20170101T00175...
-    processing_level       (time) <U2 9MB 'L0' 'L0' 'L0' 'L0' ... 'L0' 'L0' 'L0'
-    satellite              (time) object 9MB 'SENTINEL-1' ... 'SENTINEL-1'
-    flight_direction       (time) <U10 44MB 'ASCENDING' ... 'ASCENDING'
-    product_type           (time) object 9MB 'IW_RAW__0S' ... 'IW_RAW__0S'
-    copernicus_id          (time) <U36 160MB 'f3f6ec28-0f72-5d28-9e14-93f96b3...
-    ...                     ...
-    acquisition_mode       (time) <U2 9MB 'IW' 'IW' 'IW' 'IW' ... 'IW' 'IW' 'IW'
+Spatio-temporal queries:
+
+```python
+from shapely.geometry import shape
+
+area_of_interest = shape({
+    "type": "Polygon",  # coords in lon, lat
+    "coordinates": [[[-5, 50], [-5, 56], [-11, 56], [-11, 50], [-5, 50]]]}
+)
+s2a_l1c = sentinel2_msi.collection("S2A_S2MSI1C")
+results = s2a_l1c.query(
+  temporal_extent=("2022-07-13", "2022-07-13T02:00"),
+  spatial_extent=area_of_interest,
+  show_progress=True
+)
+print(f"Found {results.sizes['time']} datapoints")  # Found 979 datapoints
 ```
 
 ## Documentation
