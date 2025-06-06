@@ -1,0 +1,2 @@
+*.binpb filter=lfs diff=lfs merge=lfs -text
+*.rpcs.bin filter=lfs diff=lfs merge=lfs -text

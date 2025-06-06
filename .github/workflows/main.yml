@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  code-quality:
+    name: Check coding standards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install poetry
+        run: pipx install poetry && poetry self add "poetry-dynamic-versioning[plugin]"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: poetry
+      - name: Install dependencies
+        run: poetry install
+      - name: Ruff
+        run: poetry run ruff format --check . && poetry run ruff check .
+      - uses: jakebailey/pyright-action@v2
+        with:
+          # keep the version here in sync with the version in .pre-commit-config.yaml and pyproject.toml/poetry.lock
+          version: 1.1.375
+
+  tests:
+    name: Run tests
+    strategy:
+      matrix:
+        os: [Ubuntu]
+        python-version: ["3.10", "3.11"]
+    runs-on: ${{ matrix.os }}-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Install poetry
+        run: pipx install poetry && poetry self add "poetry-dynamic-versioning[plugin]"
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: poetry
+      - name: Install dependencies
+        run: poetry install
+      - name: Run tests
+        run: poetry run ./tests.sh
+      - name: Test Summary
+        uses: test-summary/action@v2
+        with:
+          paths: "test-report.xml"
+        if: always()

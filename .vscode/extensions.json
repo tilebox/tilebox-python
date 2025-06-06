@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "charliermarsh.ruff",
+    "njpwerner.autodocstring",
+    "ryanluker.vscode-coverage-gutters",
+    "tamasfe.even-better-toml",
+    "eamodio.gitlens",
+    "boto3typed.boto3-ide"
+  ]
+}

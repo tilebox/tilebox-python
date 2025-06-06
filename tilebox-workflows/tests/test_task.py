@@ -1,0 +1,251 @@
+from dataclasses import dataclass
+
+import betterproto
+import pytest
+
+from tilebox.workflows.data import TaskIdentifier
+from tilebox.workflows.task import (
+    AsyncTask,
+    ExecutionContext,
+    SyncTask,
+    TaskMeta,
+    deserialize_task,
+    serialize_task,
+)
+
+
+def test_task_validation_simple_task() -> None:
+    class SimpleTask(SyncTask):
+        pass
+
+    expected_identifier = TaskIdentifier("SimpleTask", "v0.0")
+    assert TaskMeta.for_task(SimpleTask).identifier == expected_identifier
+    assert TaskMeta.for_task(SimpleTask).executable is False
+
+
+def test_task_validation_simple_task_with_identifier() -> None:
+    class SimpleTask(SyncTask):
+        @staticmethod
+        def identifier() -> tuple[str, str]:
+            return "tilebox.tests.SimpleTask", "v3.2"
+
+    expected_identifier = TaskIdentifier("tilebox.tests.SimpleTask", "v3.2")
+    assert TaskMeta.for_task(SimpleTask).identifier == expected_identifier
+
+
+def test_task_validation_simple_task_executable() -> None:
+    class SimpleTask(SyncTask):
+        def execute(self, context: ExecutionContext) -> None:
+            pass
+
+    assert TaskMeta.for_task(SimpleTask).executable is True
+
+
+def test_task_validation_simple_task_async_executable() -> None:
+    class SimpleTask(AsyncTask):
+        async def execute(self, context: ExecutionContext) -> None:
+            pass
+
+    assert TaskMeta.for_task(SimpleTask).executable is True
+
+
+def test_task_validation_execute_invalid_signature_no_params() -> None:
+    with pytest.raises(TypeError, match="Expected a function signature of"):
+        # validation happens at class creation time, that's why we create it in a function
+        class TaskWithInvalidExecuteSignature(AsyncTask):
+            @staticmethod
+            def identifier() -> tuple[str, str]:
+                return "tilebox.tests.TaskWithInvalidExecuteSignature", "v0.1"
+
+            async def execute(self) -> None:  # type: ignore[override]
+                pass
+
+
+def test_task_validation_execute_invalid_signature_too_many_params() -> None:
+    with pytest.raises(TypeError, match="Expected a function signature of"):
+        # validation happens at class creation time, that's why we create it in a function
+        class TaskWithInvalidExecuteSignature(AsyncTask):
+            @staticmethod
+            def identifier() -> tuple[str, str]:
+                return "tilebox.tests.TaskWithInvalidExecuteSignature", "v0.1"
+
+            async def execute(self, context: ExecutionContext, invalid: int) -> None:  # type: ignore[override]
+                pass
+
+
+def test_task_validation_execute_invalid_return_type() -> None:
+    with pytest.raises(TypeError, match="to not have a return value"):
+        # validation happens at class creation time, that's why we create it in a function
+        class TaskWithInvalidExecuteReturnType(AsyncTask):
+            @staticmethod
+            def identifier() -> tuple[str, str]:
+                return "tilebox.tests.TaskWithInvalidExecuteReturnType", "v0.1"
+
+            async def execute(self, context: ExecutionContext) -> int:  # type: ignore[override]
+                _ = context
+                return 5
+
+
+def test_task_validation_used_defined_identifier_classmethod() -> None:
+    class SimpleTaskWithClassmethodIdentifier(SyncTask):
+        @classmethod
+        def identifier(cls) -> tuple[str, str]:
+            return "tilebox.tests.SimpleTaskWithClassmethodIdentifier", "v3.2"
+
+    expected_identifier = TaskIdentifier("tilebox.tests.SimpleTaskWithClassmethodIdentifier", "v3.2")
+    assert TaskMeta.for_task(SimpleTaskWithClassmethodIdentifier).identifier == expected_identifier
+
+
+def test_task_user_defined_identifier_invalid_signature() -> None:
+    with pytest.raises(TypeError, match="Failed to invoke"):
+
+        class TaskIdentifierNotStaticMethod(SyncTask):
+            def identifier(self) -> tuple[str, str]:
+                return "tilebox.tests.TaskIdentifierNotStaticMethod", "v0.1"
+
+            def execute(self, context: ExecutionContext) -> None:
+                pass
+
+
+def test_task_user_defined_identifier_no_name() -> None:
+    with pytest.raises(TypeError, match="A task name is required"):
+
+        class TaskIdentifierNoName(SyncTask):
+            @staticmethod
+            def identifier() -> tuple[str, str]:
+                return "", "v0.1"
+
+            def execute(self, context: ExecutionContext) -> None:
+                pass
+
+
+def test_task_user_defined_identifier_name_too_long() -> None:
+    with pytest.raises(TypeError, match="The task name is too long"):
+
+        class TaskIdentifierNameTooLong(SyncTask):
+            @staticmethod
+            def identifier() -> tuple[str, str]:
+                name = "a" * (256 + 1)
+                return name, "v0.1"
+
+            def execute(self, context: ExecutionContext) -> None:
+                pass
+
+
+@pytest.mark.parametrize("version", ["", "3.2", "v3.2.1", "v3", "v3.", "something-else"])
+def test_task_user_defined_identifier_invalid_version(version: str) -> None:
+    with pytest.raises(TypeError, match="Invalid version"):
+
+        class TaskIdentifierInvalidVersion(SyncTask):
+            @staticmethod
+            def identifier() -> tuple[str, str]:
+                return "tilebox.tests.TaskIdentifierInvalidVersion", version
+
+
+class ExampleTask(SyncTask):
+    @staticmethod
+    def identifier() -> tuple[str, str]:
+        return "test_task.ExampleTask", "v0.1"
+
+
+class ExampleTaskWithArgs(SyncTask):
+    x: str
+    y: int
+
+    @staticmethod
+    def identifier() -> tuple[str, str]:
+        return "test_task.ExampleTask", "v0.1"
+
+
+def test_serialize_json() -> None:
+    task = ExampleTaskWithArgs("Hello", 123)
+    assert serialize_task(task) == b'{"x": "Hello", "y": 123}'
+
+
+def test_serialize_deserialize_task_json() -> None:
+    task = ExampleTaskWithArgs("Hello", 123)
+    assert deserialize_task(ExampleTaskWithArgs, serialize_task(task)) == task
+
+
+class ExampleProtobufTaskWithArgs(SyncTask, betterproto.Message):
+    x: str = betterproto.string_field(1)
+    y: int = betterproto.int64_field(2)
+
+    @staticmethod
+    def identifier() -> tuple[str, str]:
+        return "test_task.ExampleProtobufTaskWithArgs", "v0.1"
+
+
+def test_serialize_protobuf() -> None:
+    task = ExampleProtobufTaskWithArgs("Hello", 123)
+    assert serialize_task(task) == b"\n\x05Hello\x10{"
+
+
+def test_serialize_deserialize_task_protobuf() -> None:
+    task = ExampleProtobufTaskWithArgs("Hello", 123)
+    assert deserialize_task(ExampleProtobufTaskWithArgs, serialize_task(task)) == task
+
+
+@dataclass
+class NestedJson:
+    nested_x: str
+
+
+@dataclass
+class DoublyNestedJson:
+    doubly_nested_x: str
+    nested: NestedJson
+
+
+class ExampleTaskWithNestedJson(SyncTask):
+    x: str
+    nested: DoublyNestedJson
+
+    @staticmethod
+    def identifier() -> tuple[str, str]:
+        return "test_task.ExampleTaskWithNestedJson", "v0.1"
+
+
+def test_serialize_deserialize_task_nested_json() -> None:
+    task = ExampleTaskWithNestedJson("Hello", DoublyNestedJson("World", NestedJson("!")))
+    assert deserialize_task(ExampleTaskWithNestedJson, serialize_task(task)) == task
+
+
+@dataclass
+class NestedProtobuf(betterproto.Message):
+    nested_x: str = betterproto.string_field(1)  # noqa: RUF009
+
+
+@dataclass
+class DoublyNestedProtobuf(betterproto.Message):
+    doubly_nested_x: str = betterproto.string_field(1)  # noqa: RUF009
+    nested: NestedProtobuf = betterproto.message_field(2)  # noqa: RUF009
+
+
+class ExampleTaskWithNestedProtobuf(SyncTask, betterproto.Message):
+    x: str = betterproto.string_field(1)
+    nested: DoublyNestedProtobuf = betterproto.message_field(2)
+
+    @staticmethod
+    def identifier() -> tuple[str, str]:
+        return "test_task.ExampleTaskWithNestedProtobuf", "v0.1"
+
+
+def test_serialize_deserialize_task_nested_protobuf() -> None:
+    task = ExampleTaskWithNestedProtobuf("Hello", DoublyNestedProtobuf("World", NestedProtobuf("!")))
+    assert deserialize_task(ExampleTaskWithNestedProtobuf, serialize_task(task)) == task
+
+
+class JsonTaskWithNestedProtobuf(SyncTask):
+    int_value: int
+    str_value: str
+    nested: NestedProtobuf
+
+    @staticmethod
+    def identifier() -> tuple[str, str]:
+        return "test_task.JsonTaskWithNestedProtobuf", "v0.1"
+
+
+def test_serialize_deserialize_json_task_nested_protobuf() -> None:
+    task = JsonTaskWithNestedProtobuf(5, "Hello", NestedProtobuf("World!"))
+    assert deserialize_task(JsonTaskWithNestedProtobuf, serialize_task(task)) == task

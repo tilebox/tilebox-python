@@ -1,0 +1,109 @@
+from dataclasses import dataclass, field
+
+from tilebox.datasets.data.pagination import Pagination
+from tilebox.datasets.datasetsv1 import core_pb2, tilebox_pb2
+
+
+@dataclass(frozen=True)
+class DatapointInterval:
+    start_id: str
+    end_id: str
+    start_exclusive: bool
+    end_inclusive: bool
+
+    @classmethod
+    def from_message(cls, interval: core_pb2.DatapointInterval) -> "DatapointInterval":
+        return cls(
+            start_id=interval.start_id,
+            end_id=interval.end_id,
+            start_exclusive=interval.start_exclusive,
+            end_inclusive=interval.end_inclusive,
+        )
+
+    def to_message(self) -> core_pb2.DatapointInterval:
+        return core_pb2.DatapointInterval(
+            start_id=self.start_id,
+            end_id=self.end_id,
+            start_exclusive=self.start_exclusive,
+            end_inclusive=self.end_inclusive,
+        )
+
+
+@dataclass(frozen=True)
+class Any:
+    """Any is a message that can hold any other message as bytes. We don't use google.protobuf.Any because we want
+    the JSON representation of the value field to be bytes."""
+
+    type_url: str
+    value: bytes
+
+    @classmethod
+    def from_message(cls, a: core_pb2.Any) -> "Any":
+        return cls(type_url=a.type_url, value=a.value)
+
+    def to_message(self) -> core_pb2.Any:
+        return core_pb2.Any(type_url=self.type_url, value=self.value)
+
+
+@dataclass(frozen=True)
+class RepeatedAny:
+    """RepeatedAny is a message holding a list of messages, that all share the same variable message type. It is
+    preferrable over a simple list[Any] because it avoids repeating the type_url for every single element."""
+
+    type_url: str
+    value: list[bytes]
+
+    @classmethod
+    def from_message(cls, a: core_pb2.RepeatedAny) -> "RepeatedAny":
+        return cls(type_url=a.type_url, value=list(a.value))
+
+    def to_message(self) -> core_pb2.RepeatedAny:
+        return core_pb2.RepeatedAny(type_url=self.type_url, value=self.value)
+
+
+@dataclass(frozen=True)
+class Datapoint:
+    """Datapoint contains the metadata for a single data point."""
+
+    meta: core_pb2.DatapointMetadata  # we keep this as protobuf message to easily convert to/from xarray
+    data: Any
+
+    @classmethod
+    def from_message(
+        cls, datapoint: tilebox_pb2.Datapoint
+    ) -> "Datapoint":  # lets use typing.Self once we require python >= 3.11
+        """Convert a Datapoint protobuf message to a Datapoint object."""
+        return cls(
+            meta=datapoint.meta,
+            data=Any.from_message(datapoint.data),
+        )
+
+    def to_message(self) -> tilebox_pb2.Datapoint:
+        return tilebox_pb2.Datapoint(
+            meta=self.meta,
+            data=self.data.to_message(),
+        )
+
+
+@dataclass(frozen=True)
+class DatapointPage:
+    meta: list[core_pb2.DatapointMetadata]  # we keep this as protobuf message to easily convert to/from xarray
+    data: RepeatedAny
+    next_page: Pagination
+    byte_size: int = field(compare=False)
+
+    @classmethod
+    def from_message(cls, datapoints: tilebox_pb2.Datapoints) -> "DatapointPage":
+        return cls(
+            meta=list(datapoints.meta),
+            data=RepeatedAny.from_message(datapoints.data),
+            next_page=Pagination.from_message(datapoints.next_page),
+            byte_size=datapoints.ByteSize(),  # useful for progress bars
+        )
+
+    def to_message(self) -> tilebox_pb2.Datapoints:
+        return tilebox_pb2.Datapoints(
+            meta=self.meta,
+            data=self.data.to_message(),
+            next_page=self.next_page.to_message() if self.next_page else None,
+        )

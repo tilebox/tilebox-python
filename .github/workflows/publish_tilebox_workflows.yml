@@ -1,0 +1,37 @@
+name: Publish Tilebox Workflows
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    name: Build and Publish Tilebox Workflows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # required for checkout
+      id-token: write # required trusted publishing to pypi.org
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Install poetry
+        run: pipx install poetry && poetry self add "poetry-dynamic-versioning[plugin]"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: poetry
+      - name: Install dependencies
+        run: poetry install
+      - name: Print version
+        run: git describe --tags
+      - name: Build
+        run: ./build.sh tilebox-workflows
+      - name: Publish to PyPi.org
+        if: github.event_name == 'release'
+        # authorization is done via OIDC, so we don't need to specify a token
+        # Instead, we've set up a trusted publishing config on pypi.org, that maps to this repository and the
+        # publish_tilebox_workflows workflow and maps it to the tilebox-workflows package on pypi.org
+        uses: pypa/gh-action-pypi-publish@release/v1

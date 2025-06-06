@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package example_dataset.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+import "datasets/v1/well_known_types.proto";
+
+// This is an example protobuf message for testing our dynamic protobuf message parsing. This proto file is just here
+// for reference, to be able to reproduce how the FileDescriptorSet example_dataset.binpb was generated.
+// (by placing it in core/datasets-service/apis/example_dataset/v1/example_dataset.proto and running go generate)
+message ExampleDatapoint {
+    string some_string = 1;
+    int64 some_int = 2;
+    google.protobuf.Timestamp some_time = 3;
+    google.protobuf.Duration some_duration = 4;
+    repeated string some_repeated_string = 5;
+    repeated int64 some_repeated_int = 6;
+    bytes some_bytes = 7;
+    // test our well-known types
+    datasets.v1.UUID some_id = 8;
+    datasets.v1.Vec3 some_vec3 = 9;
+    datasets.v1.Quaternion some_quaternion = 10;
+    datasets.v1.LatLon some_latlon = 11;
+    datasets.v1.LatLonAlt some_latlon_alt = 12;
+    datasets.v1.GeobufData some_geometry = 13;
+    datasets.v1.ProcessingLevel some_enum = 14;
+}

@@ -1,0 +1,29 @@
+# Generate an SVG using:
+# https://play.d2lang.com/
+#
+# Layout Engine: ELK
+# Theme: Shirley temple
+# Sketch: True
+
+public: {
+  label: Public API
+  label.near: outside-top-center
+}
+
+private: {
+  label: Internal API
+  label.near: outside-bottom-center
+  style.fill: '#F5EFED'
+}
+
+public.tilebox-datasets -> private.tilebox-grpc: {
+  label: depends on
+}
+
+public.tilebox-storage -> public.tilebox-datasets: {
+  label: enhances
+}
+
+public.tilebox-workflows -> private.tilebox-grpc: {
+  label: depends on
+}

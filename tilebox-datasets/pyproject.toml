@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "tilebox-datasets"
+version = "0.0.0"
+description = "Access Tilebox datasets from Python"
+authors = ["Tilebox, Inc. <support@tilebox.com>"]
+readme = "README.md"
+license = "MIT"
+packages = [{ include = "tilebox" }]
+
+[tool.poetry-dynamic-versioning]
+enable = true
+
+[build-system]
+requires = ["poetry-core", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4"
+tilebox-grpc = { path = "../tilebox-grpc" }
+# cftime is a dependency of xarray, and we need this version at least to support numpy v2.0
+cftime = ">=1.6.4"
+# below version pins are some minimum sane versions that we tested against to make sure they are working
+numpy = ">=1.24"
+xarray = ">=2023.11"
+loguru = ">=0.7"
+tqdm = ">=4.65"
+pandas = ">=2.1"
+shapely = ">=2"
+
+[tool.coverage.run]
+omit = ["tilebox/*/datasetsv1/*"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["tests"]
+addopts = "-Wall -Werror --import-mode importlib"

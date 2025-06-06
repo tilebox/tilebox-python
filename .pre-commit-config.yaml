@@ -1,0 +1,18 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    # keep the version here in sync with the version in pyproject.toml/poetry.lock
+    rev: "v0.5.6"
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+  - repo: https://github.com/RobertCraigie/pyright-python
+    # keep the version here in sync with the version in .github/workflows/main.yml and pyproject.toml/poetry.lock
+    rev: v1.1.375
+    hooks:
+      - id: pyright

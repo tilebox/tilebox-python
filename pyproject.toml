@@ -1,0 +1,112 @@
+[tool.poetry]
+name = "tilebox-python"
+version = "0.0.0"
+description = ""
+authors = ["Tilebox <tilebox.io>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry-dynamic-versioning]
+enable = true
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4"
+tilebox-datasets = { path = "tilebox-datasets", develop = true }
+tilebox-grpc = { path = "tilebox-grpc", develop = true }
+tilebox-storage = { path = "tilebox-storage", develop = true }
+tilebox-workflows = { path = "tilebox-workflows", develop = true }
+# log spam issues from grpcio 1.65 onwards: https://github.com/grpc/grpc/issues/37245
+grpcio = "<1.65"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pytest-cov = "*"
+# Cython is required for some pytest coverage plugins
+Cython = "*"
+pytest-asyncio = "*"
+ruff = "*"
+pyright = "*"
+pre-commit = "*"
+types-protobuf = "*"
+wheel-doctor = "*"
+twine = "*"
+hypothesis = "*"
+pytest-httpx = "*"
+junitparser = "*"
+# DeprecationWarning: Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0)
+pyarrow = "*"
+moto = { extras = ["s3"], version = "*" }
+boto3-stubs = { extras = ["essential"], version = "*" }
+
+[tool.ruff]
+# settings applying to all ruff subcommands, such as `ruff check` (lint) and `ruff format`
+line-length = 120
+target-version = "py310"
+exclude = [
+    "*/.venv/*",
+    # it's auto generated, don't lint it
+    "*/datasetsv1/*",
+    "*/workflowsv1/*",
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+# all rules: https://beta.ruff.rs/docs/rules
+ignore = [
+    # some ruff checking modules don't make much sense as a whole
+    "D",   # pydocstyle: pretty strict anyways
+    "FBT", # flake8-boolean-trap: boolean arguments can make sense
+    "COM", # flake8-commas: formatter takes care of this
+    "DTZ", # flake8-datetimez: utc datetimes are useful
+    "DJ",  # flake8-django: not needed
+    "EM",  # flake8-errmsg: str directly in Exception constructor is accetable
+    "TCH", # flake8-type-checking: type checking blocks are weird
+    # specific rules
+    "ANN101",  # missing-type-self: self doesn't need type information
+    "ANN102",  # missing-type-cls: cls doesn't need type information
+    "ANN401",  # any-type: allow Any in *args and **kwargs
+    "S101",    # assert: allow usage of assert
+    "B008",    # function-call-argument-default: some default argument values make sense to be function calls
+    "G004",    # logging-f-string: allow usage of f-strings in logging calls
+    "PLR2004", # magic-value-comparison: sometimes comparison with constants (e.g. 0) makes sense
+    "TRY003",  # raise-vanilla-args: exceptions like this make sense in python
+    "TRY400",  # error-instead-of-exception: logger.error is ok with loguru
+    # disabled because of formatter
+    "E501",   # line-too-long -> formatter takes care of this
+    "ISC001", # single-line-implicit-str-concatenation -> formatter takes care of this
+    "Q",      # flake8-quotes -> formatter takes care of this
+    "W191",   # tab-indentation -> formatter takes care of this
+]
+
+unfixable = [
+    "F841", # unused-variable -> don't remove them automatically
+    "ERA",  # eradicate -> (commented out code), don't remove it automatically
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tilebox", "_tilebox"]
+
+[tool.ruff.lint.per-file-ignores]
+"*/tests/*" = ["INP001", "SLF001"]
+
+[tool.pyright]
+exclude = ["**/.ipynb_checkpoints", "**/__pycache__", ".venv"]
+
+# ignore warnings in those files, but still type check them when used as a dependency in other files
+ignore = [
+    # it's auto generated
+    "**/datasetsv1",
+    "**/workflowsv1",
+]
+
+# pyright needs to have all the dependencies installed to be able to type check
+# we can make sure of this by telling it to use the poetry venv
+# this requires the virtualenvs.in-project setting to be set to true in poetry.toml
+venvPath = "."
+venv = ".venv"
+
+
+[build-system]
+requires = ["poetry-core", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
