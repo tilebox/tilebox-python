@@ -71,7 +71,7 @@ area_of_interest = shape({
 )
 s2a_l1c = sentinel2_msi.collection("S2A_S2MSI1C")
 results = s2a_l1c.query(
-  temporal_extent=("2022-07-13", "2022-07-13T02:00"),
+  temporal_extent=("2025-03-01", "2025-06-01"),
   spatial_extent=area_of_interest,
   show_progress=True
 )

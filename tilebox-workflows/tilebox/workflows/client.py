@@ -1,7 +1,7 @@
 import logging
 import os
 
-from _tilebox.grpc.channel import open_channel
+from _tilebox.grpc.channel import open_channel, parse_channel_info
 from tilebox.datasets.sync.client import Client as DatasetsClient
 from tilebox.workflows.automations.client import AutomationClient, AutomationService
 from tilebox.workflows.cache import JobCache, NoCache
@@ -28,13 +28,7 @@ class Client:
             url: Tilebox API Url. Defaults to "https://api.tilebox.com".
             token: The API Key to authenticate with. If not set the `TILEBOX_API_KEY` environment variable will be used.
         """
-        if token is None:  # if no token is provided, try to get it from the environment
-            token = os.environ.get("TILEBOX_API_KEY", None)
-        if url == "https://api.tilebox.com" and token is None:
-            raise ValueError(
-                "No API key provided and no TILEBOX_API_KEY environment variable set. Please specify an API key using "
-                "the token argument. For example: `Client(token='YOUR_TILEBOX_API_KEY')`"
-            )
+        token = _token_from_env(url, token)
         self._auth = {"token": token, "url": url}
         self._channel = open_channel(url, token)
 
@@ -147,3 +141,16 @@ class Client:
             A client for the automations service.
         """
         return AutomationClient(AutomationService(self._channel))
+
+
+def _token_from_env(url: str, token: str | None) -> str | None:
+    if token is None:  # if no token is provided, try to get it from the environment
+        token = os.environ.get("TILEBOX_API_KEY", None)
+
+    if token is None and parse_channel_info(url).address == "api.tilebox.com":
+        raise ValueError(
+            "No API key provided and no TILEBOX_API_KEY environment variable set. Please specify an API key using "
+            "the token argument. For example: `Client(token='YOUR_TILEBOX_API_KEY')`"
+        )
+
+    return token
