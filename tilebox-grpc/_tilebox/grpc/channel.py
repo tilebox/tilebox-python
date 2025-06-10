@@ -43,6 +43,7 @@ CHANNEL_OPTIONS = [
     ("grpc.service_config", json.dumps(_SERVICE_CONFIG)),
 ]
 
+
 class ChannelProtocol(Enum):
     HTTPS = 1
     HTTP = 2
