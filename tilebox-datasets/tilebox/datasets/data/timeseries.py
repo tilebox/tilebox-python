@@ -21,7 +21,13 @@ class TimeseriesDatasetChunk:
     @classmethod
     def from_message(cls, chunk: timeseries_pb2.TimeseriesDatasetChunk) -> "TimeseriesDatasetChunk":
         datapoint_interval = None
-        if chunk.datapoint_interval and chunk.datapoint_interval.start_id and chunk.datapoint_interval.end_id:
+        if (
+            chunk.datapoint_interval
+            and chunk.datapoint_interval.start_id
+            and chunk.datapoint_interval.end_id
+            and chunk.datapoint_interval.start_id.uuid
+            and chunk.datapoint_interval.end_id.uuid
+        ):
             datapoint_interval = DatapointInterval.from_message(chunk.datapoint_interval)
 
         time_interval = None
