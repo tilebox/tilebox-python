@@ -66,7 +66,7 @@ Query data:
 ```python
 s2a_l1c = sentinel2_msi.collection("S2A_S2MSI1C")
 results = s2a_l1c.query(
-  temporal_extent=("2017-01-01", "2023-01-01"),
+  temporal_extent=("2025-03-01", "2025-06-01"),
   show_progress=True
 )
 print(f"Found {results.sizes['time']} datapoints")  # Found 220542 datapoints
@@ -83,7 +83,7 @@ area_of_interest = shape({
 )
 s2a_l1c = sentinel2_msi.collection("S2A_S2MSI1C")
 results = s2a_l1c.query(
-  temporal_extent=("2022-07-13", "2022-07-13T02:00"),
+  temporal_extent=("2025-03-01", "2025-06-01"),
   spatial_extent=area_of_interest,
   show_progress=True
 )

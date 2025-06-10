@@ -4,6 +4,7 @@ import pytest
 
 from _tilebox.grpc.channel import (
     CHANNEL_OPTIONS,
+    ChannelProtocol,
     open_channel,
     parse_channel_info,
 )
@@ -50,24 +51,26 @@ def test_open_authenticated_channel(open_func: MagicMock, intercept_func: MagicM
 )
 def test_parse_channel_info_secure(url: str) -> None:
     channel_info = parse_channel_info(url)
-    assert channel_info.url_without_protocol == "api.tilebox.com:443"
-    assert channel_info.use_ssl
+    assert channel_info.address == "api.tilebox.com"
+    assert channel_info.port == 443
+    assert channel_info.protocol == ChannelProtocol.HTTPS
 
 
 @pytest.mark.parametrize(
     ("url", "expected_url_without_protocol"),
     [
-        ("0.0.0.0:8083", "0.0.0.0:8083"),
-        ("http://0.0.0.0:8083", "0.0.0.0:8083"),
-        ("http://localhost:8083", "localhost:8083"),
-        ("localhost:8083", "localhost:8083"),
-        ("http://some.insecure.url:1234", "some.insecure.url:1234"),
+        ("0.0.0.0:8083", "0.0.0.0"),  # noqa: S104
+        ("http://0.0.0.0:8083", "0.0.0.0"),  # noqa: S104
+        ("http://localhost:8083", "localhost"),
+        ("localhost:8083", "localhost"),
+        ("http://some.insecure.url:8083", "some.insecure.url"),
     ],
 )
 def test_parse_channel_info_insecure(url: str, expected_url_without_protocol: str) -> None:
     channel_info = parse_channel_info(url)
-    assert channel_info.url_without_protocol == expected_url_without_protocol
-    assert not channel_info.use_ssl
+    assert channel_info.address == expected_url_without_protocol
+    assert channel_info.port == 8083
+    assert channel_info.protocol == ChannelProtocol.HTTP
 
 
 @pytest.mark.parametrize(
@@ -79,8 +82,9 @@ def test_parse_channel_info_insecure(url: str, expected_url_without_protocol: st
 )
 def test_parse_channel_info_unix(url: str) -> None:
     channel_info = parse_channel_info(url)
-    assert channel_info.url_without_protocol == url
-    assert not channel_info.use_ssl
+    assert channel_info.address == url
+    assert channel_info.port == 0
+    assert channel_info.protocol == ChannelProtocol.UNIX
 
 
 def test_parse_channel_invalid() -> None:

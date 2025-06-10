@@ -36,9 +36,9 @@ def open_channel(url: str, auth_token: str | None = None) -> Channel:
 def _open_channel(channel_info: ChannelInfo, interceptors: Sequence[ClientInterceptor]) -> Channel:
     if channel_info.use_ssl:
         return secure_channel(
-            channel_info.url_without_protocol, ssl_channel_credentials(), CHANNEL_OPTIONS, interceptors=interceptors
+            channel_info.address, ssl_channel_credentials(), CHANNEL_OPTIONS, interceptors=interceptors
         )
-    return insecure_channel(channel_info.url_without_protocol, CHANNEL_OPTIONS, interceptors=interceptors)
+    return insecure_channel(channel_info.address, CHANNEL_OPTIONS, interceptors=interceptors)
 
 
 RequestType = TypeVar("RequestType")

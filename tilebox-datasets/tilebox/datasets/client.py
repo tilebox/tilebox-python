@@ -1,12 +1,12 @@
 import os
 import sys
-from urllib.parse import urlparse
 from typing import Any, Protocol, TypeVar
 from uuid import UUID
 
 from loguru import logger
 from promise import Promise
 
+from _tilebox.grpc.channel import parse_channel_info
 from tilebox.datasets.data.datasets import Dataset, DatasetGroup, ListDatasetsResponse
 from tilebox.datasets.data.uuid import as_uuid
 from tilebox.datasets.group import Group
@@ -67,13 +67,13 @@ class Client:
 def token_from_env(url: str, token: str | None) -> str | None:
     if token is None:  # if no token is provided, try to get it from the environment
         token = os.environ.get("TILEBOX_API_KEY", None)
-    from urllib.parse import urlparse
-    parsed_url = urlparse(url)
-    if parsed_url.hostname == "api.tilebox.com" and token is None:
+
+    if token is None and parse_channel_info(url).address == "api.tilebox.com":
         raise ValueError(
             "No API key provided and no TILEBOX_API_KEY environment variable set. Please specify an API key using "
             "the token argument. For example: `Client(token='YOUR_TILEBOX_API_KEY')`"
         )
+
     return token
 
 
