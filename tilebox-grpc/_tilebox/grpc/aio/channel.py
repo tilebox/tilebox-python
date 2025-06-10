@@ -1,8 +1,8 @@
 from collections.abc import Callable, Sequence
 from typing import TypeVar
 
-from _tilebox.grpc.channel import CHANNEL_OPTIONS, ChannelInfo, add_metadata, parse_channel_info
-from grpc import ssl_channel_credentials
+from _tilebox.grpc.channel import CHANNEL_OPTIONS, ChannelInfo, ChannelProtocol, add_metadata, parse_channel_info
+from grpc import Compression, ssl_channel_credentials
 from grpc.aio import (
     Channel,
     ClientCallDetails,
@@ -34,11 +34,28 @@ def open_channel(url: str, auth_token: str | None = None) -> Channel:
 
 
 def _open_channel(channel_info: ChannelInfo, interceptors: Sequence[ClientInterceptor]) -> Channel:
-    if channel_info.use_ssl:
-        return secure_channel(
-            channel_info.address, ssl_channel_credentials(), CHANNEL_OPTIONS, interceptors=interceptors
-        )
-    return insecure_channel(channel_info.address, CHANNEL_OPTIONS, interceptors=interceptors)
+    match channel_info.protocol:
+        case ChannelProtocol.HTTPS:
+            return secure_channel(
+                f"{channel_info.address}:{channel_info.port}",
+                ssl_channel_credentials(),
+                CHANNEL_OPTIONS,
+                compression=Compression.Gzip,
+                interceptors=interceptors,
+            )
+        case ChannelProtocol.HTTP:
+            return insecure_channel(
+                f"{channel_info.address}:{channel_info.port}",
+                CHANNEL_OPTIONS,
+                compression=Compression.NoCompression,
+                interceptors=interceptors,
+            )
+        case ChannelProtocol.UNIX:
+            return insecure_channel(
+                channel_info.address, CHANNEL_OPTIONS, compression=Compression.NoCompression, interceptors=interceptors
+            )
+        case _:
+            raise ValueError(f"Unsupported channel protocol: {channel_info.protocol}")
 
 
 RequestType = TypeVar("RequestType")
