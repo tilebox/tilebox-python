@@ -22,19 +22,20 @@ _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
 @execution_interceptor
-def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: ExecutionContext) -> None:
+def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: ExecutionContext) -> None:  # noqa: C901
     if not isinstance(task, TimeseriesTask):
         raise TypeError("Task is not a timeseries task. Inherit from TimeseriesTask to mark it as such.")
 
     chunk: TimeseriesDatasetChunk = task.timeseries_data  # type: ignore[attr-defined]
 
-    # let's get the collection object
-    dataset = context.runner_context.datasets_client._dataset_by_id(str(chunk.dataset_id))  # type: ignore[attr-defined]  # noqa: SLF001
-    collection = dataset.collection("unknown")  # dummy collection, we will inject the right id below:
+    # let's get a collection client
+    datasets_client = context.runner_context.datasets_client
+    dataset = datasets_client._dataset_by_id(str(chunk.dataset_id))  # type: ignore[attr-defined]  # noqa: SLF001
     # we already know the collection id, so we can skip the lookup (we don't know the name, but don't need it)
-    collection._info = CollectionInfo(Collection(chunk.collection_id, "unknown"), None, None)  # noqa: SLF001
+    collection_info = CollectionInfo(Collection(chunk.collection_id, "unknown"), None, None)
+    collection = CollectionClient(dataset, collection_info)
 
-    # leaf case: we are already executing a specific batch of datapoints fitting in the chunk size, so let's load them and process them
+    # leaf case: we are already executing a specific batch of datapoints fitting in the chunk size, so let's load them
     if chunk.datapoint_interval:
         datapoint_interval = (chunk.datapoint_interval.start_id, chunk.datapoint_interval.end_id)
         # we already are a leaf task executing for a specific datapoint interval:
@@ -44,6 +45,9 @@ def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: 
             skip_data=False,
             show_progress=False,
         )
+        if not datapoints:
+            return  # no datapoints in the interval -> we are done
+
         for i in range(datapoints.sizes["time"]):
             datapoint = datapoints.isel(time=i)
             call_next(context, datapoint)  # type: ignore[call-arg]
@@ -88,7 +92,7 @@ def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: 
 
     subtasks = [replace(task, timeseries_data=sub_chunk) for sub_chunk in sub_chunks]  # type: ignore[misc]
     if len(subtasks) > 0:
-        context.submit_batch(subtasks)
+        context.submit_subtasks(subtasks)
 
     return
 

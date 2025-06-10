@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.37.1] - 2025-06-10
+
 ### Fixed
 
+- `tilebox-datasets`: Fixed a bug in `TimeseriesDatasetChunk.from_message` relying on incorrect bool assumptions about
+  missing protobuf fields.
 - `tilebox-grpc`: More robust parsing of GRPC channel URLs.
+- `tilebox-workflows`: Fixed a bug in the timeseries interceptor that resulted in an error when accessing a collection.
 
 ## [0.37.0] - 2025-06-06
 
@@ -185,7 +190,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.37.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.37.1...HEAD
+[0.37.1]: https://github.com/tilebox/tilebox-python/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/tilebox/tilebox-python/compare/v0.36.1...v0.37.0
 [0.36.1]: https://github.com/tilebox/tilebox-python/compare/v0.36.0...v0.36.1
 [0.36.0]: https://github.com/tilebox/tilebox-python/compare/v0.35.0...v0.36.0
