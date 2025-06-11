@@ -18,6 +18,7 @@ from tilebox.datasets.data.uuid import must_uuid_to_uuid_message, uuid_to_uuid_m
 from tilebox.datasets.datasetsv1 import core_pb2
 from tilebox.datasets.datasetsv1.collections_pb2 import (
     CreateCollectionRequest,
+    DeleteCollectionByNameRequest,
     GetCollectionByNameRequest,
     ListCollectionsRequest,
 )
@@ -82,6 +83,16 @@ class TileboxDatasetService:
         """
         req = CreateCollectionRequest(dataset_id=uuid_to_uuid_message(dataset_id), name=name)
         return Promise.resolve(self._collection_service.CreateCollection(req)).then(CollectionInfo.from_message)
+
+    def delete_collection_by_name(self, dataset_id: UUID, name: str) -> Promise[None]:
+        """Delete a collection in a dataset by name.
+
+        Args:
+            dataset_id: The id of the dataset to delete the collection from.
+            name: The name of the collection to delete.
+        """
+        req = DeleteCollectionByNameRequest(dataset_id=uuid_to_uuid_message(dataset_id), collection_name=name)
+        return Promise.resolve(self._collection_service.DeleteCollectionByName(req))
 
     def get_collections(
         self, dataset_id: UUID, with_availability: bool = True, with_count: bool = False

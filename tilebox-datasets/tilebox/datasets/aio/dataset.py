@@ -127,6 +127,14 @@ class DatasetClient:
 
         return CollectionClient(self, info)
 
+    async def delete_collection(self, name: str) -> None:
+        """Delete a collection by its name.
+
+        Args:
+            name: The name of the collection to delete.
+        """
+        await self._service.delete_collection_by_name(self._dataset.id, name)
+
     def __repr__(self) -> str:
         return f"{self.name} [Timeseries Dataset]: {self._dataset.summary}"
 
