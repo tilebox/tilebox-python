@@ -26,6 +26,11 @@ class CollectionServiceStub(object):
                 request_serializer=datasets_dot_v1_dot_collections__pb2.GetCollectionByNameRequest.SerializeToString,
                 response_deserializer=datasets_dot_v1_dot_core__pb2.CollectionInfo.FromString,
                 _registered_method=True)
+        self.DeleteCollectionByName = channel.unary_unary(
+                '/datasets.v1.CollectionService/DeleteCollectionByName',
+                request_serializer=datasets_dot_v1_dot_collections__pb2.DeleteCollectionByNameRequest.SerializeToString,
+                response_deserializer=datasets_dot_v1_dot_collections__pb2.DeleteCollectionByNameResponse.FromString,
+                _registered_method=True)
         self.ListCollections = channel.unary_unary(
                 '/datasets.v1.CollectionService/ListCollections',
                 request_serializer=datasets_dot_v1_dot_collections__pb2.ListCollectionsRequest.SerializeToString,
@@ -49,6 +54,12 @@ class CollectionServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DeleteCollectionByName(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ListCollections(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -67,6 +78,11 @@ def add_CollectionServiceServicer_to_server(servicer, server):
                     servicer.GetCollectionByName,
                     request_deserializer=datasets_dot_v1_dot_collections__pb2.GetCollectionByNameRequest.FromString,
                     response_serializer=datasets_dot_v1_dot_core__pb2.CollectionInfo.SerializeToString,
+            ),
+            'DeleteCollectionByName': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteCollectionByName,
+                    request_deserializer=datasets_dot_v1_dot_collections__pb2.DeleteCollectionByNameRequest.FromString,
+                    response_serializer=datasets_dot_v1_dot_collections__pb2.DeleteCollectionByNameResponse.SerializeToString,
             ),
             'ListCollections': grpc.unary_unary_rpc_method_handler(
                     servicer.ListCollections,
@@ -129,6 +145,33 @@ class CollectionService(object):
             '/datasets.v1.CollectionService/GetCollectionByName',
             datasets_dot_v1_dot_collections__pb2.GetCollectionByNameRequest.SerializeToString,
             datasets_dot_v1_dot_core__pb2.CollectionInfo.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteCollectionByName(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/datasets.v1.CollectionService/DeleteCollectionByName',
+            datasets_dot_v1_dot_collections__pb2.DeleteCollectionByNameRequest.SerializeToString,
+            datasets_dot_v1_dot_collections__pb2.DeleteCollectionByNameResponse.FromString,
             options,
             channel_credentials,
             insecure,

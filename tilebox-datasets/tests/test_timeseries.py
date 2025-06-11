@@ -6,7 +6,7 @@ import pytest
 import xarray as xr
 from attr import dataclass
 from hypothesis import assume, given, settings
-from hypothesis.stateful import Bundle, RuleBasedStateMachine, invariant, rule
+from hypothesis.stateful import Bundle, RuleBasedStateMachine, consumes, invariant, rule
 from hypothesis.strategies import lists
 from promise import Promise
 
@@ -28,6 +28,7 @@ from tilebox.datasets.data.time_interval import (
 from tilebox.datasets.data.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.datasets.datasetsv1.collections_pb2 import (
     CreateCollectionRequest,
+    DeleteCollectionByNameRequest,
     GetCollectionByNameRequest,
     ListCollectionsRequest,
 )
@@ -291,6 +292,9 @@ class MockCollectionService(CollectionServiceStub):
             return self.collections[req.collection_name]
         raise NotFoundError(f"Collection {req.collection_name} not found")
 
+    def DeleteCollectionByName(self, req: DeleteCollectionByNameRequest) -> None:  # noqa: N802
+        del self.collections[req.collection_name]
+
     def ListCollections(self, req: ListCollectionsRequest) -> CollectionInfosMessage:  # noqa: N802
         _ = req
         return CollectionInfosMessage(data=list(self.collections.values()))
@@ -345,6 +349,12 @@ class CollectionCRUDOperations(RuleBasedStateMachine):
     def get_collection(self, collection: CollectionClient) -> None:
         got = self.dataset_client.collection(collection.name)
         assert got.info() == collection.info()
+
+    @rule(collection=consumes(inserted_collections))  # consumes -> remove from bundle afterwards
+    def delete_collection(self, collection: CollectionClient) -> None:
+        self.count_collections -= 1
+        assert self.count_collections >= 0
+        self.dataset_client.delete_collection(collection.name)
 
     @invariant()
     def list_collections(self) -> None:

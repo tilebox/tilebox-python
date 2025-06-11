@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-datasets`: Added `delete_collection` method to `DatasetClient` to delete a collection by name.
+
 ## [0.37.1] - 2025-06-10
 
 ### Fixed
