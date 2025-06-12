@@ -25,15 +25,15 @@ class GetCollectionByNameRequest(_message.Message):
     dataset_id: _core_pb2.ID
     def __init__(self, collection_name: _Optional[str] = ..., with_availability: bool = ..., with_count: bool = ..., dataset_id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ...) -> None: ...
 
-class DeleteCollectionByNameRequest(_message.Message):
-    __slots__ = ("collection_name", "dataset_id")
-    COLLECTION_NAME_FIELD_NUMBER: _ClassVar[int]
+class DeleteCollectionRequest(_message.Message):
+    __slots__ = ("collection_id", "dataset_id")
+    COLLECTION_ID_FIELD_NUMBER: _ClassVar[int]
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
-    collection_name: str
+    collection_id: _core_pb2.ID
     dataset_id: _core_pb2.ID
-    def __init__(self, collection_name: _Optional[str] = ..., dataset_id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ...) -> None: ...
+    def __init__(self, collection_id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ..., dataset_id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ...) -> None: ...
 
-class DeleteCollectionByNameResponse(_message.Message):
+class DeleteCollectionResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 

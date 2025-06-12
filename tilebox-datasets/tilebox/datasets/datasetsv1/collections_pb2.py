@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from tilebox.datasets.datasetsv1 import core_pb2 as datasets_dot_v1_dot_core__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1d\x64\x61tasets/v1/collections.proto\x12\x0b\x64\x61tasets.v1\x1a\x16\x64\x61tasets/v1/core.proto\"]\n\x17\x43reateCollectionRequest\x12.\n\ndataset_id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\tdatasetId\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\"\xc1\x01\n\x1aGetCollectionByNameRequest\x12\'\n\x0f\x63ollection_name\x18\x01 \x01(\tR\x0e\x63ollectionName\x12+\n\x11with_availability\x18\x02 \x01(\x08R\x10withAvailability\x12\x1d\n\nwith_count\x18\x03 \x01(\x08R\twithCount\x12.\n\ndataset_id\x18\x04 \x01(\x0b\x32\x0f.datasets.v1.IDR\tdatasetId\"x\n\x1d\x44\x65leteCollectionByNameRequest\x12\'\n\x0f\x63ollection_name\x18\x01 \x01(\tR\x0e\x63ollectionName\x12.\n\ndataset_id\x18\x02 \x01(\x0b\x32\x0f.datasets.v1.IDR\tdatasetId\" \n\x1e\x44\x65leteCollectionByNameResponse\"\x94\x01\n\x16ListCollectionsRequest\x12.\n\ndataset_id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\tdatasetId\x12+\n\x11with_availability\x18\x02 \x01(\x08R\x10withAvailability\x12\x1d\n\nwith_count\x18\x03 \x01(\x08R\twithCount2\x98\x03\n\x11\x43ollectionService\x12W\n\x10\x43reateCollection\x12$.datasets.v1.CreateCollectionRequest\x1a\x1b.datasets.v1.CollectionInfo\"\x00\x12]\n\x13GetCollectionByName\x12\'.datasets.v1.GetCollectionByNameRequest\x1a\x1b.datasets.v1.CollectionInfo\"\x00\x12s\n\x16\x44\x65leteCollectionByName\x12*.datasets.v1.DeleteCollectionByNameRequest\x1a+.datasets.v1.DeleteCollectionByNameResponse\"\x00\x12V\n\x0fListCollections\x12#.datasets.v1.ListCollectionsRequest\x1a\x1c.datasets.v1.CollectionInfos\"\x00\x42\xb2\x01\n\x0f\x63om.datasets.v1B\x10\x43ollectionsProtoP\x01Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1d\x64\x61tasets/v1/collections.proto\x12\x0b\x64\x61tasets.v1\x1a\x16\x64\x61tasets/v1/core.proto\"]\n\x17\x43reateCollectionRequest\x12.\n\ndataset_id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\tdatasetId\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\"\xc1\x01\n\x1aGetCollectionByNameRequest\x12\'\n\x0f\x63ollection_name\x18\x01 \x01(\tR\x0e\x63ollectionName\x12+\n\x11with_availability\x18\x02 \x01(\x08R\x10withAvailability\x12\x1d\n\nwith_count\x18\x03 \x01(\x08R\twithCount\x12.\n\ndataset_id\x18\x04 \x01(\x0b\x32\x0f.datasets.v1.IDR\tdatasetId\"\x7f\n\x17\x44\x65leteCollectionRequest\x12\x34\n\rcollection_id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\x0c\x63ollectionId\x12.\n\ndataset_id\x18\x02 \x01(\x0b\x32\x0f.datasets.v1.IDR\tdatasetId\"\x1a\n\x18\x44\x65leteCollectionResponse\"\x94\x01\n\x16ListCollectionsRequest\x12.\n\ndataset_id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\tdatasetId\x12+\n\x11with_availability\x18\x02 \x01(\x08R\x10withAvailability\x12\x1d\n\nwith_count\x18\x03 \x01(\x08R\twithCount2\x86\x03\n\x11\x43ollectionService\x12W\n\x10\x43reateCollection\x12$.datasets.v1.CreateCollectionRequest\x1a\x1b.datasets.v1.CollectionInfo\"\x00\x12]\n\x13GetCollectionByName\x12\'.datasets.v1.GetCollectionByNameRequest\x1a\x1b.datasets.v1.CollectionInfo\"\x00\x12\x61\n\x10\x44\x65leteCollection\x12$.datasets.v1.DeleteCollectionRequest\x1a%.datasets.v1.DeleteCollectionResponse\"\x00\x12V\n\x0fListCollections\x12#.datasets.v1.ListCollectionsRequest\x1a\x1c.datasets.v1.CollectionInfos\"\x00\x42\xb2\x01\n\x0f\x63om.datasets.v1B\x10\x43ollectionsProtoP\x01Z@github.com/tilebox/tilebox-go/protogen/go/datasets/v1;datasetsv1\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,12 +37,12 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_CREATECOLLECTIONREQUEST']._serialized_end=163
   _globals['_GETCOLLECTIONBYNAMEREQUEST']._serialized_start=166
   _globals['_GETCOLLECTIONBYNAMEREQUEST']._serialized_end=359
-  _globals['_DELETECOLLECTIONBYNAMEREQUEST']._serialized_start=361
-  _globals['_DELETECOLLECTIONBYNAMEREQUEST']._serialized_end=481
-  _globals['_DELETECOLLECTIONBYNAMERESPONSE']._serialized_start=483
-  _globals['_DELETECOLLECTIONBYNAMERESPONSE']._serialized_end=515
-  _globals['_LISTCOLLECTIONSREQUEST']._serialized_start=518
-  _globals['_LISTCOLLECTIONSREQUEST']._serialized_end=666
-  _globals['_COLLECTIONSERVICE']._serialized_start=669
-  _globals['_COLLECTIONSERVICE']._serialized_end=1077
+  _globals['_DELETECOLLECTIONREQUEST']._serialized_start=361
+  _globals['_DELETECOLLECTIONREQUEST']._serialized_end=488
+  _globals['_DELETECOLLECTIONRESPONSE']._serialized_start=490
+  _globals['_DELETECOLLECTIONRESPONSE']._serialized_end=516
+  _globals['_LISTCOLLECTIONSREQUEST']._serialized_start=519
+  _globals['_LISTCOLLECTIONSREQUEST']._serialized_end=667
+  _globals['_COLLECTIONSERVICE']._serialized_start=670
+  _globals['_COLLECTIONSERVICE']._serialized_end=1060
 # @@protoc_insertion_point(module_scope)
