@@ -28,7 +28,7 @@ from tilebox.datasets.data.time_interval import (
 from tilebox.datasets.data.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.datasets.datasetsv1.collections_pb2 import (
     CreateCollectionRequest,
-    DeleteCollectionByNameRequest,
+    DeleteCollectionRequest,
     GetCollectionByNameRequest,
     ListCollectionsRequest,
 )
@@ -292,8 +292,11 @@ class MockCollectionService(CollectionServiceStub):
             return self.collections[req.collection_name]
         raise NotFoundError(f"Collection {req.collection_name} not found")
 
-    def DeleteCollectionByName(self, req: DeleteCollectionByNameRequest) -> None:  # noqa: N802
-        del self.collections[req.collection_name]
+    def DeleteCollection(self, req: DeleteCollectionRequest) -> None:  # noqa: N802
+        for collection in self.collections.values():
+            if collection.collection.id == req.collection_id:
+                del self.collections[collection.collection.name]
+                return
 
     def ListCollections(self, req: ListCollectionsRequest) -> CollectionInfosMessage:  # noqa: N802
         _ = req
@@ -354,7 +357,7 @@ class CollectionCRUDOperations(RuleBasedStateMachine):
     def delete_collection(self, collection: CollectionClient) -> None:
         self.count_collections -= 1
         assert self.count_collections >= 0
-        self.dataset_client.delete_collection(collection.name)
+        self.dataset_client.delete_collection(collection)
 
     @invariant()
     def list_collections(self) -> None:
