@@ -57,10 +57,10 @@ def test_runner_with_fibonacci_workflow() -> None:
         # we hardcode the trace parent for the job, which allows us to assert that every single outgoing request
         # matches exactly byte for byte
         get_trace_parent_mock.return_value = "00-f8d3b65869f638c5bfe173ffb3b3e5a0-ccf5709467cafc52-01"
-        job = client.jobs().submit("fibonacci", FibonacciTask(n), cluster="dev-cluster-ESugE7S4cwADVK")
+        job = client.jobs().submit("fibonacci", FibonacciTask(n))
 
     cache = InMemoryCache()
-    runner = client.runner("dev-cluster-ESugE7S4cwADVK", tasks=[FibonacciTask, SumResultTask], cache=cache)
+    runner = client.runner(tasks=[FibonacciTask, SumResultTask], cache=cache)
     runner.run_all()
 
     job_cache = cache.group(str(job.id))
@@ -85,10 +85,10 @@ def test_runner_with_flaky_task() -> None:
         # we hardcode the trace parent for the job, which allows us to assert that every single outgoing request
         # matches exactly byte for byte
         get_trace_parent_mock.return_value = "00-9680c9bfd602c4befe7b65a33a7b886d-3de78304f4cfbc40-01"
-        job = client.jobs().submit("flaky-task", FlakyTask(), cluster="dev-cluster-ESugE7S4cwADVK")
+        job = client.jobs().submit("flaky-task", FlakyTask())
 
     cache = InMemoryCache()
-    runner = client.runner("dev-cluster-ESugE7S4cwADVK", tasks=[FlakyTask], cache=cache)
+    runner = client.runner(tasks=[FlakyTask], cache=cache)
 
     runner.run_all()  # task will fail
     job = job_client.find(job)  # load current job state

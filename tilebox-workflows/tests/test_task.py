@@ -196,7 +196,7 @@ def test_serialize_deserialize_task_protobuf() -> None:
     assert deserialize_task(ExampleProtobufTaskWithSingleProtobufArg, serialize_task(task)) == task
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class NestedJson:
     nested_x: str
 
@@ -225,3 +225,126 @@ class ExampleTaskWithNestedProtobuf(Task):
 def test_serialize_deserialize_task_nested_protobuf() -> None:
     task = ExampleTaskWithNestedProtobuf("Hello", SampleArgs(some_string="World", some_int=123))
     assert deserialize_task(ExampleTaskWithNestedProtobuf, serialize_task(task)) == task
+
+
+class ExampleTaskWithNestedJsonInList(Task):
+    x: str
+    nested_list: list[NestedJson]
+
+
+def test_serialize_deserialize_task_nested_json_in_list() -> None:
+    task = ExampleTaskWithNestedJsonInList("Hello", [NestedJson("World"), NestedJson("!")])
+    assert deserialize_task(ExampleTaskWithNestedJsonInList, serialize_task(task)) == task
+
+
+class ExampleTaskWithNestedJsonInTuple(Task):
+    x: str
+    nested_tuple: tuple[NestedJson, NestedJson]
+
+
+def test_serialize_deserialize_task_nested_json_in_tuple() -> None:
+    task = ExampleTaskWithNestedJsonInTuple("Hello", (NestedJson("World"), NestedJson("!")))
+    assert deserialize_task(ExampleTaskWithNestedJsonInTuple, serialize_task(task)) == task
+
+
+class ExampleTaskWithNestedJsonInVariadicTuple(Task):
+    x: str
+    nested_tuple: tuple[NestedJson, ...]
+
+
+def test_serialize_deserialize_task_nested_json_in_variadic_tuple() -> None:
+    task = ExampleTaskWithNestedJsonInVariadicTuple("Hello", (NestedJson("World"), NestedJson("!"), NestedJson("!!!")))
+    assert deserialize_task(ExampleTaskWithNestedJsonInVariadicTuple, serialize_task(task)) == task
+
+
+class ExampleTaskWithNestedJsonListOnly(Task):
+    nested_list: list[NestedJson]
+
+
+def test_serialize_deserialize_task_nested_json_list_only() -> None:
+    task = ExampleTaskWithNestedJsonListOnly([NestedJson("World"), NestedJson("!")])
+    assert deserialize_task(ExampleTaskWithNestedJsonListOnly, serialize_task(task)) == task
+
+
+class ExampleTaskWithNestedJsonInDict(Task):
+    x: str
+    nested_list: dict[str, NestedJson]
+
+
+def test_serialize_deserialize_task_nested_json_in_dict() -> None:
+    task = ExampleTaskWithNestedJsonInDict("Hello", {"a": NestedJson("World"), "b": NestedJson("!")})
+    assert deserialize_task(ExampleTaskWithNestedJsonInDict, serialize_task(task)) == task
+
+
+class ExampleTaskWithNestedJsonInNestedDict(Task):
+    x: str
+    nested_list: dict[str, dict[str, list[NestedJson]]]
+
+
+def test_serialize_deserialize_task_nested_json_in_nested_dict() -> None:
+    task = ExampleTaskWithNestedJsonInNestedDict("Hello", {"a": {"b": [NestedJson("World"), NestedJson("!")]}})
+    assert deserialize_task(ExampleTaskWithNestedJsonInNestedDict, serialize_task(task)) == task
+
+
+class ExampleTaskWithNestedProtobufInList(Task):
+    x: str
+    nested_list: list[SampleArgs]
+
+
+def test_serialize_deserialize_task_nested_protobuf_in_list() -> None:
+    task = ExampleTaskWithNestedProtobufInList("Hello", [SampleArgs(some_string="World", some_int=123)])
+    assert deserialize_task(ExampleTaskWithNestedProtobufInList, serialize_task(task)) == task
+
+
+class ExampleTaskWithNestedProtobufInTuple(Task):
+    x: str
+    nested_tuple: tuple[SampleArgs, SampleArgs]
+
+
+def test_serialize_deserialize_task_nested_protobuf_in_tuple() -> None:
+    task = ExampleTaskWithNestedProtobufInTuple(
+        "Hello", (SampleArgs(some_string="World", some_int=123), SampleArgs(some_string="!", some_int=456))
+    )
+    assert deserialize_task(ExampleTaskWithNestedProtobufInTuple, serialize_task(task)) == task
+
+
+class ExampleTaskWithNestedProtobufInVariadicTuple(Task):
+    x: str
+    nested_tuple: tuple[SampleArgs, ...]
+
+
+def test_serialize_deserialize_task_nested_protobuf_in_variadic_tuple() -> None:
+    task = ExampleTaskWithNestedProtobufInVariadicTuple(
+        "Hello",
+        (
+            SampleArgs(some_string="World", some_int=123),
+            SampleArgs(some_string="!", some_int=456),
+            SampleArgs(some_string="!!!", some_int=789),
+        ),
+    )
+    assert deserialize_task(ExampleTaskWithNestedProtobufInVariadicTuple, serialize_task(task)) == task
+
+
+class ExampleTaskWithNestedProtobufInDict(Task):
+    x: str
+    nested_dict: dict[str, SampleArgs]
+
+
+def test_serialize_deserialize_task_nested_protobuf_in_dict() -> None:
+    task = ExampleTaskWithNestedProtobufInDict(
+        "Hello", {"a": SampleArgs(some_string="World", some_int=123), "b": SampleArgs(some_string="!", some_int=456)}
+    )
+    assert deserialize_task(ExampleTaskWithNestedProtobufInDict, serialize_task(task)) == task
+
+
+class ExampleTaskWithNestedProtobufInNestedDict(Task):
+    x: str
+    nested_dict: dict[str, dict[str, list[SampleArgs]]]
+
+
+def test_serialize_deserialize_task_nested_protobuf_in_nested_dict() -> None:
+    task = ExampleTaskWithNestedProtobufInNestedDict(
+        "Hello",
+        {"a": {"b": [SampleArgs(some_string="World", some_int=123), SampleArgs(some_string="!", some_int=456)]}},
+    )
+    assert deserialize_task(ExampleTaskWithNestedProtobufInNestedDict, serialize_task(task)) == task

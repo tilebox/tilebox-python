@@ -17,7 +17,7 @@
   "python.analysis.autoImportCompletions": true,
   "python.analysis.typeCheckingMode": "standard",
   "python.testing.pytestArgs": [
-    "tilebox-datasets"
+    "tilebox-workflows"
   ],
   "search.useGlobalIgnoreFiles": false,
   "search.useIgnoreFiles": true

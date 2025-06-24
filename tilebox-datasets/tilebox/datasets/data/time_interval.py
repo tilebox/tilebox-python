@@ -73,6 +73,13 @@ class TimeInterval:
         a, b = self.to_half_open(), other.to_half_open()
         return (a.start, a.end) == (b.start, b.end)
 
+    def __hash__(self) -> int:
+        """Hash the time interval"""
+
+        # if two intervals are equal, they should have the same hash, so we convert to half-open intervals first
+        half_open = self.to_half_open()
+        return hash((half_open.start, half_open.end))
+
     def __repr__(self) -> str:
         return self.format()
 
