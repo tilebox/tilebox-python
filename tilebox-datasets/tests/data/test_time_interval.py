@@ -45,6 +45,12 @@ def test_time_interval_to_half_open_preserves_eq(interval: TimeInterval) -> None
 
 
 @given(time_intervals())
+def test_time_interval_to_half_open_preserves_hash(interval: TimeInterval) -> None:
+    """Assert that converting a time interval to a half-open interval preserves hash equality"""
+    assert hash(interval.to_half_open()) == hash(interval)
+
+
+@given(time_intervals())
 def test_time_interval_repr(interval: TimeInterval) -> None:
     """Assert the repr of a time interval is as expected"""
     for r in (repr(interval), str(interval)):
