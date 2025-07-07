@@ -133,11 +133,12 @@ class AutomationClient:
         )
         return self._service.create(automation)
 
-    def delete(self, automation_or_id: AutomationPrototype | UUID | str) -> None:
+    def delete(self, automation_or_id: AutomationPrototype | UUID | str, cancel_jobs: bool = False) -> None:
         """Delete an automation by id.
 
         Args:
             automation_or_id: The id of the automation to delete or the automation object itself.
+            cancel_jobs: Whether to cancel all currently queued or running jobs of the automation. Defaults to False.
         """
         if isinstance(automation_or_id, str):
             automation_id = UUID(automation_or_id)
@@ -146,4 +147,4 @@ class AutomationClient:
         else:
             automation_id = automation_or_id
 
-        self._service.delete(automation_id)
+        self._service.delete(automation_id, cancel_jobs)

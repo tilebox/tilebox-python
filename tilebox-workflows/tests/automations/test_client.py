@@ -18,7 +18,7 @@ from tilebox.workflows.data import (
     uuid_to_uuid_message,
 )
 from tilebox.workflows.workflowsv1.automation_pb2 import AutomationPrototype as AutomationPrototypeMessage
-from tilebox.workflows.workflowsv1.automation_pb2 import Automations
+from tilebox.workflows.workflowsv1.automation_pb2 import Automations, DeleteAutomationRequest
 from tilebox.workflows.workflowsv1.automation_pb2 import CronTrigger as CronTriggerMessage
 from tilebox.workflows.workflowsv1.automation_pb2 import StorageEventTrigger as StorageEventTriggerMessage
 from tilebox.workflows.workflowsv1.automation_pb2_grpc import AutomationServiceStub
@@ -65,8 +65,8 @@ class MockAutomationService(AutomationServiceStub):
             return self.automations[automation_id]
         raise NotFoundError(f"Automation {automation_id} not found")
 
-    def DeleteAutomation(self, req: UUIDMessage) -> None:  # noqa: N802
-        automation_id = uuid_message_to_uuid(req)
+    def DeleteAutomation(self, req: DeleteAutomationRequest) -> None:  # noqa: N802
+        automation_id = uuid_message_to_uuid(req.automation_id)
         if automation_id in self.automations:
             del self.automations[automation_id]
         else:
@@ -114,7 +114,7 @@ class AutomationCRUDOperations(RuleBasedStateMachine):
         cron_triggers: list[CronTrigger],
     ) -> AutomationPrototype:
         self.count_automations += 1
-        triggers = [t.schedule for t in cron_triggers]
+        schedules = [t.schedule for t in cron_triggers]
 
         class TestCronTask(CronTask):
             some_arg: str
@@ -125,7 +125,7 @@ class AutomationCRUDOperations(RuleBasedStateMachine):
 
         task = TestCronTask(task_name)  # task_name reused to serialize the task input
 
-        return self.client.create_cron_automation(task_name, task, triggers, cluster_slug)
+        return self.client.create_cron_automation(task_name, task, schedules, cluster_slug)
 
     @rule(
         target=inserted_automations,
