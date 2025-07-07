@@ -65,6 +65,18 @@ class UpdateDatasetDescriptionRequest(_message.Message):
     description: str
     def __init__(self, id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ..., description: _Optional[str] = ...) -> None: ...
 
+class DeleteDatasetRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: _core_pb2.ID
+    def __init__(self, id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ...) -> None: ...
+
+class DeleteDatasetResponse(_message.Message):
+    __slots__ = ("trashed",)
+    TRASHED_FIELD_NUMBER: _ClassVar[int]
+    trashed: bool
+    def __init__(self, trashed: bool = ...) -> None: ...
+
 class ListDatasetsRequest(_message.Message):
     __slots__ = ("client_info",)
     CLIENT_INFO_FIELD_NUMBER: _ClassVar[int]

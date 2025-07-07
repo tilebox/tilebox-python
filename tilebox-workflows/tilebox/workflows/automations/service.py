@@ -10,7 +10,7 @@ from tilebox.workflows.data import (
     uuid_to_uuid_message,
 )
 from tilebox.workflows.workflowsv1.automation_pb2 import AutomationPrototype as AutomationPrototypeMessage
-from tilebox.workflows.workflowsv1.automation_pb2 import Automations, StorageLocations
+from tilebox.workflows.workflowsv1.automation_pb2 import Automations, DeleteAutomationRequest, StorageLocations
 from tilebox.workflows.workflowsv1.automation_pb2_grpc import AutomationServiceStub
 
 
@@ -45,5 +45,7 @@ class AutomationService:
         response: AutomationPrototypeMessage = self.service.UpdateAutomation(automation.to_message())
         return AutomationPrototype.from_message(response)
 
-    def delete(self, automation_id: UUID) -> None:
-        self.service.DeleteAutomation(uuid_to_uuid_message(automation_id))
+    def delete(self, automation_id: UUID, cancel_jobs: bool = False) -> None:
+        self.service.DeleteAutomation(
+            DeleteAutomationRequest(automation_id=uuid_to_uuid_message(automation_id), cancel_jobs=cancel_jobs)
+        )

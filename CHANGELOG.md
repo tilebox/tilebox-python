@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-workflows`: Added `cancel_jobs` argument to `AutomationClient.delete` to optionally cancel all currently queued or running jobs of the automation.
+
 ## [0.38.0] - 2025-06-24
 
 ### Added

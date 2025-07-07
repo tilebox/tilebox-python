@@ -67,22 +67,20 @@ class Job(_message.Message):
     def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ..., name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., canceled: bool = ..., state: _Optional[_Union[JobState, str]] = ..., submitted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., task_summaries: _Optional[_Iterable[_Union[TaskSummary, _Mapping]]] = ..., automation_id: _Optional[_Union[UUID, _Mapping]] = ...) -> None: ...
 
 class TaskSummary(_message.Message):
-    __slots__ = ("id", "display", "state", "parent_id", "depends_on", "started_at", "stopped_at")
+    __slots__ = ("id", "display", "state", "parent_id", "started_at", "stopped_at")
     ID_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     PARENT_ID_FIELD_NUMBER: _ClassVar[int]
-    DEPENDS_ON_FIELD_NUMBER: _ClassVar[int]
     STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     STOPPED_AT_FIELD_NUMBER: _ClassVar[int]
     id: UUID
     display: str
     state: TaskState
     parent_id: UUID
-    depends_on: _containers.RepeatedCompositeFieldContainer[UUID]
     started_at: _timestamp_pb2.Timestamp
     stopped_at: _timestamp_pb2.Timestamp
-    def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ..., display: _Optional[str] = ..., state: _Optional[_Union[TaskState, str]] = ..., parent_id: _Optional[_Union[UUID, _Mapping]] = ..., depends_on: _Optional[_Iterable[_Union[UUID, _Mapping]]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., stopped_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ..., display: _Optional[str] = ..., state: _Optional[_Union[TaskState, str]] = ..., parent_id: _Optional[_Union[UUID, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., stopped_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class Task(_message.Message):
     __slots__ = ("id", "identifier", "state", "input", "display", "job", "parent_id", "depends_on", "lease", "retry_count")
