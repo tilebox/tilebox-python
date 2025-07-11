@@ -1,0 +1,16 @@
+version: v2
+managed:
+  enabled: true
+plugins:
+  - remote: buf.build/grpc/python
+    out: tilebox-datasets/tilebox/datasets
+  - remote: buf.build/protocolbuffers/python:v29.3 # v30.0 onwards requires protobuf > 6
+    out: tilebox-datasets/tilebox/datasets
+  - remote: buf.build/protocolbuffers/pyi:v29.3 # v30.0 onwards requires protobuf > 6
+    out: tilebox-datasets/tilebox/datasets
+inputs:
+  # for local development
+  # - directory: ../api
+  - module: buf.build/tilebox/api
+    paths:
+      - "datasets"

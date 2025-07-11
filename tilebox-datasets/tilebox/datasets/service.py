@@ -15,23 +15,23 @@ from tilebox.datasets.data.datapoint import (
 from tilebox.datasets.data.datasets import Dataset, ListDatasetsResponse
 from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.uuid import must_uuid_to_uuid_message, uuid_to_uuid_message
-from tilebox.datasets.datasetsv1 import core_pb2
-from tilebox.datasets.datasetsv1.collections_pb2 import (
+from tilebox.datasets.datasets.v1 import core_pb2
+from tilebox.datasets.datasets.v1.collections_pb2 import (
     CreateCollectionRequest,
     DeleteCollectionRequest,
     GetCollectionByNameRequest,
     ListCollectionsRequest,
 )
-from tilebox.datasets.datasetsv1.collections_pb2_grpc import CollectionServiceStub
-from tilebox.datasets.datasetsv1.data_access_pb2 import (
+from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceStub
+from tilebox.datasets.datasets.v1.data_access_pb2 import (
     QueryByIDRequest,
     QueryRequest,
 )
-from tilebox.datasets.datasetsv1.data_access_pb2_grpc import DataAccessServiceStub
-from tilebox.datasets.datasetsv1.data_ingestion_pb2 import DeleteRequest, IngestRequest
-from tilebox.datasets.datasetsv1.data_ingestion_pb2_grpc import DataIngestionServiceStub
-from tilebox.datasets.datasetsv1.datasets_pb2 import ClientInfo, GetDatasetRequest, ListDatasetsRequest, Package
-from tilebox.datasets.datasetsv1.datasets_pb2_grpc import DatasetServiceStub
+from tilebox.datasets.datasets.v1.data_access_pb2_grpc import DataAccessServiceStub
+from tilebox.datasets.datasets.v1.data_ingestion_pb2 import DeleteRequest, IngestRequest
+from tilebox.datasets.datasets.v1.data_ingestion_pb2_grpc import DataIngestionServiceStub
+from tilebox.datasets.datasets.v1.datasets_pb2 import ClientInfo, GetDatasetRequest, ListDatasetsRequest, Package
+from tilebox.datasets.datasets.v1.datasets_pb2_grpc import DatasetServiceStub
 
 
 class TileboxDatasetService:

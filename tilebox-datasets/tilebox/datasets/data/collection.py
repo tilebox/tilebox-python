@@ -3,7 +3,7 @@ from uuid import UUID
 
 from tilebox.datasets.data.time_interval import TimeInterval
 from tilebox.datasets.data.uuid import uuid_message_to_uuid, uuid_to_uuid_message
-from tilebox.datasets.datasetsv1 import core_pb2
+from tilebox.datasets.datasets.v1 import core_pb2
 
 
 @dataclass

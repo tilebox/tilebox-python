@@ -6,7 +6,7 @@ from uuid import UUID
 from tilebox.datasets.data.pagination import Pagination
 from tilebox.datasets.data.time_interval import timestamp_to_datetime
 from tilebox.datasets.data.uuid import uuid_message_to_uuid, uuid_to_uuid_message
-from tilebox.datasets.datasetsv1 import core_pb2, data_access_pb2, data_ingestion_pb2
+from tilebox.datasets.datasets.v1 import core_pb2, data_access_pb2, data_ingestion_pb2
 from tilebox.datasets.message_pool import get_message_type
 
 DatapointIntervalLike: TypeAlias = "tuple[str, str] | tuple[UUID, UUID] | DatapointInterval"

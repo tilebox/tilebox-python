@@ -14,8 +14,8 @@ from tilebox.workflows.data import (
     TriggeredStorageEvent,
 )
 from tilebox.workflows.task import RunnerContext, Task, deserialize_task, serialize_task
-from tilebox.workflows.workflowsv1.automation_pb2 import Automation as AutomationMessage
-from tilebox.workflows.workflowsv1.automation_pb2 import TriggeredStorageEvent as TriggeredStorageEventMessage
+from tilebox.workflows.workflows.v1.automation_pb2 import Automation as AutomationMessage
+from tilebox.workflows.workflows.v1.automation_pb2 import TriggeredStorageEvent as TriggeredStorageEventMessage
 
 _NOT_TRIGGERED = TriggeredStorageEvent(
     StorageLocation(UUID(int=0), "", StorageType.FS),

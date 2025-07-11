@@ -65,7 +65,7 @@ defined in the [Tilebox Go repository](https://github.com/tilebox/tilebox-go/tre
 ### Updating protobuf files
 
 ```bash
-uv run copy-protobuf
+uv run generate-protobuf
 ```
 
 ## Releasing and deploying a new version

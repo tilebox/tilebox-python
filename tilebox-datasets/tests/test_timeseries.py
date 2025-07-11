@@ -26,16 +26,16 @@ from tilebox.datasets.data.time_interval import (
     timestamp_to_datetime,
 )
 from tilebox.datasets.data.uuid import uuid_message_to_uuid, uuid_to_uuid_message
-from tilebox.datasets.datasetsv1.collections_pb2 import (
+from tilebox.datasets.datasets.v1.collections_pb2 import (
     CreateCollectionRequest,
     DeleteCollectionRequest,
     GetCollectionByNameRequest,
     ListCollectionsRequest,
 )
-from tilebox.datasets.datasetsv1.collections_pb2_grpc import CollectionServiceStub
-from tilebox.datasets.datasetsv1.core_pb2 import Collection as CollectionMessage
-from tilebox.datasets.datasetsv1.core_pb2 import CollectionInfo as CollectionInfoMessage
-from tilebox.datasets.datasetsv1.core_pb2 import CollectionInfos as CollectionInfosMessage
+from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceStub
+from tilebox.datasets.datasets.v1.core_pb2 import Collection as CollectionMessage
+from tilebox.datasets.datasets.v1.core_pb2 import CollectionInfo as CollectionInfoMessage
+from tilebox.datasets.datasets.v1.core_pb2 import CollectionInfos as CollectionInfosMessage
 from tilebox.datasets.service import TileboxDatasetService
 
 

@@ -13,8 +13,8 @@ from pandas.core.tools.datetimes import DatetimeScalar, to_datetime
 from pandas.core.tools.timedeltas import to_timedelta
 from shapely import from_wkb
 
-from tilebox.datasets.datasetsv1.well_known_types_pb2 import UUID as UUIDMessage  # noqa: N811
-from tilebox.datasets.datasetsv1.well_known_types_pb2 import Geometry, LatLon, LatLonAlt, Quaternion, Vec3
+from tilebox.datasets.datasets.v1.well_known_types_pb2 import UUID as UUIDMessage  # noqa: N811
+from tilebox.datasets.datasets.v1.well_known_types_pb2 import Geometry, LatLon, LatLonAlt, Quaternion, Vec3
 
 ProtoFieldValue = Message | float | str | bool | bytes | Sized | None
 

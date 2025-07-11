@@ -8,7 +8,7 @@ from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 from pandas.core.tools.datetimes import DatetimeScalar, to_datetime
 
-from tilebox.datasets.datasetsv1 import core_pb2
+from tilebox.datasets.datasets.v1 import core_pb2
 
 _SMALLEST_POSSIBLE_TIMEDELTA = timedelta(microseconds=1)
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)

@@ -10,8 +10,8 @@ except ImportError:  # Self is only available in Python 3.11+
 
 from tilebox.workflows.data import TriggeredCronEvent
 from tilebox.workflows.task import RunnerContext, Task, deserialize_task, serialize_task
-from tilebox.workflows.workflowsv1.automation_pb2 import Automation as AutomationMessage
-from tilebox.workflows.workflowsv1.automation_pb2 import TriggeredCronEvent as TriggeredCronEventMessage
+from tilebox.workflows.workflows.v1.automation_pb2 import Automation as AutomationMessage
+from tilebox.workflows.workflows.v1.automation_pb2 import TriggeredCronEvent as TriggeredCronEventMessage
 
 _NOT_TRIGGERED = TriggeredCronEvent(datetime.min.replace(tzinfo=timezone.utc))
 

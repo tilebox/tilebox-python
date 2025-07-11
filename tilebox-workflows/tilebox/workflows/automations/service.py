@@ -9,9 +9,9 @@ from tilebox.workflows.data import (
     StorageLocation,
     uuid_to_uuid_message,
 )
-from tilebox.workflows.workflowsv1.automation_pb2 import AutomationPrototype as AutomationPrototypeMessage
-from tilebox.workflows.workflowsv1.automation_pb2 import Automations, DeleteAutomationRequest, StorageLocations
-from tilebox.workflows.workflowsv1.automation_pb2_grpc import AutomationServiceStub
+from tilebox.workflows.workflows.v1.automation_pb2 import AutomationPrototype as AutomationPrototypeMessage
+from tilebox.workflows.workflows.v1.automation_pb2 import Automations, DeleteAutomationRequest, StorageLocations
+from tilebox.workflows.workflows.v1.automation_pb2_grpc import AutomationServiceStub
 
 
 class AutomationService:

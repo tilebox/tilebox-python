@@ -26,7 +26,7 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from tilebox.datasets.datasetsv1 import well_known_types_pb2 as datasets_dot_v1_dot_well__known__types__pb2
+from tilebox.datasets.datasets.v1 import well_known_types_pb2 as datasets_dot_v1_dot_well__known__types__pb2
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 

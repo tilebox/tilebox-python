@@ -9,7 +9,7 @@ from typing_extensions import NotRequired
 
 from tilebox.datasets.data.datapoint import DatapointInterval
 from tilebox.datasets.data.time_interval import TimeInterval
-from tilebox.datasets.datasetsv1 import data_access_pb2, well_known_types_pb2
+from tilebox.datasets.datasets.v1 import data_access_pb2, well_known_types_pb2
 
 
 class SpatialFilterMode(Enum):
