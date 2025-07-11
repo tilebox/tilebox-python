@@ -11,14 +11,14 @@ from tilebox.workflows.data import (
     TaskLease,
     uuid_to_uuid_message,
 )
-from tilebox.workflows.workflowsv1.core_pb2 import TaskLease as TaskLeaseMessage
-from tilebox.workflows.workflowsv1.task_pb2 import (
+from tilebox.workflows.workflows.v1.core_pb2 import TaskLease as TaskLeaseMessage
+from tilebox.workflows.workflows.v1.task_pb2 import (
     NextTaskRequest,
     NextTaskResponse,
     TaskFailedRequest,
     TaskLeaseRequest,
 )
-from tilebox.workflows.workflowsv1.task_pb2_grpc import TaskServiceStub
+from tilebox.workflows.workflows.v1.task_pb2_grpc import TaskServiceStub
 
 
 class TaskService:

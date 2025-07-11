@@ -11,9 +11,9 @@ from tilebox.workflows.data import (
     TaskSubmission,
     uuid_to_uuid_message,
 )
-from tilebox.workflows.workflowsv1.core_pb2 import Job as JobMessage
-from tilebox.workflows.workflowsv1.diagram_pb2 import Diagram, RenderOptions
-from tilebox.workflows.workflowsv1.job_pb2 import (
+from tilebox.workflows.workflows.v1.core_pb2 import Job as JobMessage
+from tilebox.workflows.workflows.v1.diagram_pb2 import Diagram, RenderOptions
+from tilebox.workflows.workflows.v1.job_pb2 import (
     CancelJobRequest,
     GetJobRequest,
     QueryJobsRequest,
@@ -22,8 +22,8 @@ from tilebox.workflows.workflowsv1.job_pb2 import (
     SubmitJobRequest,
     VisualizeJobRequest,
 )
-from tilebox.workflows.workflowsv1.job_pb2 import QueryJobsResponse as QueryJobsResponseMessage
-from tilebox.workflows.workflowsv1.job_pb2_grpc import JobServiceStub
+from tilebox.workflows.workflows.v1.job_pb2 import QueryJobsResponse as QueryJobsResponseMessage
+from tilebox.workflows.workflows.v1.job_pb2_grpc import JobServiceStub
 
 
 class JobService:

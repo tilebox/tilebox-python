@@ -54,7 +54,7 @@ packages = ["tilebox"]
 packages = ["tilebox"]
 
 [tool.coverage.run]
-omit = ["tilebox/*/datasetsv1/*"]
+omit = ["tilebox/*/datasets/v1/*"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"

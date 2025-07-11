@@ -5,10 +5,10 @@ from _tilebox.grpc.aio.error import with_pythonic_errors
 from tilebox.datasets.aio.dataset import DatasetClient
 from tilebox.datasets.client import Client as BaseClient
 from tilebox.datasets.client import token_from_env
-from tilebox.datasets.datasetsv1.collections_pb2_grpc import CollectionServiceStub
-from tilebox.datasets.datasetsv1.data_access_pb2_grpc import DataAccessServiceStub
-from tilebox.datasets.datasetsv1.data_ingestion_pb2_grpc import DataIngestionServiceStub
-from tilebox.datasets.datasetsv1.datasets_pb2_grpc import DatasetServiceStub
+from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceStub
+from tilebox.datasets.datasets.v1.data_access_pb2_grpc import DataAccessServiceStub
+from tilebox.datasets.datasets.v1.data_ingestion_pb2_grpc import DataIngestionServiceStub
+from tilebox.datasets.datasets.v1.datasets_pb2_grpc import DatasetServiceStub
 from tilebox.datasets.group import Group
 from tilebox.datasets.service import TileboxDatasetService
 

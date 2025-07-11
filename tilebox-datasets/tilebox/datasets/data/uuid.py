@@ -1,7 +1,7 @@
 # allow the uuid module name which shadows the builtin:
 from uuid import UUID
 
-from tilebox.datasets.datasetsv1 import core_pb2, well_known_types_pb2
+from tilebox.datasets.datasets.v1 import core_pb2, well_known_types_pb2
 
 _NIL_UUID = UUID(int=0)
 

@@ -17,12 +17,12 @@ from tilebox.workflows.data import (
     uuid_message_to_uuid,
     uuid_to_uuid_message,
 )
-from tilebox.workflows.workflowsv1.automation_pb2 import AutomationPrototype as AutomationPrototypeMessage
-from tilebox.workflows.workflowsv1.automation_pb2 import Automations, DeleteAutomationRequest
-from tilebox.workflows.workflowsv1.automation_pb2 import CronTrigger as CronTriggerMessage
-from tilebox.workflows.workflowsv1.automation_pb2 import StorageEventTrigger as StorageEventTriggerMessage
-from tilebox.workflows.workflowsv1.automation_pb2_grpc import AutomationServiceStub
-from tilebox.workflows.workflowsv1.core_pb2 import UUID as UUIDMessage  # noqa: N811
+from tilebox.workflows.workflows.v1.automation_pb2 import AutomationPrototype as AutomationPrototypeMessage
+from tilebox.workflows.workflows.v1.automation_pb2 import Automations, DeleteAutomationRequest
+from tilebox.workflows.workflows.v1.automation_pb2 import CronTrigger as CronTriggerMessage
+from tilebox.workflows.workflows.v1.automation_pb2 import StorageEventTrigger as StorageEventTriggerMessage
+from tilebox.workflows.workflows.v1.automation_pb2_grpc import AutomationServiceStub
+from tilebox.workflows.workflows.v1.core_pb2 import UUID as UUIDMessage  # noqa: N811
 
 
 class MockAutomationService(AutomationServiceStub):

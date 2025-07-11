@@ -45,7 +45,7 @@ packages = ["tilebox"]
 packages = ["tilebox"]
 
 [tool.coverage.run]
-omit = ["tilebox/workflows/workflowsv1/*"]
+omit = ["tilebox/workflows/workflows/v1/*"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"

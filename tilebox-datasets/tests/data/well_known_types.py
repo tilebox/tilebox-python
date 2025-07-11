@@ -12,7 +12,7 @@ from shapely import MultiPolygon, Polygon, box, to_wkb
 
 from tests.data.time_interval import i64_datetimes
 from tilebox.datasets.data.time_interval import datetime_to_timestamp
-from tilebox.datasets.datasetsv1 import well_known_types_pb2
+from tilebox.datasets.datasets.v1 import well_known_types_pb2
 
 
 @composite

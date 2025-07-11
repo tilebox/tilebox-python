@@ -11,10 +11,10 @@ from tilebox.workflows.data import Job, uuid_message_to_uuid, uuid_to_uuid_messa
 from tilebox.workflows.jobs.client import JobClient
 from tilebox.workflows.jobs.service import JobService
 from tilebox.workflows.task import ExecutionContext, Task
-from tilebox.workflows.workflowsv1.core_pb2 import Job as JobMessage
-from tilebox.workflows.workflowsv1.core_pb2 import JobState
-from tilebox.workflows.workflowsv1.diagram_pb2 import Diagram
-from tilebox.workflows.workflowsv1.job_pb2 import (
+from tilebox.workflows.workflows.v1.core_pb2 import Job as JobMessage
+from tilebox.workflows.workflows.v1.core_pb2 import JobState
+from tilebox.workflows.workflows.v1.diagram_pb2 import Diagram
+from tilebox.workflows.workflows.v1.job_pb2 import (
     CancelJobRequest,
     CancelJobResponse,
     GetJobRequest,
@@ -25,7 +25,7 @@ from tilebox.workflows.workflowsv1.job_pb2 import (
     SubmitJobRequest,
     VisualizeJobRequest,
 )
-from tilebox.workflows.workflowsv1.job_pb2_grpc import JobServiceStub
+from tilebox.workflows.workflows.v1.job_pb2_grpc import JobServiceStub
 
 
 class DummyTask(Task):

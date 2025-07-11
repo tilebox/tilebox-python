@@ -3,7 +3,7 @@ from google.protobuf.descriptor_pool import Default
 from google.protobuf.message_factory import GetMessageClass, GetMessages
 
 from tilebox.datasets.data.datasets import AnnotatedType
-from tilebox.datasets.datasetsv1 import well_known_types_pb2
+from tilebox.datasets.datasets.v1 import well_known_types_pb2
 
 # make sure all the well known types are imported, and therefore available in the global protobuf message pool
 __all__ = ["duration_pb2", "timestamp_pb2", "well_known_types_pb2"]  # this is here so ruff doesn't remove the imports

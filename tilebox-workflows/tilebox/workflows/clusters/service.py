@@ -4,14 +4,14 @@ from _tilebox.grpc.error import with_pythonic_errors
 from tilebox.workflows.data import (
     Cluster,
 )
-from tilebox.workflows.workflowsv1.workflows_pb2 import (
+from tilebox.workflows.workflows.v1.workflows_pb2 import (
     CreateClusterRequest,
     DeleteClusterRequest,
     GetClusterRequest,
     ListClustersRequest,
     ListClustersResponse,
 )
-from tilebox.workflows.workflowsv1.workflows_pb2_grpc import WorkflowsServiceStub
+from tilebox.workflows.workflows.v1.workflows_pb2_grpc import WorkflowsServiceStub
 
 
 class ClusterService:

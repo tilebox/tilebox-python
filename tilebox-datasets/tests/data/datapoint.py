@@ -42,7 +42,7 @@ from tilebox.datasets.data.datapoint import (
 from tilebox.datasets.data.time_interval import (
     datetime_to_timestamp,
 )
-from tilebox.datasets.datasetsv1 import core_pb2
+from tilebox.datasets.datasets.v1 import core_pb2
 
 
 @composite

@@ -22,8 +22,8 @@ from opentelemetry.trace import ProxyTracerProvider, Tracer
 
 from tilebox.datasets.data import datetime_to_timestamp, timestamp_to_datetime
 from tilebox.datasets.sync.client import Client as DatasetsClient
-from tilebox.workflows.workflowsv1 import automation_pb2 as automation_pb
-from tilebox.workflows.workflowsv1 import core_pb2, job_pb2, task_pb2
+from tilebox.workflows.workflows.v1 import automation_pb2 as automation_pb
+from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2
 
 _VERSION_PATTERN = re.compile(r"^v(\d+)\.(\d+)$")  # matches a version string in the format "v3.2"
 

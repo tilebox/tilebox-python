@@ -8,7 +8,7 @@ from google.protobuf import message as _message
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 
-from tilebox.datasets.datasetsv1 import well_known_types_pb2 as _well_known_types_pb2
+from tilebox.datasets.datasets.v1 import well_known_types_pb2 as _well_known_types_pb2
 
 DESCRIPTOR_PROTO: bytes
 DESCRIPTOR: _descriptor.FileDescriptor
