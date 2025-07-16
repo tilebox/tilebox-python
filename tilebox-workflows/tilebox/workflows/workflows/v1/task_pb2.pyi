@@ -1,4 +1,5 @@
 from google.protobuf import duration_pb2 as _duration_pb2
+from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as _core_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -28,10 +29,10 @@ class ComputedTask(_message.Message):
     ID_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_FIELD_NUMBER: _ClassVar[int]
     SUB_TASKS_FIELD_NUMBER: _ClassVar[int]
-    id: _core_pb2.UUID
+    id: _id_pb2.ID
     display: str
     sub_tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.TaskSubmission]
-    def __init__(self, id: _Optional[_Union[_core_pb2.UUID, _Mapping]] = ..., display: _Optional[str] = ..., sub_tasks: _Optional[_Iterable[_Union[_core_pb2.TaskSubmission, _Mapping]]] = ...) -> None: ...
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., sub_tasks: _Optional[_Iterable[_Union[_core_pb2.TaskSubmission, _Mapping]]] = ...) -> None: ...
 
 class NextTaskResponse(_message.Message):
     __slots__ = ("next_task",)
@@ -44,10 +45,10 @@ class TaskFailedRequest(_message.Message):
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_FIELD_NUMBER: _ClassVar[int]
     CANCEL_JOB_FIELD_NUMBER: _ClassVar[int]
-    task_id: _core_pb2.UUID
+    task_id: _id_pb2.ID
     display: str
     cancel_job: bool
-    def __init__(self, task_id: _Optional[_Union[_core_pb2.UUID, _Mapping]] = ..., display: _Optional[str] = ..., cancel_job: bool = ...) -> None: ...
+    def __init__(self, task_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., cancel_job: bool = ...) -> None: ...
 
 class TaskStateResponse(_message.Message):
     __slots__ = ("state",)
@@ -59,6 +60,6 @@ class TaskLeaseRequest(_message.Message):
     __slots__ = ("task_id", "requested_lease")
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     REQUESTED_LEASE_FIELD_NUMBER: _ClassVar[int]
-    task_id: _core_pb2.UUID
+    task_id: _id_pb2.ID
     requested_lease: _duration_pb2.Duration
-    def __init__(self, task_id: _Optional[_Union[_core_pb2.UUID, _Mapping]] = ..., requested_lease: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...) -> None: ...
+    def __init__(self, task_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., requested_lease: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...) -> None: ...

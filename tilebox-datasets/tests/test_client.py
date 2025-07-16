@@ -11,7 +11,7 @@ from _tilebox.grpc.error import NotFoundError
 from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
 from tilebox.datasets import Client, DatasetClient
 from tilebox.datasets.data.datapoint import QueryResultPage
-from tilebox.datasets.data.time_interval import us_to_datetime
+from tilebox.datasets.query.time_interval import us_to_datetime
 
 
 def replay_client(replay_file: str, assert_request_matches: bool = True) -> Client:

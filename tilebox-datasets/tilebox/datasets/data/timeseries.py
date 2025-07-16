@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from datetime import timedelta
 from uuid import UUID
 
-from tilebox.datasets.data.datapoint import DatapointInterval
-from tilebox.datasets.data.time_interval import TimeInterval, duration_to_timedelta, timedelta_to_duration
-from tilebox.datasets.data.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.datasets.datasets.v1 import timeseries_pb2
+from tilebox.datasets.query.id_interval import IDInterval
+from tilebox.datasets.query.time_interval import TimeInterval, duration_to_timedelta, timedelta_to_duration
+from tilebox.datasets.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 
 
 @dataclass
@@ -13,7 +13,7 @@ class TimeseriesDatasetChunk:
     dataset_id: UUID
     collection_id: UUID
     time_interval: TimeInterval | None
-    datapoint_interval: DatapointInterval | None
+    datapoint_interval: IDInterval | None
     branch_factor: int
     chunk_size: int
     datapoints_per_365_days: int
@@ -28,7 +28,7 @@ class TimeseriesDatasetChunk:
             and chunk.datapoint_interval.start_id.uuid
             and chunk.datapoint_interval.end_id.uuid
         ):
-            datapoint_interval = DatapointInterval.from_message(chunk.datapoint_interval)
+            datapoint_interval = IDInterval.from_message(chunk.datapoint_interval)
 
         time_interval = None
         if chunk.time_interval and chunk.time_interval.start_time and chunk.time_interval.end_time:

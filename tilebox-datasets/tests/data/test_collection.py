@@ -2,7 +2,7 @@ from hypothesis import assume, given
 
 from tests.data.collection import collection_infos, collections
 from tilebox.datasets.data.collection import Collection, CollectionInfo
-from tilebox.datasets.data.time_interval import _EMPTY_TIME_INTERVAL
+from tilebox.datasets.query.time_interval import _EMPTY_TIME_INTERVAL
 
 
 @given(collections())

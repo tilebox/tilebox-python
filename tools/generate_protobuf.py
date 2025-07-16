@@ -27,13 +27,20 @@ def main() -> None:
     os.system("buf generate --template buf.gen.datasets.yaml")  # noqa: S605, S607
     os.system("buf generate --template buf.gen.workflows.yaml")  # noqa: S605, S607
 
-    for package in ["datasets", "workflows"]:
-        package_mapping = {
-            f"from {package}.v1 import": f"from tilebox.{package}.{package}.v1 import",
-        }
-        folder = clients_repo / f"tilebox-{package}" / "tilebox" / package / package / "v1"
+    package_mapping = {
+        "from datasets.v1 import": "from tilebox.datasets.datasets.v1 import",
+        "from tilebox.v1 import": "from tilebox.datasets.tilebox.v1 import",
+        "from workflows.v1 import": "from tilebox.workflows.workflows.v1 import",
+    }
 
-        for pattern in ["*.py", "*.pyi"]:
+    folders = (
+        clients_repo / "tilebox-datasets" / "tilebox" / "datasets" / "datasets" / "v1",
+        clients_repo / "tilebox-datasets" / "tilebox" / "datasets" / "tilebox" / "v1",
+        clients_repo / "tilebox-workflows" / "tilebox" / "workflows" / "workflows" / "v1",
+    )
+
+    for folder in folders:
+        for pattern in ("*.py", "*.pyi"):
             for py_file in folder.rglob(pattern):
                 fix_imports(py_file, package_mapping)
 

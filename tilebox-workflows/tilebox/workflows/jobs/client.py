@@ -3,16 +3,14 @@ from uuid import UUID
 
 from _tilebox.grpc.pagination import Pagination as PaginationProtocol
 from _tilebox.grpc.pagination import paginated_request
-from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
+from tilebox.datasets.query.id_interval import IDInterval, IDIntervalLike
+from tilebox.datasets.query.pagination import Pagination
+from tilebox.datasets.query.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.workflows.clusters.client import ClusterSlugLike, to_cluster_slug
 from tilebox.workflows.data import (
-    IDInterval,
-    IDIntervalLike,
     Job,
-    Pagination,
     QueryFilters,
     QueryJobsResponse,
-    _TimeInterval,
 )
 from tilebox.workflows.jobs.service import JobService
 from tilebox.workflows.observability.tracing import WorkflowTracer, get_trace_parent_of_current_span
@@ -178,7 +176,7 @@ class JobClient:
         Returns:
             A list of jobs.
         """
-        time_interval: _TimeInterval | None = None
+        time_interval: TimeInterval | None = None
         id_interval: IDInterval | None = None
         match temporal_extent:
             case (str(), str()):
@@ -187,7 +185,7 @@ class JobClient:
                     id_interval = IDInterval.parse(temporal_extent)
                 except ValueError:
                     dataset_time_interval = TimeInterval.parse(temporal_extent)
-                    time_interval = _TimeInterval(
+                    time_interval = TimeInterval(
                         start=dataset_time_interval.start,
                         end=dataset_time_interval.end,
                         start_exclusive=dataset_time_interval.start_exclusive,
@@ -197,7 +195,7 @@ class JobClient:
                 id_interval = IDInterval.parse(temporal_extent)
             case _:
                 dataset_time_interval = TimeInterval.parse(temporal_extent)
-                time_interval = _TimeInterval(
+                time_interval = TimeInterval(
                     start=dataset_time_interval.start,
                     end=dataset_time_interval.end,
                     start_exclusive=dataset_time_interval.start_exclusive,

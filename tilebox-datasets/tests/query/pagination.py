@@ -1,12 +1,6 @@
-from hypothesis.strategies import (
-    DrawFn,
-    booleans,
-    composite,
-    integers,
-    uuids,
-)
+from hypothesis.strategies import DrawFn, booleans, composite, integers, uuids
 
-from tilebox.datasets.data.pagination import Pagination
+from tilebox.datasets.query.pagination import Pagination
 
 
 @composite

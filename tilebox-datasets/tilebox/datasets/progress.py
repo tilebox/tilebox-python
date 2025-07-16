@@ -5,7 +5,7 @@ from typing import Any
 
 from tqdm.auto import tqdm
 
-from tilebox.datasets.data import TimeInterval
+from tilebox.datasets.query.time_interval import TimeInterval
 
 ProgressCallback = Callable[[float], Any]
 

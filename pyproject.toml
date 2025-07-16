@@ -70,6 +70,7 @@ exclude = [
     # it's auto generated, don't lint it
     "*/datasets/v1/*",
     "*/workflows/v1/*",
+    "*/tilebox/v1/*",
 ]
 
 [tool.ruff.lint]
@@ -118,6 +119,7 @@ ignore = [
     # it's auto generated
     "**/datasets/v1",
     "**/workflows/v1",
+    "**/tilebox/v1",
 ]
 
 # pyright needs to have all the dependencies installed to be able to type check

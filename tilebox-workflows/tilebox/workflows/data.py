@@ -1,17 +1,21 @@
 import re
 import warnings
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import TypeAlias
 from uuid import UUID
 
 import boto3
 from google.cloud.storage import Client as GoogleStorageClient
 from google.cloud.storage.bucket import Bucket
 from google.protobuf.duration_pb2 import Duration
+
+from tilebox.datasets.query.id_interval import IDInterval
+from tilebox.datasets.query.pagination import Pagination
+from tilebox.datasets.query.time_interval import TimeInterval, datetime_to_timestamp, timestamp_to_datetime
+from tilebox.datasets.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
 
 try:
     # let's not make this a hard dependency, but if it's installed we can use its types
@@ -20,7 +24,6 @@ except ModuleNotFoundError:
     from typing import Any as S3Client
 from opentelemetry.trace import ProxyTracerProvider, Tracer
 
-from tilebox.datasets.data import datetime_to_timestamp, timestamp_to_datetime
 from tilebox.datasets.sync.client import Client as DatasetsClient
 from tilebox.workflows.workflows.v1 import automation_pb2 as automation_pb
 from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2
@@ -290,24 +293,6 @@ def _parse_version(version: str) -> tuple[int, int]:
     raise ValueError(f"Invalid version string: {version}")
 
 
-def uuid_message_to_uuid(uuid_message: core_pb2.UUID) -> UUID:
-    return UUID(bytes=uuid_message.uuid)
-
-
-def uuid_message_to_optional_uuid(uuid_message: core_pb2.UUID | None) -> UUID | None:
-    if uuid_message is None:
-        return None
-    if uuid_message.uuid == b"":
-        return None
-    return UUID(bytes=uuid_message.uuid)
-
-
-def uuid_to_uuid_message(uuid: UUID) -> core_pb2.UUID | None:
-    if uuid.int == 0:
-        return None
-    return core_pb2.UUID(uuid=uuid.bytes)
-
-
 class StorageType(Enum):
     GCS = automation_pb.STORAGE_TYPE_GCS  # Google Cloud Storage
     S3 = automation_pb.STORAGE_TYPE_S3  # Amazon Web Services S3
@@ -532,27 +517,6 @@ def _default_google_storage_client(location: str) -> Bucket:
     return GoogleStorageClient(project=project).bucket(bucket)
 
 
-@dataclass
-class Pagination:
-    limit: int | None = None
-    starting_after: UUID | None = None
-
-    @classmethod
-    def from_message(cls, page: core_pb2.Pagination | None) -> "Pagination":
-        if page is None:
-            return cls()
-        # convert falsish values (0 or empty string) to None
-        return cls(
-            limit=page.limit or None,
-            starting_after=uuid_message_to_optional_uuid(page.starting_after),
-        )
-
-    def to_message(self) -> core_pb2.Pagination:
-        return core_pb2.Pagination(
-            limit=self.limit, starting_after=uuid_to_uuid_message(self.starting_after) if self.starting_after else None
-        )
-
-
 @dataclass(frozen=True)
 class QueryJobsResponse:
     jobs: list[Job]
@@ -572,132 +536,16 @@ class QueryJobsResponse:
         )
 
 
-IDIntervalLike: TypeAlias = "tuple[str, str] | tuple[UUID, UUID] | IDInterval"
-
-
-# note: unify the below classes with the ones from tilebox.datasets.data as soon as we update the protobuf messages
-@dataclass(frozen=True)
-class IDInterval:
-    start_id: UUID
-    end_id: UUID
-    start_exclusive: bool
-    end_inclusive: bool
-
-    @classmethod
-    def from_message(cls, interval: core_pb2.IDInterval) -> "IDInterval":
-        return cls(
-            start_id=uuid_message_to_uuid(interval.start_id),
-            end_id=uuid_message_to_uuid(interval.end_id),
-            start_exclusive=interval.start_exclusive,
-            end_inclusive=interval.end_inclusive,
-        )
-
-    def to_message(self) -> core_pb2.IDInterval:
-        return core_pb2.IDInterval(
-            start_id=uuid_to_uuid_message(self.start_id),
-            end_id=uuid_to_uuid_message(self.end_id),
-            start_exclusive=self.start_exclusive,
-            end_inclusive=self.end_inclusive,
-        )
-
-    @classmethod
-    def parse(cls, arg: IDIntervalLike) -> "IDInterval":
-        """
-        Convert a variety of input types to an IDInterval.
-
-        Supported input types:
-        - IDInterval: Return the input as is
-        - tuple of two UUIDs: Return an IDInterval with start and end id set to the given values
-        - tuple of two strings: Return an IDInterval with start and end id set to the UUIDs parsed from the given strings
-
-        Args:
-            arg: The input to convert
-
-        Returns:
-            IDInterval: The parsed ID interval
-        """
-
-        match arg:
-            case IDInterval(_, _, _, _):
-                return arg
-            case (UUID(), UUID()):
-                start, end = arg
-                return IDInterval(
-                    start_id=start,
-                    end_id=end,
-                    start_exclusive=False,
-                    end_inclusive=True,
-                )
-            case (str(), str()):
-                start, end = arg
-                return IDInterval(
-                    start_id=UUID(start),
-                    end_id=UUID(end),
-                    start_exclusive=False,
-                    end_inclusive=True,
-                )
-
-
-_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
-
-
-@dataclass(frozen=True)
-class _TimeInterval:
-    """
-    A time interval from a given start to a given end time.
-    Both the start and end time can be exclusive or inclusive.
-    """
-
-    start: datetime
-    end: datetime
-
-    # We use exclusive for start and inclusive for end, because that way when both are false
-    # we have a half-open interval [start, end) which is the default behaviour we want to achieve.
-    start_exclusive: bool = False
-    end_inclusive: bool = False
-
-    @classmethod
-    def from_message(
-        cls, interval: core_pb2.TimeInterval
-    ) -> "_TimeInterval":  # lets use typing.Self once we require python >= 3.11
-        """Convert a TimeInterval protobuf message to a TimeInterval object."""
-
-        start = timestamp_to_datetime(interval.start_time)
-        end = timestamp_to_datetime(interval.end_time)
-        if start == _EPOCH and end == _EPOCH and not interval.start_exclusive and not interval.end_inclusive:
-            return _EMPTY_TIME_INTERVAL
-
-        return cls(
-            start=timestamp_to_datetime(interval.start_time),
-            end=timestamp_to_datetime(interval.end_time),
-            start_exclusive=interval.start_exclusive,
-            end_inclusive=interval.end_inclusive,
-        )
-
-    def to_message(self) -> core_pb2.TimeInterval:
-        """Convert a TimeInterval object to a TimeInterval protobuf message."""
-        return core_pb2.TimeInterval(
-            start_time=datetime_to_timestamp(self.start),
-            end_time=datetime_to_timestamp(self.end),
-            start_exclusive=self.start_exclusive,
-            end_inclusive=self.end_inclusive,
-        )
-
-
-# A sentinel value to use for time interval that are empty
-_EMPTY_TIME_INTERVAL = _TimeInterval(_EPOCH, _EPOCH, start_exclusive=True, end_inclusive=False)
-
-
 @dataclass(frozen=True)
 class QueryFilters:
-    time_interval: _TimeInterval | None = None
+    time_interval: TimeInterval | None = None
     id_interval: IDInterval | None = None
     automation_id: UUID | None = None
 
     @classmethod
     def from_message(cls, filters: job_pb2.QueryFilters) -> "QueryFilters":
         return cls(
-            time_interval=_TimeInterval.from_message(filters.time_interval),
+            time_interval=TimeInterval.from_message(filters.time_interval),
             id_interval=IDInterval.from_message(filters.id_interval),
             automation_id=uuid_message_to_optional_uuid(filters.automation_id),
         )

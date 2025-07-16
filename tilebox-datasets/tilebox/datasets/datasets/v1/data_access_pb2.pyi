@@ -1,5 +1,7 @@
 from tilebox.datasets.datasets.v1 import core_pb2 as _core_pb2
 from tilebox.datasets.datasets.v1 import well_known_types_pb2 as _well_known_types_pb2
+from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
+from tilebox.datasets.tilebox.v1 import query_pb2 as _query_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -35,12 +37,12 @@ class GetDatasetForIntervalRequest(_message.Message):
     SKIP_DATA_FIELD_NUMBER: _ClassVar[int]
     SKIP_META_FIELD_NUMBER: _ClassVar[int]
     collection_id: str
-    time_interval: _core_pb2.TimeInterval
-    datapoint_interval: _core_pb2.DatapointInterval
+    time_interval: _query_pb2.TimeInterval
+    datapoint_interval: _query_pb2.IDInterval
     page: _core_pb2.LegacyPagination
     skip_data: bool
     skip_meta: bool
-    def __init__(self, collection_id: _Optional[str] = ..., time_interval: _Optional[_Union[_core_pb2.TimeInterval, _Mapping]] = ..., datapoint_interval: _Optional[_Union[_core_pb2.DatapointInterval, _Mapping]] = ..., page: _Optional[_Union[_core_pb2.LegacyPagination, _Mapping]] = ..., skip_data: bool = ..., skip_meta: bool = ...) -> None: ...
+    def __init__(self, collection_id: _Optional[str] = ..., time_interval: _Optional[_Union[_query_pb2.TimeInterval, _Mapping]] = ..., datapoint_interval: _Optional[_Union[_query_pb2.IDInterval, _Mapping]] = ..., page: _Optional[_Union[_core_pb2.LegacyPagination, _Mapping]] = ..., skip_data: bool = ..., skip_meta: bool = ...) -> None: ...
 
 class GetDatapointByIdRequest(_message.Message):
     __slots__ = ("collection_id", "id", "skip_data")
@@ -57,20 +59,20 @@ class QueryByIDRequest(_message.Message):
     COLLECTION_IDS_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
     SKIP_DATA_FIELD_NUMBER: _ClassVar[int]
-    collection_ids: _containers.RepeatedCompositeFieldContainer[_core_pb2.ID]
-    id: _core_pb2.ID
+    collection_ids: _containers.RepeatedCompositeFieldContainer[_id_pb2.ID]
+    id: _id_pb2.ID
     skip_data: bool
-    def __init__(self, collection_ids: _Optional[_Iterable[_Union[_core_pb2.ID, _Mapping]]] = ..., id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ..., skip_data: bool = ...) -> None: ...
+    def __init__(self, collection_ids: _Optional[_Iterable[_Union[_id_pb2.ID, _Mapping]]] = ..., id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., skip_data: bool = ...) -> None: ...
 
 class QueryFilters(_message.Message):
     __slots__ = ("time_interval", "datapoint_interval", "spatial_extent")
     TIME_INTERVAL_FIELD_NUMBER: _ClassVar[int]
     DATAPOINT_INTERVAL_FIELD_NUMBER: _ClassVar[int]
     SPATIAL_EXTENT_FIELD_NUMBER: _ClassVar[int]
-    time_interval: _core_pb2.TimeInterval
-    datapoint_interval: _core_pb2.DatapointInterval
+    time_interval: _query_pb2.TimeInterval
+    datapoint_interval: _query_pb2.IDInterval
     spatial_extent: SpatialFilter
-    def __init__(self, time_interval: _Optional[_Union[_core_pb2.TimeInterval, _Mapping]] = ..., datapoint_interval: _Optional[_Union[_core_pb2.DatapointInterval, _Mapping]] = ..., spatial_extent: _Optional[_Union[SpatialFilter, _Mapping]] = ...) -> None: ...
+    def __init__(self, time_interval: _Optional[_Union[_query_pb2.TimeInterval, _Mapping]] = ..., datapoint_interval: _Optional[_Union[_query_pb2.IDInterval, _Mapping]] = ..., spatial_extent: _Optional[_Union[SpatialFilter, _Mapping]] = ...) -> None: ...
 
 class SpatialFilter(_message.Message):
     __slots__ = ("geometry", "mode", "coordinate_system")
@@ -88,16 +90,16 @@ class QueryRequest(_message.Message):
     FILTERS_FIELD_NUMBER: _ClassVar[int]
     PAGE_FIELD_NUMBER: _ClassVar[int]
     SKIP_DATA_FIELD_NUMBER: _ClassVar[int]
-    collection_ids: _containers.RepeatedCompositeFieldContainer[_core_pb2.ID]
+    collection_ids: _containers.RepeatedCompositeFieldContainer[_id_pb2.ID]
     filters: QueryFilters
-    page: _core_pb2.Pagination
+    page: _query_pb2.Pagination
     skip_data: bool
-    def __init__(self, collection_ids: _Optional[_Iterable[_Union[_core_pb2.ID, _Mapping]]] = ..., filters: _Optional[_Union[QueryFilters, _Mapping]] = ..., page: _Optional[_Union[_core_pb2.Pagination, _Mapping]] = ..., skip_data: bool = ...) -> None: ...
+    def __init__(self, collection_ids: _Optional[_Iterable[_Union[_id_pb2.ID, _Mapping]]] = ..., filters: _Optional[_Union[QueryFilters, _Mapping]] = ..., page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ..., skip_data: bool = ...) -> None: ...
 
 class QueryResultPage(_message.Message):
     __slots__ = ("data", "next_page")
     DATA_FIELD_NUMBER: _ClassVar[int]
     NEXT_PAGE_FIELD_NUMBER: _ClassVar[int]
     data: _core_pb2.RepeatedAny
-    next_page: _core_pb2.Pagination
-    def __init__(self, data: _Optional[_Union[_core_pb2.RepeatedAny, _Mapping]] = ..., next_page: _Optional[_Union[_core_pb2.Pagination, _Mapping]] = ...) -> None: ...
+    next_page: _query_pb2.Pagination
+    def __init__(self, data: _Optional[_Union[_core_pb2.RepeatedAny, _Mapping]] = ..., next_page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ...) -> None: ...

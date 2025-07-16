@@ -5,20 +5,10 @@ Hypothesis strategies for generating random test data for tests.
 from datetime import datetime, timezone
 
 import pandas as pd
-from hypothesis.strategies import (
-    DrawFn,
-    booleans,
-    composite,
-    datetimes,
-    just,
-    sampled_from,
-)
+from hypothesis.strategies import DrawFn, booleans, composite, datetimes, just, sampled_from
 from pandas.core.tools.datetimes import DatetimeScalar
 
-from tilebox.datasets.data.time_interval import (
-    TimeInterval,
-    datetime_to_us,
-)
+from tilebox.datasets.query.time_interval import TimeInterval, datetime_to_us
 
 # The minimum and maximum datetime that can be represented by pandas.Timestamp and are therefore supported
 # by the pd.to_datetime function which we are using for parsing datetime scalars.

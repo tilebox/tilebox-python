@@ -6,7 +6,7 @@ from hypothesis.stateful import Bundle, RuleBasedStateMachine, consumes, rule
 from tests.tasks_data import jobs
 
 from _tilebox.grpc.error import NotFoundError
-from tilebox.datasets.data.time_interval import datetime_to_timestamp
+from tilebox.datasets.query.time_interval import datetime_to_timestamp
 from tilebox.workflows.data import Job, uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.workflows.jobs.client import JobClient
 from tilebox.workflows.jobs.service import JobService

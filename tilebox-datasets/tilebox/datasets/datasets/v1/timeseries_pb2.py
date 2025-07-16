@@ -22,20 +22,21 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from tilebox.datasets.datasets.v1 import core_pb2 as datasets_dot_v1_dot_core__pb2
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
+from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
+from tilebox.datasets.tilebox.v1 import query_pb2 as tilebox_dot_v1_dot_query__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1c\x64\x61tasets/v1/timeseries.proto\x12\x0b\x64\x61tasets.v1\x1a\x16\x64\x61tasets/v1/core.proto\x1a\x1egoogle/protobuf/duration.proto\"\x88\x03\n\x16TimeseriesDatasetChunk\x12.\n\ndataset_id\x18\x01 \x01(\x0b\x32\x0f.datasets.v1.IDR\tdatasetId\x12\x34\n\rcollection_id\x18\x02 \x01(\x0b\x32\x0f.datasets.v1.IDR\x0c\x63ollectionId\x12>\n\rtime_interval\x18\x03 \x01(\x0b\x32\x19.datasets.v1.TimeIntervalR\x0ctimeInterval\x12M\n\x12\x64\x61tapoint_interval\x18\x04 \x01(\x0b\x32\x1e.datasets.v1.DatapointIntervalR\x11\x64\x61tapointInterval\x12#\n\rbranch_factor\x18\x05 \x01(\x05R\x0c\x62ranchFactor\x12\x1d\n\nchunk_size\x18\x06 \x01(\x05R\tchunkSize\x12\x35\n\x17\x64\x61tapoints_per_365_days\x18\x07 \x01(\x03R\x14\x64\x61tapointsPer365Days\"\x85\x01\n\tTimeChunk\x12>\n\rtime_interval\x18\x01 \x01(\x0b\x32\x19.datasets.v1.TimeIntervalR\x0ctimeInterval\x12\x38\n\nchunk_size\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationR\tchunkSizeBo\n\x0f\x63om.datasets.v1B\x0fTimeseriesProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1c\x64\x61tasets/v1/timeseries.proto\x12\x0b\x64\x61tasets.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto\"\xfd\x02\n\x16TimeseriesDatasetChunk\x12-\n\ndataset_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\tdatasetId\x12\x33\n\rcollection_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x0c\x63ollectionId\x12=\n\rtime_interval\x18\x03 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12\x45\n\x12\x64\x61tapoint_interval\x18\x04 \x01(\x0b\x32\x16.tilebox.v1.IDIntervalR\x11\x64\x61tapointInterval\x12#\n\rbranch_factor\x18\x05 \x01(\x05R\x0c\x62ranchFactor\x12\x1d\n\nchunk_size\x18\x06 \x01(\x05R\tchunkSize\x12\x35\n\x17\x64\x61tapoints_per_365_days\x18\x07 \x01(\x03R\x14\x64\x61tapointsPer365Days\"\x84\x01\n\tTimeChunk\x12=\n\rtime_interval\x18\x01 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12\x38\n\nchunk_size\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationR\tchunkSizeBt\n\x0f\x63om.datasets.v1B\x0fTimeseriesProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'datasets.v1.timeseries_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
-  _globals['DESCRIPTOR']._serialized_options = b'\n\017com.datasets.v1B\017TimeseriesProtoP\001\242\002\003DXX\252\002\013Datasets.V1\312\002\013Datasets\\V1\342\002\027Datasets\\V1\\GPBMetadata\352\002\014Datasets::V1'
-  _globals['_TIMESERIESDATASETCHUNK']._serialized_start=102
-  _globals['_TIMESERIESDATASETCHUNK']._serialized_end=494
-  _globals['_TIMECHUNK']._serialized_start=497
-  _globals['_TIMECHUNK']._serialized_end=630
+  _globals['DESCRIPTOR']._serialized_options = b'\n\017com.datasets.v1B\017TimeseriesProtoP\001\242\002\003DXX\252\002\013Datasets.V1\312\002\013Datasets\\V1\342\002\027Datasets\\V1\\GPBMetadata\352\002\014Datasets::V1\222\003\002\010\002'
+  _globals['_TIMESERIESDATASETCHUNK']._serialized_start=123
+  _globals['_TIMESERIESDATASETCHUNK']._serialized_end=504
+  _globals['_TIMECHUNK']._serialized_start=507
+  _globals['_TIMECHUNK']._serialized_end=639
 # @@protoc_insertion_point(module_scope)

@@ -10,9 +10,9 @@ import xarray as xr
 from typing_extensions import dataclass_transform, override
 
 from tilebox.datasets.data.collection import Collection, CollectionInfo
-from tilebox.datasets.data.datapoint import DatapointInterval
-from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.datasets.data.timeseries import TimeChunk, TimeseriesDatasetChunk
+from tilebox.datasets.query.id_interval import IDInterval
+from tilebox.datasets.query.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.datasets.sync.dataset import CollectionClient
 from tilebox.workflows.interceptors import ForwardExecution, execution_interceptor
 from tilebox.workflows.task import ExecutionContext, Task
@@ -76,7 +76,7 @@ def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: 
                 interval_chunk = replace(
                     chunk,
                     time_interval=None,
-                    datapoint_interval=DatapointInterval(
+                    datapoint_interval=IDInterval(
                         start_id=page.min_id, end_id=page.max_id, start_exclusive=False, end_inclusive=True
                     ),
                 )

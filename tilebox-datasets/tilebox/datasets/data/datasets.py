@@ -3,8 +3,8 @@ from uuid import UUID
 
 from google.protobuf.descriptor_pb2 import FileDescriptorSet
 
-from tilebox.datasets.data.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.datasets.datasets.v1 import core_pb2, dataset_type_pb2, datasets_pb2
+from tilebox.datasets.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
 
 
 @dataclass(frozen=True)

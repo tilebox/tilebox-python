@@ -19,13 +19,6 @@ from tilebox.datasets import CollectionClient, DatasetClient
 from tilebox.datasets.data.collection import Collection, CollectionInfo
 from tilebox.datasets.data.datapoint import AnyMessage, QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
-from tilebox.datasets.data.time_interval import (
-    _EMPTY_TIME_INTERVAL,
-    TimeInterval,
-    _convert_to_datetime,
-    timestamp_to_datetime,
-)
-from tilebox.datasets.data.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.datasets.datasets.v1.collections_pb2 import (
     CreateCollectionRequest,
     DeleteCollectionRequest,
@@ -36,7 +29,14 @@ from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceS
 from tilebox.datasets.datasets.v1.core_pb2 import Collection as CollectionMessage
 from tilebox.datasets.datasets.v1.core_pb2 import CollectionInfo as CollectionInfoMessage
 from tilebox.datasets.datasets.v1.core_pb2 import CollectionInfos as CollectionInfosMessage
+from tilebox.datasets.query.time_interval import (
+    _EMPTY_TIME_INTERVAL,
+    TimeInterval,
+    _convert_to_datetime,
+    timestamp_to_datetime,
+)
 from tilebox.datasets.service import TileboxDatasetService
+from tilebox.datasets.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 
 
 def _mocked_dataset() -> tuple[DatasetClient, MagicMock]:

@@ -3,9 +3,9 @@ from uuid import UUID
 from grpc import Channel
 
 from _tilebox.grpc.error import with_pythonic_errors
+from tilebox.datasets.query.pagination import Pagination
 from tilebox.workflows.data import (
     Job,
-    Pagination,
     QueryFilters,
     QueryJobsResponse,
     TaskSubmission,
