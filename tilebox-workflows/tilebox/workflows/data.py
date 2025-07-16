@@ -15,7 +15,7 @@ from google.protobuf.duration_pb2 import Duration
 from tilebox.datasets.query.id_interval import IDInterval
 from tilebox.datasets.query.pagination import Pagination
 from tilebox.datasets.query.time_interval import TimeInterval, datetime_to_timestamp, timestamp_to_datetime
-from tilebox.datasets.uuid.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.datasets.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
 
 try:
     # let's not make this a hard dependency, but if it's installed we can use its types

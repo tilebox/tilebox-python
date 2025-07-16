@@ -5,7 +5,7 @@ from uuid import UUID
 from tilebox.datasets.datasets.v1 import timeseries_pb2
 from tilebox.datasets.query.id_interval import IDInterval
 from tilebox.datasets.query.time_interval import TimeInterval, duration_to_timedelta, timedelta_to_duration
-from tilebox.datasets.uuid.uuid import uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.datasets.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 
 
 @dataclass

@@ -5,9 +5,9 @@ from typing import TypeVar
 
 from tqdm.auto import tqdm
 
-from tilebox.datasets.data import TimeInterval
 from tilebox.datasets.data.datapoint import QueryResultPage
 from tilebox.datasets.progress import ProgressCallback, TimeIntervalProgressBar
+from tilebox.datasets.query.time_interval import TimeInterval
 
 ResultPage = TypeVar("ResultPage", bound=QueryResultPage)
 

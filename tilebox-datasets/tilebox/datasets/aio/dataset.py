@@ -30,7 +30,7 @@ from tilebox.datasets.query.id_interval import IDInterval, IDIntervalLike
 from tilebox.datasets.query.pagination import Pagination
 from tilebox.datasets.query.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.datasets.service import TileboxDatasetService
-from tilebox.datasets.uuid.uuid import as_uuid
+from tilebox.datasets.uuid import as_uuid
 
 # allow private member access: we allow it here because we want to make as much private as possible so that we can
 # minimize the publicly facing API (which allows us to change internals later, and also limits to auto-completion)

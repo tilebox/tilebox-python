@@ -1,3 +1,4 @@
+# please keep this file in sync with buf.gen.workflows.yaml, especially the plugins versions
 version: v2
 managed:
   enabled: true

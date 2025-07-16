@@ -36,7 +36,7 @@ from tilebox.datasets.query.time_interval import (
     timestamp_to_datetime,
 )
 from tilebox.datasets.service import TileboxDatasetService
-from tilebox.datasets.uuid.uuid import uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.datasets.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 
 
 def _mocked_dataset() -> tuple[DatasetClient, MagicMock]:

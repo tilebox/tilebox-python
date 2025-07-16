@@ -8,7 +8,7 @@ from tests.tasks_data import alphanumerical_text, cron_triggers, storage_event_t
 
 from _tilebox.grpc.error import NotFoundError
 from tilebox.datasets.tilebox.v1.id_pb2 import ID
-from tilebox.datasets.uuid.uuid import uuid_message_to_uuid
+from tilebox.datasets.uuid import uuid_message_to_uuid
 from tilebox.workflows.automations import CronTask, StorageEventTask
 from tilebox.workflows.automations.client import AutomationClient, AutomationService
 from tilebox.workflows.data import (

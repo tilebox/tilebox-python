@@ -8,7 +8,7 @@ from tilebox.datasets.message_pool import get_message_type
 from tilebox.datasets.query.pagination import Pagination
 from tilebox.datasets.query.time_interval import timestamp_to_datetime
 from tilebox.datasets.tilebox.v1 import id_pb2
-from tilebox.datasets.uuid.uuid import uuid_message_to_uuid
+from tilebox.datasets.uuid import uuid_message_to_uuid
 
 
 @dataclass(frozen=True)

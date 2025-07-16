@@ -33,7 +33,7 @@ from tilebox.datasets.sync.pagination import (
     with_time_progress_callback,
     with_time_progressbar,
 )
-from tilebox.datasets.uuid.uuid import as_uuid
+from tilebox.datasets.uuid import as_uuid
 
 # allow private member access: we allow it here because we want to make as much private as possible so that we can
 # minimize the publicly facing API (which allows us to change internals later, and also limits to auto-completion)

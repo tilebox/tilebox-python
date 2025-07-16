@@ -24,7 +24,7 @@ from tilebox.datasets.datasets.v1.datasets_pb2 import ClientInfo, GetDatasetRequ
 from tilebox.datasets.datasets.v1.datasets_pb2_grpc import DatasetServiceStub
 from tilebox.datasets.query.pagination import Pagination
 from tilebox.datasets.tilebox.v1 import id_pb2
-from tilebox.datasets.uuid.uuid import must_uuid_to_uuid_message, uuid_to_uuid_message
+from tilebox.datasets.uuid import must_uuid_to_uuid_message, uuid_to_uuid_message
 
 
 class TileboxDatasetService:

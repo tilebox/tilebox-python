@@ -3,7 +3,7 @@ from typing import TypeAlias
 from uuid import UUID
 
 from tilebox.datasets.tilebox.v1 import query_pb2
-from tilebox.datasets.uuid.uuid import uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.datasets.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 
 IDIntervalLike: TypeAlias = "tuple[str, str] | tuple[UUID, UUID] | IDInterval"
 

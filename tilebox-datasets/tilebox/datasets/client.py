@@ -11,7 +11,7 @@ from tilebox.datasets.data.datasets import Dataset, DatasetGroup, ListDatasetsRe
 from tilebox.datasets.group import Group
 from tilebox.datasets.message_pool import register_once
 from tilebox.datasets.service import TileboxDatasetService
-from tilebox.datasets.uuid.uuid import as_uuid
+from tilebox.datasets.uuid import as_uuid
 
 
 class TimeseriesDatasetLike(Protocol):
