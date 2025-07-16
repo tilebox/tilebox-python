@@ -3,9 +3,9 @@ from typing import Literal
 from hypothesis.strategies import DrawFn, booleans, composite, none, one_of, sampled_from
 from shapely import Geometry
 
-from tests.data.datapoint import datapoint_intervals
-from tests.data.time_interval import time_intervals
 from tests.data.well_known_types import shapely_polygons
+from tests.query.datapoint import id_intervals
+from tests.query.time_interval import time_intervals
 from tilebox.datasets.data.data_access import (
     QueryFilters,
     SpatialCoordinateSystem,
@@ -55,6 +55,6 @@ def spatial_filters(draw: DrawFn) -> SpatialFilter:
 @composite
 def query_filters(draw: DrawFn) -> QueryFilters:
     """A hypothesis strategy for generating random query filters"""
-    temporal_extent = draw(one_of(time_intervals(), datapoint_intervals()))
+    temporal_extent = draw(one_of(time_intervals(), id_intervals()))
     spatial_extent = draw(spatial_filters() | none())
     return QueryFilters(temporal_extent, spatial_extent)

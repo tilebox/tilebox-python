@@ -1,10 +1,10 @@
-from tilebox.datasets.data.time_interval import (
+from tilebox.datasets.query.time_interval import (
     TimeInterval,
     TimeIntervalLike,
     datetime_to_timestamp,
     timestamp_to_datetime,
 )
-from tilebox.datasets.data.uuid import uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.datasets.uuid.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 
 __all__ = [
     "TimeInterval",

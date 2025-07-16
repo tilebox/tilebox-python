@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from tilebox.datasets.data.time_interval import TimeInterval
-from tilebox.datasets.data.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.datasets.datasets.v1 import core_pb2
+from tilebox.datasets.query.time_interval import TimeInterval
+from tilebox.datasets.uuid.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 
 
 @dataclass

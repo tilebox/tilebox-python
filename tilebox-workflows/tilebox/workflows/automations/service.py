@@ -4,10 +4,10 @@ from google.protobuf.empty_pb2 import Empty
 from grpc import Channel
 
 from _tilebox.grpc.error import with_pythonic_errors
+from tilebox.datasets.uuid.uuid import uuid_to_uuid_message
 from tilebox.workflows.data import (
     AutomationPrototype,
     StorageLocation,
-    uuid_to_uuid_message,
 )
 from tilebox.workflows.workflows.v1.automation_pb2 import AutomationPrototype as AutomationPrototypeMessage
 from tilebox.workflows.workflows.v1.automation_pb2 import Automations, DeleteAutomationRequest, StorageLocations

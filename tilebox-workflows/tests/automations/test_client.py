@@ -7,6 +7,8 @@ from hypothesis.strategies import lists
 from tests.tasks_data import alphanumerical_text, cron_triggers, storage_event_triggers, task_identifiers
 
 from _tilebox.grpc.error import NotFoundError
+from tilebox.datasets.tilebox.v1.id_pb2 import ID
+from tilebox.datasets.uuid.uuid import uuid_message_to_uuid
 from tilebox.workflows.automations import CronTask, StorageEventTask
 from tilebox.workflows.automations.client import AutomationClient, AutomationService
 from tilebox.workflows.data import (
@@ -14,7 +16,6 @@ from tilebox.workflows.data import (
     CronTrigger,
     StorageEventTrigger,
     TaskIdentifier,
-    uuid_message_to_uuid,
     uuid_to_uuid_message,
 )
 from tilebox.workflows.workflows.v1.automation_pb2 import AutomationPrototype as AutomationPrototypeMessage
@@ -22,7 +23,6 @@ from tilebox.workflows.workflows.v1.automation_pb2 import Automations, DeleteAut
 from tilebox.workflows.workflows.v1.automation_pb2 import CronTrigger as CronTriggerMessage
 from tilebox.workflows.workflows.v1.automation_pb2 import StorageEventTrigger as StorageEventTriggerMessage
 from tilebox.workflows.workflows.v1.automation_pb2_grpc import AutomationServiceStub
-from tilebox.workflows.workflows.v1.core_pb2 import UUID as UUIDMessage  # noqa: N811
 
 
 class MockAutomationService(AutomationServiceStub):
@@ -59,7 +59,7 @@ class MockAutomationService(AutomationServiceStub):
         self.automations[automation_id] = req
         return req
 
-    def GetAutomation(self, req: UUIDMessage) -> AutomationPrototypeMessage:  # noqa: N802
+    def GetAutomation(self, req: ID) -> AutomationPrototypeMessage:  # noqa: N802
         automation_id = uuid_message_to_uuid(req)
         if automation_id in self.automations:
             return self.automations[automation_id]

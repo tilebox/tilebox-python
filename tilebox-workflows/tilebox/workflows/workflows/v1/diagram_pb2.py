@@ -24,20 +24,22 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aworkflows/v1/diagram.proto\x12\x0cworkflows.v1\"t\n\x14RenderDiagramRequest\x12\x18\n\x07\x64iagram\x18\x01 \x01(\tR\x07\x64iagram\x12\x42\n\x0erender_options\x18\x02 \x01(\x0b\x32\x1b.workflows.v1.RenderOptionsR\rrenderOptions\"\xa6\x01\n\rRenderOptions\x12\x16\n\x06layout\x18\x01 \x01(\tR\x06layout\x12\x1e\n\x08theme_id\x18\x02 \x01(\x03H\x00R\x07themeId\x88\x01\x01\x12\x18\n\x07sketchy\x18\x03 \x01(\x08R\x07sketchy\x12\x18\n\x07padding\x18\x04 \x01(\x03R\x07padding\x12\x1c\n\tdirection\x18\x05 \x01(\tR\tdirectionB\x0b\n\t_theme_id\"\x1b\n\x07\x44iagram\x12\x10\n\x03svg\x18\x01 \x01(\x0cR\x03svg2U\n\x0e\x44iagramService\x12\x43\n\x06Render\x12\".workflows.v1.RenderDiagramRequest\x1a\x15.workflows.v1.DiagramBq\n\x10\x63om.workflows.v1B\x0c\x44iagramProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aworkflows/v1/diagram.proto\x12\x0cworkflows.v1\"t\n\x14RenderDiagramRequest\x12\x18\n\x07\x64iagram\x18\x01 \x01(\tR\x07\x64iagram\x12\x42\n\x0erender_options\x18\x02 \x01(\x0b\x32\x1b.workflows.v1.RenderOptionsR\rrenderOptions\"\x9b\x01\n\rRenderOptions\x12\x16\n\x06layout\x18\x01 \x01(\tR\x06layout\x12 \n\x08theme_id\x18\x02 \x01(\x03\x42\x05\xaa\x01\x02\x08\x01R\x07themeId\x12\x18\n\x07sketchy\x18\x03 \x01(\x08R\x07sketchy\x12\x18\n\x07padding\x18\x04 \x01(\x03R\x07padding\x12\x1c\n\tdirection\x18\x05 \x01(\tR\tdirection\"\x1b\n\x07\x44iagram\x12\x10\n\x03svg\x18\x01 \x01(\x0cR\x03svg2U\n\x0e\x44iagramService\x12\x43\n\x06Render\x12\".workflows.v1.RenderDiagramRequest\x1a\x15.workflows.v1.DiagramBv\n\x10\x63om.workflows.v1B\x0c\x44iagramProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'workflows.v1.diagram_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
-  _globals['DESCRIPTOR']._serialized_options = b'\n\020com.workflows.v1B\014DiagramProtoP\001\242\002\003WXX\252\002\014Workflows.V1\312\002\014Workflows\\V1\342\002\030Workflows\\V1\\GPBMetadata\352\002\rWorkflows::V1'
+  _globals['DESCRIPTOR']._serialized_options = b'\n\020com.workflows.v1B\014DiagramProtoP\001\242\002\003WXX\252\002\014Workflows.V1\312\002\014Workflows\\V1\342\002\030Workflows\\V1\\GPBMetadata\352\002\rWorkflows::V1\222\003\002\010\002'
+  _globals['_RENDEROPTIONS'].fields_by_name['theme_id']._loaded_options = None
+  _globals['_RENDEROPTIONS'].fields_by_name['theme_id']._serialized_options = b'\252\001\002\010\001'
   _globals['_RENDERDIAGRAMREQUEST']._serialized_start=44
   _globals['_RENDERDIAGRAMREQUEST']._serialized_end=160
   _globals['_RENDEROPTIONS']._serialized_start=163
-  _globals['_RENDEROPTIONS']._serialized_end=329
-  _globals['_DIAGRAM']._serialized_start=331
-  _globals['_DIAGRAM']._serialized_end=358
-  _globals['_DIAGRAMSERVICE']._serialized_start=360
-  _globals['_DIAGRAMSERVICE']._serialized_end=445
+  _globals['_RENDEROPTIONS']._serialized_end=318
+  _globals['_DIAGRAM']._serialized_start=320
+  _globals['_DIAGRAM']._serialized_end=347
+  _globals['_DIAGRAMSERVICE']._serialized_start=349
+  _globals['_DIAGRAMSERVICE']._serialized_end=434
 # @@protoc_insertion_point(module_scope)

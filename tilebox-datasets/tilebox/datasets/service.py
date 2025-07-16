@@ -7,15 +7,8 @@ from promise import Promise
 
 from tilebox.datasets.data.collection import CollectionInfo
 from tilebox.datasets.data.data_access import QueryFilters
-from tilebox.datasets.data.datapoint import (
-    AnyMessage,
-    IngestResponse,
-    QueryResultPage,
-)
+from tilebox.datasets.data.datapoint import AnyMessage, IngestResponse, QueryResultPage
 from tilebox.datasets.data.datasets import Dataset, ListDatasetsResponse
-from tilebox.datasets.data.pagination import Pagination
-from tilebox.datasets.data.uuid import must_uuid_to_uuid_message, uuid_to_uuid_message
-from tilebox.datasets.datasets.v1 import core_pb2
 from tilebox.datasets.datasets.v1.collections_pb2 import (
     CreateCollectionRequest,
     DeleteCollectionRequest,
@@ -23,15 +16,15 @@ from tilebox.datasets.datasets.v1.collections_pb2 import (
     ListCollectionsRequest,
 )
 from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceStub
-from tilebox.datasets.datasets.v1.data_access_pb2 import (
-    QueryByIDRequest,
-    QueryRequest,
-)
+from tilebox.datasets.datasets.v1.data_access_pb2 import QueryByIDRequest, QueryRequest
 from tilebox.datasets.datasets.v1.data_access_pb2_grpc import DataAccessServiceStub
 from tilebox.datasets.datasets.v1.data_ingestion_pb2 import DeleteRequest, IngestRequest
 from tilebox.datasets.datasets.v1.data_ingestion_pb2_grpc import DataIngestionServiceStub
 from tilebox.datasets.datasets.v1.datasets_pb2 import ClientInfo, GetDatasetRequest, ListDatasetsRequest, Package
 from tilebox.datasets.datasets.v1.datasets_pb2_grpc import DatasetServiceStub
+from tilebox.datasets.query.pagination import Pagination
+from tilebox.datasets.tilebox.v1 import id_pb2
+from tilebox.datasets.uuid.uuid import must_uuid_to_uuid_message, uuid_to_uuid_message
 
 
 class TileboxDatasetService:
@@ -176,7 +169,7 @@ class TileboxDatasetService:
         """
         req = DeleteRequest(
             collection_id=uuid_to_uuid_message(collection_id),
-            datapoint_ids=[core_pb2.ID(uuid=datapoint.bytes) for datapoint in datapoints],
+            datapoint_ids=[id_pb2.ID(uuid=datapoint.bytes) for datapoint in datapoints],
         )
         return Promise.resolve(self._data_ingestion_service.Delete(req)).then(
             lambda response: response.num_deleted,

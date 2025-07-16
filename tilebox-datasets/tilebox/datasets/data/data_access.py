@@ -7,9 +7,9 @@ from shapely import Geometry, from_wkb, to_wkb
 # from python 3.11 onwards this is available as typing.NotRequired:
 from typing_extensions import NotRequired
 
-from tilebox.datasets.data.datapoint import DatapointInterval
-from tilebox.datasets.data.time_interval import TimeInterval
 from tilebox.datasets.datasets.v1 import data_access_pb2, well_known_types_pb2
+from tilebox.datasets.query.id_interval import IDInterval
+from tilebox.datasets.query.time_interval import TimeInterval
 
 
 class SpatialFilterMode(Enum):
@@ -104,16 +104,16 @@ class SpatialFilter:
 
 @dataclass(frozen=True)
 class QueryFilters:
-    temporal_extent: TimeInterval | DatapointInterval
+    temporal_extent: TimeInterval | IDInterval
     spatial_extent: SpatialFilter | None = None
 
     @classmethod
     def from_message(cls, filters: data_access_pb2.QueryFilters) -> "QueryFilters":
-        temporal_extent: TimeInterval | DatapointInterval | None = None
+        temporal_extent: TimeInterval | IDInterval | None = None
         if filters.HasField("time_interval"):
             temporal_extent = TimeInterval.from_message(filters.time_interval)
         if filters.HasField("datapoint_interval"):
-            temporal_extent = DatapointInterval.from_message(filters.datapoint_interval)
+            temporal_extent = IDInterval.from_message(filters.datapoint_interval)
 
         if temporal_extent is None:
             raise ValueError("Invalid filter: time or datapoint interval must be set")

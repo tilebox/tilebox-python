@@ -3,9 +3,9 @@ from datetime import datetime, timezone
 from hypothesis import given
 from hypothesis.strategies import datetimes
 from pandas.core.tools.datetimes import DatetimeScalar
+from tests.query.time_interval import datetime_scalars, time_intervals
 
-from tests.data.time_interval import datetime_scalars, time_intervals
-from tilebox.datasets.data.time_interval import (
+from tilebox.datasets.query.time_interval import (
     _SMALLEST_POSSIBLE_TIMEDELTA,
     TimeInterval,
     _convert_to_datetime,

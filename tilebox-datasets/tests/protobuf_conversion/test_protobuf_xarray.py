@@ -10,8 +10,8 @@ from xarray.testing import assert_equal
 
 from tests.data.datapoint import example_datapoints
 from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
-from tilebox.datasets.data.time_interval import timestamp_to_datetime, us_to_datetime
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
+from tilebox.datasets.query.time_interval import timestamp_to_datetime, us_to_datetime
 
 
 @given(example_datapoints(generated_fields=True, missing_fields=False))

@@ -1,5 +1,6 @@
 from tilebox.datasets.datasets.v1 import core_pb2 as _core_pb2
 from tilebox.datasets.datasets.v1 import dataset_type_pb2 as _dataset_type_pb2
+from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -24,8 +25,8 @@ class GetDatasetRequest(_message.Message):
     SLUG_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
     slug: str
-    id: _core_pb2.ID
-    def __init__(self, slug: _Optional[str] = ..., id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ...) -> None: ...
+    id: _id_pb2.ID
+    def __init__(self, slug: _Optional[str] = ..., id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
 
 class UpdateDatasetRequest(_message.Message):
     __slots__ = ("id", "name", "type", "summary")
@@ -33,11 +34,11 @@ class UpdateDatasetRequest(_message.Message):
     NAME_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     SUMMARY_FIELD_NUMBER: _ClassVar[int]
-    id: _core_pb2.ID
+    id: _id_pb2.ID
     name: str
     type: _dataset_type_pb2.DatasetType
     summary: str
-    def __init__(self, id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., type: _Optional[_Union[_dataset_type_pb2.DatasetType, _Mapping]] = ..., summary: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., type: _Optional[_Union[_dataset_type_pb2.DatasetType, _Mapping]] = ..., summary: _Optional[str] = ...) -> None: ...
 
 class ClientInfo(_message.Message):
     __slots__ = ("name", "environment", "packages")
@@ -61,15 +62,15 @@ class UpdateDatasetDescriptionRequest(_message.Message):
     __slots__ = ("id", "description")
     ID_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    id: _core_pb2.ID
+    id: _id_pb2.ID
     description: str
-    def __init__(self, id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ..., description: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., description: _Optional[str] = ...) -> None: ...
 
 class DeleteDatasetRequest(_message.Message):
     __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
-    id: _core_pb2.ID
-    def __init__(self, id: _Optional[_Union[_core_pb2.ID, _Mapping]] = ...) -> None: ...
+    id: _id_pb2.ID
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
 
 class DeleteDatasetResponse(_message.Message):
     __slots__ = ("trashed",)

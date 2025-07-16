@@ -12,11 +12,8 @@ from _tilebox.grpc.pagination import paginated_request
 from _tilebox.grpc.producer_consumer import concurrent_producer_consumer
 from tilebox.datasets.data.collection import CollectionInfo
 from tilebox.datasets.data.data_access import QueryFilters, SpatialFilter, SpatialFilterLike
-from tilebox.datasets.data.datapoint import DatapointInterval, DatapointIntervalLike, QueryResultPage
+from tilebox.datasets.data.datapoint import QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
-from tilebox.datasets.data.pagination import Pagination
-from tilebox.datasets.data.time_interval import TimeInterval, TimeIntervalLike
-from tilebox.datasets.data.uuid import as_uuid
 from tilebox.datasets.message_pool import get_message_type
 from tilebox.datasets.progress import ProgressCallback
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
@@ -27,12 +24,16 @@ from tilebox.datasets.protobuf_conversion.to_protobuf import (
     marshal_messages,
     to_messages,
 )
+from tilebox.datasets.query.id_interval import IDInterval, IDIntervalLike
+from tilebox.datasets.query.pagination import Pagination
+from tilebox.datasets.query.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.datasets.service import TileboxDatasetService
 from tilebox.datasets.sync.pagination import (
     with_progressbar,
     with_time_progress_callback,
     with_time_progressbar,
 )
+from tilebox.datasets.uuid.uuid import as_uuid
 
 # allow private member access: we allow it here because we want to make as much private as possible so that we can
 # minimize the publicly facing API (which allows us to change internals later, and also limits to auto-completion)
@@ -230,7 +231,7 @@ class CollectionClient:
 
     def _find_interval(
         self,
-        datapoint_id_interval: DatapointIntervalLike,
+        datapoint_id_interval: IDIntervalLike,
         end_inclusive: bool = True,
         *,
         skip_data: bool = False,
@@ -249,9 +250,7 @@ class CollectionClient:
         Returns:
             The datapoints in the given interval as an xarray dataset
         """
-        filters = QueryFilters(
-            temporal_extent=DatapointInterval.parse(datapoint_id_interval, end_inclusive=end_inclusive)
-        )
+        filters = QueryFilters(temporal_extent=IDInterval.parse(datapoint_id_interval, end_inclusive=end_inclusive))
 
         def request(page: PaginationProtocol) -> QueryResultPage:
             query_page = Pagination(page.limit, page.starting_after)

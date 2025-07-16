@@ -18,8 +18,6 @@ from hypothesis.strategies import (
 )
 
 from tests.data.datasets import example_dataset_type_url
-from tests.data.pagination import paginations
-from tests.data.time_interval import i64_datetimes
 from tests.data.well_known_types import (
     datetime_messages,
     duration_messages,
@@ -31,44 +29,11 @@ from tests.data.well_known_types import (
     vec3_messages,
 )
 from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
-from tilebox.datasets.data.datapoint import (
-    AnyMessage,
-    DatapointInterval,
-    DatapointIntervalLike,
-    IngestResponse,
-    QueryResultPage,
-    RepeatedAny,
-)
-from tilebox.datasets.data.time_interval import (
-    datetime_to_timestamp,
-)
+from tests.query.pagination import paginations
+from tests.query.time_interval import i64_datetimes
+from tilebox.datasets.data.datapoint import AnyMessage, IngestResponse, QueryResultPage, RepeatedAny
 from tilebox.datasets.datasets.v1 import core_pb2
-
-
-@composite
-def datapoint_intervals(draw: DrawFn) -> DatapointInterval:
-    """A hypothesis strategy for generating random datapoint intervals"""
-    start = draw(uuids(version=4))
-    end = draw(uuids(version=4))
-    start, end = min(start, end), max(start, end)  # make sure start is before end
-
-    start_exclusive = draw(booleans())
-    end_inclusive = draw(booleans())
-
-    return DatapointInterval(start, end, start_exclusive, end_inclusive)
-
-
-@composite
-def datapoint_intervals_like(draw: DrawFn) -> DatapointIntervalLike:
-    """A hypothesis strategy for generating random datapoint intervals"""
-    interval = draw(datapoint_intervals())
-    return draw(
-        one_of(
-            just(interval),
-            just((str(interval.start_id), str(interval.end_id))),
-            just((interval.start_id, interval.end_id)),
-        )
-    )
+from tilebox.datasets.query.time_interval import datetime_to_timestamp
 
 
 @composite

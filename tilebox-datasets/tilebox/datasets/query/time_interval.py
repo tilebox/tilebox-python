@@ -8,7 +8,7 @@ from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 from pandas.core.tools.datetimes import DatetimeScalar, to_datetime
 
-from tilebox.datasets.datasets.v1 import core_pb2
+from tilebox.datasets.tilebox.v1 import query_pb2
 
 _SMALLEST_POSSIBLE_TIMEDELTA = timedelta(microseconds=1)
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
@@ -160,7 +160,7 @@ class TimeInterval:
 
     @classmethod
     def from_message(
-        cls, interval: core_pb2.TimeInterval
+        cls, interval: query_pb2.TimeInterval
     ) -> "TimeInterval":  # lets use typing.Self once we require python >= 3.11
         """Convert a TimeInterval protobuf message to a TimeInterval object."""
 
@@ -176,9 +176,9 @@ class TimeInterval:
             end_inclusive=interval.end_inclusive,
         )
 
-    def to_message(self) -> core_pb2.TimeInterval:
+    def to_message(self) -> query_pb2.TimeInterval:
         """Convert a TimeInterval object to a TimeInterval protobuf message."""
-        return core_pb2.TimeInterval(
+        return query_pb2.TimeInterval(
             start_time=datetime_to_timestamp(self.start),
             end_time=datetime_to_timestamp(self.end),
             start_exclusive=self.start_exclusive,

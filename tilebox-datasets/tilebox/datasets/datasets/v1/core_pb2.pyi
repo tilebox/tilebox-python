@@ -1,5 +1,7 @@
 from tilebox.datasets.datasets.v1 import dataset_type_pb2 as _dataset_type_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
+from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
+from tilebox.datasets.tilebox.v1 import query_pb2 as _query_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -30,36 +32,6 @@ VISIBILITY_PRIVATE: Visibility
 VISIBILITY_SHARED_WITH_ME: Visibility
 VISIBILITY_PUBLIC: Visibility
 
-class ID(_message.Message):
-    __slots__ = ("uuid",)
-    UUID_FIELD_NUMBER: _ClassVar[int]
-    uuid: bytes
-    def __init__(self, uuid: _Optional[bytes] = ...) -> None: ...
-
-class TimeInterval(_message.Message):
-    __slots__ = ("start_time", "end_time", "start_exclusive", "end_inclusive")
-    START_TIME_FIELD_NUMBER: _ClassVar[int]
-    END_TIME_FIELD_NUMBER: _ClassVar[int]
-    START_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
-    END_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
-    start_time: _timestamp_pb2.Timestamp
-    end_time: _timestamp_pb2.Timestamp
-    start_exclusive: bool
-    end_inclusive: bool
-    def __init__(self, start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., start_exclusive: bool = ..., end_inclusive: bool = ...) -> None: ...
-
-class DatapointInterval(_message.Message):
-    __slots__ = ("start_id", "end_id", "start_exclusive", "end_inclusive")
-    START_ID_FIELD_NUMBER: _ClassVar[int]
-    END_ID_FIELD_NUMBER: _ClassVar[int]
-    START_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
-    END_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
-    start_id: ID
-    end_id: ID
-    start_exclusive: bool
-    end_inclusive: bool
-    def __init__(self, start_id: _Optional[_Union[ID, _Mapping]] = ..., end_id: _Optional[_Union[ID, _Mapping]] = ..., start_exclusive: bool = ..., end_inclusive: bool = ...) -> None: ...
-
 class LegacyPagination(_message.Message):
     __slots__ = ("limit", "starting_after")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
@@ -67,14 +39,6 @@ class LegacyPagination(_message.Message):
     limit: int
     starting_after: str
     def __init__(self, limit: _Optional[int] = ..., starting_after: _Optional[str] = ...) -> None: ...
-
-class Pagination(_message.Message):
-    __slots__ = ("limit", "starting_after")
-    LIMIT_FIELD_NUMBER: _ClassVar[int]
-    STARTING_AFTER_FIELD_NUMBER: _ClassVar[int]
-    limit: int
-    starting_after: ID
-    def __init__(self, limit: _Optional[int] = ..., starting_after: _Optional[_Union[ID, _Mapping]] = ...) -> None: ...
 
 class Any(_message.Message):
     __slots__ = ("type_url", "value")
@@ -135,8 +99,8 @@ class Collection(_message.Message):
     ID_FIELD_NUMBER: _ClassVar[int]
     legacy_id: str
     name: str
-    id: ID
-    def __init__(self, legacy_id: _Optional[str] = ..., name: _Optional[str] = ..., id: _Optional[_Union[ID, _Mapping]] = ...) -> None: ...
+    id: _id_pb2.ID
+    def __init__(self, legacy_id: _Optional[str] = ..., name: _Optional[str] = ..., id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
 
 class CollectionInfo(_message.Message):
     __slots__ = ("collection", "availability", "count")
@@ -144,9 +108,9 @@ class CollectionInfo(_message.Message):
     AVAILABILITY_FIELD_NUMBER: _ClassVar[int]
     COUNT_FIELD_NUMBER: _ClassVar[int]
     collection: Collection
-    availability: TimeInterval
+    availability: _query_pb2.TimeInterval
     count: int
-    def __init__(self, collection: _Optional[_Union[Collection, _Mapping]] = ..., availability: _Optional[_Union[TimeInterval, _Mapping]] = ..., count: _Optional[int] = ...) -> None: ...
+    def __init__(self, collection: _Optional[_Union[Collection, _Mapping]] = ..., availability: _Optional[_Union[_query_pb2.TimeInterval, _Mapping]] = ..., count: _Optional[int] = ...) -> None: ...
 
 class CollectionInfos(_message.Message):
     __slots__ = ("data",)
@@ -168,8 +132,8 @@ class Dataset(_message.Message):
     VISIBILITY_FIELD_NUMBER: _ClassVar[int]
     SLUG_FIELD_NUMBER: _ClassVar[int]
     TYPE_EDITABLE_FIELD_NUMBER: _ClassVar[int]
-    id: ID
-    group_id: ID
+    id: _id_pb2.ID
+    group_id: _id_pb2.ID
     type: _dataset_type_pb2.AnnotatedType
     code_name: str
     name: str
@@ -180,7 +144,7 @@ class Dataset(_message.Message):
     visibility: Visibility
     slug: str
     type_editable: bool
-    def __init__(self, id: _Optional[_Union[ID, _Mapping]] = ..., group_id: _Optional[_Union[ID, _Mapping]] = ..., type: _Optional[_Union[_dataset_type_pb2.AnnotatedType, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., summary: _Optional[str] = ..., icon: _Optional[str] = ..., description: _Optional[str] = ..., permissions: _Optional[_Iterable[_Union[DatasetPermission, str]]] = ..., visibility: _Optional[_Union[Visibility, str]] = ..., slug: _Optional[str] = ..., type_editable: bool = ...) -> None: ...
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., group_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., type: _Optional[_Union[_dataset_type_pb2.AnnotatedType, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., summary: _Optional[str] = ..., icon: _Optional[str] = ..., description: _Optional[str] = ..., permissions: _Optional[_Iterable[_Union[DatasetPermission, str]]] = ..., visibility: _Optional[_Union[Visibility, str]] = ..., slug: _Optional[str] = ..., type_editable: bool = ...) -> None: ...
 
 class DatasetGroup(_message.Message):
     __slots__ = ("id", "parent_id", "code_name", "name", "icon")
@@ -189,9 +153,9 @@ class DatasetGroup(_message.Message):
     CODE_NAME_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     ICON_FIELD_NUMBER: _ClassVar[int]
-    id: ID
-    parent_id: ID
+    id: _id_pb2.ID
+    parent_id: _id_pb2.ID
     code_name: str
     name: str
     icon: str
-    def __init__(self, id: _Optional[_Union[ID, _Mapping]] = ..., parent_id: _Optional[_Union[ID, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., icon: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., parent_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., icon: _Optional[str] = ...) -> None: ...

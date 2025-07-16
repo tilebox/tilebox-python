@@ -3,8 +3,8 @@
 import grpc
 
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
+from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 from tilebox.workflows.workflows.v1 import automation_pb2 as workflows_dot_v1_dot_automation__pb2
-from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core__pb2
 
 
 class AutomationServiceStub(object):
@@ -26,7 +26,7 @@ class AutomationServiceStub(object):
                 _registered_method=True)
         self.GetStorageLocation = channel.unary_unary(
                 '/workflows.v1.AutomationService/GetStorageLocation',
-                request_serializer=workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
+                request_serializer=tilebox_dot_v1_dot_id__pb2.ID.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.FromString,
                 _registered_method=True)
         self.CreateStorageLocation = channel.unary_unary(
@@ -36,7 +36,7 @@ class AutomationServiceStub(object):
                 _registered_method=True)
         self.DeleteStorageLocation = channel.unary_unary(
                 '/workflows.v1.AutomationService/DeleteStorageLocation',
-                request_serializer=workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
+                request_serializer=tilebox_dot_v1_dot_id__pb2.ID.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
         self.ListAutomations = channel.unary_unary(
@@ -46,7 +46,7 @@ class AutomationServiceStub(object):
                 _registered_method=True)
         self.GetAutomation = channel.unary_unary(
                 '/workflows.v1.AutomationService/GetAutomation',
-                request_serializer=workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
+                request_serializer=tilebox_dot_v1_dot_id__pb2.ID.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_automation__pb2.AutomationPrototype.FromString,
                 _registered_method=True)
         self.CreateAutomation = channel.unary_unary(
@@ -145,7 +145,7 @@ def add_AutomationServiceServicer_to_server(servicer, server):
             ),
             'GetStorageLocation': grpc.unary_unary_rpc_method_handler(
                     servicer.GetStorageLocation,
-                    request_deserializer=workflows_dot_v1_dot_core__pb2.UUID.FromString,
+                    request_deserializer=tilebox_dot_v1_dot_id__pb2.ID.FromString,
                     response_serializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.SerializeToString,
             ),
             'CreateStorageLocation': grpc.unary_unary_rpc_method_handler(
@@ -155,7 +155,7 @@ def add_AutomationServiceServicer_to_server(servicer, server):
             ),
             'DeleteStorageLocation': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteStorageLocation,
-                    request_deserializer=workflows_dot_v1_dot_core__pb2.UUID.FromString,
+                    request_deserializer=tilebox_dot_v1_dot_id__pb2.ID.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
             'ListAutomations': grpc.unary_unary_rpc_method_handler(
@@ -165,7 +165,7 @@ def add_AutomationServiceServicer_to_server(servicer, server):
             ),
             'GetAutomation': grpc.unary_unary_rpc_method_handler(
                     servicer.GetAutomation,
-                    request_deserializer=workflows_dot_v1_dot_core__pb2.UUID.FromString,
+                    request_deserializer=tilebox_dot_v1_dot_id__pb2.ID.FromString,
                     response_serializer=workflows_dot_v1_dot_automation__pb2.AutomationPrototype.SerializeToString,
             ),
             'CreateAutomation': grpc.unary_unary_rpc_method_handler(
@@ -239,7 +239,7 @@ class AutomationService(object):
             request,
             target,
             '/workflows.v1.AutomationService/GetStorageLocation',
-            workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
+            tilebox_dot_v1_dot_id__pb2.ID.SerializeToString,
             workflows_dot_v1_dot_automation__pb2.StorageLocation.FromString,
             options,
             channel_credentials,
@@ -293,7 +293,7 @@ class AutomationService(object):
             request,
             target,
             '/workflows.v1.AutomationService/DeleteStorageLocation',
-            workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
+            tilebox_dot_v1_dot_id__pb2.ID.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,
@@ -347,7 +347,7 @@ class AutomationService(object):
             request,
             target,
             '/workflows.v1.AutomationService/GetAutomation',
-            workflows_dot_v1_dot_core__pb2.UUID.SerializeToString,
+            tilebox_dot_v1_dot_id__pb2.ID.SerializeToString,
             workflows_dot_v1_dot_automation__pb2.AutomationPrototype.FromString,
             options,
             channel_credentials,

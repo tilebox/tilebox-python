@@ -1,39 +1,7 @@
 from hypothesis import given
 
-from tests.data.datapoint import (
-    anys,
-    datapoint_intervals,
-    datapoint_intervals_like,
-    ingest_datapoints_responses,
-    query_result_pages,
-    repeated_anys,
-)
-from tilebox.datasets.data.datapoint import (
-    AnyMessage,
-    DatapointInterval,
-    DatapointIntervalLike,
-    IngestResponse,
-    QueryResultPage,
-    RepeatedAny,
-)
-
-
-@given(datapoint_intervals())
-def test_datapoint_intervals_to_message_and_back(interval: DatapointInterval) -> None:
-    assert DatapointInterval.from_message(interval.to_message()) == interval
-
-
-@given(datapoint_intervals_like())
-def test_parse_datapoint_interval_from_tuple(interval: DatapointIntervalLike) -> None:
-    parsed = DatapointInterval.parse(interval)
-
-    if isinstance(interval, DatapointInterval):
-        assert parsed == interval, f"Failed parsing interval from {interval}"
-        assert parsed.start_exclusive == interval.start_exclusive
-        assert parsed.end_inclusive == interval.end_inclusive
-    else:
-        assert not parsed.start_exclusive
-        assert parsed.end_inclusive
+from tests.data.datapoint import anys, ingest_datapoints_responses, query_result_pages, repeated_anys
+from tilebox.datasets.data.datapoint import AnyMessage, IngestResponse, QueryResultPage, RepeatedAny
 
 
 @given(anys())
