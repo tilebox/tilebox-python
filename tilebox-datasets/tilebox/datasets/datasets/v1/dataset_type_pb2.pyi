@@ -1,3 +1,4 @@
+from tilebox.datasets.buf.validate import validate_pb2 as _validate_pb2
 from tilebox.datasets.datasets.v1 import well_known_types_pb2 as _well_known_types_pb2
 from google.protobuf import descriptor_pb2 as _descriptor_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2

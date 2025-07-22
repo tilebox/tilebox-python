@@ -1,3 +1,4 @@
+from tilebox.datasets.buf.validate import validate_pb2 as _validate_pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as _core_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor

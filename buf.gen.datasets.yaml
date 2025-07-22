@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://www.schemastore.org/buf.gen.json
 # please keep this file in sync with buf.gen.workflows.yaml, especially the plugins versions
 version: v2
 managed:
@@ -16,3 +17,4 @@ inputs:
     paths:
       - "datasets"
       - "tilebox"
+  - module: buf.build/bufbuild/protovalidate

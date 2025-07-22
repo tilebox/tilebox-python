@@ -1,3 +1,4 @@
+from tilebox.datasets.buf.validate import validate_pb2 as _validate_pb2
 from tilebox.datasets.datasets.v1 import core_pb2 as _core_pb2
 from tilebox.datasets.datasets.v1 import well_known_types_pb2 as _well_known_types_pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
