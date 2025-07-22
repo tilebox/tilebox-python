@@ -22,11 +22,11 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from tilebox.datasets.datasets.v1 import core_pb2 as datasets_dot_v1_dot_core__pb2
+from tilebox.datasets.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n datasets/v1/data_ingestion.proto\x12\x0b\x64\x61tasets.v1\x1a\x16\x64\x61tasets/v1/core.proto\x1a\x13tilebox/v1/id.proto\"\xae\x01\n\x17IngestDatapointsRequest\x12\x33\n\rcollection_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x0c\x63ollectionId\x12\x37\n\ndatapoints\x18\x02 \x01(\x0b\x32\x17.datasets.v1.DatapointsR\ndatapoints\x12%\n\x0e\x61llow_existing\x18\x03 \x01(\x08R\rallowExisting\"\x83\x01\n\rIngestRequest\x12\x33\n\rcollection_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x0c\x63ollectionId\x12\x16\n\x06values\x18\x02 \x03(\x0cR\x06values\x12%\n\x0e\x61llow_existing\x18\x03 \x01(\x08R\rallowExisting\"\x89\x01\n\x0eIngestResponse\x12\x1f\n\x0bnum_created\x18\x01 \x01(\x03R\nnumCreated\x12!\n\x0cnum_existing\x18\x02 \x01(\x03R\x0bnumExisting\x12\x33\n\rdatapoint_ids\x18\x03 \x03(\x0b\x32\x0e.tilebox.v1.IDR\x0c\x64\x61tapointIds\"y\n\rDeleteRequest\x12\x33\n\rcollection_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x0c\x63ollectionId\x12\x33\n\rdatapoint_ids\x18\x02 \x03(\x0b\x32\x0e.tilebox.v1.IDR\x0c\x64\x61tapointIds\"1\n\x0e\x44\x65leteResponse\x12\x1f\n\x0bnum_deleted\x18\x01 \x01(\x03R\nnumDeleted2\xa0\x01\n\x14\x44\x61taIngestionService\x12\x43\n\x06Ingest\x12\x1a.datasets.v1.IngestRequest\x1a\x1b.datasets.v1.IngestResponse\"\x00\x12\x43\n\x06\x44\x65lete\x12\x1a.datasets.v1.DeleteRequest\x1a\x1b.datasets.v1.DeleteResponse\"\x00\x42w\n\x0f\x63om.datasets.v1B\x12\x44\x61taIngestionProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n datasets/v1/data_ingestion.proto\x12\x0b\x64\x61tasets.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x13tilebox/v1/id.proto\"\x9c\x01\n\rIngestRequest\x12;\n\rcollection_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x0c\x63ollectionId\x12\'\n\x06values\x18\x02 \x03(\x0c\x42\x0f\xbaH\x0c\x92\x01\t\x10\x80@\"\x04z\x02\x10\x01R\x06values\x12%\n\x0e\x61llow_existing\x18\x03 \x01(\x08R\rallowExisting\"\x89\x01\n\x0eIngestResponse\x12\x1f\n\x0bnum_created\x18\x01 \x01(\x03R\nnumCreated\x12!\n\x0cnum_existing\x18\x02 \x01(\x03R\x0bnumExisting\x12\x33\n\rdatapoint_ids\x18\x03 \x03(\x0b\x32\x0e.tilebox.v1.IDR\x0c\x64\x61tapointIds\"\x8c\x01\n\rDeleteRequest\x12;\n\rcollection_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x0c\x63ollectionId\x12>\n\rdatapoint_ids\x18\x02 \x03(\x0b\x32\x0e.tilebox.v1.IDB\t\xbaH\x06\x92\x01\x03\x10\x80@R\x0c\x64\x61tapointIds\"1\n\x0e\x44\x65leteResponse\x12\x1f\n\x0bnum_deleted\x18\x01 \x01(\x03R\nnumDeleted2\xa0\x01\n\x14\x44\x61taIngestionService\x12\x43\n\x06Ingest\x12\x1a.datasets.v1.IngestRequest\x1a\x1b.datasets.v1.IngestResponse\"\x00\x12\x43\n\x06\x44\x65lete\x12\x1a.datasets.v1.DeleteRequest\x1a\x1b.datasets.v1.DeleteResponse\"\x00\x42w\n\x0f\x63om.datasets.v1B\x12\x44\x61taIngestionProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,16 +34,22 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'datasets.v1.data_ingestion_
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\017com.datasets.v1B\022DataIngestionProtoP\001\242\002\003DXX\252\002\013Datasets.V1\312\002\013Datasets\\V1\342\002\027Datasets\\V1\\GPBMetadata\352\002\014Datasets::V1\222\003\002\010\002'
-  _globals['_INGESTDATAPOINTSREQUEST']._serialized_start=95
-  _globals['_INGESTDATAPOINTSREQUEST']._serialized_end=269
-  _globals['_INGESTREQUEST']._serialized_start=272
-  _globals['_INGESTREQUEST']._serialized_end=403
-  _globals['_INGESTRESPONSE']._serialized_start=406
-  _globals['_INGESTRESPONSE']._serialized_end=543
-  _globals['_DELETEREQUEST']._serialized_start=545
-  _globals['_DELETEREQUEST']._serialized_end=666
-  _globals['_DELETERESPONSE']._serialized_start=668
-  _globals['_DELETERESPONSE']._serialized_end=717
-  _globals['_DATAINGESTIONSERVICE']._serialized_start=720
-  _globals['_DATAINGESTIONSERVICE']._serialized_end=880
+  _globals['_INGESTREQUEST'].fields_by_name['collection_id']._loaded_options = None
+  _globals['_INGESTREQUEST'].fields_by_name['collection_id']._serialized_options = b'\272H\003\310\001\001'
+  _globals['_INGESTREQUEST'].fields_by_name['values']._loaded_options = None
+  _globals['_INGESTREQUEST'].fields_by_name['values']._serialized_options = b'\272H\014\222\001\t\020\200@\"\004z\002\020\001'
+  _globals['_DELETEREQUEST'].fields_by_name['collection_id']._loaded_options = None
+  _globals['_DELETEREQUEST'].fields_by_name['collection_id']._serialized_options = b'\272H\003\310\001\001'
+  _globals['_DELETEREQUEST'].fields_by_name['datapoint_ids']._loaded_options = None
+  _globals['_DELETEREQUEST'].fields_by_name['datapoint_ids']._serialized_options = b'\272H\006\222\001\003\020\200@'
+  _globals['_INGESTREQUEST']._serialized_start=100
+  _globals['_INGESTREQUEST']._serialized_end=256
+  _globals['_INGESTRESPONSE']._serialized_start=259
+  _globals['_INGESTRESPONSE']._serialized_end=396
+  _globals['_DELETEREQUEST']._serialized_start=399
+  _globals['_DELETEREQUEST']._serialized_end=539
+  _globals['_DELETERESPONSE']._serialized_start=541
+  _globals['_DELETERESPONSE']._serialized_end=590
+  _globals['_DATAINGESTIONSERVICE']._serialized_start=593
+  _globals['_DATAINGESTIONSERVICE']._serialized_end=753
 # @@protoc_insertion_point(module_scope)

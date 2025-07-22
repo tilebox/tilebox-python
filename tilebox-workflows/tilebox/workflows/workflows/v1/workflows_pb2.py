@@ -22,10 +22,11 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from tilebox.datasets.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1cworkflows/v1/workflows.proto\x12\x0cworkflows.v1\x1a\x17workflows/v1/core.proto\"*\n\x14\x43reateClusterRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\"6\n\x11GetClusterRequest\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\"9\n\x14\x44\x65leteClusterRequest\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\"\x17\n\x15\x44\x65leteClusterResponse\"\x15\n\x13ListClustersRequest\"I\n\x14ListClustersResponse\x12\x31\n\x08\x63lusters\x18\x01 \x03(\x0b\x32\x15.workflows.v1.ClusterR\x08\x63lusters2\xd5\x02\n\x10WorkflowsService\x12J\n\rCreateCluster\x12\".workflows.v1.CreateClusterRequest\x1a\x15.workflows.v1.Cluster\x12\x44\n\nGetCluster\x12\x1f.workflows.v1.GetClusterRequest\x1a\x15.workflows.v1.Cluster\x12X\n\rDeleteCluster\x12\".workflows.v1.DeleteClusterRequest\x1a#.workflows.v1.DeleteClusterResponse\x12U\n\x0cListClusters\x12!.workflows.v1.ListClustersRequest\x1a\".workflows.v1.ListClustersResponseBx\n\x10\x63om.workflows.v1B\x0eWorkflowsProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1cworkflows/v1/workflows.proto\x12\x0cworkflows.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x17workflows/v1/core.proto\"3\n\x14\x43reateClusterRequest\x12\x1b\n\x04name\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x04name\"6\n\x11GetClusterRequest\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\"B\n\x14\x44\x65leteClusterRequest\x12*\n\x0c\x63luster_slug\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0b\x63lusterSlug\"\x17\n\x15\x44\x65leteClusterResponse\"\x15\n\x13ListClustersRequest\"I\n\x14ListClustersResponse\x12\x31\n\x08\x63lusters\x18\x01 \x03(\x0b\x32\x15.workflows.v1.ClusterR\x08\x63lusters2\xd5\x02\n\x10WorkflowsService\x12J\n\rCreateCluster\x12\".workflows.v1.CreateClusterRequest\x1a\x15.workflows.v1.Cluster\x12\x44\n\nGetCluster\x12\x1f.workflows.v1.GetClusterRequest\x1a\x15.workflows.v1.Cluster\x12X\n\rDeleteCluster\x12\".workflows.v1.DeleteClusterRequest\x1a#.workflows.v1.DeleteClusterResponse\x12U\n\x0cListClusters\x12!.workflows.v1.ListClustersRequest\x1a\".workflows.v1.ListClustersResponseBx\n\x10\x63om.workflows.v1B\x0eWorkflowsProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,18 +34,22 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'workflows.v1.workflows_pb2'
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\020com.workflows.v1B\016WorkflowsProtoP\001\242\002\003WXX\252\002\014Workflows.V1\312\002\014Workflows\\V1\342\002\030Workflows\\V1\\GPBMetadata\352\002\rWorkflows::V1\222\003\002\010\002'
-  _globals['_CREATECLUSTERREQUEST']._serialized_start=71
-  _globals['_CREATECLUSTERREQUEST']._serialized_end=113
-  _globals['_GETCLUSTERREQUEST']._serialized_start=115
-  _globals['_GETCLUSTERREQUEST']._serialized_end=169
-  _globals['_DELETECLUSTERREQUEST']._serialized_start=171
-  _globals['_DELETECLUSTERREQUEST']._serialized_end=228
-  _globals['_DELETECLUSTERRESPONSE']._serialized_start=230
-  _globals['_DELETECLUSTERRESPONSE']._serialized_end=253
-  _globals['_LISTCLUSTERSREQUEST']._serialized_start=255
-  _globals['_LISTCLUSTERSREQUEST']._serialized_end=276
-  _globals['_LISTCLUSTERSRESPONSE']._serialized_start=278
-  _globals['_LISTCLUSTERSRESPONSE']._serialized_end=351
-  _globals['_WORKFLOWSSERVICE']._serialized_start=354
-  _globals['_WORKFLOWSSERVICE']._serialized_end=695
+  _globals['_CREATECLUSTERREQUEST'].fields_by_name['name']._loaded_options = None
+  _globals['_CREATECLUSTERREQUEST'].fields_by_name['name']._serialized_options = b'\272H\004r\002\020\001'
+  _globals['_DELETECLUSTERREQUEST'].fields_by_name['cluster_slug']._loaded_options = None
+  _globals['_DELETECLUSTERREQUEST'].fields_by_name['cluster_slug']._serialized_options = b'\272H\004r\002\020\001'
+  _globals['_CREATECLUSTERREQUEST']._serialized_start=100
+  _globals['_CREATECLUSTERREQUEST']._serialized_end=151
+  _globals['_GETCLUSTERREQUEST']._serialized_start=153
+  _globals['_GETCLUSTERREQUEST']._serialized_end=207
+  _globals['_DELETECLUSTERREQUEST']._serialized_start=209
+  _globals['_DELETECLUSTERREQUEST']._serialized_end=275
+  _globals['_DELETECLUSTERRESPONSE']._serialized_start=277
+  _globals['_DELETECLUSTERRESPONSE']._serialized_end=300
+  _globals['_LISTCLUSTERSREQUEST']._serialized_start=302
+  _globals['_LISTCLUSTERSREQUEST']._serialized_end=323
+  _globals['_LISTCLUSTERSRESPONSE']._serialized_start=325
+  _globals['_LISTCLUSTERSRESPONSE']._serialized_end=398
+  _globals['_WORKFLOWSSERVICE']._serialized_start=401
+  _globals['_WORKFLOWSSERVICE']._serialized_end=742
 # @@protoc_insertion_point(module_scope)

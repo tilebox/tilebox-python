@@ -71,6 +71,7 @@ exclude = [
     "*/datasets/v1/*",
     "*/workflows/v1/*",
     "*/tilebox/v1/*",
+    "*/buf/validate/*",
 ]
 
 [tool.ruff.lint]
@@ -120,6 +121,7 @@ ignore = [
     "**/datasets/v1",
     "**/workflows/v1",
     "**/tilebox/v1",
+    "**/buf/validate",
 ]
 
 # pyright needs to have all the dependencies installed to be able to type check

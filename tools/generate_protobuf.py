@@ -30,12 +30,14 @@ def main() -> None:
     package_mapping = {
         "from datasets.v1 import": "from tilebox.datasets.datasets.v1 import",
         "from tilebox.v1 import": "from tilebox.datasets.tilebox.v1 import",
+        "from buf.validate import": "from tilebox.datasets.buf.validate import",
         "from workflows.v1 import": "from tilebox.workflows.workflows.v1 import",
     }
 
     folders = (
         clients_repo / "tilebox-datasets" / "tilebox" / "datasets" / "datasets" / "v1",
         clients_repo / "tilebox-datasets" / "tilebox" / "datasets" / "tilebox" / "v1",
+        clients_repo / "tilebox-datasets" / "tilebox" / "datasets" / "buf" / "validate",
         clients_repo / "tilebox-workflows" / "tilebox" / "workflows" / "workflows" / "v1",
     )
 

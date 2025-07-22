@@ -22,9 +22,10 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from tilebox.datasets.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13tilebox/v1/id.proto\x12\ntilebox.v1\"\x18\n\x02ID\x12\x12\n\x04uuid\x18\x01 \x01(\x0cR\x04uuidBg\n\x0e\x63om.tilebox.v1B\x07IdProtoP\x01\xa2\x02\x03TXX\xaa\x02\nTilebox.V1\xca\x02\nTilebox\\V1\xe2\x02\x16Tilebox\\V1\\GPBMetadata\xea\x02\x0bTilebox::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13tilebox/v1/id.proto\x12\ntilebox.v1\x1a\x1b\x62uf/validate/validate.proto\"3\n\x02ID\x12-\n\x04uuid\x18\x01 \x01(\x0c\x42\x19\xbaH\x16z\x14J\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00h\x10R\x04uuidBg\n\x0e\x63om.tilebox.v1B\x07IdProtoP\x01\xa2\x02\x03TXX\xaa\x02\nTilebox.V1\xca\x02\nTilebox\\V1\xe2\x02\x16Tilebox\\V1\\GPBMetadata\xea\x02\x0bTilebox::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,6 +33,8 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'tilebox.v1.id_pb2', _global
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\016com.tilebox.v1B\007IdProtoP\001\242\002\003TXX\252\002\nTilebox.V1\312\002\nTilebox\\V1\342\002\026Tilebox\\V1\\GPBMetadata\352\002\013Tilebox::V1\222\003\002\010\002'
-  _globals['_ID']._serialized_start=35
-  _globals['_ID']._serialized_end=59
+  _globals['_ID'].fields_by_name['uuid']._loaded_options = None
+  _globals['_ID'].fields_by_name['uuid']._serialized_options = b'\272H\026z\024J\020\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000h\020'
+  _globals['_ID']._serialized_start=64
+  _globals['_ID']._serialized_end=115
 # @@protoc_insertion_point(module_scope)

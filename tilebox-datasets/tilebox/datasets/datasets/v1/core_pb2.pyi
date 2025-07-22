@@ -66,14 +66,6 @@ class DatapointMetadata(_message.Message):
     id: str
     def __init__(self, event_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., ingestion_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
 
-class Datapoints(_message.Message):
-    __slots__ = ("meta", "data")
-    META_FIELD_NUMBER: _ClassVar[int]
-    DATA_FIELD_NUMBER: _ClassVar[int]
-    meta: _containers.RepeatedCompositeFieldContainer[DatapointMetadata]
-    data: RepeatedAny
-    def __init__(self, meta: _Optional[_Iterable[_Union[DatapointMetadata, _Mapping]]] = ..., data: _Optional[_Union[RepeatedAny, _Mapping]] = ...) -> None: ...
-
 class DatapointPage(_message.Message):
     __slots__ = ("meta", "data", "next_page")
     META_FIELD_NUMBER: _ClassVar[int]

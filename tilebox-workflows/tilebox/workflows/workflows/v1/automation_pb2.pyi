@@ -1,3 +1,4 @@
+from tilebox.datasets.buf.validate import validate_pb2 as _validate_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
@@ -45,18 +46,20 @@ class StorageLocations(_message.Message):
     def __init__(self, locations: _Optional[_Iterable[_Union[StorageLocation, _Mapping]]] = ...) -> None: ...
 
 class AutomationPrototype(_message.Message):
-    __slots__ = ("id", "name", "prototype", "storage_event_triggers", "cron_triggers")
+    __slots__ = ("id", "name", "prototype", "storage_event_triggers", "cron_triggers", "disabled")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     PROTOTYPE_FIELD_NUMBER: _ClassVar[int]
     STORAGE_EVENT_TRIGGERS_FIELD_NUMBER: _ClassVar[int]
     CRON_TRIGGERS_FIELD_NUMBER: _ClassVar[int]
+    DISABLED_FIELD_NUMBER: _ClassVar[int]
     id: _id_pb2.ID
     name: str
     prototype: _core_pb2.TaskSubmission
     storage_event_triggers: _containers.RepeatedCompositeFieldContainer[StorageEventTrigger]
     cron_triggers: _containers.RepeatedCompositeFieldContainer[CronTrigger]
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., prototype: _Optional[_Union[_core_pb2.TaskSubmission, _Mapping]] = ..., storage_event_triggers: _Optional[_Iterable[_Union[StorageEventTrigger, _Mapping]]] = ..., cron_triggers: _Optional[_Iterable[_Union[CronTrigger, _Mapping]]] = ...) -> None: ...
+    disabled: bool
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., prototype: _Optional[_Union[_core_pb2.TaskSubmission, _Mapping]] = ..., storage_event_triggers: _Optional[_Iterable[_Union[StorageEventTrigger, _Mapping]]] = ..., cron_triggers: _Optional[_Iterable[_Union[CronTrigger, _Mapping]]] = ..., disabled: bool = ...) -> None: ...
 
 class Automations(_message.Message):
     __slots__ = ("automations",)
