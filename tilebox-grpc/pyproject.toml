@@ -24,9 +24,9 @@ dependencies = [
     # our version of the protobuf compiler generates code that requires grpcio 1.63.0 or higher
     # grpcio 1.65.1 contains a bug that produces lots of logging noise: https://github.com/grpc/grpc/issues/37178
     # grpcio 1.66 also has this bug on MacOS still: https://github.com/grpc/grpc/issues/37642
-    "grpcio>=1.67",
-    "grpcio-status>=1.67",
-    "protobuf>=5",
+    "grpcio>=1.70",
+    "grpcio-status>=1.70",
+    "protobuf>=6",
     # for the libraries below we specify a minimum, tested to be working version
     "lz4>=4",
     "anyio>=4",

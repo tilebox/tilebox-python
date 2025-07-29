@@ -2,6 +2,7 @@
 import contextlib
 import logging
 import os
+import platform
 import re
 import sys
 import traceback
@@ -39,7 +40,7 @@ def _get_default_resource(service: str | Resource | None = None) -> Resource:
 
     service_name = service if isinstance(service, str) else f"tilebox.workflows-{os.getpid()}"
 
-    instance_id = f"{os.uname().nodename}-{os.getpid()}"
+    instance_id = f"{platform.uname().node}-{os.getpid()}"
     workflows_version = "dev"
     with contextlib.suppress(PackageNotFoundError):
         workflows_version = version("tilebox-workflows")
