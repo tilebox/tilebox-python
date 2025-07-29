@@ -9,6 +9,14 @@ from grpc import RpcError, StatusCode
 from grpc.aio import AioRpcError
 
 
+class NetworkError(IOError):
+    """NetworkError indicates that a network error occurred while communicating with the server"""
+
+
+class NetworkTimeoutError(NetworkError, TimeoutError):
+    """TimeoutError indicates that a request timed out"""
+
+
 class AuthenticationError(IOError):
     """AuthenticationError indicates that a server request failed due to a missing or invalid authentication token"""
 
@@ -60,20 +68,42 @@ class AnyRpcError(Protocol):
     def details(self) -> str: ...
 
 
-def translate_rpc_error(err: AnyRpcError) -> Exception:
+def translate_rpc_error(err: AnyRpcError) -> BaseException:  # noqa: PLR0911, C901
     # translate specific error codes to more pythonic errors
+
+    # https://grpc.io/docs/guides/error/
     match err.code():
+        case StatusCode.NOT_FOUND:
+            return NotFoundError(err.details())
+        case StatusCode.INVALID_ARGUMENT:
+            return ArgumentError(err.details())
         case StatusCode.UNAUTHENTICATED:
             return AuthenticationError(f"Unauthenticated: {err.details()}")
         case StatusCode.PERMISSION_DENIED:
             return AuthenticationError(f"Unauthorized: {err.details()}")
-        case StatusCode.NOT_FOUND:
-            return NotFoundError(err.details())
         case StatusCode.RESOURCE_EXHAUSTED:
             return SubscriptionLimitExceededError(err.details())
-        case StatusCode.INVALID_ARGUMENT:
-            return ArgumentError(err.details())
+        case StatusCode.DEADLINE_EXCEEDED:
+            # Deadline expired before server returned status
+            return NetworkTimeoutError(f"Request timed out: {err.details()}")
+        case StatusCode.UNAVAILABLE:
+            # Server shutting down, or some data transmitted and then the connection broke
+            return NetworkError(err.details())
+        case StatusCode.ABORTED:
+            return NetworkError(f"Request aborted: {err.details()}")
+        case StatusCode.UNKNOWN:
+            # Server threw an exception (or did something other than returning a status code to terminate the RPC)
+            return InternalServerError(f"Oops, something went wrong: {err.details()}")
+        case StatusCode.INTERNAL:
+            return InternalServerError(f"Oops, something went wrong: {err.details()}")
+        case StatusCode.CANCELLED:
+            # Client application cancelled the request
+            return KeyboardInterrupt(f"Request canceled by user: {err.details()}")
+        case StatusCode.UNIMPLEMENTED:
+            # Method not found on server
+            return NotImplementedError(err.details())
 
+    # for all other errors we raise a generic internal server error
     return InternalServerError(f"Oops, something went wrong: {err.details()}")
 
 
