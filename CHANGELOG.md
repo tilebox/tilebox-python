@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Dropped support for `protobuf v5` and below, minimum supported version is now `protobuf>=6`.
+
+### Fixed
+
+- `tilebox-workflows`: Fix Opentelemetry logging and tracing initialization on Windows, which was not working becase `os.uname`
+  does not exist on Windows.
+
 ## [0.39.0] - 2025-07-16
 
 ### Added
