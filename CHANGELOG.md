@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.41.0] - 2025-08-01
+
+### Added
+
+- `tilebox-workflows`: Task runners now support receiving a suggested idling duration from the workflows API
+
+### Fixed
+
+- `tilebox-workflows`: Change task lease extension logging message to `DEBUG` level
+
 ## [0.40.0] - 2025-07-29
 
 ### Added
@@ -223,7 +233,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.40.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.41.0...HEAD
+[0.41.0]: https://github.com/tilebox/tilebox-python/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/tilebox/tilebox-python/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/tilebox/tilebox-python/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/tilebox/tilebox-python/compare/v0.37.1...v0.38.0

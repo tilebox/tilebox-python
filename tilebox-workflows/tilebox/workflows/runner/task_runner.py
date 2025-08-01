@@ -28,7 +28,7 @@ from _tilebox.grpc.channel import open_channel
 from _tilebox.grpc.error import InternalServerError
 from tilebox.datasets.sync.dataset import DatasetClient
 from tilebox.workflows.cache import JobCache
-from tilebox.workflows.data import ComputedTask, NextTaskToRun, Task, TaskLease
+from tilebox.workflows.data import ComputedTask, Idling, NextTaskToRun, Task, TaskLease
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
 from tilebox.workflows.observability.logging import get_logger
 from tilebox.workflows.observability.tracing import WorkflowTracer
@@ -37,12 +37,23 @@ from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
 from tilebox.workflows.task import FutureTask, RunnerContext, TaskMeta
 from tilebox.workflows.task import Task as TaskInstance
 
-# In seconds
+# The time we give a task to finish it's execution when a runner shutdown is requested before we forcefully stop it
 _SHUTDOWN_GRACE_PERIOD = timedelta(seconds=2)
-_POLL_INTERVAL = timedelta(seconds=5)
-_JITTER_INTERVAL = timedelta(seconds=5)
+
+# Retry configuration for retrying failed requests to the workflows API
 _INITIAL_RETRY_BACKOFF = timedelta(seconds=5)
 _MAX_RETRY_BACKOFF = timedelta(hours=1)  # 1 hour
+
+# A maximum idling duration, as a safeguard to avoid way too long sleep times in case the suggested idling duration is
+# ever too long. 5 minutes should be plenty of time to wait.
+_MAX_IDLING_DURATION = timedelta(minutes=5)
+# A minimum idling duration, as a safeguard to avoid too short sleep times in case the suggested idling duration is
+# ever too short.
+_MIN_IDLING_DURATION = timedelta(milliseconds=1)
+
+# Fallback polling interval and jitter in case the workflows API fails to respond with a suggested idling duration
+_FALLBACK_POLL_INTERVAL = timedelta(seconds=5)
+_FALLBACK_JITTER_INTERVAL = timedelta(seconds=5)
 
 WrappedFnReturnT = TypeVar("WrappedFnReturnT")
 
@@ -96,14 +107,14 @@ def _extend_lease_while_task_is_running(
 
             break
 
-        logger.info(f"Extending task lease for {task_id=}, {task_lease=}")
+        logger.debug(f"Extending task lease for {task_id=}, {task_lease=}")
         try:
             # The first time we call the function, we pass the argument we received
             # After that, we call it with the result of the previous call
             task_lease = service.extend_task_lease(task_id, 2 * task_lease.lease)
             if task_lease.lease == 0:
                 # The server did not return a lease extension, it means that there is no need in trying to extend the lease
-                logger.info(f"task lease extension not granted for task {task_id}")
+                logger.debug(f"task lease extension not granted for task {task_id}")
                 # even though we failed to extend the lease, let's still wait till the task is done
                 # otherwise we might end up with a mismatch between the task currently being executed and the task
                 # that we extend leases for (and the runner can anyways only execute one task at a time)
@@ -331,41 +342,59 @@ class TaskRunner:
         """
         self._run(stop_when_idling=True)
 
-    def _run(self, stop_when_idling: bool = True) -> None:
+    def _run(self, stop_when_idling: bool = True) -> None:  # noqa: C901
         """
         Run the task runner forever. This will poll for new tasks and execute them as they come in.
         If no tasks are available, it will sleep for a short time and then try again.
         """
-        task: Task | None = None
+        work: Task | Idling | None = None
 
         # capture interrupt signals and delay them by a grace period in order to shut down gracefully
         with _GracefulShutdown(_SHUTDOWN_GRACE_PERIOD, self._service) as shutdown_context:
             while True:
-                if task is None:  # if we don't have a task right now, let's try to work-steal one
-                    if shutdown_context.is_shutting_down():
+                if not isinstance(work, Task):  # if we don't have a task right now, let's try to work-steal one
+                    if shutdown_context.is_shutting_down():  # unless we received an interrupt, then we shut down
                         return
                     try:
-                        task = self._service.next_task(task_to_run=self.tasks_to_run, computed_task=None)
+                        work = self._service.next_task(task_to_run=self.tasks_to_run, computed_task=None)
                     except InternalServerError as e:
                         # We do not need to retry here, since the task runner will sleep for a while and then anyways request this again.
                         self.logger.error(f"Failed to get next task with error {e}")
 
-                if task is not None:  # we have a task to execute
+                if isinstance(work, Task):  # we received a task to execute
+                    task = work
                     if task.retry_count > 0:
                         self.logger.debug(f"Retrying task {task.id} that failed {task.retry_count} times")
-                    task = self._execute(task, shutdown_context)  # submitting the task gives us the next one
-                else:  # if we didn't get a task, let's sleep for a bit and try work-stealing again
-                    self.logger.debug("No task to run")
+                    work = self._execute(task, shutdown_context)  # submitting the task gives us the next work item
+                elif isinstance(work, Idling):  # we received an idling response, so let's sleep for a bit
+                    self.logger.debug("No task to run, idling")
                     if stop_when_idling:  # if stop_when_idling is set, we can just return
                         return
+
                     # now sleep for a bit and then try again, unless we receive an interrupt
-                    shutdown_context.sleep(
-                        _POLL_INTERVAL.total_seconds() + random.uniform(0, _JITTER_INTERVAL.total_seconds())  # noqa: S311
-                    )
+                    idling_duration = work.suggested_idling_duration
+                    idling_duration = min(idling_duration, _MAX_IDLING_DURATION)
+                    idling_duration = max(idling_duration, _MIN_IDLING_DURATION)
+                    shutdown_context.sleep(idling_duration.total_seconds())
+                    if shutdown_context.is_shutting_down():
+                        return
+                else:  # work is None
+                    # we didn't receive an idling response, but also not a task. This only happens if we didn't request
+                    # a task to run, indicating that we are shutting down.
                     if shutdown_context.is_shutting_down():
                         return
 
-    def _execute(self, task: Task, shutdown_context: _GracefulShutdown) -> Task | None:
+                    fallback_interval = _FALLBACK_POLL_INTERVAL.total_seconds() + random.uniform(  # noqa: S311
+                        0, _FALLBACK_JITTER_INTERVAL.total_seconds()
+                    )
+                    self.logger.debug(
+                        f"Didn't receive a task to run, nor an idling response, but runner is not shutting down. "
+                        f"Falling back to a default idling period of {fallback_interval:.2f}s"
+                    )
+
+                    shutdown_context.sleep(fallback_interval)
+
+    def _execute(self, task: Task, shutdown_context: _GracefulShutdown) -> Task | Idling | None:
         try:
             return self._try_execute(task, shutdown_context)
         except Exception as e:
@@ -380,7 +409,7 @@ class TaskRunner:
             task_failed_retry(task, e)
         return None
 
-    def _try_execute(self, task: Task, shutdown_context: _GracefulShutdown) -> Task | None:
+    def _try_execute(self, task: Task, shutdown_context: _GracefulShutdown) -> Task | Idling | None:
         if task.job is None:
             raise ValueError(f"Task {task.id} has no job associated with it.")
 
