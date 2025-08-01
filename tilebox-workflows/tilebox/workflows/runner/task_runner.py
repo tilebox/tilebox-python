@@ -107,14 +107,14 @@ def _extend_lease_while_task_is_running(
 
             break
 
-        logger.info(f"Extending task lease for {task_id=}, {task_lease=}")
+        logger.debug(f"Extending task lease for {task_id=}, {task_lease=}")
         try:
             # The first time we call the function, we pass the argument we received
             # After that, we call it with the result of the previous call
             task_lease = service.extend_task_lease(task_id, 2 * task_lease.lease)
             if task_lease.lease == 0:
                 # The server did not return a lease extension, it means that there is no need in trying to extend the lease
-                logger.info(f"task lease extension not granted for task {task_id}")
+                logger.debug(f"task lease extension not granted for task {task_id}")
                 # even though we failed to extend the lease, let's still wait till the task is done
                 # otherwise we might end up with a mismatch between the task currently being executed and the task
                 # that we extend leases for (and the runner can anyways only execute one task at a time)
