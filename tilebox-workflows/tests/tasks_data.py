@@ -4,6 +4,7 @@ Hypothesis strategies for generating random test data for tests.
 
 import json
 import string
+from datetime import timedelta
 
 from hypothesis.strategies import (
     DrawFn,
@@ -26,6 +27,7 @@ from tilebox.workflows.data import (
     Cluster,
     ComputedTask,
     CronTrigger,
+    Idling,
     Job,
     JobState,
     StorageEventTrigger,
@@ -69,6 +71,17 @@ def tasks(draw: DrawFn) -> Task:
     retry_count = draw(integers(min_value=0, max_value=100))
 
     return Task(task_id, identifier, state, task_input, display, job, parent_id, depends_on, lease, retry_count)
+
+
+@composite
+def idling_responses(draw: DrawFn) -> Idling:
+    """A hypothesis strategy for generating random idling_responses"""
+    return Idling(
+        timedelta(
+            seconds=draw(integers(min_value=0, max_value=60 * 60)),
+            milliseconds=draw(integers(min_value=0, max_value=1000)),
+        )
+    )
 
 
 @composite

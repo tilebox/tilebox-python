@@ -36,11 +36,19 @@ class ComputedTask(_message.Message):
     sub_tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.TaskSubmission]
     def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., sub_tasks: _Optional[_Iterable[_Union[_core_pb2.TaskSubmission, _Mapping]]] = ...) -> None: ...
 
+class IdlingResponse(_message.Message):
+    __slots__ = ("suggested_idling_duration",)
+    SUGGESTED_IDLING_DURATION_FIELD_NUMBER: _ClassVar[int]
+    suggested_idling_duration: _duration_pb2.Duration
+    def __init__(self, suggested_idling_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...) -> None: ...
+
 class NextTaskResponse(_message.Message):
-    __slots__ = ("next_task",)
+    __slots__ = ("next_task", "idling")
     NEXT_TASK_FIELD_NUMBER: _ClassVar[int]
+    IDLING_FIELD_NUMBER: _ClassVar[int]
     next_task: _core_pb2.Task
-    def __init__(self, next_task: _Optional[_Union[_core_pb2.Task, _Mapping]] = ...) -> None: ...
+    idling: IdlingResponse
+    def __init__(self, next_task: _Optional[_Union[_core_pb2.Task, _Mapping]] = ..., idling: _Optional[_Union[IdlingResponse, _Mapping]] = ...) -> None: ...
 
 class TaskFailedRequest(_message.Message):
     __slots__ = ("task_id", "display", "cancel_job")

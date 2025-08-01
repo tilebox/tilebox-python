@@ -4,6 +4,7 @@ from tests.tasks_data import (
     automations,
     clusters,
     computed_tasks,
+    idling_responses,
     jobs,
     storage_locations,
     task_identifiers,
@@ -15,6 +16,7 @@ from tilebox.workflows.data import (
     AutomationPrototype,
     Cluster,
     ComputedTask,
+    Idling,
     Job,
     StorageLocation,
     Task,
@@ -32,6 +34,11 @@ def test_task_identifiers_to_message_and_back(task_id: TaskIdentifier) -> None:
 @given(tasks())
 def test_tasks_to_message_and_back(task: Task) -> None:
     assert Task.from_message(task.to_message()) == task
+
+
+@given(idling_responses())
+def test_idling_responses_to_message_and_back(idling: Idling) -> None:
+    assert Idling.from_message(idling.to_message()) == idling
 
 
 @given(jobs())

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-workflows`: Task runners now support receiving a suggested idling duration from the workflows API
+
 ## [0.40.0] - 2025-07-29
 
 ### Added

@@ -6,6 +6,7 @@ from grpc import Channel
 from _tilebox.grpc.error import with_pythonic_errors
 from tilebox.workflows.data import (
     ComputedTask,
+    Idling,
     NextTaskToRun,
     Task,
     TaskLease,
@@ -32,18 +33,19 @@ class TaskService:
         """
         self.service = with_pythonic_errors(TaskServiceStub(channel))
 
-    def next_task(self, task_to_run: NextTaskToRun | None, computed_task: ComputedTask | None) -> Task | None:
+    def next_task(self, task_to_run: NextTaskToRun | None, computed_task: ComputedTask | None) -> Task | Idling | None:
         computed_task_message = None if computed_task is None else computed_task.to_message()
         task_to_run_message = None if task_to_run is None else task_to_run.to_message()
 
         response: NextTaskResponse = self.service.NextTask(
             NextTaskRequest(computed_task=computed_task_message, next_task_to_run=task_to_run_message)
         )
-        return (
-            Task.from_message(response.next_task)
-            if response.next_task is not None and response.next_task.id.uuid
-            else None
-        )
+
+        if response.next_task is not None and response.next_task.id.uuid:
+            return Task.from_message(response.next_task)
+        if response.idling is not None:
+            return Idling.from_message(response.idling)
+        return None
 
     def task_failed(self, task: Task, error: Exception, cancel_job: bool = True) -> None:
         # job ouptut is limited to 1KB, so truncate the error message if necessary

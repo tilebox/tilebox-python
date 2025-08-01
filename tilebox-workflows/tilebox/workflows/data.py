@@ -1,7 +1,7 @@
 import re
 import warnings
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
@@ -14,7 +14,13 @@ from google.protobuf.duration_pb2 import Duration
 
 from tilebox.datasets.query.id_interval import IDInterval
 from tilebox.datasets.query.pagination import Pagination
-from tilebox.datasets.query.time_interval import TimeInterval, datetime_to_timestamp, timestamp_to_datetime
+from tilebox.datasets.query.time_interval import (
+    TimeInterval,
+    datetime_to_timestamp,
+    duration_to_timedelta,
+    timedelta_to_duration,
+    timestamp_to_datetime,
+)
 from tilebox.datasets.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
 
 try:
@@ -147,6 +153,20 @@ class Task:
             lease=self.lease.to_message() if self.lease else None,
             retry_count=self.retry_count,
         )
+
+
+@dataclass(order=True)
+class Idling:
+    suggested_idling_duration: timedelta
+
+    @classmethod
+    def from_message(cls, idling: task_pb2.IdlingResponse) -> "Idling":
+        """Convert a Idling protobuf message to a Idling object."""
+        return cls(suggested_idling_duration=duration_to_timedelta(idling.suggested_idling_duration))
+
+    def to_message(self) -> task_pb2.IdlingResponse:
+        """Convert a Idling object to a Idling protobuf message."""
+        return task_pb2.IdlingResponse(suggested_idling_duration=timedelta_to_duration(self.suggested_idling_duration))
 
 
 class JobState(Enum):
