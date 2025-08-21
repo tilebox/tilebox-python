@@ -302,7 +302,7 @@ async def test_landsat_storage_client_download(granule: USGSLandsatStorageGranul
         await store.put_async(
             f"{granule.location.removeprefix('s3://usgs-landsat/')}/{granule.granule_name}", b"content1"
         )
-        with patch("tilebox.storage.aio.S3Store") as store_mock:
+        with patch("tilebox.storage.aio.S3Store") as store_mock, patch("tilebox.storage.aio.Boto3CredentialProvider"):
             store_mock.return_value = store
             landsat = USGSLandsatStorageClient(cache_directory=Path(tmp_path))
 
@@ -327,7 +327,7 @@ async def test_landsat_storage_client_list_objects(granule: USGSLandsatStorageGr
             f"{granule.location.removeprefix('s3://usgs-landsat/')}/{granule.granule_name}_thumb_small.jpeg",
             b"content2",
         )
-        with patch("tilebox.storage.aio.S3Store") as store_mock:
+        with patch("tilebox.storage.aio.S3Store") as store_mock, patch("tilebox.storage.aio.Boto3CredentialProvider"):
             store_mock.return_value = store
             landsat = USGSLandsatStorageClient(cache_directory=Path(tmp_path))
 
@@ -351,7 +351,7 @@ async def test_landsat_storage_client_download_objects(granule: USGSLandsatStora
         await store.put_async(
             f"{granule.location.removeprefix('s3://usgs-landsat/')}/other_product_{granule.granule_name}", b"content2"
         )
-        with patch("tilebox.storage.aio.S3Store") as store_mock:
+        with patch("tilebox.storage.aio.S3Store") as store_mock, patch("tilebox.storage.aio.Boto3CredentialProvider"):
             store_mock.return_value = store
             landsat = USGSLandsatStorageClient(cache_directory=Path(tmp_path))
 
