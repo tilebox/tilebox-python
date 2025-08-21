@@ -9,9 +9,20 @@ from hypothesis import HealthCheck, given, settings
 from obstore.store import LocalStore
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from tests.storage_data import ers_granules, s5p_granules, umbra_granules
-from tilebox.storage.aio import ASFStorageClient, CopernicusStorageClient, UmbraStorageClient, _HttpClient
-from tilebox.storage.granule import ASFStorageGranule, CopernicusStorageGranule, UmbraStorageGranule
+from tests.storage_data import ers_granules, landsat_granules, s5p_granules, umbra_granules
+from tilebox.storage.aio import (
+    ASFStorageClient,
+    CopernicusStorageClient,
+    UmbraStorageClient,
+    USGSLandsatStorageClient,
+    _HttpClient,
+)
+from tilebox.storage.granule import (
+    ASFStorageGranule,
+    CopernicusStorageGranule,
+    UmbraStorageGranule,
+    USGSLandsatStorageGranule,
+)
 
 
 @pytest.mark.asyncio
@@ -274,6 +285,77 @@ async def test_copernicus_storage_client_download_objects(granule: CopernicusSto
                 cache_directory=Path(tmp_path),
             )
         folder = await copernicus.download_objects(granule, [granule.granule_name], show_progress=False)
+        assert folder.exists()
+        assert (folder / granule.granule_name).read_bytes() == b"content1"
+        assert not (folder / f"other_product_{granule.granule_name}").exists()
+
+
+@pytest.mark.asyncio
+@given(landsat_granules())
+@settings(max_examples=1, deadline=timedelta(milliseconds=100))
+async def test_landsat_storage_client_download(granule: USGSLandsatStorageGranule) -> None:
+    with TemporaryDirectory(delete=True) as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
+
+        await store.put_async(
+            f"{granule.location.removeprefix('s3://usgs-landsat/')}/{granule.granule_name}", b"content1"
+        )
+        with patch("tilebox.storage.aio.S3Store") as store_mock:
+            store_mock.return_value = store
+            landsat = USGSLandsatStorageClient(cache_directory=Path(tmp_path))
+
+        folder = await landsat.download(granule, show_progress=False)
+        assert folder.exists()
+        assert (folder / granule.granule_name).read_bytes() == b"content1"
+
+
+@pytest.mark.asyncio
+@given(landsat_granules())
+@settings(max_examples=1, deadline=timedelta(milliseconds=100))
+async def test_landsat_storage_client_list_objects(granule: USGSLandsatStorageGranule) -> None:
+    with TemporaryDirectory(delete=True) as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
+
+        await store.put_async(
+            f"{granule.location.removeprefix('s3://usgs-landsat/')}/{granule.granule_name}", b"content1"
+        )
+        await store.put_async(
+            f"{granule.location.removeprefix('s3://usgs-landsat/')}/{granule.granule_name}_thumb_small.jpeg",
+            b"content2",
+        )
+        with patch("tilebox.storage.aio.S3Store") as store_mock:
+            store_mock.return_value = store
+            landsat = USGSLandsatStorageClient(cache_directory=Path(tmp_path))
+
+        objects = await landsat.list_objects(granule)
+        assert len(objects) == 2
+        assert sorted(objects) == sorted([granule.granule_name, f"{granule.granule_name}_thumb_small.jpeg"])
+
+
+@pytest.mark.asyncio
+@given(landsat_granules())
+@settings(max_examples=1, deadline=timedelta(milliseconds=100))
+async def test_landsat_storage_client_download_objects(granule: USGSLandsatStorageGranule) -> None:
+    with TemporaryDirectory(delete=True) as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
+
+        await store.put_async(
+            f"{granule.location.removeprefix('s3://usgs-landsat/')}/{granule.granule_name}", b"content1"
+        )
+        await store.put_async(
+            f"{granule.location.removeprefix('s3://usgs-landsat/')}/other_product_{granule.granule_name}", b"content2"
+        )
+        with patch("tilebox.storage.aio.S3Store") as store_mock:
+            store_mock.return_value = store
+            landsat = USGSLandsatStorageClient(cache_directory=Path(tmp_path))
+
+        folder = await landsat.download_objects(granule, [granule.granule_name], show_progress=False)
         assert folder.exists()
         assert (folder / granule.granule_name).read_bytes() == b"content1"
         assert not (folder / f"other_product_{granule.granule_name}").exists()

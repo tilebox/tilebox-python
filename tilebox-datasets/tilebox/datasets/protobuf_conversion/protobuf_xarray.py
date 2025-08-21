@@ -374,19 +374,16 @@ def _create_field_converter(field: FieldDescriptor) -> _FieldConverter:
     """
     # special handling for enums:
     if field.type == FieldDescriptor.TYPE_ENUM:
-        if field.label == FieldDescriptor.LABEL_REPEATED:
+        if field.is_repeated:
             raise NotImplementedError("Repeated enum fields are not supported")
 
         return _EnumFieldConverter(field.name, enum_mapping_from_field_descriptor(field))
 
     field_type = infer_field_type(field)
-    if field.label == FieldDescriptor.LABEL_OPTIONAL:  # simple fields (in proto3 every simple field is optional)
-        return _SimpleFieldConverter(field.name, field_type)
-
-    if field.label == FieldDescriptor.LABEL_REPEATED:
+    if field.is_repeated:
         return _ArrayFieldConverter(field.name, field_type)
 
-    raise ValueError(f"Unsupported field type with label {field.label} and type {field.type}")
+    return _SimpleFieldConverter(field.name, field_type)
 
 
 def _combine_dimension_names(array_dimensions: dict[str, int]) -> dict[str, tuple[str, int]]:

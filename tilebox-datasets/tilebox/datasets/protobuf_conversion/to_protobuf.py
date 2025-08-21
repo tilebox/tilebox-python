@@ -6,7 +6,6 @@ from uuid import UUID
 import numpy as np
 import pandas as pd
 import xarray as xr
-from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.message import Message
 
 from tilebox.datasets.protobuf_conversion.field_types import (
@@ -80,7 +79,7 @@ def to_messages(  # noqa: C901, PLR0912
         descriptor = field_descriptors_by_name[field_name]
         field_type = infer_field_type(descriptor)
 
-        if descriptor.label == FieldDescriptor.LABEL_REPEATED:
+        if descriptor.is_repeated:
             values = convert_repeated_values_to_proto(values, field_type)
         else:
             values = convert_values_to_proto(values, field_type, filter_none=False)
