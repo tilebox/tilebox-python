@@ -152,7 +152,7 @@ async def test_cached_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: A
 @given(umbra_granules())
 @settings(max_examples=1, deadline=timedelta(milliseconds=100))
 async def test_umbra_storage_client_download(granule: UmbraStorageGranule) -> None:
-    with TemporaryDirectory(delete=True) as tmp_path:
+    with TemporaryDirectory() as tmp_path:
         store_path = Path(tmp_path) / "store"
         store_path.mkdir(exist_ok=True, parents=True)
         store = LocalStore(store_path)
@@ -175,7 +175,7 @@ async def test_umbra_storage_client_download(granule: UmbraStorageGranule) -> No
 @given(umbra_granules())
 @settings(max_examples=1, deadline=timedelta(milliseconds=100))
 async def test_umbra_storage_client_list_objects(granule: UmbraStorageGranule) -> None:
-    with TemporaryDirectory(delete=True) as tmp_path:
+    with TemporaryDirectory() as tmp_path:
         store_path = Path(tmp_path) / "store"
         store_path.mkdir(exist_ok=True, parents=True)
         store = LocalStore(store_path)
@@ -198,7 +198,7 @@ async def test_umbra_storage_client_list_objects(granule: UmbraStorageGranule) -
 @given(umbra_granules())
 @settings(max_examples=1, deadline=timedelta(milliseconds=100))
 async def test_umbra_storage_client_download_objects(granule: UmbraStorageGranule) -> None:
-    with TemporaryDirectory(delete=True) as tmp_path:
+    with TemporaryDirectory() as tmp_path:
         store_path = Path(tmp_path) / "store"
         store_path.mkdir(exist_ok=True, parents=True)
         store = LocalStore(store_path)
@@ -219,7 +219,7 @@ async def test_umbra_storage_client_download_objects(granule: UmbraStorageGranul
 @given(s5p_granules())
 @settings(max_examples=1, deadline=timedelta(milliseconds=100))
 async def test_copernicus_storage_client_download(granule: CopernicusStorageGranule) -> None:
-    with TemporaryDirectory(delete=True) as tmp_path:
+    with TemporaryDirectory() as tmp_path:
         store_path = Path(tmp_path) / "store"
         store_path.mkdir(exist_ok=True, parents=True)
         store = LocalStore(store_path)
@@ -242,7 +242,7 @@ async def test_copernicus_storage_client_download(granule: CopernicusStorageGran
 @given(s5p_granules())
 @settings(max_examples=1, deadline=timedelta(milliseconds=100))
 async def test_copernicus_storage_client_list_objects(granule: CopernicusStorageGranule) -> None:
-    with TemporaryDirectory(delete=True) as tmp_path:
+    with TemporaryDirectory() as tmp_path:
         store_path = Path(tmp_path) / "store"
         store_path.mkdir(exist_ok=True, parents=True)
         store = LocalStore(store_path)
@@ -268,7 +268,7 @@ async def test_copernicus_storage_client_list_objects(granule: CopernicusStorage
 @given(s5p_granules())
 @settings(max_examples=1, deadline=timedelta(milliseconds=100))
 async def test_copernicus_storage_client_download_objects(granule: CopernicusStorageGranule) -> None:
-    with TemporaryDirectory(delete=True) as tmp_path:
+    with TemporaryDirectory() as tmp_path:
         store_path = Path(tmp_path) / "store"
         store_path.mkdir(exist_ok=True, parents=True)
         store = LocalStore(store_path)
@@ -294,7 +294,7 @@ async def test_copernicus_storage_client_download_objects(granule: CopernicusSto
 @given(landsat_granules())
 @settings(max_examples=1, deadline=timedelta(milliseconds=100))
 async def test_landsat_storage_client_download(granule: USGSLandsatStorageGranule) -> None:
-    with TemporaryDirectory(delete=True) as tmp_path:
+    with TemporaryDirectory() as tmp_path:
         store_path = Path(tmp_path) / "store"
         store_path.mkdir(exist_ok=True, parents=True)
         store = LocalStore(store_path)
@@ -315,7 +315,7 @@ async def test_landsat_storage_client_download(granule: USGSLandsatStorageGranul
 @given(landsat_granules())
 @settings(max_examples=1, deadline=timedelta(milliseconds=100))
 async def test_landsat_storage_client_list_objects(granule: USGSLandsatStorageGranule) -> None:
-    with TemporaryDirectory(delete=True) as tmp_path:
+    with TemporaryDirectory() as tmp_path:
         store_path = Path(tmp_path) / "store"
         store_path.mkdir(exist_ok=True, parents=True)
         store = LocalStore(store_path)
@@ -340,7 +340,7 @@ async def test_landsat_storage_client_list_objects(granule: USGSLandsatStorageGr
 @given(landsat_granules())
 @settings(max_examples=1, deadline=timedelta(milliseconds=100))
 async def test_landsat_storage_client_download_objects(granule: USGSLandsatStorageGranule) -> None:
-    with TemporaryDirectory(delete=True) as tmp_path:
+    with TemporaryDirectory() as tmp_path:
         store_path = Path(tmp_path) / "store"
         store_path.mkdir(exist_ok=True, parents=True)
         store = LocalStore(store_path)
