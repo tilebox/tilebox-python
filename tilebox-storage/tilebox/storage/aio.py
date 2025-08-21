@@ -595,7 +595,23 @@ class CopernicusStorageClient(StorageClient):
 
         Returns:
             List of object keys available for the given datapoint, relative to the granule location."""
-        return await list_object_paths(self._store, _copernicus_s3_prefix(datapoint))
+        return await self._list_objects(datapoint)
+
+    async def _list_objects(self, datapoint: xr.Dataset | CopernicusStorageGranule) -> list[str]:
+        """List all available objects for a given datapoint.
+
+        Args:
+            datapoint: The datapoint to list available objects the data for.
+
+        Returns:
+            List of object keys available for the given datapoint, relative to the granule location."""
+
+        granule = CopernicusStorageGranule.from_data(datapoint)
+        # special handling for Sentinel-5P, where the location is not a folder but a single file
+        if granule.location.endswith(".nc"):
+            return [Path(granule.granule_name).name]
+
+        return await list_object_paths(self._store, _copernicus_s3_prefix(granule))
 
     async def download(
         self,
@@ -615,8 +631,10 @@ class CopernicusStorageClient(StorageClient):
         Returns:
             The path to the downloaded data directory.
         """
-        all_objects = await list_object_paths(self._store, _copernicus_s3_prefix(datapoint))
-        return await self._download_objects(datapoint, all_objects, output_dir, show_progress, max_concurrent_downloads)
+        granule = CopernicusStorageGranule.from_data(datapoint)
+
+        all_objects = await self._list_objects(granule)
+        return await self._download_objects(granule, all_objects, output_dir, show_progress, max_concurrent_downloads)
 
     async def download_objects(
         self,
@@ -652,7 +670,14 @@ class CopernicusStorageClient(StorageClient):
         show_progress: bool = True,
         max_concurrent_downloads: int = 4,
     ) -> Path:
-        prefix = _copernicus_s3_prefix(datapoint)
+        granule = CopernicusStorageGranule.from_data(datapoint)
+        prefix = _copernicus_s3_prefix(granule)
+        single_file = False
+
+        # special handling for Sentinel-5P, where the location is not a folder but a single file
+        if granule.location.endswith(".nc"):
+            single_file = True
+            prefix = str(Path(prefix).parent)
 
         base_folder = output_dir or self._cache
         if base_folder is None:
@@ -663,7 +688,60 @@ class CopernicusStorageClient(StorageClient):
             return output_folder
 
         await download_objects(self._store, prefix, objects, output_folder, show_progress, max_concurrent_downloads)
+        if single_file:
+            return output_folder / objects[0]
         return output_folder
+
+    async def download_quicklook(self, datapoint: xr.Dataset | CopernicusStorageGranule) -> Path:
+        """Download the quicklook image for a given datapoint.
+
+        Args:
+            datapoint: The datapoint to download the quicklook for.
+
+        Raises:
+            ValueError: If no quicklook is available for the given datapoint.
+
+        Returns:
+            The path to the downloaded quicklook image.
+        """
+        return await self._download_quicklook(datapoint)
+
+    async def quicklook(
+        self, datapoint: xr.Dataset | CopernicusStorageGranule, width: int = 600, height: int = 600
+    ) -> None:
+        """Display the quicklook image for a given datapoint.
+
+        Requires an IPython kernel to be running. If you are not using IPython, use download_quicklook instead.
+
+        Args:
+            datapoint: The datapoint to download the quicklook for.
+            width: Display width of the image in pixels. Defaults to 600.
+            height: Display height of the image in pixels. Defaults to 600.
+
+        Raises:
+            ImportError: In case IPython is not available.
+            ValueError: If no quicklook is available for the given datapoint.
+        """
+        if Image is None:
+            raise ImportError("IPython is not available, please use download_preview instead.")
+        granule = CopernicusStorageGranule.from_data(datapoint)
+        quicklook = await self._download_quicklook(granule)
+        _display_quicklook(quicklook, width, height, f"<code>{granule.granule_name} © ESA {granule.time.year}</code>")
+
+    async def _download_quicklook(self, datapoint: xr.Dataset | CopernicusStorageGranule) -> Path:
+        granule = CopernicusStorageGranule.from_data(datapoint)
+        if granule.thumbnail is None:
+            raise ValueError(f"No quicklook available for {granule.granule_name}")
+
+        prefix = _copernicus_s3_prefix(granule)
+        output_folder = (
+            self._cache / self._STORAGE_PROVIDER / Path(prefix)
+            if self._cache is not None
+            else Path.cwd() / self._STORAGE_PROVIDER
+        )
+
+        await download_objects(self._store, prefix, [granule.thumbnail], output_folder, show_progress=False)
+        return output_folder / granule.thumbnail
 
 
 def _landsat_s3_prefix(datapoint: xr.Dataset | USGSLandsatStorageGranule) -> str:

@@ -51,7 +51,6 @@ def alphanumerical_text(draw: DrawFn, min_size: int = 1, max_size: int = 100) ->
 @composite
 def umbra_granules(draw: DrawFn) -> UmbraStorageGranule:
     """Generate a realistic-looking random Umbra granule."""
-    level = "L0"
     time = draw(datetimes(min_value=datetime(1990, 1, 1), max_value=datetime(2025, 1, 1), timezones=just(None)))
     number = draw(integers(min_value=1, max_value=2))
     text_location = draw(alphanumerical_text(min_size=1, max_size=20))
@@ -59,7 +58,7 @@ def umbra_granules(draw: DrawFn) -> UmbraStorageGranule:
     granule_name = f"{time:%Y-%m-%d-%H-%M-%S}_UMBRA-{number:02d}"
     location = str(Path(text_location) / granule_id / granule_name)
 
-    return UmbraStorageGranule(time, granule_name, level, location)
+    return UmbraStorageGranule(time, granule_name, location)
 
 
 @composite
@@ -85,8 +84,7 @@ def s5p_granules(draw: DrawFn) -> CopernicusStorageGranule:
     # /eodata/Sentinel-5P/TROPOMI/L2__AER_LH/2024/04/15/S5P_NRTI_L2__AER_LH_20240415T055540_20240415T060040_33707_03_020600_20240415T063447
     location = f"/eodata/Sentinel-5P/{instrument}/{product_type}/{start:%Y}/{start:%m}/{start:%d}/{granule_name.removesuffix('.nc')}"
 
-    file_size = draw(integers(min_value=10_000, max_value=999_999_999))
-    return CopernicusStorageGranule(start, granule_name, location, file_size)
+    return CopernicusStorageGranule(start, granule_name, location)
 
 
 @composite

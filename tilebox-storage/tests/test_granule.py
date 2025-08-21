@@ -11,6 +11,7 @@ from tilebox.storage.granule import (
     UmbraStorageGranule,
     USGSLandsatStorageGranule,
     _asf_download_urls,
+    _thumbnail_relative_to_eodata_location,
 )
 
 
@@ -59,7 +60,6 @@ def _umbra_granule_to_datapoint(granule: UmbraStorageGranule) -> xr.Dataset:
     datapoint = xr.Dataset()
     datapoint.coords["time"] = np.array(granule.time).astype("datetime64[ns]")
     datapoint["granule_name"] = granule.granule_name
-    datapoint["processing_level"] = granule.processing_level
     datapoint["location"] = granule.location
     return datapoint
 
@@ -82,12 +82,51 @@ def test_granule_from_umbra_datapoints(granules: list[UmbraStorageGranule]) -> N
         assert UmbraStorageGranule.from_data(dataset.isel(time=i)) == granules[i]
 
 
+@pytest.mark.parametrize(
+    ("thumbnail_url", "location", "expected"),
+    [
+        (
+            "https://catalogue.dataspace.copernicus.eu/get-object?path=/Sentinel-1/SAR/EW_GRDM_1S/2025/08/07/S1A_EW_GRDM_1SDH_20250807T111242_20250807T111346_060429_078305_DB6A.SAFE/preview/thumbnail.png",
+            "/eodata/Sentinel-1/SAR/EW_GRDM_1S/2025/08/07/S1A_EW_GRDM_1SDH_20250807T111242_20250807T111346_060429_078305_DB6A.SAFE",
+            "preview/thumbnail.png",
+        ),
+        (
+            "https://catalogue.dataspace.copernicus.eu/get-object?path=/Sentinel-2/MSI/L1C/2025/08/07/S2B_MSIL1C_20250807T004159_N0511_R045_T08XNR_20250807T004945.SAFE/S2B_MSIL1C_20250807T004159_N0511_R045_T08XNR_20250807T004945-ql.jpg",
+            "/eodata/Sentinel-2/MSI/L1C/2025/08/07/S2B_MSIL1C_20250807T004159_N0511_R045_T08XNR_20250807T004945.SAFE",
+            "S2B_MSIL1C_20250807T004159_N0511_R045_T08XNR_20250807T004945-ql.jpg",
+        ),
+        (
+            "https://catalogue.dataspace.copernicus.eu/get-object?path=/Sentinel-3/OLCI/OL_2_LFR___/2025/08/07/S3A_OL_2_LFR____20250807T011653_20250807T011953_20250807T033036_0179_129_074_1620_PS1_O_NR_003.SEN3/quicklook.jpg",
+            "/eodata/Sentinel-3/OLCI/OL_2_LFR___/2025/08/07/S3A_OL_2_LFR____20250807T011653_20250807T011953_20250807T033036_0179_129_074_1620_PS1_O_NR_003.SEN3",
+            "quicklook.jpg",
+        ),
+        (
+            "https://catalogue.dataspace.copernicus.eu/get-object?path=/Sentinel-3/SLSTR/SL_1_RBT___/2025/08/07/S3B_SL_1_RBT____20250807T002314_20250807T002614_20250807T025411_0179_109_316_0720_ESA_O_NR_004.SEN3/quicklook.jpg",
+            "/eodata/Sentinel-3/SLSTR/SL_1_RBT___/2025/08/07/S3B_SL_1_RBT____20250807T002314_20250807T002614_20250807T025411_0179_109_316_0720_ESA_O_NR_004.SEN3",
+            "quicklook.jpg",
+        ),
+        (
+            "https://catalogue.dataspace.copernicus.eu/get-object?path=/Sentinel-3/SYNERGY/SY_2_VG1___/2025/08/04/S3A_SY_2_VG1____20250804T000000_20250804T235959_20250806T202029_AUSTRALASIA_______PS1_O_NT_002.SEN3/quicklook.jpg",
+            "/eodata/Sentinel-3/SYNERGY/SY_2_VG1___/2025/08/04/S3A_SY_2_VG1____20250804T000000_20250804T235959_20250806T202029_AUSTRALASIA_______PS1_O_NT_002.SEN3",
+            "quicklook.jpg",
+        ),
+    ],
+)
+def test_thumbnail_relative_to_eodata_location(thumbnail_url: str, location: str, expected: str) -> None:
+    assert (
+        _thumbnail_relative_to_eodata_location(
+            thumbnail_url,
+            location,
+        )
+        == expected
+    )
+
+
 def _copernicus_granule_to_datapoint(granule: CopernicusStorageGranule) -> xr.Dataset:
     datapoint = xr.Dataset()
     datapoint.coords["time"] = np.array(granule.time).astype("datetime64[ns]")
     datapoint["granule_name"] = granule.granule_name
     datapoint["location"] = granule.location
-    datapoint["file_size"] = granule.file_size
     return datapoint
 
 
