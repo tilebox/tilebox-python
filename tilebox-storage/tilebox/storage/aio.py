@@ -1,26 +1,31 @@
+import asyncio
 import hashlib
 import os
 import shutil
 import tempfile
-import warnings
 import zipfile
-from collections.abc import AsyncIterator, Callable, Iterator
+from asyncio import Queue, QueueEmpty
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import IO, Any
+from typing import Any, TypeAlias
 
 import anyio
-import boto3
+import obstore as obs
+import xarray as xr
 from aiofile import async_open
-from botocore import UNSIGNED
-from botocore.client import Config
 from httpx import AsyncClient
-from mypy_boto3_s3 import S3Client
-from mypy_boto3_s3.type_defs import ObjectTypeDef
+from obstore.auth.boto3 import Boto3CredentialProvider
+from obstore.store import GCSStore, LocalStore, S3Store
 from tqdm.auto import tqdm
 
 from _tilebox.grpc.aio.producer_consumer import async_producer_consumer
 from _tilebox.grpc.aio.syncify import Syncifiable
-from tilebox.storage.granule import ASFStorageGranule, CopernicusStorageGranule, UmbraStorageGranule
+from tilebox.storage.granule import (
+    ASFStorageGranule,
+    CopernicusStorageGranule,
+    UmbraStorageGranule,
+    USGSLandsatStorageGranule,
+)
 from tilebox.storage.providers import login
 
 try:
@@ -38,7 +43,7 @@ except ImportError:
         raise RuntimeError("IPython is not available. Diagram can only be displayed in a notebook.")
 
 
-import xarray as xr
+ObjectStore: TypeAlias = S3Store | LocalStore | GCSStore
 
 
 class _HttpClient(Syncifiable):
@@ -46,6 +51,10 @@ class _HttpClient(Syncifiable):
         """A tilebox storage client that directly downloads files from the storage provider to a given directory."""
         self._clients: dict[str, AsyncClient] = {}
         self._auth = auth
+
+    def __del__(self) -> None:
+        for client in self._clients.values():
+            asyncio.run(client.aclose())
 
     async def download_quicklook(
         self, datapoint: xr.Dataset | ASFStorageGranule, output_dir: Path | None = None
@@ -94,7 +103,7 @@ class _HttpClient(Syncifiable):
         image_data = await self._download_quicklook(granule)
         assert granule.urls.quicklook is not None  # otherwise _download_quicklook would have raised a ValueError
         image_name = granule.urls.quicklook.rsplit("/", 1)[-1]
-        _display_quicklook(image_data, image_name, granule.time.year, width, height)
+        _display_quicklook(image_data, width, height, f"<code>Image {image_name} © ASF {granule.time.year}</code>")
 
     async def _download_quicklook(self, granule: ASFStorageGranule) -> bytes:
         """Download a granules quicklook image into a memory buffer."""
@@ -224,10 +233,10 @@ class _HttpClient(Syncifiable):
         return client
 
 
-def _display_quicklook(image_data: bytes | Path, image_name: str, year: int, width: int, height: int) -> None:
+def _display_quicklook(image_data: bytes | Path, width: int, height: int, image_caption: str | None = None) -> None:
     display(Image(image_data, width=width, height=height))
-    image_copyright = HTML(f"<code>Image {image_name} © ESA {year}</code>")
-    display(image_copyright)
+    if image_caption is not None:
+        display(HTML(image_caption))
 
 
 class StorageClient(Syncifiable):
@@ -246,6 +255,71 @@ class StorageClient(Syncifiable):
         """Clear the download cache, deleting all entries."""
         if self._cache is not None:
             shutil.rmtree(self._cache)
+
+
+async def list_object_paths(store: ObjectStore, prefix: str) -> list[str]:
+    objects = await obs.list(store, prefix).collect_async()
+    prefix_path = Path(prefix)
+    return sorted(str(Path(obj["path"]).relative_to(prefix_path)) for obj in objects)
+
+
+async def download_objects(  # noqa: PLR0913
+    store: ObjectStore,
+    prefix: str,
+    objects: list[str],
+    output_dir: Path,
+    show_progress: bool = True,
+    max_concurrent_downloads: int = 10,
+) -> None:
+    queue = Queue()
+    for obj in objects:
+        await queue.put((prefix, obj))
+
+    max_concurrent_downloads = max(1, min(max_concurrent_downloads, len(objects)))
+    async with anyio.create_task_group() as task_group:
+        for _ in range(max_concurrent_downloads):
+            task_group.start_soon(_download_worker, store, queue, output_dir, show_progress)
+
+
+async def _download_worker(
+    store: ObjectStore,
+    queue: Queue[tuple[str, str]],
+    output_dir: Path,
+    show_progress: bool = True,
+) -> None:
+    while True:
+        try:
+            prefix, obj = queue.get_nowait()
+        except QueueEmpty:
+            break
+
+        await _download_object(store, prefix, obj, output_dir, show_progress)
+
+
+async def _download_object(
+    store: ObjectStore, prefix: str, obj: str, output_dir: Path, show_progress: bool = True
+) -> Path:
+    key = str(Path(prefix) / obj)
+    output_path = output_dir / obj
+    if output_path.exists():  # already cached
+        return output_path
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    download_path = output_path.parent / f"{output_path.name}.part"
+    response = await obs.get_async(store, key)
+    file_size = response.meta["size"]
+    with download_path.open("wb") as f:
+        if show_progress:
+            with tqdm(desc=obj, total=file_size, unit="B", unit_scale=True, unit_divisor=1024) as progress:
+                async for bytes_chunk in response:
+                    f.write(bytes_chunk)
+                    progress.update(len(bytes_chunk))
+        else:
+            async for bytes_chunk in response:
+                f.write(bytes_chunk)
+
+    shutil.move(download_path, output_path)
+    return output_path
 
 
 class ASFStorageClient(StorageClient):
@@ -342,7 +416,7 @@ class ASFStorageClient(StorageClient):
         if Image is None:
             raise ImportError("IPython is not available, please use download_preview instead.")
         quicklook = await self._download_quicklook(datapoint)
-        _display_quicklook(quicklook, quicklook.name, granule.time.year, width, height)
+        _display_quicklook(quicklook, width, height, f"<code>Image {quicklook.name} © ASF {granule.time.year}</code>")
 
     async def _download_quicklook(self, datapoint: xr.Dataset | ASFStorageGranule) -> Path:
         granule = ASFStorageGranule.from_data(datapoint)
@@ -359,49 +433,15 @@ class ASFStorageClient(StorageClient):
         return await self._client.download_quicklook(datapoint, output_file.parent)
 
 
-class _S3Client:
-    def __init__(self, s3: S3Client, bucket: str) -> None:
-        self._bucket = bucket
-        self._s3 = s3
-
-    def list_objects(self, prefix: str) -> Iterator[ObjectTypeDef]:
-        """Returns an iterator over the objects in the S3 bucket that starts with the given prefix."""
-        paginator = self._s3.get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=self._bucket, Prefix=prefix):
-            yield from page.get("Contents", [])
-
-    async def download_object(  # noqa: PLR0913
-        self, key: str, name: str, size: int, download_file: IO[Any], verify: bool, show_progress: bool
-    ) -> None:
-        """Download an object from S3 into a file."""
-        progress = None
-        if show_progress:
-            progress = tqdm(
-                desc=name,
-                total=size,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-            )
-
-        self._s3.download_fileobj(
-            Bucket=self._bucket,
-            Key=key,
-            Fileobj=download_file,
-            ExtraArgs={"ChecksumMode": "ENABLED"} if verify else None,
-            Callback=progress.update if progress else None,
-        )
-
-        if progress is not None:
-            if progress.total != progress.n:
-                progress.n = progress.total
-                progress.refresh()
-            progress.close()
+def _umbra_s3_prefix(datapoint: xr.Dataset | UmbraStorageGranule) -> str:
+    granule = UmbraStorageGranule.from_data(datapoint)
+    return f"sar-data/tasks/{granule.location}/"
 
 
 class UmbraStorageClient(StorageClient):
     _STORAGE_PROVIDER = "Umbra"
     _BUCKET = "umbra-open-data-catalog"
+    _REGION = "us-west-2"
 
     def __init__(self, cache_directory: Path | None = Path.home() / ".cache" / "tilebox") -> None:
         """A tilebox storage client that downloads data from the Umbra Open Data Catalog.
@@ -412,14 +452,9 @@ class UmbraStorageClient(StorageClient):
         """
         super().__init__(cache_directory)
 
-        with warnings.catch_warnings():
-            # https://github.com/boto/boto3/issues/3889
-            warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*datetime.utcnow.*")
-            boto3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+        self._store: ObjectStore = S3Store(self._BUCKET, region=self._REGION, skip_signature=True)
 
-        self._s3 = _S3Client(s3=boto3_client, bucket=self._BUCKET)
-
-    def list_objects(self, datapoint: xr.Dataset | UmbraStorageGranule) -> list[str]:
+    async def list_objects(self, datapoint: xr.Dataset | UmbraStorageGranule) -> list[str]:
         """List all available objects for a given datapoint.
 
         Args:
@@ -427,38 +462,36 @@ class UmbraStorageClient(StorageClient):
 
         Returns:
             List of object keys available for the given datapoint, relative to the granule location."""
-        granule = UmbraStorageGranule.from_data(datapoint)
-        prefix = f"sar-data/tasks/{granule.location}/"
-        keys = [object_metadata.get("Key") for object_metadata in self._s3.list_objects(prefix)]
-        return [k.removeprefix(prefix) for k in keys if k is not None]
+        return await list_object_paths(self._store, _umbra_s3_prefix(datapoint))
 
     async def download(
         self,
         datapoint: xr.Dataset | UmbraStorageGranule,
         output_dir: Path | None = None,
-        verify: bool = True,
         show_progress: bool = True,
+        max_concurrent_downloads: int = 4,
     ) -> Path:
         """Download the data for a given datapoint.
 
         Args:
             datapoint: The datapoint to download the data for.
             output_dir: The directory to download the data to. Optional, defaults to the cache directory.
-            verify: Whether to verify the md5sum of the downloaded file. Defaults to True.
             show_progress: Whether to show a progress bar while downloading. Defaults to True.
+            max_concurrent_downloads: The maximum number of concurrent downloads. Defaults to 4.
 
         Returns:
             The path to the downloaded data directory.
         """
-        return await self._download(datapoint, None, output_dir, verify, show_progress)
+        all_objects = await list_object_paths(self._store, _umbra_s3_prefix(datapoint))
+        return await self._download_objects(datapoint, all_objects, output_dir, show_progress, max_concurrent_downloads)
 
     async def download_objects(
         self,
         datapoint: xr.Dataset | UmbraStorageGranule,
         objects: list[str],
         output_dir: Path | None = None,
-        verify: bool = True,
         show_progress: bool = True,
+        max_concurrent_downloads: int = 4,
     ) -> Path:
         """Download a subset of the data for a given datapoint.
 
@@ -470,80 +503,39 @@ class UmbraStorageClient(StorageClient):
                 list_objects to get a list of available objects to filter on. Object names are considered relative
                 to the granule location.
             output_dir: The directory to download the data to. Optional, defaults to the cache directory.
-            verify: Whether to verify the md5sum of the downloaded file. Defaults to True.
             show_progress: Whether to show a progress bar while downloading. Defaults to True.
+            max_concurrent_downloads: The maximum number of concurrent downloads. Defaults to 4.
 
         Returns:
             The path to the downloaded data directory.
         """
-        return await self._download(datapoint, lambda key: key in objects, output_dir, verify, show_progress)
+        return await self._download_objects(datapoint, objects, output_dir, show_progress, max_concurrent_downloads)
 
-    async def _download(
+    async def _download_objects(
         self,
         datapoint: xr.Dataset | UmbraStorageGranule,
-        obj_filter_func: Callable[[str], bool] | None = None,
+        objects: list[str],
         output_dir: Path | None = None,
-        verify: bool = True,
         show_progress: bool = True,
+        max_concurrent_downloads: int = 4,
     ) -> Path:
-        granule = UmbraStorageGranule.from_data(datapoint)
+        prefix = _umbra_s3_prefix(datapoint)
 
         base_folder = output_dir or self._cache
         if base_folder is None:
             raise ValueError("No cache directory or output directory provided.")
-        output_folder = base_folder / self._STORAGE_PROVIDER / granule.location
+        output_folder = base_folder / self._STORAGE_PROVIDER / Path(prefix)
 
-        prefix = f"sar-data/tasks/{granule.location}/"
+        if len(objects) == 0:
+            return output_folder
 
-        objects = self._s3.list_objects(prefix)
-        objects = [obj for obj in objects if "Key" in obj]  # Key is optional, so just in case filter out obj without
-
-        if obj_filter_func is not None:
-            # get object names relative to the granule location, so we can pass it to our filter function
-            object_names = [obj["Key"].removeprefix(prefix) for obj in objects if "Key" in obj]
-            objects = [
-                object_metadata
-                for (object_metadata, object_name) in zip(objects, object_names, strict=True)
-                if obj_filter_func(object_name)
-            ]
-
-        async with anyio.create_task_group() as task_group:
-            for object_metadata in objects:
-                task_group.start_soon(
-                    self._download_object, object_metadata, prefix, output_folder, verify, show_progress
-                )
-
+        await download_objects(self._store, prefix, objects, output_folder, show_progress, max_concurrent_downloads)
         return output_folder
 
-    async def _download_object(
-        self, object_metadata: ObjectTypeDef, prefix: str, output_folder: Path, verify: bool, show_progress: bool
-    ) -> None:
-        key = object_metadata.get("Key", "")
-        relative_path = key.removeprefix(prefix)
-        if relative_path.removeprefix("/") == "":  # skip the root folder if it shows up in the list for some reason
-            return
-        if object_metadata.get("Size", 0) == 0:  # skip empty objects (they are just folder markers)
-            return
 
-        output_file = output_folder / relative_path
-        if output_file.exists():
-            return
-
-        # we download into a temporary file, which we then move to the final location once the download is complete
-        # this way we can be sure that the files in the download location are complete and not partially downloaded
-        with tempfile.NamedTemporaryFile(prefix="tilebox", delete=False) as download_file:
-            await self._s3.download_object(
-                key,
-                # as "name" for the progress bar we display the relative path to the root of the download
-                relative_path,
-                object_metadata.get("Size", 0),
-                download_file,
-                verify,
-                show_progress,
-            )
-
-            output_folder.mkdir(parents=True, exist_ok=True)
-            shutil.move(download_file.name, output_file)
+def _copernicus_s3_prefix(datapoint: xr.Dataset | CopernicusStorageGranule) -> str:
+    granule = CopernicusStorageGranule.from_data(datapoint)
+    return granule.location.removeprefix("/eodata/")
 
 
 class CopernicusStorageClient(StorageClient):
@@ -588,22 +580,14 @@ class CopernicusStorageClient(StorageClient):
                 f"To get access to the Copernicus data, please visit: https://documentation.dataspace.copernicus.eu/APIs/S3.html"
             )
 
-        with warnings.catch_warnings():
-            # https://github.com/boto/boto3/issues/3889
-            warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*datetime.utcnow.*")
-            boto3_client = boto3.client(
-                "s3",
-                aws_access_key_id=access_key,
-                aws_secret_access_key=secret_access_key,
-                endpoint_url=self._ENDPOINT_URL,
-            )
-
-        self._s3 = _S3Client(
-            s3=boto3_client,
+        self._store = S3Store(
             bucket=self._BUCKET,
+            endpoint=self._ENDPOINT_URL,
+            access_key_id=access_key,
+            secret_access_key=secret_access_key,
         )
 
-    def list_objects(self, datapoint: xr.Dataset | CopernicusStorageGranule) -> list[str]:
+    async def list_objects(self, datapoint: xr.Dataset | CopernicusStorageGranule) -> list[str]:
         """List all available objects for a given datapoint.
 
         Args:
@@ -611,38 +595,54 @@ class CopernicusStorageClient(StorageClient):
 
         Returns:
             List of object keys available for the given datapoint, relative to the granule location."""
+        return await self._list_objects(datapoint)
+
+    async def _list_objects(self, datapoint: xr.Dataset | CopernicusStorageGranule) -> list[str]:
+        """List all available objects for a given datapoint.
+
+        Args:
+            datapoint: The datapoint to list available objects the data for.
+
+        Returns:
+            List of object keys available for the given datapoint, relative to the granule location."""
+
         granule = CopernicusStorageGranule.from_data(datapoint)
-        prefix = granule.location.removeprefix("/eodata/") + "/"
-        keys = [object_metadata.get("Key") for object_metadata in self._s3.list_objects(prefix)]
-        return [k.removeprefix(prefix) for k in keys if k is not None]
+        # special handling for Sentinel-5P, where the location is not a folder but a single file
+        if granule.location.endswith(".nc"):
+            return [Path(granule.granule_name).name]
+
+        return await list_object_paths(self._store, _copernicus_s3_prefix(granule))
 
     async def download(
         self,
         datapoint: xr.Dataset | CopernicusStorageGranule,
         output_dir: Path | None = None,
-        verify: bool = True,
         show_progress: bool = True,
+        max_concurrent_downloads: int = 4,
     ) -> Path:
         """Download the data for a given datapoint.
 
         Args:
             datapoint: The datapoint to download the data for.
             output_dir: The directory to download the data to. Optional, defaults to the cache directory.
-            verify: Whether to verify the md5sum of the downloaded file. Defaults to True.
             show_progress: Whether to show a progress bar while downloading. Defaults to True.
+            max_concurrent_downloads: The maximum number of concurrent downloads. Defaults to 4.
 
         Returns:
             The path to the downloaded data directory.
         """
-        return await self._download(datapoint, None, output_dir, verify, show_progress)
+        granule = CopernicusStorageGranule.from_data(datapoint)
+
+        all_objects = await self._list_objects(granule)
+        return await self._download_objects(granule, all_objects, output_dir, show_progress, max_concurrent_downloads)
 
     async def download_objects(
         self,
         datapoint: xr.Dataset | CopernicusStorageGranule,
         objects: list[str],
         output_dir: Path | None = None,
-        verify: bool = True,
         show_progress: bool = True,
+        max_concurrent_downloads: int = 4,
     ) -> Path:
         """Download a subset of the data for a given datapoint.
 
@@ -654,80 +654,249 @@ class CopernicusStorageClient(StorageClient):
                 list_objects to get a list of available objects to filter on. Object names are considered relative
                 to the granule location.
             output_dir: The directory to download the data to. Optional, defaults to the cache directory.
-            verify: Whether to verify the md5sum of the downloaded file. Defaults to True.
             show_progress: Whether to show a progress bar while downloading. Defaults to True.
+            max_concurrent_downloads: The maximum number of concurrent downloads. Defaults to 4.
 
         Returns:
             The path to the downloaded data directory.
         """
-        return await self._download(datapoint, lambda key: key in objects, output_dir, verify, show_progress)
+        return await self._download_objects(datapoint, objects, output_dir, show_progress, max_concurrent_downloads)
 
-    async def _download(
+    async def _download_objects(
         self,
         datapoint: xr.Dataset | CopernicusStorageGranule,
-        obj_filter_func: Callable[[str], bool] | None = None,
+        objects: list[str],
         output_dir: Path | None = None,
-        verify: bool = True,
         show_progress: bool = True,
+        max_concurrent_downloads: int = 4,
     ) -> Path:
         granule = CopernicusStorageGranule.from_data(datapoint)
+        prefix = _copernicus_s3_prefix(granule)
+        single_file = False
+
+        # special handling for Sentinel-5P, where the location is not a folder but a single file
+        if granule.location.endswith(".nc"):
+            single_file = True
+            prefix = str(Path(prefix).parent)
 
         base_folder = output_dir or self._cache
         if base_folder is None:
             raise ValueError("No cache directory or output directory provided.")
-        output_folder = base_folder / Path(granule.location.removeprefix("/eodata/"))
+        output_folder = base_folder / self._STORAGE_PROVIDER / Path(prefix)
 
-        prefix = granule.location.removeprefix("/eodata/") + "/"
-        objects = self._s3.list_objects(prefix)
-        objects = [obj for obj in objects if "Key" in obj]  # Key is optional, so just in case filter out obj without
+        if len(objects) == 0:
+            return output_folder
 
-        if obj_filter_func is not None:
-            # get object names relative to the granule location, so we can pass it to our filter function
-            object_names = [obj["Key"].removeprefix(prefix) for obj in objects if "Key" in obj]
-            objects = [
-                object_metadata
-                for (object_metadata, object_name) in zip(objects, object_names, strict=True)
-                if obj_filter_func(object_name)
-            ]
-
-        async with anyio.create_task_group() as task_group:
-            # even though this is a async task group, the downloads are still synchronous
-            # because the S3 client is synchronous
-            # we could work around this by using anyio.to_thread.run_sync
-            # but then we download all files in parallel, which might be too much
-            for object_metadata in objects:
-                task_group.start_soon(
-                    self._download_object, object_metadata, prefix, output_folder, verify, show_progress
-                )
-
+        await download_objects(self._store, prefix, objects, output_folder, show_progress, max_concurrent_downloads)
+        if single_file:
+            return output_folder / objects[0]
         return output_folder
 
-    async def _download_object(
-        self, object_metadata: ObjectTypeDef, prefix: str, output_folder: Path, verify: bool, show_progress: bool
+    async def download_quicklook(self, datapoint: xr.Dataset | CopernicusStorageGranule) -> Path:
+        """Download the quicklook image for a given datapoint.
+
+        Args:
+            datapoint: The datapoint to download the quicklook for.
+
+        Raises:
+            ValueError: If no quicklook is available for the given datapoint.
+
+        Returns:
+            The path to the downloaded quicklook image.
+        """
+        return await self._download_quicklook(datapoint)
+
+    async def quicklook(
+        self, datapoint: xr.Dataset | CopernicusStorageGranule, width: int = 600, height: int = 600
     ) -> None:
-        key = object_metadata.get("Key", "")
-        relative_path = key.removeprefix(prefix)
-        if relative_path.removeprefix("/") == "":  # skip the root folder if it shows up in the list for some reason
-            return
-        if object_metadata.get("Size", 0) == 0:  # skip empty objects (they are just folder markers)
-            return
+        """Display the quicklook image for a given datapoint.
 
-        output_file = output_folder / relative_path
-        if output_file.exists():
-            return
+        Requires an IPython kernel to be running. If you are not using IPython, use download_quicklook instead.
 
-        # we download into a temporary file, which we then move to the final location once the download is complete
-        # this way we can be sure that the files in the download location are complete and not partially downloaded
-        with tempfile.NamedTemporaryFile(prefix="tilebox", delete=False) as download_file:
-            await self._s3.download_object(
-                key,
-                # as "name" for the progress bar we display the relative path to the root of the download
-                relative_path,
-                object_metadata.get("Size", 0),
-                download_file,
-                verify,
-                show_progress,
-            )
+        Args:
+            datapoint: The datapoint to download the quicklook for.
+            width: Display width of the image in pixels. Defaults to 600.
+            height: Display height of the image in pixels. Defaults to 600.
 
-            output_file.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(download_file.name, output_file)
+        Raises:
+            ImportError: In case IPython is not available.
+            ValueError: If no quicklook is available for the given datapoint.
+        """
+        if Image is None:
+            raise ImportError("IPython is not available, please use download_preview instead.")
+        granule = CopernicusStorageGranule.from_data(datapoint)
+        quicklook = await self._download_quicklook(granule)
+        _display_quicklook(quicklook, width, height, f"<code>{granule.granule_name} © ESA {granule.time.year}</code>")
+
+    async def _download_quicklook(self, datapoint: xr.Dataset | CopernicusStorageGranule) -> Path:
+        granule = CopernicusStorageGranule.from_data(datapoint)
+        if granule.thumbnail is None:
+            raise ValueError(f"No quicklook available for {granule.granule_name}")
+
+        prefix = _copernicus_s3_prefix(granule)
+        output_folder = (
+            self._cache / self._STORAGE_PROVIDER / Path(prefix)
+            if self._cache is not None
+            else Path.cwd() / self._STORAGE_PROVIDER
+        )
+
+        await download_objects(self._store, prefix, [granule.thumbnail], output_folder, show_progress=False)
+        return output_folder / granule.thumbnail
+
+
+def _landsat_s3_prefix(datapoint: xr.Dataset | USGSLandsatStorageGranule) -> str:
+    granule = USGSLandsatStorageGranule.from_data(datapoint)
+    return granule.location.removeprefix("s3://usgs-landsat/")
+
+
+class USGSLandsatStorageClient(StorageClient):
+    """
+    A client for downloading USGS Landsat data from the usgs-landsat and usgs-landsat-ard S3 bucket.
+
+    This client handles the requester-pays nature of the bucket and provides methods for listing and downloading data.
+    """
+
+    _STORAGE_PROVIDER = "USGSLandsat"
+    _BUCKET = "usgs-landsat"
+    _REGION = "us-west-2"
+
+    def __init__(self, cache_directory: Path | None = Path.home() / ".cache" / "tilebox") -> None:
+        """A tilebox storage client that downloads data from the USGS Landsat S3 bucket.
+
+        Args:
+            cache_directory: The directory to store downloaded data in. Defaults to ~/.cache/tilebox. If set to None
+               no cache is used and the `output_dir` parameter will need be set when downloading data.
+        """
+        super().__init__(cache_directory)
+
+        self._store = S3Store(
+            self._BUCKET, region=self._REGION, request_payer=True, credential_provider=Boto3CredentialProvider()
+        )
+
+    async def list_objects(self, datapoint: xr.Dataset | USGSLandsatStorageGranule) -> list[str]:
+        """List all available objects for a given datapoint.
+
+        Args:
+            datapoint: The datapoint to list available objects the data for.
+
+        Returns:
+            List of object keys available for the given datapoint, relative to the granule location."""
+        return await list_object_paths(self._store, _landsat_s3_prefix(datapoint))
+
+    async def download(
+        self,
+        datapoint: xr.Dataset | USGSLandsatStorageGranule,
+        output_dir: Path | None = None,
+        show_progress: bool = True,
+        max_concurrent_downloads: int = 4,
+    ) -> Path:
+        """Download the data for a given datapoint.
+
+        Args:
+            datapoint: The datapoint to download the data for.
+            output_dir: The directory to download the data to. Optional, defaults to the cache directory.
+            show_progress: Whether to show a progress bar while downloading. Defaults to True.
+            max_concurrent_downloads: The maximum number of concurrent downloads. Defaults to 4.
+
+        Returns:
+            The path to the downloaded data directory.
+        """
+        all_objects = await list_object_paths(self._store, _landsat_s3_prefix(datapoint))
+        return await self._download_objects(datapoint, all_objects, output_dir, show_progress, max_concurrent_downloads)
+
+    async def download_objects(
+        self,
+        datapoint: xr.Dataset | USGSLandsatStorageGranule,
+        objects: list[str],
+        output_dir: Path | None = None,
+        show_progress: bool = True,
+        max_concurrent_downloads: int = 4,
+    ) -> Path:
+        """Download a subset of the data for a given datapoint.
+
+        Typically used in conjunction with list_objects to filter the available objects beforehand.
+
+        Args:
+            datapoint: The datapoint to download the data for.
+            objects: A list of objects to download. Only objects that are in this list will be downloaded. See
+                list_objects to get a list of available objects to filter on. Object names are considered relative
+                to the granule location.
+            output_dir: The directory to download the data to. Optional, defaults to the cache directory.
+            show_progress: Whether to show a progress bar while downloading. Defaults to True.
+            max_concurrent_downloads: The maximum number of concurrent downloads. Defaults to 4.
+
+        Returns:
+            The path to the downloaded data directory.
+        """
+        return await self._download_objects(datapoint, objects, output_dir, show_progress, max_concurrent_downloads)
+
+    async def _download_objects(
+        self,
+        datapoint: xr.Dataset | USGSLandsatStorageGranule,
+        objects: list[str],
+        output_dir: Path | None = None,
+        show_progress: bool = True,
+        max_concurrent_downloads: int = 4,
+    ) -> Path:
+        prefix = _landsat_s3_prefix(datapoint)
+
+        base_folder = output_dir or self._cache
+        if base_folder is None:
+            raise ValueError("No cache directory or output directory provided.")
+        output_folder = base_folder / Path(prefix)
+
+        if len(objects) == 0:
+            return output_folder
+
+        await download_objects(self._store, prefix, objects, output_folder, show_progress, max_concurrent_downloads)
+        return output_folder
+
+    async def download_quicklook(self, datapoint: xr.Dataset | USGSLandsatStorageGranule) -> Path:
+        """Download the quicklook image for a given datapoint.
+
+        Args:
+            datapoint: The datapoint to download the quicklook for.
+
+        Raises:
+            ValueError: If no quicklook is available for the given datapoint.
+
+        Returns:
+            The path to the downloaded quicklook image.
+        """
+        return await self._download_quicklook(datapoint)
+
+    async def quicklook(
+        self, datapoint: xr.Dataset | USGSLandsatStorageGranule, width: int = 600, height: int = 600
+    ) -> None:
+        """Display the quicklook image for a given datapoint.
+
+        Requires an IPython kernel to be running. If you are not using IPython, use download_quicklook instead.
+
+        Args:
+            datapoint: The datapoint to download the quicklook for.
+            width: Display width of the image in pixels. Defaults to 600.
+            height: Display height of the image in pixels. Defaults to 600.
+
+        Raises:
+            ImportError: In case IPython is not available.
+            ValueError: If no quicklook is available for the given datapoint.
+        """
+        if Image is None:
+            raise ImportError("IPython is not available, please use download_preview instead.")
+        quicklook = await self._download_quicklook(datapoint)
+        _display_quicklook(quicklook, width, height, f"<code>Image {quicklook.name} © USGS</code>")
+
+    async def _download_quicklook(self, datapoint: xr.Dataset | USGSLandsatStorageGranule) -> Path:
+        granule = USGSLandsatStorageGranule.from_data(datapoint)
+        if granule.thumbnail is None:
+            raise ValueError(f"No quicklook available for {granule.granule_name}")
+
+        prefix = _landsat_s3_prefix(datapoint)
+        output_folder = (
+            self._cache / self._STORAGE_PROVIDER / Path(prefix)
+            if self._cache is not None
+            else Path.cwd() / self._STORAGE_PROVIDER
+        )
+
+        await download_objects(self._store, prefix, [granule.thumbnail], output_folder, show_progress=False)
+        return output_folder / granule.thumbnail

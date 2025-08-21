@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-storage`: Added `USGSLandsatStorageClient` to download landsat data from the USGS Landsat S3 bucket.
+- `tilebox-storage`: Storage client now support concurrent downloads of multiple objects, controlled by the
+  `max_concurrent_downloads` parameter.
+- `tilebox-storage`: Added `quicklook` and `download_quicklook` methods to the `CopernicusStorageClient` to download and
+  display preview images for Sentinel data.
+
 ## [0.41.0] - 2025-08-01
 
 ### Added

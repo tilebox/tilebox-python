@@ -474,7 +474,7 @@ class TaskRunner:
                     ),
                 )
 
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 # catch all exceptions and re-raise them, since we just want to mark spans as failed
                 span.record_exception(e)
                 span.set_status(StatusCode.ERROR, "Task failed with exception")

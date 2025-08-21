@@ -1,27 +1,31 @@
-import os
-import shutil
-import warnings
-from collections.abc import Iterator
-from io import BytesIO
+from datetime import timedelta
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-import boto3
 import pytest
 from httpx import AsyncClient
 from hypothesis import HealthCheck, given, settings
-from moto import mock_aws
-from mypy_boto3_s3 import S3Client
+from obstore.store import LocalStore
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from tests.storage_data import ers_granules, s5p_granules, umbra_granules
-from tilebox.storage.aio import ASFStorageClient, CopernicusStorageClient, UmbraStorageClient, _HttpClient, _S3Client
-from tilebox.storage.granule import ASFStorageGranule, CopernicusStorageGranule, UmbraStorageGranule
+from tests.storage_data import ers_granules, landsat_granules, s5p_granules, umbra_granules
+from tilebox.storage.aio import (
+    ASFStorageClient,
+    CopernicusStorageClient,
+    UmbraStorageClient,
+    USGSLandsatStorageClient,
+    _HttpClient,
+)
+from tilebox.storage.granule import (
+    ASFStorageGranule,
+    CopernicusStorageGranule,
+    UmbraStorageGranule,
+    USGSLandsatStorageGranule,
+)
 
 
 @pytest.mark.asyncio
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
-# ^^^ see https://medium.com/@BartekSkwira/how-to-solve-pytest-pytestunraisableexceptionwarning-8d75a4d1f801
 async def test_client_login(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response()
     client = _HttpClient(auth={"ASF": ("username", "password")})
@@ -30,8 +34,6 @@ async def test_client_login(httpx_mock: HTTPXMock) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
-# ^^^ see https://medium.com/@BartekSkwira/how-to-solve-pytest-pytestunraisableexceptionwarning-8d75a4d1f801
 async def test_client_login_failed(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(401)
     client = _HttpClient(auth={"ASF": ("invalid-username", "password")})
@@ -62,7 +64,6 @@ async def test_download_quicklook(httpx_mock: HTTPXMock, tmp_path: Path, granule
 
 
 @pytest.mark.asyncio
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 @given(ers_granules(ensure_quicklook=True))
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_quicklook(httpx_mock: HTTPXMock, granule: ASFStorageGranule) -> None:
@@ -74,7 +75,8 @@ async def test_quicklook(httpx_mock: HTTPXMock, granule: ASFStorageGranule) -> N
         await client.quicklook(granule)
         display_mock.assert_called_once()
         assert display_mock.call_args[0][0] == b"my-quicklook-image"
-        assert display_mock.call_args[0][1] == granule.urls.quicklook.rsplit("/", 1)[-1]
+        img_name = granule.urls.quicklook.rsplit("/", 1)[-1]
+        assert display_mock.call_args[0][-1].startswith(f"<code>Image {img_name} © ASF")
 
 
 @pytest.mark.asyncio
@@ -146,288 +148,214 @@ async def test_cached_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: A
     assert len(httpx_mock.get_requests(url=granule.urls.data)) == 1
 
 
-@pytest.fixture
-def _aws_credentials() -> None:
-    """Mocked AWS Credentials for moto."""
-    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"  # noqa: S105
-    os.environ["AWS_SECURITY_TOKEN"] = "testing"  # noqa: S105
-    os.environ["AWS_SESSION_TOKEN"] = "testing"  # noqa: S105
-    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
-    # See http://docs.getmoto.org/en/latest/docs/services/s3.html
-    os.environ["MOTO_S3_CUSTOM_ENDPOINTS"] = CopernicusStorageClient._ENDPOINT_URL
-
-
-@pytest.fixture
-def aws(_aws_credentials: None) -> Iterator[S3Client]:
-    with mock_aws(), warnings.catch_warnings():
-        # https://github.com/boto/boto3/issues/3889
-        warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*datetime.utcnow.*")
-        yield boto3.client("s3", region_name="us-east-1")
-
-
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
-def test_list_objects(aws: S3Client) -> None:
-    bucket = "bucket1"
-    aws.create_bucket(Bucket=bucket)
-    aws.put_object(Bucket=bucket, Key="test1", Body=b"content1")
-
-    s3 = _S3Client(aws, bucket)
-
-    res = list(s3.list_objects("test1"))
-    assert len(res) == 1
-    assert "Key" in res[0]
-    assert res[0]["Key"] == "test1"
-    assert "Size" in res[0]
-    assert res[0]["Size"] == len(b"content1")
-
-
 @pytest.mark.asyncio
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
-# ^^^ see https://medium.com/@BartekSkwira/how-to-solve-pytest-pytestunraisableexceptionwarning-8d75a4d1f801
-async def test_download_object(aws: S3Client) -> None:
-    bucket = "bucket1"
-    aws.create_bucket(Bucket=bucket)
-    aws.put_object(Bucket=bucket, Key="test1", Body=b"content1")
-    list_object_response = aws.list_objects_v2(Bucket=bucket, MaxKeys=1)
-    if "Contents" not in list_object_response:
-        raise ValueError("No objects in bucket")
-    object_metadata = list_object_response["Contents"][0]
-
-    s3 = _S3Client(aws, bucket)
-
-    output_file = BytesIO()
-    await s3.download_object(
-        object_metadata.get("Key", ""),
-        "test1",
-        object_metadata.get("Size", 0),
-        download_file=output_file,
-        verify=False,
-        show_progress=False,
-    )
-    assert output_file.getvalue() == b"content1"
-
-
-@pytest.mark.asyncio
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
-async def test_download_object_verify(aws: S3Client) -> None:
-    bucket = "bucket1"
-    aws.create_bucket(Bucket=bucket)
-    aws.put_object(Bucket=bucket, Key="test1", Body=b"content1", ChecksumAlgorithm="SHA1")
-    list_object_response = aws.list_objects_v2(Bucket=bucket, MaxKeys=1)
-    if "Contents" not in list_object_response:
-        raise ValueError("No objects in bucket")
-    object_metadata = list_object_response["Contents"][0]
-
-    s3 = _S3Client(aws, bucket)
-
-    output_file = BytesIO()
-    await s3.download_object(
-        object_metadata.get("Key", ""),
-        "test1",
-        object_metadata.get("Size", 0),
-        download_file=output_file,
-        verify=True,
-        show_progress=False,
-    )
-    assert output_file.getvalue() == b"content1"
-
-
-@pytest.mark.asyncio
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 @given(umbra_granules())
-@settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
-async def test_umbra_storage_client_download(aws: S3Client, tmp_path: Path, granule: UmbraStorageGranule) -> None:
-    umbra = UmbraStorageClient(tmp_path)
+@settings(max_examples=1, deadline=timedelta(milliseconds=100))
+async def test_umbra_storage_client_download(granule: UmbraStorageGranule) -> None:
+    with TemporaryDirectory() as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
 
-    aws.create_bucket(Bucket=umbra._BUCKET)
-    aws.put_object(
-        Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif",
-        Body=b"content1",
-        ACL="public-read",
-    )
-    aws.put_object(
-        Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_CPHD.cphd",
-        Body=b"content2",
-        ACL="public-read",
-    )
+        await store.put_async(f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif", b"content1")
+        await store.put_async(f"sar-data/tasks/{granule.location}/{granule.granule_name}_CPHD.cphd", b"content2")
 
-    folder = await umbra.download(granule, show_progress=False)
-    assert folder.exists()
-    assert folder.parent.parent.parent == tmp_path / "Umbra"
-    assert (folder / f"{granule.granule_name}_GEC.tif").read_bytes() == b"content1"
-    assert (folder / f"{granule.granule_name}_CPHD.cphd").read_bytes() == b"content2"
+        with patch("tilebox.storage.aio.S3Store") as store_mock:
+            store_mock.return_value = store
+            umbra = UmbraStorageClient(Path(tmp_path) / "cache")
 
-    shutil.rmtree(folder)
+        folder = await umbra.download(granule, show_progress=False)
+        assert folder.exists()
+        assert folder.parent.parent.parent == Path(tmp_path) / "cache" / "Umbra" / "sar-data" / "tasks"
+        assert (folder / f"{granule.granule_name}_GEC.tif").read_bytes() == b"content1"
+        assert (folder / f"{granule.granule_name}_CPHD.cphd").read_bytes() == b"content2"
 
 
 @pytest.mark.asyncio
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 @given(umbra_granules())
-@settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
-async def test_umbra_storage_client_list_objects(aws: S3Client, granule: UmbraStorageGranule) -> None:
-    umbra = UmbraStorageClient()
+@settings(max_examples=1, deadline=timedelta(milliseconds=100))
+async def test_umbra_storage_client_list_objects(granule: UmbraStorageGranule) -> None:
+    with TemporaryDirectory() as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
 
-    aws.create_bucket(Bucket=umbra._BUCKET)
-    aws.put_object(
-        Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif",
-        Body=b"content1",
-        ACL="public-read",
-    )
-    aws.put_object(
-        Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_CPHD.cphd",
-        Body=b"content2",
-        ACL="public-read",
-    )
-    aws.put_object(
-        Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/another_{granule.location}/another_{granule.granule_name}_CPHD.cphd",
-        Body=b"content2",
-        ACL="public-read",
-    )
+        await store.put_async(f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif", b"content1")
+        await store.put_async(f"sar-data/tasks/{granule.location}/{granule.granule_name}_CPHD.cphd", b"content2")
+        await store.put_async(
+            f"sar-data/tasks/another_{granule.location}/another_{granule.granule_name}_CPHD.cphd", b"content2"
+        )
 
-    objects = umbra.list_objects(granule)
-    assert len(objects) == 2
-    assert sorted(objects) == sorted(
-        [
-            f"{granule.granule_name}_CPHD.cphd",
-            f"{granule.granule_name}_GEC.tif",
-        ]
-    )
+        with patch("tilebox.storage.aio.S3Store") as store_mock:
+            store_mock.return_value = store
+            umbra = UmbraStorageClient(Path(tmp_path) / "cache")
+
+        objects = await umbra.list_objects(granule)
+        assert sorted(objects) == sorted([f"{granule.granule_name}_GEC.tif", f"{granule.granule_name}_CPHD.cphd"])
 
 
 @pytest.mark.asyncio
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 @given(umbra_granules())
-@settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
-async def test_umbra_storage_client_download_objects(
-    aws: S3Client, tmp_path: Path, granule: UmbraStorageGranule
-) -> None:
-    umbra = UmbraStorageClient(tmp_path)
+@settings(max_examples=1, deadline=timedelta(milliseconds=100))
+async def test_umbra_storage_client_download_objects(granule: UmbraStorageGranule) -> None:
+    with TemporaryDirectory() as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
 
-    aws.create_bucket(Bucket=umbra._BUCKET)
-    aws.put_object(
-        Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif",
-        Body=b"content1",
-        ACL="public-read",
-    )
-    aws.put_object(
-        Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_CPHD.cphd",
-        Body=b"content2",
-        ACL="public-read",
-    )
+        await store.put_async(f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif", b"content1")
+        await store.put_async(f"sar-data/tasks/{granule.location}/{granule.granule_name}_CPHD.cphd", b"content2")
 
-    folder = await umbra.download_objects(granule, [f"{granule.granule_name}_GEC.tif"], show_progress=False)
-    assert (folder / f"{granule.granule_name}_GEC.tif").read_bytes() == b"content1"
-    assert not (folder / f"{granule.granule_name}_CPHD.cphd").exists()
+        with patch("tilebox.storage.aio.S3Store") as store_mock:
+            store_mock.return_value = store
+            umbra = UmbraStorageClient(Path(tmp_path) / "cache")
 
-    shutil.rmtree(folder)
-
-
-@pytest.mark.asyncio
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
-@given(umbra_granules())
-@settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
-async def test_umbra_storage_client_no_cache(aws: S3Client, tmp_path: Path, granule: UmbraStorageGranule) -> None:
-    umbra = UmbraStorageClient(cache_directory=None)
-
-    aws.create_bucket(Bucket=umbra._BUCKET)
-    aws.put_object(
-        Bucket=umbra._BUCKET,
-        Key=f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif",
-        Body=b"content1",
-        ACL="public-read",
-    )
-
-    with pytest.raises(ValueError, match="No cache directory or output directory provided."):
-        await umbra.download(granule)
-
-    folder = await umbra.download(granule, output_dir=tmp_path, show_progress=False)
-    assert (folder / f"{granule.granule_name}_GEC.tif").read_bytes() == b"content1"
-    assert not (folder / f"{granule.granule_name}_CPHD.cphd").exists()
-
-    shutil.rmtree(folder)
+        folder = await umbra.download_objects(granule, [f"{granule.granule_name}_GEC.tif"], show_progress=False)
+        assert (folder / f"{granule.granule_name}_GEC.tif").read_bytes() == b"content1"
+        assert not (folder / f"{granule.granule_name}_CPHD.cphd").exists()
 
 
 @pytest.mark.asyncio
 @given(s5p_granules())
-@settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
-async def test_copernicus_storage_client_download(
-    aws: S3Client, tmp_path: Path, granule: CopernicusStorageGranule
-) -> None:
-    copernicus = CopernicusStorageClient(access_key="testing", secret_access_key="testing", cache_directory=tmp_path)  # noqa: S106
+@settings(max_examples=1, deadline=timedelta(milliseconds=100))
+async def test_copernicus_storage_client_download(granule: CopernicusStorageGranule) -> None:
+    with TemporaryDirectory() as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
 
-    aws.create_bucket(Bucket=CopernicusStorageClient._BUCKET)
-    aws.put_object(
-        Bucket=copernicus._BUCKET,
-        Key=f"{granule.location.removeprefix('/eodata/')}/{granule.granule_name}",
-        Body=b"content1",
-        ACL="public-read",
-    )
+        await store.put_async(f"{granule.location.removeprefix('/eodata/')}/{granule.granule_name}", b"content1")
+        with patch("tilebox.storage.aio.S3Store") as store_mock:
+            store_mock.return_value = store
+            copernicus = CopernicusStorageClient(
+                access_key="testing",
+                secret_access_key="testing",  # noqa: S106
+                cache_directory=Path(tmp_path),
+            )
 
-    folder = await copernicus.download(granule, show_progress=False)
-    assert folder.exists()
-    assert (folder / granule.granule_name).read_bytes() == b"content1"
-
-    shutil.rmtree(folder)
-
-
-@pytest.mark.asyncio
-@given(s5p_granules())
-@settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
-async def test_copernicus_storage_client_list_objects(aws: S3Client, granule: CopernicusStorageGranule) -> None:
-    copernicus = CopernicusStorageClient(access_key="testing", secret_access_key="testing")  # noqa: S106
-
-    aws.create_bucket(Bucket=CopernicusStorageClient._BUCKET)
-    aws.put_object(
-        Bucket=copernicus._BUCKET,
-        Key=f"{granule.location.removeprefix('/eodata/')}/{granule.granule_name}",
-        Body=b"content1",
-        ACL="public-read",
-    )
-    aws.put_object(
-        Bucket=copernicus._BUCKET,
-        Key=f"{granule.location.removeprefix('/eodata/')}_other_granule/{granule.granule_name}",
-        Body=b"content1",
-        ACL="public-read",
-    )
-
-    objects = copernicus.list_objects(granule)
-    assert len(objects) == 1
-    assert objects[0] == granule.granule_name
+        folder = await copernicus.download(granule, show_progress=False)
+        assert folder.exists()
+        assert (folder / granule.granule_name).read_bytes() == b"content1"
 
 
 @pytest.mark.asyncio
 @given(s5p_granules())
-@settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
-async def test_copernicus_storage_client_download_objects(
-    aws: S3Client, tmp_path: Path, granule: CopernicusStorageGranule
-) -> None:
-    copernicus = CopernicusStorageClient(access_key="testing", secret_access_key="testing", cache_directory=tmp_path)  # noqa: S106
+@settings(max_examples=1, deadline=timedelta(milliseconds=100))
+async def test_copernicus_storage_client_list_objects(granule: CopernicusStorageGranule) -> None:
+    with TemporaryDirectory() as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
 
-    aws.create_bucket(Bucket=CopernicusStorageClient._BUCKET)
-    aws.put_object(
-        Bucket=copernicus._BUCKET,
-        Key=f"{granule.location.removeprefix('/eodata/')}/{granule.granule_name}",
-        Body=b"content1",
-        ACL="public-read",
-    )
-    aws.put_object(
-        Bucket=copernicus._BUCKET,
-        Key=f"{granule.location.removeprefix('/eodata/')}/other_product_{granule.granule_name}",
-        Body=b"content1",
-        ACL="public-read",
-    )
+        await store.put_async(f"{granule.location.removeprefix('/eodata/')}/{granule.granule_name}", b"content1")
+        await store.put_async(
+            f"{granule.location.removeprefix('/eodata/')}_other_granule/{granule.granule_name}", b"content2"
+        )
+        with patch("tilebox.storage.aio.S3Store") as store_mock:
+            store_mock.return_value = store
+            copernicus = CopernicusStorageClient(
+                access_key="testing",
+                secret_access_key="testing",  # noqa: S106
+                cache_directory=Path(tmp_path),
+            )
 
-    folder = await copernicus.download_objects(granule, [granule.granule_name], show_progress=False)
-    assert folder.exists()
-    assert (folder / granule.granule_name).read_bytes() == b"content1"
-    assert not (folder / f"other_product_{granule.granule_name}").exists()
+        objects = await copernicus.list_objects(granule)
+        assert len(objects) == 1
+        assert objects[0] == granule.granule_name
 
-    shutil.rmtree(folder)
+
+@pytest.mark.asyncio
+@given(s5p_granules())
+@settings(max_examples=1, deadline=timedelta(milliseconds=100))
+async def test_copernicus_storage_client_download_objects(granule: CopernicusStorageGranule) -> None:
+    with TemporaryDirectory() as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
+
+        await store.put_async(f"{granule.location.removeprefix('/eodata/')}/{granule.granule_name}", b"content1")
+        await store.put_async(
+            f"{granule.location.removeprefix('/eodata/')}/other_product_{granule.granule_name}", b"content2"
+        )
+        with patch("tilebox.storage.aio.S3Store") as store_mock:
+            store_mock.return_value = store
+            copernicus = CopernicusStorageClient(
+                access_key="testing",
+                secret_access_key="testing",  # noqa: S106
+                cache_directory=Path(tmp_path),
+            )
+        folder = await copernicus.download_objects(granule, [granule.granule_name], show_progress=False)
+        assert folder.exists()
+        assert (folder / granule.granule_name).read_bytes() == b"content1"
+        assert not (folder / f"other_product_{granule.granule_name}").exists()
+
+
+@pytest.mark.asyncio
+@given(landsat_granules())
+@settings(max_examples=1, deadline=timedelta(milliseconds=100))
+async def test_landsat_storage_client_download(granule: USGSLandsatStorageGranule) -> None:
+    with TemporaryDirectory() as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
+
+        await store.put_async(
+            f"{granule.location.removeprefix('s3://usgs-landsat/')}/{granule.granule_name}", b"content1"
+        )
+        with patch("tilebox.storage.aio.S3Store") as store_mock, patch("tilebox.storage.aio.Boto3CredentialProvider"):
+            store_mock.return_value = store
+            landsat = USGSLandsatStorageClient(cache_directory=Path(tmp_path))
+
+        folder = await landsat.download(granule, show_progress=False)
+        assert folder.exists()
+        assert (folder / granule.granule_name).read_bytes() == b"content1"
+
+
+@pytest.mark.asyncio
+@given(landsat_granules())
+@settings(max_examples=1, deadline=timedelta(milliseconds=100))
+async def test_landsat_storage_client_list_objects(granule: USGSLandsatStorageGranule) -> None:
+    with TemporaryDirectory() as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
+
+        await store.put_async(
+            f"{granule.location.removeprefix('s3://usgs-landsat/')}/{granule.granule_name}", b"content1"
+        )
+        await store.put_async(
+            f"{granule.location.removeprefix('s3://usgs-landsat/')}/{granule.granule_name}_thumb_small.jpeg",
+            b"content2",
+        )
+        with patch("tilebox.storage.aio.S3Store") as store_mock, patch("tilebox.storage.aio.Boto3CredentialProvider"):
+            store_mock.return_value = store
+            landsat = USGSLandsatStorageClient(cache_directory=Path(tmp_path))
+
+        objects = await landsat.list_objects(granule)
+        assert len(objects) == 2
+        assert sorted(objects) == sorted([granule.granule_name, f"{granule.granule_name}_thumb_small.jpeg"])
+
+
+@pytest.mark.asyncio
+@given(landsat_granules())
+@settings(max_examples=1, deadline=timedelta(milliseconds=100))
+async def test_landsat_storage_client_download_objects(granule: USGSLandsatStorageGranule) -> None:
+    with TemporaryDirectory() as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
+
+        await store.put_async(
+            f"{granule.location.removeprefix('s3://usgs-landsat/')}/{granule.granule_name}", b"content1"
+        )
+        await store.put_async(
+            f"{granule.location.removeprefix('s3://usgs-landsat/')}/other_product_{granule.granule_name}", b"content2"
+        )
+        with patch("tilebox.storage.aio.S3Store") as store_mock, patch("tilebox.storage.aio.Boto3CredentialProvider"):
+            store_mock.return_value = store
+            landsat = USGSLandsatStorageClient(cache_directory=Path(tmp_path))
+
+        folder = await landsat.download_objects(granule, [granule.granule_name], show_progress=False)
+        assert folder.exists()
+        assert (folder / granule.granule_name).read_bytes() == b"content1"
+        assert not (folder / f"other_product_{granule.granule_name}").exists()
