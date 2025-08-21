@@ -374,13 +374,13 @@ def _create_field_converter(field: FieldDescriptor) -> _FieldConverter:
     """
     # special handling for enums:
     if field.type == FieldDescriptor.TYPE_ENUM:
-        if field.is_repeated:
+        if field.is_repeated:  # type: ignore[attr-defined]
             raise NotImplementedError("Repeated enum fields are not supported")
 
         return _EnumFieldConverter(field.name, enum_mapping_from_field_descriptor(field))
 
     field_type = infer_field_type(field)
-    if field.is_repeated:
+    if field.is_repeated:  # type: ignore[attr-defined]
         return _ArrayFieldConverter(field.name, field_type)
 
     return _SimpleFieldConverter(field.name, field_type)
