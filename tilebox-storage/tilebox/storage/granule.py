@@ -116,3 +116,41 @@ class CopernicusStorageGranule:
             dataset.location.item(),
             dataset.file_size.item(),
         )
+
+
+@dataclass
+class USGSLandsatStorageGranule:
+    time: datetime
+    granule_name: str
+    location: str
+    thumbnail: str | None = None
+
+    @classmethod
+    def from_data(cls, dataset: "xr.Dataset | USGSLandsatStorageGranule") -> "USGSLandsatStorageGranule":
+        """Extract the granule information from a datapoint given as xarray dataset."""
+        if isinstance(dataset, USGSLandsatStorageGranule):
+            return dataset
+
+        if "time" in dataset.dims:
+            if dataset.sizes["time"] == 1:
+                dataset = dataset.isel(time=0)
+            else:
+                raise ValueError("The given dataset has more than one granule.")
+
+        time = datetime.combine(dataset.time.dt.date.item(), dataset.time.dt.time.item())
+
+        thumbnail_path: str | None = None
+        if "thumbnail" in dataset:
+            thumbnail_path = dataset.thumbnail.item()
+        elif "overview" in dataset:
+            thumbnail_path = dataset.overview.item()
+
+        thumbnail = thumbnail_path.split("/")[-1] if isinstance(thumbnail_path, str) else None
+
+        return cls(
+            time,
+            dataset.granule_name.item(),
+            # Landsat 2 STAC items have an incorrect bucket name set, it should be usgs-landsat as well
+            dataset.location.item().replace("s3://usgs-landsat-ard/", "s3://usgs-landsat/"),
+            thumbnail,
+        )

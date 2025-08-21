@@ -60,6 +60,8 @@ async def _asf_login(auth: tuple[str, str]) -> AsyncClient:
             "redirect_uri": "https://auth.asf.alaska.edu/login",
         },
     )
+    await response.aclose()
     if response.status_code == 401:
+        await client.aclose()
         raise ValueError("Invalid username or password.")
     return client

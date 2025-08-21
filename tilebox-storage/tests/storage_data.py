@@ -11,7 +11,12 @@ from pathlib import Path
 
 from hypothesis.strategies import DrawFn, booleans, composite, datetimes, integers, just, one_of, text, uuids
 
-from tilebox.storage.granule import ASFStorageGranule, CopernicusStorageGranule, UmbraStorageGranule
+from tilebox.storage.granule import (
+    ASFStorageGranule,
+    CopernicusStorageGranule,
+    UmbraStorageGranule,
+    USGSLandsatStorageGranule,
+)
 from tilebox.storage.providers import _ASF_URL, StorageURLs
 
 
@@ -82,3 +87,23 @@ def s5p_granules(draw: DrawFn) -> CopernicusStorageGranule:
 
     file_size = draw(integers(min_value=10_000, max_value=999_999_999))
     return CopernicusStorageGranule(start, granule_name, location, file_size)
+
+
+@composite
+def landsat_granules(draw: DrawFn) -> USGSLandsatStorageGranule:
+    """Generate a realistic-looking random USGS Landsat granule."""
+    time = draw(datetimes(min_value=datetime(1990, 1, 1), max_value=datetime(2025, 1, 1), timezones=just(None)))
+    landsat_mission = draw(integers(min_value=1, max_value=9))
+
+    path = draw(integers(min_value=1, max_value=999))
+    row = draw(integers(min_value=1, max_value=999))
+
+    granule_name = f"LC{landsat_mission:02d}_L1GT_{path:03d}{row:03d}_{time:%Y%m%d}_{time:%Y%m%d}_02_T1"
+    location = f"s3://usgs-landsat/collection02/level-1/standard/oli-tirs/{time:%Y}/{path:03d}/{row:03d}/{granule_name}"
+    thumbnail = draw(one_of(just(f"{granule_name}_thumb_small.jpeg"), just(None)))
+    return USGSLandsatStorageGranule(
+        time,
+        granule_name,
+        location,
+        thumbnail,
+    )

@@ -3,6 +3,7 @@ from pathlib import Path
 from tilebox.storage.aio import ASFStorageClient as _ASFStorageClient
 from tilebox.storage.aio import CopernicusStorageClient as _CopernicusStorageClient
 from tilebox.storage.aio import UmbraStorageClient as _UmbraStorageClient
+from tilebox.storage.aio import USGSLandsatStorageClient as _USGSLandsatStorageClient
 
 
 class ASFStorageClient(_ASFStorageClient):
@@ -49,4 +50,19 @@ class CopernicusStorageClient(_CopernicusStorageClient):
                no cache is used and the `output_dir` parameter will need be set when downloading data.
         """
         super().__init__(access_key, secret_access_key, cache_directory)
+        self._syncify()
+
+
+class USGSLandsatStorageClient(_USGSLandsatStorageClient):
+    def __init__(self, cache_directory: Path | None = Path.home() / ".cache" / "tilebox") -> None:
+        """A tilebox storage client that downloads data from the USGS Landsat S3 bucket.
+
+        This client handles the requester-pays nature of the bucket and provides methods for listing and downloading
+        data.
+
+        Args:
+            cache_directory: The directory to store downloaded data in. Defaults to ~/.cache/tilebox. If set to None
+               no cache is used and the `output_dir` parameter will need be set when downloading data.
+        """
+        super().__init__(cache_directory)
         self._syncify()
