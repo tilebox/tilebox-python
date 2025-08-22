@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from typing import Annotated
 
 import pytest
 
@@ -9,6 +10,7 @@ from tilebox.workflows.task import (
     ExecutionContext,
     Task,
     TaskMeta,
+    _get_deserialization_field_type,
     deserialize_task,
     serialize_task,
 )
@@ -348,3 +350,54 @@ def test_serialize_deserialize_task_nested_protobuf_in_nested_dict() -> None:
         {"a": {"b": [SampleArgs(some_string="World", some_int=123), SampleArgs(some_string="!", some_int=456)]}},
     )
     assert deserialize_task(ExampleTaskWithNestedProtobufInNestedDict, serialize_task(task)) == task
+
+
+class ExampleTaskWithOptionalNestedJson(Task):
+    x: str
+    optional_args: NestedJson | None = None
+
+
+def test_serialize_deserialize_task_nested_optional_json() -> None:
+    task = ExampleTaskWithOptionalNestedJson("Hello")
+    assert deserialize_task(ExampleTaskWithOptionalNestedJson, serialize_task(task)) == task
+
+    task = ExampleTaskWithOptionalNestedJson("Hello", NestedJson(nested_x="World"))
+    assert deserialize_task(ExampleTaskWithOptionalNestedJson, serialize_task(task)) == task
+
+
+class ExampleTaskWithOptionalNestedProtobuf(Task):
+    x: str
+    optional_args: SampleArgs | None = None
+
+
+def test_serialize_deserialize_task_nested_optional_protobuf() -> None:
+    task = ExampleTaskWithOptionalNestedProtobuf("Hello")
+    assert deserialize_task(ExampleTaskWithOptionalNestedProtobuf, serialize_task(task)) == task
+
+    task = ExampleTaskWithOptionalNestedProtobuf("Hello", SampleArgs(some_string="World", some_int=123))
+    assert deserialize_task(ExampleTaskWithOptionalNestedProtobuf, serialize_task(task)) == task
+
+
+class FieldTypesTest(Task):
+    field1: str
+    field2: str | None
+    field3: NestedJson | None
+    field4: NestedJson | None
+    field5: Annotated[NestedJson, "some description"]
+    field6: Annotated[NestedJson, "some description"] | None
+    field7: Annotated[NestedJson | None, "some description"]
+    field8: Annotated[NestedJson | None, "some description"]
+    field9: Annotated[list[NestedJson] | None, "some description"]
+
+
+def test_get_deserialization_field_type() -> None:
+    fields = FieldTypesTest.__dataclass_fields__
+    assert _get_deserialization_field_type(fields["field1"].type) is str
+    assert _get_deserialization_field_type(fields["field2"].type) is str
+    assert _get_deserialization_field_type(fields["field3"].type) is NestedJson
+    assert _get_deserialization_field_type(fields["field4"].type) is NestedJson
+    assert _get_deserialization_field_type(fields["field5"].type) is NestedJson
+    assert _get_deserialization_field_type(fields["field6"].type) is NestedJson
+    assert _get_deserialization_field_type(fields["field7"].type) is NestedJson
+    assert _get_deserialization_field_type(fields["field8"].type) is NestedJson
+    assert _get_deserialization_field_type(fields["field9"].type) == list[NestedJson]

@@ -1,10 +1,12 @@
 import contextlib
 import inspect
 import json
+import typing
 from abc import ABC, ABCMeta, abstractmethod
 from base64 import b64decode, b64encode
 from collections.abc import Sequence
 from dataclasses import dataclass, field, fields, is_dataclass
+from types import NoneType, UnionType
 from typing import Any, cast, get_args, get_origin
 
 # from python 3.11 onwards this is available as typing.dataclass_transform:
@@ -350,7 +352,7 @@ def deserialize_task(task_cls: type, task_input: bytes) -> Task:
         return task_cls()  # empty task
     if len(task_fields) == 1:
         # if there is only one field, we deserialize it directly
-        field_type = task_fields[0].type
+        field_type = _get_deserialization_field_type(task_fields[0].type)  # type: ignore[arg-type]
         if hasattr(field_type, "FromString"):  # protobuf message
             value = field_type.FromString(task_input)  # type: ignore[arg-type]
         else:
@@ -372,6 +374,10 @@ def _deserialize_dataclass(cls: type, params: dict[str, Any]) -> Task:
 
 
 def _deserialize_value(field_type: type, value: Any) -> Any:  # noqa: PLR0911
+    if value is None:
+        return None
+
+    field_type = _get_deserialization_field_type(field_type)
     if hasattr(field_type, "FromString"):
         return field_type.FromString(b64decode(value))
     if is_dataclass(field_type) and isinstance(value, dict):
@@ -398,3 +404,30 @@ def _deserialize_value(field_type: type, value: Any) -> Any:  # noqa: PLR0911
         return {k: _deserialize_value(type_args[1], v) for k, v in value.items()}
 
     return value
+
+
+def _get_deserialization_field_type(field_type: type) -> type:
+    """
+    Get the actual underlying type we want to deserialize a field type annotated as.
+
+    This correctly handles optional and annotated type hints.
+
+    For example, all of the following fields should be deserialized as MyDataclass class
+
+    field1: MyDataclass
+    field2: MyDataclass | None
+    field3: Optional[MyDataclass]
+    field4: Annotated[MyDataclass, "some description"]
+    field5: Annotated[Optional[MyDataclass], "some description"
+    """
+    origin = typing.get_origin(field_type)
+    if origin in (typing.Union, UnionType):  # handle Optional[type] and 'type | None'
+        args = typing.get_args(field_type)
+        if len(args) == 2 and args[-1] == NoneType:
+            return _get_deserialization_field_type(args[0])
+    if origin == typing.Annotated:
+        args = typing.get_args(field_type)
+        if len(args) >= 1:
+            return _get_deserialization_field_type(args[0])
+
+    return field_type
