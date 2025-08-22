@@ -317,6 +317,11 @@ class TaskRunner:
                 f"Task {task_repr} is not executable. It must have an execute method in order to "
                 f"register it with a task runner."
             )
+        if meta.identifier in self.tasks_to_run.identifiers:
+            raise ValueError(
+                f"Duplicate task identifier: A task '{meta.identifier.name}' with version '{meta.identifier.version}' "
+                f"is already registered."
+            )
         self.tasks_to_run.identifiers[meta.identifier] = task
 
     def add_interceptor(self, interceptor: InterceptorType) -> None:

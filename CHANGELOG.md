@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tilebox-storage`: Added `quicklook` and `download_quicklook` methods to the `CopernicusStorageClient` to download and
   display preview images for Sentinel data.
 
+### Fixed
+
+- `tilebox-workflows`: Registering duplicate task identifiers with a task runner now raises a `ValueError` instead of
+  overwriting the existing task.
+
 ## [0.41.0] - 2025-08-01
 
 ### Added
