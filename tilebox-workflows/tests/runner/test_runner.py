@@ -1,12 +1,15 @@
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
 from tilebox.workflows import ExecutionContext, Task
 from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.client import Client
-from tilebox.workflows.data import JobState
+from tilebox.workflows.data import JobState, RunnerContext
+from tilebox.workflows.runner.task_runner import TaskRunner
 
 
 def int_to_bytes(n: int) -> bytes:
@@ -143,3 +146,59 @@ def record_client(recording_file: str) -> Client:
         open_channel_mock.assert_called_once()
 
     return client
+
+
+class ExplicitIdentifierTaskV1(Task):
+    @classmethod
+    def identifier(cls) -> tuple[str, str]:
+        return "tilebox.com/explicit", "v1.0"
+
+    def execute(self, context: ExecutionContext) -> None:
+        pass
+
+
+class ExplicitIdentifierTaskV2(Task):
+    @classmethod
+    def identifier(cls) -> tuple[str, str]:
+        return "tilebox.com/explicit", "v2.0"
+
+    def execute(self, context: ExecutionContext) -> None:
+        pass
+
+
+def test_runner_disallow_duplicate_task_identifiers() -> None:
+    runner = TaskRunner(
+        MagicMock(),
+        "dummy-cluster",
+        InMemoryCache(),
+        None,
+        None,
+        MagicMock(),
+        RunnerContext(),
+    )
+
+    runner.register(FlakyTask)
+    with pytest.raises(
+        ValueError, match="Duplicate task identifier: A task 'FlakyTask' with version 'v0.0' is already registered."
+    ):
+        runner.register(FlakyTask)
+
+    runner.register(SumResultTask)
+    with pytest.raises(
+        ValueError, match="Duplicate task identifier: A task 'SumResultTask' with version 'v0.0' is already registered."
+    ):
+        runner.register(SumResultTask)
+
+    runner.register(ExplicitIdentifierTaskV1)
+    with pytest.raises(
+        ValueError,
+        match="Duplicate task identifier: A task 'tilebox.com/explicit' with version 'v1.0' is already registered.",
+    ):
+        runner.register(ExplicitIdentifierTaskV1)
+
+    runner.register(ExplicitIdentifierTaskV2)  # this one has a different version, so it's fine
+    with pytest.raises(
+        ValueError,
+        match="Duplicate task identifier: A task 'tilebox.com/explicit' with version 'v2.0' is already registered.",
+    ):
+        runner.register(ExplicitIdentifierTaskV2)
