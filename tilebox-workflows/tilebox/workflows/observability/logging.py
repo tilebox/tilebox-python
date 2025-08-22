@@ -83,16 +83,11 @@ class OTELLoggingHandler(LoggingHandler):
         return attributes
 
 
-def _otel_handler(
-    level: int = logging.NOTSET,
-    service: str | Resource | None = None,
+def _otel_log_exporter(
     endpoint: str | None = None,
     headers: dict[str, str] | None = None,
     export_interval: timedelta | None = None,
-) -> LoggingHandler:
-    resource = _get_default_resource(service)
-    logger_provider = LoggerProvider(resource)
-
+) -> BatchLogRecordProcessor:
     if endpoint is None:
         endpoint = os.environ.get(_OTEL_LOGS_ENDPOINT_ENV_VAR, None)
     if endpoint is None:
@@ -115,19 +110,15 @@ def _otel_handler(
         headers=headers,
     )
     schedule_delay = int(export_interval.total_seconds() * 1000) if export_interval is not None else None
-    batch_exporter = BatchLogRecordProcessor(exporter, schedule_delay_millis=schedule_delay)  # type: ignore[arg-type]
-
-    logger_provider.add_log_record_processor(batch_exporter)
-    return OTELLoggingHandler(level=level, logger_provider=logger_provider)
+    return BatchLogRecordProcessor(exporter, schedule_delay_millis=schedule_delay)  # type: ignore[arg-type]
 
 
-def configure_otel_logging(  # noqa: PLR0913
+def configure_otel_logging(
     service: str | Resource | None = None,
     level: int = logging.DEBUG,
     endpoint: str | None = None,
     headers: dict[str, str] | None = None,
     export_interval: timedelta | None = None,
-    reconfigure: bool = True,
 ) -> None:
     """
     Configure logging to an OTLP compatible endpoint.
@@ -154,22 +145,21 @@ def configure_otel_logging(  # noqa: PLR0913
         export_interval: The interval at which to export logs to the endpoint. If not provided, the
             environment variable OTEL_EXPORT_INTERVAL will be used. If that is not set either, the default open
             telemetry export interval of 5s will be used.
-        reconfigure: Only relevant if configure_otel_logging is called multiple times. If True, any previously
-            configured OTEL logging handlers will be removed. If False, the existing handlers will be kept. Useful
-            if you want to log to multiple OTEL endpoints.
 
     Raises:
         ValueError: If no endpoint is provided and no OTEL_LOGS_ENDPOINT environment variable is set.
     """
-    handler = _otel_handler(level, service, endpoint, headers, export_interval)
+    provider = LoggerProvider(resource=_get_default_resource(service))
+
+    batch_exporter = _otel_log_exporter(endpoint, headers, export_interval)
+    provider.add_log_record_processor(batch_exporter)
+    handler = OTELLoggingHandler(level=level, logger_provider=provider)
+
     root_logger = _root_logger()
 
-    # clean up previous handlers:
-    # remove the default handler if it exists, and all other OtelHandlers if reconfigure is True
+    # clean up the default handler if it exists
     handlers_to_remove_indices = [
-        i
-        for i, handler in enumerate(root_logger.handlers)
-        if hasattr(handler, "_is_default") or (reconfigure and isinstance(handler, OTELLoggingHandler))
+        i for i, handler in enumerate(root_logger.handlers) if hasattr(handler, "_is_default")
     ]
     for i in reversed(handlers_to_remove_indices):  # reversed to avoid index shifting after deletion
         root_logger.handlers.pop(i)
@@ -182,7 +172,6 @@ def configure_otel_logging_axiom(
     level: int = logging.DEBUG,
     dataset: str | None = None,
     api_key: str | None = None,
-    reconfigure: bool = True,
 ) -> None:
     """
     Configure opentelemetry logging to Axiom.
@@ -205,9 +194,6 @@ def configure_otel_logging_axiom(
             AXIOM_LOGS_DATASET will be used. If that is not set either, an error will be raised.
         api_key: The API key to use for authentication. If not provided, the environment variable AXIOM_API_KEY will be
             used. If that is not set either, an error will be raised.
-        reconfigure: Only relevant if configure_otel_logging_axiom is called multiple times. If True, any previously
-            configured OTEL logging handlers will be removed. If False, the existing handlers will be kept. Useful
-            if you want to log to multiple OTEL endpoints.
 
     Raises:
         ValueError: If no dataset is provided and no AXIOM_LOGS_DATASET environment variable is set
@@ -234,7 +220,6 @@ def configure_otel_logging_axiom(
         level,
         endpoint=_AXIOM_ENDPOINT,
         headers={"Authorization": f"Bearer {api_key}", "X-Axiom-Dataset": dataset},
-        reconfigure=reconfigure,
     )
 
 
