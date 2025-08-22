@@ -12,9 +12,9 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
 )
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.trace import ProxyTracerProvider, get_current_span, get_tracer_provider, set_tracer_provider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanProcessor
 from opentelemetry.trace import Span as OTSpan
+from opentelemetry.trace import get_current_span
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from tilebox.workflows.data import Job
@@ -30,17 +30,44 @@ _INSTRUMENTATION_MODULE_NAME = "tilebox.com/observability"
 _OTEL_TRACES_ENDPOINT_ENV_VAR = "OTEL_TRACES_ENDPOINT"
 _OTEL_EXPORT_INTERVAL_ENV_VAR = "OTEL_EXPORT_INTERVAL"
 
+# the globally configured tilebox opentelemetry tracer provider.
+# we explicitly avoid using the global opentelemetry tracer provider, because other libraries might also configure
+# that (e.g. pytorch does sometimes), and we don't want to interfere with that.
+# as default we don't use a proxy tracer provider, that only returns no-op tracers, because we still want to be able
+# to extract trace_ids and spans, in case other runners / workflow clients have tracing configured.
+# So instead we use a tracer provider without any exporters, which will still create traces and spans,
+# but will not send them anywhere.
+_tilebox_tracer_provider = TracerProvider()
+_workflow_tracers = []
+
+
+def _get_tilebox_tracer_provider() -> TracerProvider:
+    return _tilebox_tracer_provider
+
+
+def _set_tilebox_tracer_provider(provider: TracerProvider) -> None:
+    global _tilebox_tracer_provider  # noqa: PLW0603
+    _tilebox_tracer_provider = provider
+
+    for tracer in _workflow_tracers:
+        tracer._swap_provider(provider)  # noqa: SLF001
+
 
 class WorkflowTracer:
     def __init__(self) -> None:
         """Instantiate a tracer from the currently configured global tracer provider."""
-        provider = get_tracer_provider()
-        if isinstance(provider, ProxyTracerProvider):
-            # if no tracer provider is configured, we still don't want to use the no-op tracer, because we
-            # want to be able to extract trace_ids and spans, in case other runners / workflow clients have tracing
-            # configured. So instead we use a tracer provider without any exporters, which will still create traces
-            # and spans, but will not send them anywhere.
-            provider = TracerProvider()
+        provider = _get_tilebox_tracer_provider()
+        self._tracer = provider.get_tracer(_INSTRUMENTATION_MODULE_NAME)
+
+        # keep track of all workflow tracers, to be able to update them in case the
+        # global tracer provider is replaced.
+        _workflow_tracers.append(self)
+
+    def _swap_provider(self, provider: TracerProvider) -> None:
+        """
+        A callback function that get's invoked in case a new tracer provider is configured, to make sure
+        existing workflow tracers are updated to use the new provider.
+        """
         self._tracer = provider.get_tracer(_INSTRUMENTATION_MODULE_NAME)
 
     # functools.wraps is a bit buggy with class methods, so we are not using it here
@@ -62,16 +89,11 @@ def get_trace_parent_of_current_span() -> str:
     return carrier["traceparent"]
 
 
-def _otel_tracer_provider(
-    service: str | Resource | None = None,
+def _otel_span_exporter(
     endpoint: str | None = None,
     headers: dict[str, str] | None = None,
     export_interval: timedelta | None = None,
-) -> TracerProvider:
-    resource = _get_default_resource(service)
-
-    provider = TracerProvider(resource=resource)
-
+) -> SpanProcessor:
     if endpoint is None:
         endpoint = os.environ.get(_OTEL_TRACES_ENDPOINT_ENV_VAR, None)
     if endpoint is None:
@@ -94,11 +116,7 @@ def _otel_tracer_provider(
         headers=headers,
     )
     schedule_delay = int(export_interval.total_seconds() * 1000) if export_interval is not None else None
-    batch_processor = BatchSpanProcessor(exporter, schedule_delay_millis=schedule_delay)  # type: ignore[arg-type]
-
-    provider.add_span_processor(batch_processor)
-
-    return provider
+    return BatchSpanProcessor(exporter, schedule_delay_millis=schedule_delay)  # type: ignore[arg-type]
 
 
 class SpanEventLoggingHandler(logging.Handler):
@@ -156,8 +174,20 @@ def configure_otel_tracing(
     Raises:
         ValueError: If no endpoint is provided and no OTEL_TRACES_ENDPOINT environment variable is set.
     """
-    provider = _otel_tracer_provider(service, endpoint, headers, export_interval)
-    set_tracer_provider(provider)
+    provider = _get_tilebox_tracer_provider()
+    resource = _get_default_resource(service)
+    if provider.resource.attributes != resource.attributes:
+        # It's either the first time we configure tracing, or we are trying to reconfigure it with a different resource.
+        # That means we need to create a new provider.
+        provider = TracerProvider(
+            resource=resource,
+            # keep the existing span processor, so that all previously configured exports are still used as well
+            active_span_processor=provider._active_span_processor,  # noqa: SLF001
+        )
+        _set_tilebox_tracer_provider(provider)
+
+    exporter = _otel_span_exporter(endpoint, headers, export_interval)
+    provider.add_span_processor(exporter)
 
     # if we configure tracing, we also want to add log messages to active spans, which is a mixture of a logging
     # tracing feature. But configure this here, because we anyways don't need to do this if tracing is not configured.
