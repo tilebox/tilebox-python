@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `tilebox-workflows`: Registering duplicate task identifiers with a task runner now raises a `ValueError` instead of
   overwriting the existing task.
+- `tilebox-workflows`: Fixed a bug where the `deserialize_task` function would fail to deserialize nested dataclasses or
+  protobuf messages that are wrapped in an `Optional` or `Annotated` type hint.
 
 ## [0.41.0] - 2025-08-01
 
