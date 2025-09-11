@@ -12,7 +12,7 @@ plugins:
     out: tilebox-workflows/tilebox/workflows
 inputs:
   # for local development
-  # - directory: ../api
+  # directory: ../api
   - module: buf.build/tilebox/api
     paths:
       - "workflows"

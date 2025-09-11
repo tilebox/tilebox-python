@@ -247,6 +247,29 @@ class FutureTask:
         )
 
 
+class ProgressUpdate:
+    def __init__(self, label: str | None) -> None:
+        self._label = label
+        self._total = 0
+        self._done = 0
+
+    def add(self, count: int) -> None:
+        """Add a given amount of total work to be done to the progress bar.
+
+        Args:
+            count: The amount of work to add to the progress bar.
+        """
+        self._total += count
+
+    def done(self, count: int) -> None:
+        """Mark a given amount of work as done.
+
+        Args:
+            count: The amount of work to mark as done.
+        """
+        self._done += count
+
+
 class ExecutionContext(ABC):
     """The execution context for a task."""
 
@@ -282,6 +305,10 @@ class ExecutionContext(ABC):
     @abstractmethod
     def runner_context(self) -> RunnerContext:
         """Get the runner context for the task runner executing the task."""
+
+    @abstractmethod
+    def progress(self, label: str | None) -> ProgressUpdate:
+        """Get a progress bar instance for tracking job progress."""
 
 
 def serialize_task(task: Task) -> bytes:
