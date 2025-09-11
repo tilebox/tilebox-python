@@ -27,14 +27,16 @@ class NextTaskToRun(_message.Message):
     def __init__(self, cluster_slug: _Optional[str] = ..., identifiers: _Optional[_Iterable[_Union[_core_pb2.TaskIdentifier, _Mapping]]] = ...) -> None: ...
 
 class ComputedTask(_message.Message):
-    __slots__ = ("id", "display", "sub_tasks")
+    __slots__ = ("id", "display", "sub_tasks", "progress_updates")
     ID_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_FIELD_NUMBER: _ClassVar[int]
     SUB_TASKS_FIELD_NUMBER: _ClassVar[int]
+    PROGRESS_UPDATES_FIELD_NUMBER: _ClassVar[int]
     id: _id_pb2.ID
     display: str
     sub_tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.TaskSubmission]
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., sub_tasks: _Optional[_Iterable[_Union[_core_pb2.TaskSubmission, _Mapping]]] = ...) -> None: ...
+    progress_updates: _containers.RepeatedCompositeFieldContainer[_core_pb2.ProgressBar]
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., sub_tasks: _Optional[_Iterable[_Union[_core_pb2.TaskSubmission, _Mapping]]] = ..., progress_updates: _Optional[_Iterable[_Union[_core_pb2.ProgressBar, _Mapping]]] = ...) -> None: ...
 
 class IdlingResponse(_message.Message):
     __slots__ = ("suggested_idling_duration",)
@@ -51,14 +53,16 @@ class NextTaskResponse(_message.Message):
     def __init__(self, next_task: _Optional[_Union[_core_pb2.Task, _Mapping]] = ..., idling: _Optional[_Union[IdlingResponse, _Mapping]] = ...) -> None: ...
 
 class TaskFailedRequest(_message.Message):
-    __slots__ = ("task_id", "display", "cancel_job")
+    __slots__ = ("task_id", "display", "cancel_job", "progress_updates")
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_FIELD_NUMBER: _ClassVar[int]
     CANCEL_JOB_FIELD_NUMBER: _ClassVar[int]
+    PROGRESS_UPDATES_FIELD_NUMBER: _ClassVar[int]
     task_id: _id_pb2.ID
     display: str
     cancel_job: bool
-    def __init__(self, task_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., cancel_job: bool = ...) -> None: ...
+    progress_updates: _containers.RepeatedCompositeFieldContainer[_core_pb2.ProgressBar]
+    def __init__(self, task_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., cancel_job: bool = ..., progress_updates: _Optional[_Iterable[_Union[_core_pb2.ProgressBar, _Mapping]]] = ...) -> None: ...
 
 class TaskStateResponse(_message.Message):
     __slots__ = ("state",)

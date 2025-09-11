@@ -48,7 +48,7 @@ class Cluster(_message.Message):
     def __init__(self, slug: _Optional[str] = ..., display_name: _Optional[str] = ..., deletable: bool = ...) -> None: ...
 
 class Job(_message.Message):
-    __slots__ = ("id", "name", "trace_parent", "canceled", "state", "submitted_at", "started_at", "task_summaries", "automation_id")
+    __slots__ = ("id", "name", "trace_parent", "canceled", "state", "submitted_at", "started_at", "task_summaries", "automation_id", "progress_bars")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TRACE_PARENT_FIELD_NUMBER: _ClassVar[int]
@@ -58,6 +58,7 @@ class Job(_message.Message):
     STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     TASK_SUMMARIES_FIELD_NUMBER: _ClassVar[int]
     AUTOMATION_ID_FIELD_NUMBER: _ClassVar[int]
+    PROGRESS_BARS_FIELD_NUMBER: _ClassVar[int]
     id: _id_pb2.ID
     name: str
     trace_parent: str
@@ -67,7 +68,8 @@ class Job(_message.Message):
     started_at: _timestamp_pb2.Timestamp
     task_summaries: _containers.RepeatedCompositeFieldContainer[TaskSummary]
     automation_id: _id_pb2.ID
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., canceled: bool = ..., state: _Optional[_Union[JobState, str]] = ..., submitted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., task_summaries: _Optional[_Iterable[_Union[TaskSummary, _Mapping]]] = ..., automation_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
+    progress_bars: _containers.RepeatedCompositeFieldContainer[ProgressBar]
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., canceled: bool = ..., state: _Optional[_Union[JobState, str]] = ..., submitted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., task_summaries: _Optional[_Iterable[_Union[TaskSummary, _Mapping]]] = ..., automation_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., progress_bars: _Optional[_Iterable[_Union[ProgressBar, _Mapping]]] = ...) -> None: ...
 
 class TaskSummary(_message.Message):
     __slots__ = ("id", "display", "state", "parent_id", "started_at", "stopped_at")
@@ -84,6 +86,16 @@ class TaskSummary(_message.Message):
     started_at: _timestamp_pb2.Timestamp
     stopped_at: _timestamp_pb2.Timestamp
     def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., state: _Optional[_Union[TaskState, str]] = ..., parent_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., stopped_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+
+class ProgressBar(_message.Message):
+    __slots__ = ("label", "total", "done")
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_FIELD_NUMBER: _ClassVar[int]
+    DONE_FIELD_NUMBER: _ClassVar[int]
+    label: str
+    total: int
+    done: int
+    def __init__(self, label: _Optional[str] = ..., total: _Optional[int] = ..., done: _Optional[int] = ...) -> None: ...
 
 class Task(_message.Message):
     __slots__ = ("id", "identifier", "state", "input", "display", "job", "parent_id", "depends_on", "lease", "retry_count")

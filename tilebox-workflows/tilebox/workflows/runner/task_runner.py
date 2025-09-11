@@ -211,7 +211,9 @@ class _GracefulShutdown:
 
         with self._task_mutex:
             if self._task is not None:
-                self._service.task_failed(self._task, RunnerShutdown("Task was interrupted"), cancel_job=False)
+                self._service.task_failed(
+                    self._task, RunnerShutdown("Task was interrupted"), cancel_job=False, progress_updates=[]
+                )
 
         # fetch the handler we want to call after the grace period
         original_handler = self._original_sigterm if signum == signal.SIGTERM else self._original_sigint
@@ -411,7 +413,9 @@ class TaskRunner:
             self.logger.exception(f"Task {task_repr} failed!")
 
             task_failed_retry = _retry_backoff(self._service.task_failed, stop=shutdown_context.stop_if_shutting_down())
-            task_failed_retry(task, e)
+            cancel_job = True
+            progress_updates = []
+            task_failed_retry(task, e, cancel_job, progress_updates)
         return None
 
     def _try_execute(self, task: Task, shutdown_context: _GracefulShutdown) -> Task | Idling | None:
@@ -476,6 +480,7 @@ class TaskRunner:
                             task.to_submission(self.tasks_to_run.cluster_slug)
                             for task in context._sub_tasks  # noqa: SLF001
                         ],
+                        progress_updates=[],
                     ),
                 )
 
