@@ -113,7 +113,13 @@ known-first-party = ["tilebox", "_tilebox"]
 "*/tests/*" = ["INP001", "SLF001"]
 
 [tool.pyright]
-exclude = ["**/.ipynb_checkpoints", "**/__pycache__", ".venv"]
+exclude = [
+    "**/.ipynb_checkpoints",
+    "**/__pycache__",
+    ".venv",
+    "tilebox-datasets/tests/example_dataset/*", # auto-generated code
+    "tilebox-workflows/tests/proto/*",          # auto-generated code
+]
 
 # ignore warnings in those files, but still type check them when used as a dependency in other files
 ignore = [
