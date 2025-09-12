@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from hypothesis import given
 from tests.proto.test_pb2 import SampleArgs
@@ -30,7 +32,7 @@ def test_storage_event_task_serialization_protobuf() -> None:
 
 def test_storage_event_task_serialization_requires_trigger() -> None:
     with pytest.raises(
-        ValueError, match="StorageEventTask cannot be submitted without being triggered. Use task.once()."
+        ValueError, match=re.escape("StorageEventTask cannot be submitted without being triggered. Use task.once().")
     ):
         ExampleStorageEventTask("test", 42)._serialize()
 

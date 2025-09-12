@@ -126,7 +126,7 @@ def test_datapoint_not_found() -> None:
     s2_dataset = client.dataset("open_data.copernicus.sentinel2_msi")
     collection = s2_dataset.collection("S2A_S2MSI1C")
 
-    with pytest.raises(NotFoundError, match="No such datapoint.*"):
+    with pytest.raises(NotFoundError, match=r"No such datapoint.*"):
         collection.find("0181f4ef-2040-101a-1423-d818e4d1895e")  # is in another collection
 
 

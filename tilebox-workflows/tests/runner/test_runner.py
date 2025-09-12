@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -213,26 +214,32 @@ def test_runner_disallow_duplicate_task_identifiers() -> None:
 
     runner.register(FlakyTask)
     with pytest.raises(
-        ValueError, match="Duplicate task identifier: A task 'FlakyTask' with version 'v0.0' is already registered."
+        ValueError,
+        match=re.escape("Duplicate task identifier: A task 'FlakyTask' with version 'v0.0' is already registered."),
     ):
         runner.register(FlakyTask)
 
     runner.register(SumResultTask)
     with pytest.raises(
-        ValueError, match="Duplicate task identifier: A task 'SumResultTask' with version 'v0.0' is already registered."
+        ValueError,
+        match=re.escape("Duplicate task identifier: A task 'SumResultTask' with version 'v0.0' is already registered."),
     ):
         runner.register(SumResultTask)
 
     runner.register(ExplicitIdentifierTaskV1)
     with pytest.raises(
         ValueError,
-        match="Duplicate task identifier: A task 'tilebox.com/explicit' with version 'v1.0' is already registered.",
+        match=re.escape(
+            "Duplicate task identifier: A task 'tilebox.com/explicit' with version 'v1.0' is already registered."
+        ),
     ):
         runner.register(ExplicitIdentifierTaskV1)
 
     runner.register(ExplicitIdentifierTaskV2)  # this one has a different version, so it's fine
     with pytest.raises(
         ValueError,
-        match="Duplicate task identifier: A task 'tilebox.com/explicit' with version 'v2.0' is already registered.",
+        match=re.escape(
+            "Duplicate task identifier: A task 'tilebox.com/explicit' with version 'v2.0' is already registered."
+        ),
     ):
         runner.register(ExplicitIdentifierTaskV2)

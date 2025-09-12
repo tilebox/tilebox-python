@@ -88,10 +88,10 @@ def test_parse_channel_info_unix(url: str) -> None:
 
 
 def test_parse_channel_invalid() -> None:
-    with pytest.raises(ValueError, match="Invalid"):
+    with pytest.raises(ValueError, match=r"Invalid"):
         parse_channel_info("i'm not a url")
 
 
 def test_parse_channel_port_required_for_http() -> None:
-    with pytest.raises(ValueError, match="Explicit port required"):
+    with pytest.raises(ValueError, match=r"Explicit port required"):
         parse_channel_info("http://0.0.0.0")

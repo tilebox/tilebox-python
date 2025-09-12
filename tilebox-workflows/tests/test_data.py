@@ -32,9 +32,11 @@ from tilebox.workflows.data import (
 def test_task_identifiers_to_message_and_back(task_id: TaskIdentifier) -> None:
     assert TaskIdentifier.from_message(task_id.to_message()) == task_id
 
+
 @given(progress_bars())
 def test_progress_bars_to_message_and_back(progress_bar: ProgressBar) -> None:
     assert ProgressBar.from_message(progress_bar.to_message()) == progress_bar
+
 
 @given(tasks())
 def test_tasks_to_message_and_back(task: Task) -> None:

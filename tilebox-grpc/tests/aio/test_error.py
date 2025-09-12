@@ -34,5 +34,5 @@ async def test_with_pythonic_errors(grpc_status: StatusCode, exception_type: typ
             self.some_rpc = _mock_rpc
 
     stub = with_pythonic_errors(Stub())
-    with pytest.raises(exception_type, match=".*"):
+    with pytest.raises(exception_type, match=r".*"):
         await stub.some_rpc()

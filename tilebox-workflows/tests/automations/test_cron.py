@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone
 
 import pytest
@@ -24,7 +25,9 @@ def test_cron_task_serialization_protobuf() -> None:
 
 
 def test_cron_task_serialization_requires_trigger() -> None:
-    with pytest.raises(ValueError, match="CronTask cannot be submitted without being triggered. Use task.once()."):
+    with pytest.raises(
+        ValueError, match=re.escape("CronTask cannot be submitted without being triggered. Use task.once().")
+    ):
         ExampleCronTask("test", 42)._serialize()
 
 
