@@ -215,7 +215,7 @@ class Job:
             trace_parent=job.trace_parent,
             state=_JOB_STATES[job.state],
             submitted_at=timestamp_to_datetime(job.submitted_at),
-            started_at=timestamp_to_datetime(job.started_at) if job.started_at else None,
+            started_at=timestamp_to_datetime(job.started_at) if job.HasField("started_at") else None,
             canceled=job.canceled,
             progress_bars=[ProgressBar.from_message(progress_bar) for progress_bar in job.progress_bars],
         )

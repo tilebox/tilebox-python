@@ -4,7 +4,7 @@ Hypothesis strategies for generating random test data for tests.
 
 import json
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from hypothesis.strategies import (
     DrawFn,
@@ -14,7 +14,6 @@ from hypothesis.strategies import (
     dictionaries,
     floats,
     integers,
-    just,
     lists,
     none,
     one_of,
@@ -125,16 +124,28 @@ def jobs(draw: DrawFn, canceled: bool | None = None) -> Job:
     name = draw(alphanumerical_text())
     trace_parent = draw(alphanumerical_text())
     state = draw(sampled_from(JobState))
-    submitted_at = draw(datetimes(min_value=datetime(1990, 1, 1), max_value=datetime(2024, 1, 1), timezones=just(None)))
+    submitted_at = draw(datetimes(min_value=datetime(1990, 1, 1), max_value=datetime(2024, 1, 1)))
     started_at = draw(
-        one_of(none(), datetimes(min_value=submitted_at, max_value=datetime(2025, 1, 1), timezones=just(None)))
+        one_of(
+            none(),
+            datetimes(min_value=submitted_at, max_value=datetime(2025, 1, 1)),
+        )
     )
     if canceled is None:
         canceled = draw(booleans())
 
     progress = draw(lists(progress_bars(), min_size=0, max_size=3))
 
-    return Job(job_id, name, trace_parent, state, submitted_at, started_at, canceled, progress)
+    return Job(
+        job_id,
+        name,
+        trace_parent,
+        state,
+        submitted_at.astimezone(timezone.utc),
+        started_at.astimezone(timezone.utc) if started_at else None,
+        canceled,
+        progress,
+    )
 
 
 @composite
