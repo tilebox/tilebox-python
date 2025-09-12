@@ -8,7 +8,7 @@ from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
 from tilebox.workflows import ExecutionContext, Task
 from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.client import Client
-from tilebox.workflows.data import JobState, RunnerContext
+from tilebox.workflows.data import JobState, ProgressBar, RunnerContext
 from tilebox.workflows.runner.task_runner import TaskRunner
 
 
@@ -113,6 +113,40 @@ def test_runner_with_flaky_task() -> None:
     runner.run_all()  # now task will succeed
     job = job_client.find(job)  # load current job state
     assert job.state == JobState.COMPLETED
+
+
+class ProgressTask(Task):
+    n: int
+
+    def execute(self, context: ExecutionContext) -> None:
+        context.progress("test").add(self.n)
+        context.submit_subtasks([ProgressLeafTask(i) for i in range(self.n)])
+
+
+class ProgressLeafTask(Task):
+    i: int
+
+    def execute(self, context: ExecutionContext) -> None:
+        context.progress("test").done(1)
+
+
+def test_runner_with_workflow_tracking_progress() -> None:
+    client = replay_client("progress.rpcs.bin")
+    job_client = client.jobs()
+
+    with patch("tilebox.workflows.jobs.client.get_trace_parent_of_current_span") as get_trace_parent_mock:
+        # we hardcode the trace parent for the job, which allows us to assert that every single outgoing request
+        # matches exactly byte for byte
+        get_trace_parent_mock.return_value = "00-98b9c13dbc61637ffb36f592a8236088-bc29f6909f0b7c5b-01"
+        job = client.jobs().submit("progress-task", ProgressTask(4))
+
+    cache = InMemoryCache()
+    runner = client.runner(tasks=[ProgressTask, ProgressLeafTask], cache=cache)
+
+    runner.run_all()
+    job = job_client.find(job)  # load current job state
+    assert job.state == JobState.COMPLETED
+    assert job.progress_bars == [ProgressBar("test", 4, 4)]
 
 
 def replay_client(replay_file: str, assert_request_matches: bool = True) -> Client:
