@@ -186,7 +186,7 @@ def test_timeseries_dataset_collection_find_invalid_id() -> None:
         mocked.collection.find("invalid")
 
     mocked.service.query_by_id.side_effect = ArgumentError
-    with pytest.raises(ValueError, match="Invalid datapoint id.*"):
+    with pytest.raises(ValueError, match=r"Invalid datapoint id.*"):
         mocked.collection.find(uuid4())
 
 
@@ -194,7 +194,7 @@ def test_timeseries_dataset_collection_find_not_found() -> None:
     """Test that .find() of a collection raises a NotFoundError if the datapoint is not found."""
     mocked = _mocked_collection()
     mocked.service.query_by_id.side_effect = NotFoundError
-    with pytest.raises(NotFoundError, match="No such datapoint.*"):
+    with pytest.raises(NotFoundError, match=r"No such datapoint.*"):
         mocked.collection.find("14eb91a2-a42f-421f-9397-1dab577f05a9")
 
 

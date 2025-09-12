@@ -36,11 +36,11 @@ Python library for [Tilebox](https://tilebox.com), a lightweight space data mana
 ## Install
 
 ```bash
-pip install tilebox-datasets tilebox-workflows tilebox-storage
+pip install tilebox
 ```
 
 > [!TIP]
-> For new projects we recommend using [uv](https://docs.astral.sh/uv/) - `uv add tilebox-datasets tilebox-workflows tilebox-storage`. Additional installation options are available [in our docs](https://docs.tilebox.com/sdks/python/install).
+> For new projects we recommend using [uv](https://docs.astral.sh/uv/) - `uv add tilebox`. Additional installation options are available [in our docs](https://docs.tilebox.com/sdks/python/install).
 
 ## Documentation
 
@@ -77,7 +77,6 @@ results = s2a_l1c.query(
 )
 print(f"Found {results.sizes['time']} datapoints")  # Found 979 datapoints
 ```
-
 
 ### Tilebox Workflows
 

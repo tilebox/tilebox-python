@@ -36,7 +36,7 @@ def test_granule_from_asf_datapoint(granule: ASFStorageGranule) -> None:
 def test_granule_from_asf_datapoints(granules: list[ASFStorageGranule]) -> None:
     datapoints = [_asf_granule_to_datapoint(granule) for granule in granules]
     dataset = xr.concat(datapoints, dim="time")
-    with pytest.raises(ValueError, match=".*more than one granule.*"):
+    with pytest.raises(ValueError, match=r".*more than one granule.*"):
         ASFStorageGranule.from_data(dataset)
 
     for i in range(len(granules)):  # converting a dataset with a time dimension of 1 should still work though
@@ -75,7 +75,7 @@ def test_granule_from_umbra_datapoint(granule: UmbraStorageGranule) -> None:
 def test_granule_from_umbra_datapoints(granules: list[UmbraStorageGranule]) -> None:
     datapoints = [_umbra_granule_to_datapoint(granule) for granule in granules]
     dataset = xr.concat(datapoints, dim="time")
-    with pytest.raises(ValueError, match=".*more than one granule.*"):
+    with pytest.raises(ValueError, match=r".*more than one granule.*"):
         UmbraStorageGranule.from_data(dataset)
 
     for i in range(len(granules)):  # converting a dataset with a time dimension of 1 should still work though
@@ -141,7 +141,7 @@ def test_granule_from_copernicus_datapoint(granule: CopernicusStorageGranule) ->
 def test_granule_from_copernicus_datapoints(granules: list[CopernicusStorageGranule]) -> None:
     datapoints = [_copernicus_granule_to_datapoint(granule) for granule in granules]
     dataset = xr.concat(datapoints, dim="time")
-    with pytest.raises(ValueError, match=".*more than one granule.*"):
+    with pytest.raises(ValueError, match=r".*more than one granule.*"):
         CopernicusStorageGranule.from_data(dataset)
 
     for i in range(len(granules)):  # converting a dataset with a time dimension of 1 should still work though
@@ -169,7 +169,7 @@ def test_granule_from_landsat_datapoint(granule: USGSLandsatStorageGranule) -> N
 def test_granule_from_landsat_datapoints(granules: list[USGSLandsatStorageGranule]) -> None:
     datapoints = [_landsat_granule_to_datapoint(granule) for granule in granules]
     dataset = xr.concat(datapoints, dim="time")
-    with pytest.raises(ValueError, match=".*more than one granule.*"):
+    with pytest.raises(ValueError, match=r".*more than one granule.*"):
         USGSLandsatStorageGranule.from_data(dataset)
 
     for i in range(len(granules)):  # converting a dataset with a time dimension of 1 should still work though

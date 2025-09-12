@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -37,14 +38,14 @@ async def test_client_login(httpx_mock: HTTPXMock) -> None:
 async def test_client_login_failed(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(401)
     client = _HttpClient(auth={"ASF": ("invalid-username", "password")})
-    with pytest.raises(ValueError, match="Invalid username or password."):
+    with pytest.raises(ValueError, match=re.escape("Invalid username or password.")):
         await client._client("ASF")
 
 
 @pytest.mark.asyncio
 async def test_client_missing_credentials() -> None:
     client = _HttpClient(auth={})
-    with pytest.raises(ValueError, match="Missing credentials.*"):
+    with pytest.raises(ValueError, match=r"Missing credentials.*"):
         await client._client("ASF")
 
 
@@ -102,7 +103,7 @@ async def test_download_verify_md5(httpx_mock: HTTPXMock, tmp_path: Path, granul
     httpx_mock.add_response(content=b"login-response")
     httpx_mock.add_response(stream=IteratorStream([b"my-granule"]))
     client = _HttpClient(auth={"ASF": ("username", "password")})
-    with pytest.raises(ValueError, match=".*md5sum mismatch.*"):
+    with pytest.raises(ValueError, match=r".*md5sum mismatch.*"):
         await client.download(granule, tmp_path, extract=False, show_progress=False)
 
 

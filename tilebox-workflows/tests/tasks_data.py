@@ -4,12 +4,13 @@ Hypothesis strategies for generating random test data for tests.
 
 import json
 import string
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from hypothesis.strategies import (
     DrawFn,
     booleans,
     composite,
+    datetimes,
     dictionaries,
     floats,
     integers,
@@ -30,6 +31,7 @@ from tilebox.workflows.data import (
     Idling,
     Job,
     JobState,
+    ProgressBar,
     StorageEventTrigger,
     StorageLocation,
     StorageType,
@@ -54,6 +56,15 @@ def clusters(draw: DrawFn) -> Cluster:
     display_name = draw(alphanumerical_text())
     deletable = draw(booleans())
     return Cluster(slug, display_name, deletable)
+
+
+@composite
+def progress_bars(draw: DrawFn) -> ProgressBar:
+    """A hypothesis strategy for generating random progress_bars"""
+    label = draw(one_of(alphanumerical_text(), none()))
+    total = draw(integers(min_value=50, max_value=1000))
+    done = draw(integers(min_value=0, max_value=total))
+    return ProgressBar(label, total, done)
 
 
 @composite
@@ -113,10 +124,28 @@ def jobs(draw: DrawFn, canceled: bool | None = None) -> Job:
     name = draw(alphanumerical_text())
     trace_parent = draw(alphanumerical_text())
     state = draw(sampled_from(JobState))
+    submitted_at = draw(datetimes(min_value=datetime(1990, 1, 1), max_value=datetime(2024, 1, 1)))
+    started_at = draw(
+        one_of(
+            none(),
+            datetimes(min_value=submitted_at, max_value=datetime(2025, 1, 1)),
+        )
+    )
     if canceled is None:
         canceled = draw(booleans())
 
-    return Job(job_id, name, trace_parent, state, canceled)
+    progress = draw(lists(progress_bars(), min_size=0, max_size=3))
+
+    return Job(
+        job_id,
+        name,
+        trace_parent,
+        state,
+        submitted_at.astimezone(timezone.utc),
+        started_at.astimezone(timezone.utc) if started_at else None,
+        canceled,
+        progress,
+    )
 
 
 @composite
@@ -138,8 +167,9 @@ def computed_tasks(draw: DrawFn) -> ComputedTask:
     task_id = draw(uuids(version=4))
     display = draw(alphanumerical_text())
     subtasks: list[TaskSubmission] = draw(lists(task_submissions(), min_size=1, max_size=10))
+    progress_updates = draw(lists(progress_bars(), min_size=0, max_size=3))
 
-    return ComputedTask(task_id, display, subtasks)
+    return ComputedTask(task_id, display, subtasks, progress_updates)
 
 
 @composite

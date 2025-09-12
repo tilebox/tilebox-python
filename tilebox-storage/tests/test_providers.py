@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from httpx import AsyncClient, BasicAuth
 from pytest_httpx import HTTPXMock
@@ -21,5 +23,5 @@ async def test_asf_login(httpx_mock: HTTPXMock) -> None:
 @pytest.mark.asyncio
 async def test_asf_login_invalid_auth(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(401)
-    with pytest.raises(ValueError, match="Invalid username or password."):
+    with pytest.raises(ValueError, match=re.escape("Invalid username or password.")):
         await _asf_login(("username", "password"))

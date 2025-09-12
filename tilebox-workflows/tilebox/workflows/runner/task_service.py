@@ -8,6 +8,7 @@ from tilebox.workflows.data import (
     ComputedTask,
     Idling,
     NextTaskToRun,
+    ProgressBar,
     Task,
     TaskLease,
     uuid_to_uuid_message,
@@ -47,12 +48,17 @@ class TaskService:
             return Idling.from_message(response.idling)
         return None
 
-    def task_failed(self, task: Task, error: Exception, cancel_job: bool = True) -> None:
+    def task_failed(self, task: Task, error: Exception, cancel_job: bool, progress_updates: list[ProgressBar]) -> None:
         # job ouptut is limited to 1KB, so truncate the error message if necessary
         error_message = repr(error)[: (1024 - len(task.display or "None") - 1)]
         display = f"{task.display}" if error_message == "" else f"{task.display}\n{error_message}"
 
-        request = TaskFailedRequest(task_id=uuid_to_uuid_message(task.id), cancel_job=cancel_job, display=display)
+        request = TaskFailedRequest(
+            task_id=uuid_to_uuid_message(task.id),
+            cancel_job=cancel_job,
+            display=display,
+            progress_updates=[progress.to_message() for progress in progress_updates],
+        )
         self.service.TaskFailed(request)
 
     def extend_task_lease(self, task_id: UUID, requested_lease: int) -> TaskLease:

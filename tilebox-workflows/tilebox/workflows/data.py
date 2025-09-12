@@ -108,6 +108,22 @@ class TaskLease:
 
 
 @dataclass(order=True)
+class ProgressBar:
+    label: str | None
+    total: int
+    done: int
+
+    @classmethod
+    def from_message(cls, progress_bar: core_pb2.ProgressBar) -> "ProgressBar":
+        """Convert a ProgressBar protobuf message to a ProgressBar object."""
+        return cls(label=progress_bar.label or None, total=progress_bar.total, done=progress_bar.done)
+
+    def to_message(self) -> core_pb2.ProgressBar:
+        """Convert a ProgressBar object to a ProgressBar protobuf message."""
+        return core_pb2.ProgressBar(label=self.label, total=self.total, done=self.done)
+
+
+@dataclass(order=True)
 class Task:
     id: UUID
     identifier: TaskIdentifier
@@ -185,7 +201,10 @@ class Job:
     name: str
     trace_parent: str
     state: JobState
+    submitted_at: datetime
+    started_at: datetime | None
     canceled: bool
+    progress_bars: list[ProgressBar]
 
     @classmethod
     def from_message(cls, job: core_pb2.Job) -> "Job":  # lets use typing.Self once we require python >= 3.11
@@ -195,7 +214,10 @@ class Job:
             name=job.name,
             trace_parent=job.trace_parent,
             state=_JOB_STATES[job.state],
+            submitted_at=timestamp_to_datetime(job.submitted_at),
+            started_at=timestamp_to_datetime(job.started_at) if job.HasField("started_at") else None,
             canceled=job.canceled,
+            progress_bars=[ProgressBar.from_message(progress_bar) for progress_bar in job.progress_bars],
         )
 
     def to_message(self) -> core_pb2.Job:
@@ -205,7 +227,10 @@ class Job:
             name=self.name,
             trace_parent=self.trace_parent,
             state=f"JOB_STATE_{self.state.name}",
+            submitted_at=datetime_to_timestamp(self.submitted_at),
+            started_at=datetime_to_timestamp(self.started_at) if self.started_at else None,
             canceled=self.canceled,
+            progress_bars=[progress_bar.to_message() for progress_bar in self.progress_bars],
         )
 
 
@@ -278,6 +303,7 @@ class ComputedTask:
     id: UUID
     display: str | None
     sub_tasks: list[TaskSubmission]
+    progress_updates: list[ProgressBar]
 
     @classmethod
     def from_message(cls, computed_task: task_pb2.ComputedTask) -> "ComputedTask":
@@ -286,6 +312,7 @@ class ComputedTask:
             id=uuid_message_to_uuid(computed_task.id),
             display=computed_task.display,
             sub_tasks=[TaskSubmission.from_message(sub_task) for sub_task in computed_task.sub_tasks],
+            progress_updates=[ProgressBar.from_message(progress) for progress in computed_task.progress_updates],
         )
 
     def to_message(self) -> task_pb2.ComputedTask:
@@ -294,6 +321,7 @@ class ComputedTask:
             id=uuid_to_uuid_message(self.id),
             display=self.display,
             sub_tasks=[sub_task.to_message() for sub_task in self.sub_tasks],
+            progress_updates=[progress.to_message() for progress in self.progress_updates],
         )
 
 

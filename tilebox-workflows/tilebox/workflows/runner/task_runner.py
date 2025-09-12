@@ -28,13 +28,13 @@ from _tilebox.grpc.channel import open_channel
 from _tilebox.grpc.error import InternalServerError
 from tilebox.datasets.sync.dataset import DatasetClient
 from tilebox.workflows.cache import JobCache
-from tilebox.workflows.data import ComputedTask, Idling, NextTaskToRun, Task, TaskLease
+from tilebox.workflows.data import ComputedTask, Idling, NextTaskToRun, ProgressBar, Task, TaskLease
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
 from tilebox.workflows.observability.logging import get_logger
 from tilebox.workflows.observability.tracing import WorkflowTracer
 from tilebox.workflows.runner.task_service import TaskService
 from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
-from tilebox.workflows.task import FutureTask, RunnerContext, TaskMeta
+from tilebox.workflows.task import FutureTask, ProgressUpdate, RunnerContext, TaskMeta
 from tilebox.workflows.task import Task as TaskInstance
 
 # The time we give a task to finish it's execution when a runner shutdown is requested before we forcefully stop it
@@ -54,6 +54,9 @@ _MIN_IDLING_DURATION = timedelta(milliseconds=1)
 # Fallback polling interval and jitter in case the workflows API fails to respond with a suggested idling duration
 _FALLBACK_POLL_INTERVAL = timedelta(seconds=5)
 _FALLBACK_JITTER_INTERVAL = timedelta(seconds=5)
+
+# Maximum number of progress bars per task, mirroring the limit on the server side
+_MAX_TASK_PROGRESS_BARS = 1000
 
 WrappedFnReturnT = TypeVar("WrappedFnReturnT")
 
@@ -204,6 +207,7 @@ class _GracefulShutdown:
         # special handling for marking a task as failed on interrupt
         self._task_mutex = threading.Lock()
         self._task: Task | None = None
+        self._context: ExecutionContext | None = None
 
     def _external_interrupt_handler(self, signum: int, frame: FrameType | None) -> None:
         """Signal handler for SIGTERM and SIGINT."""
@@ -211,7 +215,15 @@ class _GracefulShutdown:
 
         with self._task_mutex:
             if self._task is not None:
-                self._service.task_failed(self._task, RunnerShutdown("Task was interrupted"), cancel_job=False)
+                progress = []
+                if self._context is not None:
+                    progress = _mutable_progress_bars_to_progress_updates(self._context._progress_bars)  # noqa: SLF001
+                self._service.task_failed(
+                    self._task,
+                    RunnerShutdown("Task was interrupted"),
+                    cancel_job=False,
+                    progress_updates=progress,
+                )
 
         # fetch the handler we want to call after the grace period
         original_handler = self._original_sigterm if signum == signal.SIGTERM else self._original_sigint
@@ -265,7 +277,7 @@ class _GracefulShutdown:
         self._original_sigterm = None
 
     @contextmanager
-    def mark_task_as_failed_on_interrupt(self, task: Task) -> Iterator[None]:
+    def mark_task_as_failed_on_interrupt(self, task: Task, context: "ExecutionContext") -> Iterator[None]:
         """
         A context manager to enable marking a task as failed immediately on interrupt.
 
@@ -274,11 +286,13 @@ class _GracefulShutdown:
         """
         with self._task_mutex:
             self._task = task
+            self._context = context
         try:
             yield
         finally:
             with self._task_mutex:
                 self._task = None
+                self._context = None
 
 
 class TaskRunner:
@@ -400,8 +414,13 @@ class TaskRunner:
                     shutdown_context.sleep(fallback_interval)
 
     def _execute(self, task: Task, shutdown_context: _GracefulShutdown) -> Task | Idling | None:
+        if task.job is None:
+            raise ValueError(f"Task {task.id} has no job associated with it.")
+
+        context = ExecutionContext(self, task, self.cache.group(str(task.job.id)))
+
         try:
-            return self._try_execute(task, shutdown_context)
+            return self._try_execute(task, context, shutdown_context)
         except Exception as e:
             task_repr = str(task.id)
             # let's try to get the name of the task class for a better error message:
@@ -411,10 +430,15 @@ class TaskRunner:
             self.logger.exception(f"Task {task_repr} failed!")
 
             task_failed_retry = _retry_backoff(self._service.task_failed, stop=shutdown_context.stop_if_shutting_down())
-            task_failed_retry(task, e)
+            cancel_job = True
+            progress_updates = _mutable_progress_bars_to_progress_updates(context._progress_bars)  # noqa: SLF001
+            task_failed_retry(task, e, cancel_job, progress_updates)
+
         return None
 
-    def _try_execute(self, task: Task, shutdown_context: _GracefulShutdown) -> Task | Idling | None:
+    def _try_execute(
+        self, task: Task, context: "ExecutionContext", shutdown_context: _GracefulShutdown
+    ) -> Task | Idling | None:
         if task.job is None:
             raise ValueError(f"Task {task.id} has no job associated with it.")
 
@@ -452,32 +476,29 @@ class TaskRunner:
                         task_input_span_attr = b64encode(task.input).decode("ascii")
                 span.set_attribute("task.input", task_input_span_attr)
 
-                context = ExecutionContext(self, task, self.cache.group(str(task.job.id)))
-
                 # if we receive an interrupt exactly when running the user defined execute function, it is quite
                 # likely that we don't finish in time. So we mark the task as failed in that case immediately.
                 # If for some reason it does finish in time, the failed status will be overwritten by the computed
                 # status done later on in this function.
-                with shutdown_context.mark_task_as_failed_on_interrupt(task):
+                with shutdown_context.mark_task_as_failed_on_interrupt(task, context):
                     _execute(task_instance, context, self._interceptors)
 
                 # if we received a stop signal, we should not request a next task
                 request_new_task = not shutdown_context.is_shutting_down()
                 task_to_run = self.tasks_to_run if request_new_task else None
+                computed_task = ComputedTask(
+                    id=task.id,
+                    display=task.display,
+                    sub_tasks=[
+                        task.to_submission(self.tasks_to_run.cluster_slug)
+                        for task in context._sub_tasks  # noqa: SLF001
+                    ],
+                    progress_updates=_mutable_progress_bars_to_progress_updates(context._progress_bars),  # noqa: SLF001
+                )
 
                 next_task_retry = _retry_backoff(self._service.next_task, stop=shutdown_context.stop_if_shutting_down())
                 # mark the task as computed and get the next one
-                return next_task_retry(
-                    task_to_run=task_to_run,
-                    computed_task=ComputedTask(
-                        id=task.id,
-                        display=task.display,
-                        sub_tasks=[
-                            task.to_submission(self.tasks_to_run.cluster_slug)
-                            for task in context._sub_tasks  # noqa: SLF001
-                        ],
-                    ),
-                )
+                return next_task_retry(task_to_run=task_to_run, computed_task=computed_task)
 
             except Exception as e:
                 # catch all exceptions and re-raise them, since we just want to mark spans as failed
@@ -492,6 +513,7 @@ class ExecutionContext(ExecutionContextBase):
         self.current_task = task
         self.job_cache = job_cache
         self._sub_tasks: list[FutureTask] = []
+        self._progress_bars: dict[str | None, ProgressUpdate] = {}
 
     def submit_subtask(
         self,
@@ -526,6 +548,22 @@ class ExecutionContext(ExecutionContextBase):
         )
         return self.submit_subtasks(tasks, cluster, max_retries)
 
+    def progress(self, label: str | None) -> ProgressUpdate:
+        if label == "":
+            label = None
+
+        if label in self._progress_bars:
+            return self._progress_bars[label]
+
+        # this is our server side limit to prevent mistakes / abuse, so let's not allow to go beyond that already
+        # client side
+        if len(self._progress_bars) > _MAX_TASK_PROGRESS_BARS:
+            raise ValueError(f"Cannot create more than {_MAX_TASK_PROGRESS_BARS} progress bars per task.")
+
+        progress_bar = ProgressUpdate(label)
+        self._progress_bars[label] = progress_bar
+        return progress_bar
+
     @property
     def runner_context(self) -> RunnerContext:
         return self._runner._context  # noqa: SLF001
@@ -537,6 +575,10 @@ class ExecutionContext(ExecutionContextBase):
             raise ValueError("No datasets client configured.")
 
         return client.dataset(dataset_id)
+
+
+def _mutable_progress_bars_to_progress_updates(progress_bars: dict[str | None, ProgressUpdate]) -> list[ProgressBar]:
+    return [ProgressBar(label, bar._total, bar._done) for label, bar in progress_bars.items()]  # noqa: SLF001
 
 
 def _execute(task: TaskInstance, context: ExecutionContext, additional_interceptors: list[Interceptor]) -> None:
