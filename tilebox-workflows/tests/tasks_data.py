@@ -4,15 +4,17 @@ Hypothesis strategies for generating random test data for tests.
 
 import json
 import string
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from hypothesis.strategies import (
     DrawFn,
     booleans,
     composite,
+    datetimes,
     dictionaries,
     floats,
     integers,
+    just,
     lists,
     none,
     one_of,
@@ -123,12 +125,16 @@ def jobs(draw: DrawFn, canceled: bool | None = None) -> Job:
     name = draw(alphanumerical_text())
     trace_parent = draw(alphanumerical_text())
     state = draw(sampled_from(JobState))
+    submitted_at = draw(datetimes(min_value=datetime(1990, 1, 1), max_value=datetime(2024, 1, 1), timezones=just(None)))
+    started_at = draw(
+        one_of(none(), datetimes(min_value=submitted_at, max_value=datetime(2025, 1, 1), timezones=just(None)))
+    )
     if canceled is None:
         canceled = draw(booleans())
 
     progress = draw(lists(progress_bars(), min_size=0, max_size=3))
 
-    return Job(job_id, name, trace_parent, state, canceled, progress)
+    return Job(job_id, name, trace_parent, state, submitted_at, started_at, canceled, progress)
 
 
 @composite

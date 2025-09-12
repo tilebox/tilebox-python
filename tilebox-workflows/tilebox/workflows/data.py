@@ -201,6 +201,8 @@ class Job:
     name: str
     trace_parent: str
     state: JobState
+    submitted_at: datetime
+    started_at: datetime | None
     canceled: bool
     progress_bars: list[ProgressBar]
 
@@ -212,6 +214,8 @@ class Job:
             name=job.name,
             trace_parent=job.trace_parent,
             state=_JOB_STATES[job.state],
+            submitted_at=timestamp_to_datetime(job.submitted_at),
+            started_at=timestamp_to_datetime(job.started_at) if job.started_at else None,
             canceled=job.canceled,
             progress_bars=[ProgressBar.from_message(progress_bar) for progress_bar in job.progress_bars],
         )
@@ -223,6 +227,8 @@ class Job:
             name=self.name,
             trace_parent=self.trace_parent,
             state=f"JOB_STATE_{self.state.name}",
+            submitted_at=datetime_to_timestamp(self.submitted_at),
+            started_at=datetime_to_timestamp(self.started_at) if self.started_at else None,
             canceled=self.canceled,
             progress_bars=[progress_bar.to_message() for progress_bar in self.progress_bars],
         )
