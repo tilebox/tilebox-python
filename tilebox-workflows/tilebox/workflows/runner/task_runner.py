@@ -28,7 +28,7 @@ from _tilebox.grpc.channel import open_channel
 from _tilebox.grpc.error import InternalServerError
 from tilebox.datasets.sync.dataset import DatasetClient
 from tilebox.workflows.cache import JobCache
-from tilebox.workflows.data import ComputedTask, Idling, NextTaskToRun, ProgressBar, Task, TaskLease
+from tilebox.workflows.data import ComputedTask, Idling, NextTaskToRun, ProgressIndicator, Task, TaskLease
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
 from tilebox.workflows.observability.logging import get_logger
 from tilebox.workflows.observability.tracing import WorkflowTracer
@@ -56,7 +56,7 @@ _FALLBACK_POLL_INTERVAL = timedelta(seconds=5)
 _FALLBACK_JITTER_INTERVAL = timedelta(seconds=5)
 
 # Maximum number of progress bars per task, mirroring the limit on the server side
-_MAX_TASK_PROGRESS_BARS = 1000
+_MAX_TASK_PROGRESS_INDICATORS = 1000
 
 WrappedFnReturnT = TypeVar("WrappedFnReturnT")
 
@@ -217,7 +217,7 @@ class _GracefulShutdown:
             if self._task is not None:
                 progress = []
                 if self._context is not None:
-                    progress = _mutable_progress_bars_to_progress_updates(self._context._progress_bars)  # noqa: SLF001
+                    progress = _finalize_mutable_progress_trackers(self._context._progress_indicators)  # noqa: SLF001
                 self._service.task_failed(
                     self._task,
                     RunnerShutdown("Task was interrupted"),
@@ -431,7 +431,7 @@ class TaskRunner:
 
             task_failed_retry = _retry_backoff(self._service.task_failed, stop=shutdown_context.stop_if_shutting_down())
             cancel_job = True
-            progress_updates = _mutable_progress_bars_to_progress_updates(context._progress_bars)  # noqa: SLF001
+            progress_updates = _finalize_mutable_progress_trackers(context._progress_indicators)  # noqa: SLF001
             task_failed_retry(task, e, cancel_job, progress_updates)
 
         return None
@@ -493,7 +493,7 @@ class TaskRunner:
                         task.to_submission(self.tasks_to_run.cluster_slug)
                         for task in context._sub_tasks  # noqa: SLF001
                     ],
-                    progress_updates=_mutable_progress_bars_to_progress_updates(context._progress_bars),  # noqa: SLF001
+                    progress_updates=_finalize_mutable_progress_trackers(context._progress_indicators),  # noqa: SLF001
                 )
 
                 next_task_retry = _retry_backoff(self._service.next_task, stop=shutdown_context.stop_if_shutting_down())
@@ -513,7 +513,7 @@ class ExecutionContext(ExecutionContextBase):
         self.current_task = task
         self.job_cache = job_cache
         self._sub_tasks: list[FutureTask] = []
-        self._progress_bars: dict[str | None, ProgressUpdate] = {}
+        self._progress_indicators: dict[str | None, ProgressUpdate] = {}
 
     def submit_subtask(
         self,
@@ -548,20 +548,20 @@ class ExecutionContext(ExecutionContextBase):
         )
         return self.submit_subtasks(tasks, cluster, max_retries)
 
-    def progress(self, label: str | None) -> ProgressUpdate:
+    def progress(self, label: str | None = None) -> ProgressUpdate:
         if label == "":
             label = None
 
-        if label in self._progress_bars:
-            return self._progress_bars[label]
+        if label in self._progress_indicators:
+            return self._progress_indicators[label]
 
         # this is our server side limit to prevent mistakes / abuse, so let's not allow to go beyond that already
         # client side
-        if len(self._progress_bars) > _MAX_TASK_PROGRESS_BARS:
-            raise ValueError(f"Cannot create more than {_MAX_TASK_PROGRESS_BARS} progress bars per task.")
+        if len(self._progress_indicators) > _MAX_TASK_PROGRESS_INDICATORS:
+            raise ValueError(f"Cannot create more than {_MAX_TASK_PROGRESS_INDICATORS} progress indicators per task.")
 
         progress_bar = ProgressUpdate(label)
-        self._progress_bars[label] = progress_bar
+        self._progress_indicators[label] = progress_bar
         return progress_bar
 
     @property
@@ -577,8 +577,10 @@ class ExecutionContext(ExecutionContextBase):
         return client.dataset(dataset_id)
 
 
-def _mutable_progress_bars_to_progress_updates(progress_bars: dict[str | None, ProgressUpdate]) -> list[ProgressBar]:
-    return [ProgressBar(label, bar._total, bar._done) for label, bar in progress_bars.items()]  # noqa: SLF001
+def _finalize_mutable_progress_trackers(
+    progress_bars: dict[str | None, ProgressUpdate],
+) -> list[ProgressIndicator]:
+    return [ProgressIndicator(label, bar._total, bar._done) for label, bar in progress_bars.items()]  # noqa: SLF001
 
 
 def _execute(task: TaskInstance, context: ExecutionContext, additional_interceptors: list[Interceptor]) -> None:

@@ -49,12 +49,6 @@ class GetJobProgressRequest(_message.Message):
     job_id: _id_pb2.ID
     def __init__(self, job_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
 
-class JobProgressResponse(_message.Message):
-    __slots__ = ("progress_bars",)
-    PROGRESS_BARS_FIELD_NUMBER: _ClassVar[int]
-    progress_bars: _containers.RepeatedCompositeFieldContainer[_core_pb2.ProgressBar]
-    def __init__(self, progress_bars: _Optional[_Iterable[_Union[_core_pb2.ProgressBar, _Mapping]]] = ...) -> None: ...
-
 class RetryJobRequest(_message.Message):
     __slots__ = ("job_id",)
     JOB_ID_FIELD_NUMBER: _ClassVar[int]

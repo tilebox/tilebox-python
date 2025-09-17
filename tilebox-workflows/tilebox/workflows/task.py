@@ -254,10 +254,10 @@ class ProgressUpdate:
         self._done = 0
 
     def add(self, count: int) -> None:
-        """Add a given amount of total work to be done to the progress bar.
+        """Add a given amount of total work to be done to the progress indicator.
 
         Args:
-            count: The amount of work to add to the progress bar.
+            count: The amount of work to add to the progress indicator.
         """
         self._total += count
 
@@ -307,8 +307,8 @@ class ExecutionContext(ABC):
         """Get the runner context for the task runner executing the task."""
 
     @abstractmethod
-    def progress(self, label: str | None) -> ProgressUpdate:
-        """Get a progress bar instance for tracking job progress."""
+    def progress(self, label: str | None = None) -> ProgressUpdate:
+        """Get a progress indicator instance for tracking job progress."""
 
 
 def serialize_task(task: Task) -> bytes:

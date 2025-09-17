@@ -6,7 +6,7 @@ from tests.tasks_data import (
     computed_tasks,
     idling_responses,
     jobs,
-    progress_bars,
+    progress_indicators,
     storage_locations,
     task_identifiers,
     task_leases,
@@ -19,7 +19,7 @@ from tilebox.workflows.data import (
     ComputedTask,
     Idling,
     Job,
-    ProgressBar,
+    ProgressIndicator,
     StorageLocation,
     Task,
     TaskIdentifier,
@@ -33,9 +33,9 @@ def test_task_identifiers_to_message_and_back(task_id: TaskIdentifier) -> None:
     assert TaskIdentifier.from_message(task_id.to_message()) == task_id
 
 
-@given(progress_bars())
-def test_progress_bars_to_message_and_back(progress_bar: ProgressBar) -> None:
-    assert ProgressBar.from_message(progress_bar.to_message()) == progress_bar
+@given(progress_indicators())
+def test_progress_indicators_to_message_and_back(progress_indicator: ProgressIndicator) -> None:
+    assert ProgressIndicator.from_message(progress_indicator.to_message()) == progress_indicator
 
 
 @given(tasks())

@@ -27,6 +27,11 @@ class JobServiceStub(object):
                 request_serializer=workflows_dot_v1_dot_job__pb2.GetJobRequest.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_core__pb2.Job.FromString,
                 _registered_method=True)
+        self.GetJobProgress = channel.unary_unary(
+                '/workflows.v1.JobService/GetJobProgress',
+                request_serializer=workflows_dot_v1_dot_job__pb2.GetJobProgressRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_core__pb2.Job.FromString,
+                _registered_method=True)
         self.RetryJob = channel.unary_unary(
                 '/workflows.v1.JobService/RetryJob',
                 request_serializer=workflows_dot_v1_dot_job__pb2.RetryJobRequest.SerializeToString,
@@ -70,6 +75,12 @@ class JobServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def GetJob(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetJobProgress(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -122,6 +133,11 @@ def add_JobServiceServicer_to_server(servicer, server):
             'GetJob': grpc.unary_unary_rpc_method_handler(
                     servicer.GetJob,
                     request_deserializer=workflows_dot_v1_dot_job__pb2.GetJobRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_core__pb2.Job.SerializeToString,
+            ),
+            'GetJobProgress': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetJobProgress,
+                    request_deserializer=workflows_dot_v1_dot_job__pb2.GetJobProgressRequest.FromString,
                     response_serializer=workflows_dot_v1_dot_core__pb2.Job.SerializeToString,
             ),
             'RetryJob': grpc.unary_unary_rpc_method_handler(
@@ -209,6 +225,33 @@ class JobService(object):
             target,
             '/workflows.v1.JobService/GetJob',
             workflows_dot_v1_dot_job__pb2.GetJobRequest.SerializeToString,
+            workflows_dot_v1_dot_core__pb2.Job.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetJobProgress(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.JobService/GetJobProgress',
+            workflows_dot_v1_dot_job__pb2.GetJobProgressRequest.SerializeToString,
             workflows_dot_v1_dot_core__pb2.Job.FromString,
             options,
             channel_credentials,

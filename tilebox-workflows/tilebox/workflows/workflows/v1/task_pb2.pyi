@@ -35,8 +35,8 @@ class ComputedTask(_message.Message):
     id: _id_pb2.ID
     display: str
     sub_tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.TaskSubmission]
-    progress_updates: _containers.RepeatedCompositeFieldContainer[_core_pb2.ProgressBar]
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., sub_tasks: _Optional[_Iterable[_Union[_core_pb2.TaskSubmission, _Mapping]]] = ..., progress_updates: _Optional[_Iterable[_Union[_core_pb2.ProgressBar, _Mapping]]] = ...) -> None: ...
+    progress_updates: _containers.RepeatedCompositeFieldContainer[_core_pb2.Progress]
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., sub_tasks: _Optional[_Iterable[_Union[_core_pb2.TaskSubmission, _Mapping]]] = ..., progress_updates: _Optional[_Iterable[_Union[_core_pb2.Progress, _Mapping]]] = ...) -> None: ...
 
 class IdlingResponse(_message.Message):
     __slots__ = ("suggested_idling_duration",)
@@ -61,8 +61,8 @@ class TaskFailedRequest(_message.Message):
     task_id: _id_pb2.ID
     display: str
     cancel_job: bool
-    progress_updates: _containers.RepeatedCompositeFieldContainer[_core_pb2.ProgressBar]
-    def __init__(self, task_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., cancel_job: bool = ..., progress_updates: _Optional[_Iterable[_Union[_core_pb2.ProgressBar, _Mapping]]] = ...) -> None: ...
+    progress_updates: _containers.RepeatedCompositeFieldContainer[_core_pb2.Progress]
+    def __init__(self, task_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., cancel_job: bool = ..., progress_updates: _Optional[_Iterable[_Union[_core_pb2.Progress, _Mapping]]] = ...) -> None: ...
 
 class TaskStateResponse(_message.Message):
     __slots__ = ("state",)

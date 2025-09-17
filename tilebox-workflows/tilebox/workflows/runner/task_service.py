@@ -8,7 +8,7 @@ from tilebox.workflows.data import (
     ComputedTask,
     Idling,
     NextTaskToRun,
-    ProgressBar,
+    ProgressIndicator,
     Task,
     TaskLease,
     uuid_to_uuid_message,
@@ -48,7 +48,9 @@ class TaskService:
             return Idling.from_message(response.idling)
         return None
 
-    def task_failed(self, task: Task, error: Exception, cancel_job: bool, progress_updates: list[ProgressBar]) -> None:
+    def task_failed(
+        self, task: Task, error: Exception, cancel_job: bool, progress_updates: list[ProgressIndicator]
+    ) -> None:
         # job ouptut is limited to 1KB, so truncate the error message if necessary
         error_message = repr(error)[: (1024 - len(task.display or "None") - 1)]
         display = f"{task.display}" if error_message == "" else f"{task.display}\n{error_message}"

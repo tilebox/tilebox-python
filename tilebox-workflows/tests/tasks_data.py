@@ -31,7 +31,7 @@ from tilebox.workflows.data import (
     Idling,
     Job,
     JobState,
-    ProgressBar,
+    ProgressIndicator,
     StorageEventTrigger,
     StorageLocation,
     StorageType,
@@ -59,12 +59,12 @@ def clusters(draw: DrawFn) -> Cluster:
 
 
 @composite
-def progress_bars(draw: DrawFn) -> ProgressBar:
-    """A hypothesis strategy for generating random progress_bars"""
+def progress_indicators(draw: DrawFn) -> ProgressIndicator:
+    """A hypothesis strategy for generating random progress indicators"""
     label = draw(one_of(alphanumerical_text(), none()))
     total = draw(integers(min_value=50, max_value=1000))
     done = draw(integers(min_value=0, max_value=total))
-    return ProgressBar(label, total, done)
+    return ProgressIndicator(label, total, done)
 
 
 @composite
@@ -134,7 +134,7 @@ def jobs(draw: DrawFn, canceled: bool | None = None) -> Job:
     if canceled is None:
         canceled = draw(booleans())
 
-    progress = draw(lists(progress_bars(), min_size=0, max_size=3))
+    progress = draw(lists(progress_indicators(), min_size=0, max_size=3))
 
     return Job(
         job_id,
@@ -167,7 +167,7 @@ def computed_tasks(draw: DrawFn) -> ComputedTask:
     task_id = draw(uuids(version=4))
     display = draw(alphanumerical_text())
     subtasks: list[TaskSubmission] = draw(lists(task_submissions(), min_size=1, max_size=10))
-    progress_updates = draw(lists(progress_bars(), min_size=0, max_size=3))
+    progress_updates = draw(lists(progress_indicators(), min_size=0, max_size=3))
 
     return ComputedTask(task_id, display, subtasks, progress_updates)
 

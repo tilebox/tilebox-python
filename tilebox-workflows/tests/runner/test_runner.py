@@ -9,7 +9,7 @@ from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
 from tilebox.workflows import ExecutionContext, Task
 from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.client import Client
-from tilebox.workflows.data import JobState, ProgressBar, RunnerContext
+from tilebox.workflows.data import JobState, ProgressIndicator, RunnerContext
 from tilebox.workflows.runner.task_runner import TaskRunner
 
 
@@ -147,7 +147,7 @@ def test_runner_with_workflow_tracking_progress() -> None:
     runner.run_all()
     job = job_client.find(job)  # load current job state
     assert job.state == JobState.COMPLETED
-    assert job.progress_bars == [ProgressBar("test", 4, 4)]
+    assert job.progress == [ProgressIndicator("test", 4, 4)]
 
 
 def replay_client(replay_file: str, assert_request_matches: bool = True) -> Client:
