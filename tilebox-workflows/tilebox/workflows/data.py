@@ -1,10 +1,12 @@
 import re
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 import boto3
@@ -108,19 +110,19 @@ class TaskLease:
 
 
 @dataclass(order=True)
-class ProgressBar:
+class ProgressIndicator:
     label: str | None
     total: int
     done: int
 
     @classmethod
-    def from_message(cls, progress_bar: core_pb2.ProgressBar) -> "ProgressBar":
-        """Convert a ProgressBar protobuf message to a ProgressBar object."""
-        return cls(label=progress_bar.label or None, total=progress_bar.total, done=progress_bar.done)
+    def from_message(cls, progress_indicator: core_pb2.Progress) -> "ProgressIndicator":
+        """Convert a ProgressIndicator protobuf message to a ProgressIndicator object."""
+        return cls(label=progress_indicator.label or None, total=progress_indicator.total, done=progress_indicator.done)
 
-    def to_message(self) -> core_pb2.ProgressBar:
-        """Convert a ProgressBar object to a ProgressBar protobuf message."""
-        return core_pb2.ProgressBar(label=self.label, total=self.total, done=self.done)
+    def to_message(self) -> core_pb2.Progress:
+        """Convert a ProgressIndicator object to a ProgressIndicator protobuf message."""
+        return core_pb2.Progress(label=self.label, total=self.total, done=self.done)
 
 
 @dataclass(order=True)
@@ -195,7 +197,7 @@ class JobState(Enum):
 _JOB_STATES = {state.value: state for state in JobState}
 
 
-@dataclass(order=True)
+@dataclass(order=True, frozen=True)
 class Job:
     id: UUID
     name: str
@@ -204,10 +206,12 @@ class Job:
     submitted_at: datetime
     started_at: datetime | None
     canceled: bool
-    progress_bars: list[ProgressBar]
+    progress: list[ProgressIndicator]
 
     @classmethod
-    def from_message(cls, job: core_pb2.Job) -> "Job":  # lets use typing.Self once we require python >= 3.11
+    def from_message(
+        cls, job: core_pb2.Job, **extra_kwargs: Any
+    ) -> "Job":  # lets use typing.Self once we require python >= 3.11
         """Convert a Job protobuf message to a Job object."""
         return cls(
             id=uuid_message_to_uuid(job.id),
@@ -217,7 +221,8 @@ class Job:
             submitted_at=timestamp_to_datetime(job.submitted_at),
             started_at=timestamp_to_datetime(job.started_at) if job.HasField("started_at") else None,
             canceled=job.canceled,
-            progress_bars=[ProgressBar.from_message(progress_bar) for progress_bar in job.progress_bars],
+            progress=[ProgressIndicator.from_message(progress) for progress in job.progress],
+            **extra_kwargs,
         )
 
     def to_message(self) -> core_pb2.Job:
@@ -230,7 +235,7 @@ class Job:
             submitted_at=datetime_to_timestamp(self.submitted_at),
             started_at=datetime_to_timestamp(self.started_at) if self.started_at else None,
             canceled=self.canceled,
-            progress_bars=[progress_bar.to_message() for progress_bar in self.progress_bars],
+            progress=[progress.to_message() for progress in self.progress],
         )
 
 
@@ -303,7 +308,7 @@ class ComputedTask:
     id: UUID
     display: str | None
     sub_tasks: list[TaskSubmission]
-    progress_updates: list[ProgressBar]
+    progress_updates: list[ProgressIndicator]
 
     @classmethod
     def from_message(cls, computed_task: task_pb2.ComputedTask) -> "ComputedTask":
@@ -312,7 +317,7 @@ class ComputedTask:
             id=uuid_message_to_uuid(computed_task.id),
             display=computed_task.display,
             sub_tasks=[TaskSubmission.from_message(sub_task) for sub_task in computed_task.sub_tasks],
-            progress_updates=[ProgressBar.from_message(progress) for progress in computed_task.progress_updates],
+            progress_updates=[ProgressIndicator.from_message(progress) for progress in computed_task.progress_updates],
         )
 
     def to_message(self) -> task_pb2.ComputedTask:
@@ -571,9 +576,13 @@ class QueryJobsResponse:
     next_page: Pagination
 
     @classmethod
-    def from_message(cls, page: job_pb2.QueryJobsResponse) -> "QueryJobsResponse":
+    def from_message(
+        cls,
+        page: job_pb2.QueryJobsResponse,
+        job_factory: Callable[[core_pb2.Job], Job] = Job.from_message,
+    ) -> "QueryJobsResponse":
         return cls(
-            jobs=[Job.from_message(job) for job in page.jobs],
+            jobs=[job_factory(job) for job in page.jobs],
             next_page=Pagination.from_message(page.next_page),
         )
 
