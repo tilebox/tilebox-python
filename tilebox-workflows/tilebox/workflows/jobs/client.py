@@ -125,19 +125,19 @@ class JobClient:
         """
         return self._service.get_by_id(_to_uuid(job_id))
 
-    def display(self, job: JobIDLike, direction: str = "down", layout: str = "dagre", sketchy: bool = True) -> None:
+    def display(self, job_id: JobIDLike, direction: str = "down", layout: str = "dagre", sketchy: bool = True) -> None:
         """Create a visualization of the job as a diagram and display it in an interactive environment.
 
         Requires an IPython environment such as a Jupyter notebook.
 
         Args:
-            job: The job or job id to visualize.
+            job_id: The job or job id to visualize.
             direction: The direction of the diagram. Defaults to "down". See https://d2lang.com/tour/layouts/#direction
             layout: The layout to use for the diagram. Defaults to "dagre". Currently supported layouts are
                 "dagre" and "elk". See https://d2lang.com/tour/layouts/
             sketchy: Whether to render the diagram in a sketchy hand drawn style. Defaults to True.
         """
-        display(HTML(self.visualize(job, direction, layout, sketchy)))
+        display(HTML(self.visualize(job_id, direction, layout, sketchy)))
 
     def visualize(self, job: JobIDLike, direction: str = "down", layout: str = "dagre", sketchy: bool = True) -> str:
         """Create a visualization of the job as a diagram.

@@ -11,10 +11,12 @@ from tilebox.workflows.data import (
     TaskSubmission,
     uuid_to_uuid_message,
 )
+from tilebox.workflows.formatting.job import JobWidget, RichDisplayJob
 from tilebox.workflows.workflows.v1.core_pb2 import Job as JobMessage
 from tilebox.workflows.workflows.v1.diagram_pb2 import Diagram, RenderOptions
 from tilebox.workflows.workflows.v1.job_pb2 import (
     CancelJobRequest,
+    GetJobProgressRequest,
     GetJobRequest,
     QueryJobsRequest,
     RetryJobRequest,
@@ -43,12 +45,16 @@ class JobService:
             job_name=job_name,
             trace_parent=trace_parent,
         )
-        return Job.from_message(self.service.SubmitJob(request))
+        return RichDisplayJob.from_message(self.service.SubmitJob(request), _widget=JobWidget(self.get_progress))
 
     def get_by_id(self, job_id: UUID) -> Job:
         request = GetJobRequest(job_id=uuid_to_uuid_message(job_id))
         response: JobMessage = self.service.GetJob(request)
-        return Job.from_message(response)
+        return RichDisplayJob.from_message(response, _widget=JobWidget(self.get_progress))
+
+    def get_progress(self, job_id: UUID) -> Job:
+        request = GetJobProgressRequest(job_id=uuid_to_uuid_message(job_id))
+        return Job.from_message(self.service.GetJobProgress(request))
 
     def retry(self, job_id: UUID) -> int:
         request = RetryJobRequest(job_id=uuid_to_uuid_message(job_id))
@@ -73,4 +79,7 @@ class JobService:
             page=page.to_message() if page is not None else None,
         )
         response: QueryJobsResponseMessage = self.service.QueryJobs(request)
-        return QueryJobsResponse.from_message(response)
+
+        return QueryJobsResponse.from_message(
+            response, job_factory=lambda job: RichDisplayJob.from_message(job, _widget=JobWidget(self.get_progress))
+        )

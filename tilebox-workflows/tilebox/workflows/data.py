@@ -1,10 +1,12 @@
 import re
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 import boto3
@@ -195,7 +197,7 @@ class JobState(Enum):
 _JOB_STATES = {state.value: state for state in JobState}
 
 
-@dataclass(order=True)
+@dataclass(order=True, frozen=True)
 class Job:
     id: UUID
     name: str
@@ -207,7 +209,9 @@ class Job:
     progress: list[ProgressIndicator]
 
     @classmethod
-    def from_message(cls, job: core_pb2.Job) -> "Job":  # lets use typing.Self once we require python >= 3.11
+    def from_message(
+        cls, job: core_pb2.Job, **extra_kwargs: Any
+    ) -> "Job":  # lets use typing.Self once we require python >= 3.11
         """Convert a Job protobuf message to a Job object."""
         return cls(
             id=uuid_message_to_uuid(job.id),
@@ -218,6 +222,7 @@ class Job:
             started_at=timestamp_to_datetime(job.started_at) if job.HasField("started_at") else None,
             canceled=job.canceled,
             progress=[ProgressIndicator.from_message(progress) for progress in job.progress],
+            **extra_kwargs,
         )
 
     def to_message(self) -> core_pb2.Job:
@@ -571,9 +576,13 @@ class QueryJobsResponse:
     next_page: Pagination
 
     @classmethod
-    def from_message(cls, page: job_pb2.QueryJobsResponse) -> "QueryJobsResponse":
+    def from_message(
+        cls,
+        page: job_pb2.QueryJobsResponse,
+        job_factory: Callable[[core_pb2.Job], Job] = Job.from_message,
+    ) -> "QueryJobsResponse":
         return cls(
-            jobs=[Job.from_message(job) for job in page.jobs],
+            jobs=[job_factory(job) for job in page.jobs],
             next_page=Pagination.from_message(page.next_page),
         )
 
