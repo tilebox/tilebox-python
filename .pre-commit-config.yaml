@@ -4,15 +4,17 @@ repos:
     hooks:
       - id: check-yaml
       - id: end-of-file-fixer
+  - repo: https://github.com/tsvikas/sync-with-uv
+    rev: v0.4.0
+    hooks:
+      - id: sync-with-uv
   - repo: https://github.com/charliermarsh/ruff-pre-commit
-    # keep the version here in sync with the version in uv.lock
-    rev: "v0.13.0"
+    rev: v0.14.3
     hooks:
       - id: ruff-check
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
   - repo: https://github.com/RobertCraigie/pyright-python
-    # keep the version here in sync with the version in uv.lock
     rev: v1.1.400
     hooks:
       - id: pyright
