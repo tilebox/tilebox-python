@@ -11,12 +11,22 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class LegacyJobState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    LEGACY_JOB_STATE_UNSPECIFIED: _ClassVar[LegacyJobState]
+    LEGACY_JOB_STATE_QUEUED: _ClassVar[LegacyJobState]
+    LEGACY_JOB_STATE_STARTED: _ClassVar[LegacyJobState]
+    LEGACY_JOB_STATE_COMPLETED: _ClassVar[LegacyJobState]
+
 class JobState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     JOB_STATE_UNSPECIFIED: _ClassVar[JobState]
-    JOB_STATE_QUEUED: _ClassVar[JobState]
+    JOB_STATE_SUBMITTED: _ClassVar[JobState]
+    JOB_STATE_RUNNING: _ClassVar[JobState]
     JOB_STATE_STARTED: _ClassVar[JobState]
     JOB_STATE_COMPLETED: _ClassVar[JobState]
+    JOB_STATE_FAILED: _ClassVar[JobState]
+    JOB_STATE_CANCELED: _ClassVar[JobState]
 
 class TaskState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -25,17 +35,22 @@ class TaskState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     TASK_STATE_RUNNING: _ClassVar[TaskState]
     TASK_STATE_COMPUTED: _ClassVar[TaskState]
     TASK_STATE_FAILED: _ClassVar[TaskState]
-    TASK_STATE_CANCELLED: _ClassVar[TaskState]
+LEGACY_JOB_STATE_UNSPECIFIED: LegacyJobState
+LEGACY_JOB_STATE_QUEUED: LegacyJobState
+LEGACY_JOB_STATE_STARTED: LegacyJobState
+LEGACY_JOB_STATE_COMPLETED: LegacyJobState
 JOB_STATE_UNSPECIFIED: JobState
-JOB_STATE_QUEUED: JobState
+JOB_STATE_SUBMITTED: JobState
+JOB_STATE_RUNNING: JobState
 JOB_STATE_STARTED: JobState
 JOB_STATE_COMPLETED: JobState
+JOB_STATE_FAILED: JobState
+JOB_STATE_CANCELED: JobState
 TASK_STATE_UNSPECIFIED: TaskState
 TASK_STATE_QUEUED: TaskState
 TASK_STATE_RUNNING: TaskState
 TASK_STATE_COMPUTED: TaskState
 TASK_STATE_FAILED: TaskState
-TASK_STATE_CANCELLED: TaskState
 
 class Cluster(_message.Message):
     __slots__ = ("slug", "display_name", "deletable")
@@ -48,28 +63,58 @@ class Cluster(_message.Message):
     def __init__(self, slug: _Optional[str] = ..., display_name: _Optional[str] = ..., deletable: bool = ...) -> None: ...
 
 class Job(_message.Message):
-    __slots__ = ("id", "name", "trace_parent", "canceled", "state", "submitted_at", "started_at", "task_summaries", "automation_id", "progress")
+    __slots__ = ("id", "name", "trace_parent", "canceled", "legacy_state", "submitted_at", "started_at", "task_summaries", "automation_id", "progress", "state", "execution_stats")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TRACE_PARENT_FIELD_NUMBER: _ClassVar[int]
     CANCELED_FIELD_NUMBER: _ClassVar[int]
-    STATE_FIELD_NUMBER: _ClassVar[int]
+    LEGACY_STATE_FIELD_NUMBER: _ClassVar[int]
     SUBMITTED_AT_FIELD_NUMBER: _ClassVar[int]
     STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     TASK_SUMMARIES_FIELD_NUMBER: _ClassVar[int]
     AUTOMATION_ID_FIELD_NUMBER: _ClassVar[int]
     PROGRESS_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    EXECUTION_STATS_FIELD_NUMBER: _ClassVar[int]
     id: _id_pb2.ID
     name: str
     trace_parent: str
     canceled: bool
-    state: JobState
+    legacy_state: LegacyJobState
     submitted_at: _timestamp_pb2.Timestamp
     started_at: _timestamp_pb2.Timestamp
     task_summaries: _containers.RepeatedCompositeFieldContainer[TaskSummary]
     automation_id: _id_pb2.ID
     progress: _containers.RepeatedCompositeFieldContainer[Progress]
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., canceled: bool = ..., state: _Optional[_Union[JobState, str]] = ..., submitted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., task_summaries: _Optional[_Iterable[_Union[TaskSummary, _Mapping]]] = ..., automation_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., progress: _Optional[_Iterable[_Union[Progress, _Mapping]]] = ...) -> None: ...
+    state: JobState
+    execution_stats: ExecutionStats
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., canceled: bool = ..., legacy_state: _Optional[_Union[LegacyJobState, str]] = ..., submitted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., task_summaries: _Optional[_Iterable[_Union[TaskSummary, _Mapping]]] = ..., automation_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., progress: _Optional[_Iterable[_Union[Progress, _Mapping]]] = ..., state: _Optional[_Union[JobState, str]] = ..., execution_stats: _Optional[_Union[ExecutionStats, _Mapping]] = ...) -> None: ...
+
+class ExecutionStats(_message.Message):
+    __slots__ = ("first_task_started_at", "last_task_stopped_at", "compute_time", "elapsed_time", "parallelism", "total_tasks", "tasks_by_state")
+    FIRST_TASK_STARTED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAST_TASK_STOPPED_AT_FIELD_NUMBER: _ClassVar[int]
+    COMPUTE_TIME_FIELD_NUMBER: _ClassVar[int]
+    ELAPSED_TIME_FIELD_NUMBER: _ClassVar[int]
+    PARALLELISM_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_TASKS_FIELD_NUMBER: _ClassVar[int]
+    TASKS_BY_STATE_FIELD_NUMBER: _ClassVar[int]
+    first_task_started_at: _timestamp_pb2.Timestamp
+    last_task_stopped_at: _timestamp_pb2.Timestamp
+    compute_time: _duration_pb2.Duration
+    elapsed_time: _duration_pb2.Duration
+    parallelism: float
+    total_tasks: int
+    tasks_by_state: _containers.RepeatedCompositeFieldContainer[TaskStateCount]
+    def __init__(self, first_task_started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., last_task_stopped_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., compute_time: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., elapsed_time: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., parallelism: _Optional[float] = ..., total_tasks: _Optional[int] = ..., tasks_by_state: _Optional[_Iterable[_Union[TaskStateCount, _Mapping]]] = ...) -> None: ...
+
+class TaskStateCount(_message.Message):
+    __slots__ = ("state", "count")
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    state: TaskState
+    count: int
+    def __init__(self, state: _Optional[_Union[TaskState, str]] = ..., count: _Optional[int] = ...) -> None: ...
 
 class TaskSummary(_message.Message):
     __slots__ = ("id", "display", "state", "parent_id", "started_at", "stopped_at")
@@ -136,20 +181,22 @@ class Tasks(_message.Message):
     def __init__(self, tasks: _Optional[_Iterable[_Union[Task, _Mapping]]] = ...) -> None: ...
 
 class TaskSubmission(_message.Message):
-    __slots__ = ("cluster_slug", "identifier", "input", "display", "dependencies", "max_retries")
+    __slots__ = ("cluster_slug", "identifier", "display", "dependencies", "max_retries", "input", "inputs")
     CLUSTER_SLUG_FIELD_NUMBER: _ClassVar[int]
     IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
-    INPUT_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_FIELD_NUMBER: _ClassVar[int]
     DEPENDENCIES_FIELD_NUMBER: _ClassVar[int]
     MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
+    INPUT_FIELD_NUMBER: _ClassVar[int]
+    INPUTS_FIELD_NUMBER: _ClassVar[int]
     cluster_slug: str
     identifier: TaskIdentifier
-    input: bytes
     display: str
     dependencies: _containers.RepeatedScalarFieldContainer[int]
     max_retries: int
-    def __init__(self, cluster_slug: _Optional[str] = ..., identifier: _Optional[_Union[TaskIdentifier, _Mapping]] = ..., input: _Optional[bytes] = ..., display: _Optional[str] = ..., dependencies: _Optional[_Iterable[int]] = ..., max_retries: _Optional[int] = ...) -> None: ...
+    input: bytes
+    inputs: _containers.RepeatedScalarFieldContainer[bytes]
+    def __init__(self, cluster_slug: _Optional[str] = ..., identifier: _Optional[_Union[TaskIdentifier, _Mapping]] = ..., display: _Optional[str] = ..., dependencies: _Optional[_Iterable[int]] = ..., max_retries: _Optional[int] = ..., input: _Optional[bytes] = ..., inputs: _Optional[_Iterable[bytes]] = ...) -> None: ...
 
 class TaskLease(_message.Message):
     __slots__ = ("lease", "recommended_wait_until_next_extension")

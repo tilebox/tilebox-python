@@ -112,7 +112,7 @@ class CollectionInfos(_message.Message):
     def __init__(self, data: _Optional[_Iterable[_Union[CollectionInfo, _Mapping]]] = ...) -> None: ...
 
 class Dataset(_message.Message):
-    __slots__ = ("id", "group_id", "type", "code_name", "name", "summary", "icon", "description", "permissions", "visibility", "slug", "type_editable")
+    __slots__ = ("id", "group_id", "type", "code_name", "name", "summary", "icon", "description", "permissions", "visibility", "slug", "type_editable", "collections")
     ID_FIELD_NUMBER: _ClassVar[int]
     GROUP_ID_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -125,6 +125,7 @@ class Dataset(_message.Message):
     VISIBILITY_FIELD_NUMBER: _ClassVar[int]
     SLUG_FIELD_NUMBER: _ClassVar[int]
     TYPE_EDITABLE_FIELD_NUMBER: _ClassVar[int]
+    COLLECTIONS_FIELD_NUMBER: _ClassVar[int]
     id: _id_pb2.ID
     group_id: _id_pb2.ID
     type: _dataset_type_pb2.AnnotatedType
@@ -137,7 +138,8 @@ class Dataset(_message.Message):
     visibility: Visibility
     slug: str
     type_editable: bool
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., group_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., type: _Optional[_Union[_dataset_type_pb2.AnnotatedType, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., summary: _Optional[str] = ..., icon: _Optional[str] = ..., description: _Optional[str] = ..., permissions: _Optional[_Iterable[_Union[DatasetPermission, str]]] = ..., visibility: _Optional[_Union[Visibility, str]] = ..., slug: _Optional[str] = ..., type_editable: bool = ...) -> None: ...
+    collections: _containers.RepeatedCompositeFieldContainer[CollectionInfo]
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., group_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., type: _Optional[_Union[_dataset_type_pb2.AnnotatedType, _Mapping]] = ..., code_name: _Optional[str] = ..., name: _Optional[str] = ..., summary: _Optional[str] = ..., icon: _Optional[str] = ..., description: _Optional[str] = ..., permissions: _Optional[_Iterable[_Union[DatasetPermission, str]]] = ..., visibility: _Optional[_Union[Visibility, str]] = ..., slug: _Optional[str] = ..., type_editable: bool = ..., collections: _Optional[_Iterable[_Union[CollectionInfo, _Mapping]]] = ...) -> None: ...
 
 class DatasetGroup(_message.Message):
     __slots__ = ("id", "parent_id", "code_name", "name", "icon")

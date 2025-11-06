@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 import boto3
@@ -23,7 +23,7 @@ from tilebox.datasets.query.time_interval import (
     timedelta_to_duration,
     timestamp_to_datetime,
 )
-from tilebox.datasets.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.datasets.uuid import must_uuid_to_uuid_message, uuid_message_to_uuid, uuid_to_uuid_message
 
 try:
     # let's not make this a hard dependency, but if it's installed we can use its types
@@ -162,7 +162,7 @@ class Task:
         return core_pb2.Task(
             id=uuid_to_uuid_message(self.id),
             identifier=self.identifier.to_message(),
-            state=f"TASK_STATE_{self.state.name}",
+            state=cast(core_pb2.TaskState, self.state.value),
             input=self.input,
             display=self.display,
             job=self.job.to_message() if self.job else None,
@@ -189,12 +189,65 @@ class Idling:
 
 class JobState(Enum):
     UNSPECIFIED = 0
-    QUEUED = 1
-    STARTED = 2
-    COMPLETED = 3
+    SUBMITTED = 1
+    RUNNING = 2
+    STARTED = 3
+    COMPLETED = 4
+    FAILED = 5
+    CANCELED = 6
 
 
 _JOB_STATES = {state.value: state for state in JobState}
+
+# JobState.QUEUED is deprecated and has been renamed to SUBMITTED, but we keep it around for backwards compatibility
+JobState.QUEUED = JobState.SUBMITTED  # type: ignore[assignment]
+
+
+@dataclass(order=True, frozen=True)
+class ExecutionStats:
+    first_task_started_at: datetime | None
+    last_task_stopped_at: datetime | None
+    compute_time: timedelta
+    elapsed_time: timedelta
+    parallelism: float
+    total_tasks: int
+    tasks_by_state: dict[TaskState, int]
+
+    @classmethod
+    def from_message(cls, execution_stats: core_pb2.ExecutionStats) -> "ExecutionStats":
+        """Convert a ExecutionStats protobuf message to a ExecutionStats object."""
+        return cls(
+            first_task_started_at=timestamp_to_datetime(execution_stats.first_task_started_at)
+            if execution_stats.HasField("first_task_started_at")
+            else None,
+            last_task_stopped_at=timestamp_to_datetime(execution_stats.last_task_stopped_at)
+            if execution_stats.HasField("last_task_stopped_at")
+            else None,
+            compute_time=duration_to_timedelta(execution_stats.compute_time),
+            elapsed_time=duration_to_timedelta(execution_stats.elapsed_time),
+            parallelism=execution_stats.parallelism,
+            total_tasks=execution_stats.total_tasks,
+            tasks_by_state={_TASK_STATES[state.state]: state.count for state in execution_stats.tasks_by_state},
+        )
+
+    def to_message(self) -> core_pb2.ExecutionStats:
+        """Convert a ExecutionStats object to a ExecutionStats protobuf message."""
+        return core_pb2.ExecutionStats(
+            first_task_started_at=datetime_to_timestamp(self.first_task_started_at)
+            if self.first_task_started_at
+            else None,
+            last_task_stopped_at=datetime_to_timestamp(self.last_task_stopped_at)
+            if self.last_task_stopped_at
+            else None,
+            compute_time=timedelta_to_duration(self.compute_time),
+            elapsed_time=timedelta_to_duration(self.elapsed_time),
+            parallelism=self.parallelism,
+            total_tasks=self.total_tasks,
+            tasks_by_state=[
+                core_pb2.TaskStateCount(state=cast(core_pb2.TaskState, state.value), count=count)
+                for state, count in self.tasks_by_state.items()
+            ],
+        )
 
 
 @dataclass(order=True, frozen=True)
@@ -204,9 +257,8 @@ class Job:
     trace_parent: str
     state: JobState
     submitted_at: datetime
-    started_at: datetime | None
-    canceled: bool
     progress: list[ProgressIndicator]
+    execution_stats: ExecutionStats
 
     @classmethod
     def from_message(
@@ -219,9 +271,8 @@ class Job:
             trace_parent=job.trace_parent,
             state=_JOB_STATES[job.state],
             submitted_at=timestamp_to_datetime(job.submitted_at),
-            started_at=timestamp_to_datetime(job.started_at) if job.HasField("started_at") else None,
-            canceled=job.canceled,
             progress=[ProgressIndicator.from_message(progress) for progress in job.progress],
+            execution_stats=ExecutionStats.from_message(job.execution_stats),
             **extra_kwargs,
         )
 
@@ -231,12 +282,32 @@ class Job:
             id=uuid_to_uuid_message(self.id),
             name=self.name,
             trace_parent=self.trace_parent,
-            state=f"JOB_STATE_{self.state.name}",
+            state=cast(core_pb2.JobState, self.state.value),
             submitted_at=datetime_to_timestamp(self.submitted_at),
-            started_at=datetime_to_timestamp(self.started_at) if self.started_at else None,
-            canceled=self.canceled,
             progress=[progress.to_message() for progress in self.progress],
+            execution_stats=self.execution_stats.to_message(),
         )
+
+    @property
+    def canceled(self) -> bool:
+        warnings.warn(
+            "The canceled property on a job has been deprecated, and will be removed in a future version. "
+            "Use job.state == JobState.CANCELED, or job.state == JobState.FAILED instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        # the deprecated canceled property was also true for failed jobs, so we keep that behavior
+        return self.state in (JobState.CANCELED, JobState.FAILED)
+
+    @property
+    def started_at(self) -> datetime | None:
+        warnings.warn(
+            "The started_at property on a job has been deprecated, use `job.execution_stats.first_task_started_at` "
+            "instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.execution_stats.first_task_started_at
 
 
 @dataclass(order=True)
@@ -595,21 +666,31 @@ class QueryJobsResponse:
 
 @dataclass(frozen=True)
 class QueryFilters:
-    time_interval: TimeInterval | None = None
-    id_interval: IDInterval | None = None
-    automation_id: UUID | None = None
+    time_interval: TimeInterval | None
+    id_interval: IDInterval | None
+    automation_ids: list[UUID]
+    job_states: list[JobState]
+    name: str | None
 
     @classmethod
     def from_message(cls, filters: job_pb2.QueryFilters) -> "QueryFilters":
         return cls(
-            time_interval=TimeInterval.from_message(filters.time_interval),
-            id_interval=IDInterval.from_message(filters.id_interval),
-            automation_id=uuid_message_to_optional_uuid(filters.automation_id),
+            time_interval=TimeInterval.from_message(filters.time_interval)
+            if filters.HasField("time_interval")
+            else None,
+            id_interval=IDInterval.from_message(filters.id_interval) if filters.HasField("id_interval") else None,
+            automation_ids=[uuid_message_to_uuid(uuid) for uuid in filters.automation_ids],
+            job_states=[_JOB_STATES[state] for state in filters.states],
+            name=filters.name or None,
         )
 
     def to_message(self) -> job_pb2.QueryFilters:
         return job_pb2.QueryFilters(
             time_interval=self.time_interval.to_message() if self.time_interval else None,
             id_interval=self.id_interval.to_message() if self.id_interval else None,
-            automation_id=uuid_to_uuid_message(self.automation_id) if self.automation_id else None,
+            automation_ids=[must_uuid_to_uuid_message(uuid) for uuid in self.automation_ids]
+            if self.automation_ids
+            else None,
+            states=[cast(core_pb2.JobState, state.value) for state in self.job_states] if self.job_states else None,
+            name=self.name or None,  # empty string becomes None
         )

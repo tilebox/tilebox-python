@@ -14,24 +14,30 @@ from hypothesis.strategies import (
     dictionaries,
     floats,
     integers,
+    just,
     lists,
     none,
     one_of,
     recursive,
     sampled_from,
     text,
+    timedeltas,
     uuids,
 )
 
+from tilebox.datasets.query.id_interval import IDInterval
+from tilebox.datasets.query.time_interval import TimeInterval
 from tilebox.workflows.data import (
     AutomationPrototype,
     Cluster,
     ComputedTask,
     CronTrigger,
+    ExecutionStats,
     Idling,
     Job,
     JobState,
     ProgressIndicator,
+    QueryFilters,
     StorageEventTrigger,
     StorageLocation,
     StorageType,
@@ -118,33 +124,66 @@ def task_inputs(draw: DrawFn) -> bytes:
 
 
 @composite
-def jobs(draw: DrawFn, canceled: bool | None = None) -> Job:
+def execution_stats(draw: DrawFn) -> ExecutionStats:
+    """A hypothesis strategy for generating random execution_stats"""
+    first_task_started_at = draw(
+        one_of(none(), datetimes(min_value=datetime(1990, 1, 1), max_value=datetime(2024, 1, 1)))
+    )
+    last_task_stopped_at = None
+    if first_task_started_at is not None:
+        # only if we have a first task started at, we can have a last task stopped at, but it can also be none still
+        last_task_stopped_at = draw(
+            one_of(none(), datetimes(min_value=first_task_started_at, max_value=datetime(2024, 1, 1)))
+        )
+        first_task_started_at = first_task_started_at.astimezone(timezone.utc)
+    if last_task_stopped_at is not None:
+        last_task_stopped_at = last_task_stopped_at.astimezone(timezone.utc)
+
+    elapsed_time = draw(timedeltas(min_value=timedelta(seconds=0), max_value=timedelta(days=1)))
+    compute_time = draw(timedeltas(min_value=timedelta(seconds=0), max_value=timedelta(days=1)))
+    parallelism = draw(floats(min_value=0, max_value=100))
+
+    tasks_by_state = {}
+    for state in TaskState:
+        n = draw(integers(min_value=0, max_value=1000))
+        if n > 0:
+            tasks_by_state[state] = draw(integers(min_value=0, max_value=1000))
+
+    if len(tasks_by_state) == 0:
+        tasks_by_state[TaskState.QUEUED] = 1  # at least one task must be in the stats
+
+    return ExecutionStats(
+        first_task_started_at,
+        last_task_stopped_at,
+        compute_time,
+        elapsed_time,
+        parallelism,
+        sum(tasks_by_state.values()),
+        tasks_by_state,
+    )
+
+
+@composite
+def jobs(draw: DrawFn) -> Job:
     """A hypothesis strategy for generating random jobs"""
     job_id = draw(uuids(version=4))
     name = draw(alphanumerical_text())
     trace_parent = draw(alphanumerical_text())
     state = draw(sampled_from(JobState))
-    submitted_at = draw(datetimes(min_value=datetime(1990, 1, 1), max_value=datetime(2024, 1, 1)))
-    started_at = draw(
-        one_of(
-            none(),
-            datetimes(min_value=submitted_at, max_value=datetime(2025, 1, 1)),
-        )
+    submitted_at = draw(
+        datetimes(min_value=datetime(1990, 1, 1), max_value=datetime(2024, 1, 1), timezones=just(timezone.utc))
     )
-    if canceled is None:
-        canceled = draw(booleans())
-
     progress = draw(lists(progress_indicators(), min_size=0, max_size=3))
+    stats = draw(execution_stats())
 
     return Job(
         job_id,
         name,
         trace_parent,
         state,
-        submitted_at.astimezone(timezone.utc),
-        started_at.astimezone(timezone.utc) if started_at else None,
-        canceled,
+        submitted_at,
         progress,
+        stats,
     )
 
 
@@ -227,3 +266,44 @@ def automations(draw: DrawFn) -> AutomationPrototype:
         storage_event = draw(lists(storage_event_triggers(), min_size=1, max_size=10))
 
     return AutomationPrototype(automation_id, name, prototype, storage_event, cron)
+
+
+@composite
+def time_intervals(draw: DrawFn) -> TimeInterval:
+    start = draw(datetimes())
+    end = draw(datetimes())
+    start, end = min(start, end), max(start, end)  # make sure start is before end
+    start_exclusive = draw(booleans())
+    end_inclusive = draw(booleans())
+    return TimeInterval(start, end, start_exclusive, end_inclusive)
+
+
+@composite
+def id_intervals(draw: DrawFn) -> IDInterval:
+    start = draw(uuids(version=4))
+    end = draw(uuids(version=4))
+    start, end = min(start, end), max(start, end)  # make sure start is before end
+    start_exclusive = draw(booleans())
+    end_inclusive = draw(booleans())
+    return IDInterval(start, end, start_exclusive, end_inclusive)
+
+
+@composite
+def query_filters(draw: DrawFn) -> QueryFilters:
+    """A hypothesis strategy for generating random query filters"""
+    use_time_interval = draw(booleans())
+    time_interval = None
+    id_interval = None
+    if use_time_interval:
+        time_interval = draw(time_intervals())
+    else:
+        id_interval = draw(id_intervals())
+
+    automation_ids = draw(lists(uuids(version=4), min_size=0, max_size=10))
+
+    job_states = draw(lists(sampled_from(JobState), min_size=0, max_size=10))
+    if job_states is not None:
+        job_states = list(set(job_states))  # de-duplicate
+
+    name = draw(alphanumerical_text() | none())
+    return QueryFilters(time_interval, id_interval, automation_ids, job_states, name)

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-workflows`: Added `execution_stats` to the `Job` object to provide programmatic access to a job's execution
+  statistics.
+- `tilebox-workflows`: Added query filters to the `JobClient.query` method to filter jobs by multiple automation ids,
+  job state, and job name.
+- `tilebox-workflows`: Added additional JobState values to indicate a job's current state and progress more accurately.
+
+### Changed
+
+- `tilebox-workflows`: Deprecated the `job.canceled` property, which will be removed in a future version. The
+  equivalent expression behavior for the old `job.canceled` is `(job.state in (JobState.CANCELED, JobState.FAILED)`.
+- `tilebox-workflows`: Deprecated the `job.started_at` property, which will be removed in a future version. The
+  equivalent information is available in `job.execution_stats.first_task_started_at` instead.
+- `tilebox-workflows`: The `JobState.QUEUED` enum value has been renamed in favor of the more accurate
+  `JobState.SUBMITTED`. The `QUEUED` value is still available as an alias for `SUBMITTED` for backwards compatibility,
+  but will be removed in a future version.
+
 ## [0.44.0] - 2025-09-18
 
 ### Added

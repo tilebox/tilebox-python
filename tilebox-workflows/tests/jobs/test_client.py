@@ -7,12 +7,12 @@ from tests.tasks_data import jobs
 
 from _tilebox.grpc.error import NotFoundError
 from tilebox.datasets.query.time_interval import datetime_to_timestamp
-from tilebox.workflows.data import Job, uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.workflows.data import Job, JobState, uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.workflows.jobs.client import JobClient
 from tilebox.workflows.jobs.service import JobService
 from tilebox.workflows.task import ExecutionContext, Task
 from tilebox.workflows.workflows.v1.core_pb2 import Job as JobMessage
-from tilebox.workflows.workflows.v1.core_pb2 import JobState
+from tilebox.workflows.workflows.v1.core_pb2 import JobState as JobStateEnum
 from tilebox.workflows.workflows.v1.diagram_pb2 import Diagram
 from tilebox.workflows.workflows.v1.job_pb2 import (
     CancelJobRequest,
@@ -45,8 +45,7 @@ class MockJobService(JobServiceStub):
             id=uuid_to_uuid_message(job_id),
             name=req.job_name,
             trace_parent=req.trace_parent,
-            canceled=False,
-            state=JobState.JOB_STATE_QUEUED,
+            state=JobStateEnum.JOB_STATE_SUBMITTED,
             submitted_at=datetime_to_timestamp(datetime.now(tz=timezone.utc)),
         )
         self.jobs[job_id] = job
@@ -65,8 +64,7 @@ class MockJobService(JobServiceStub):
             raise NotFoundError(f"No such job: {job_id}")
 
         copy = JobMessage.FromString(self.jobs[job_id].SerializeToString())
-        copy.canceled = False
-        copy.state = JobState.JOB_STATE_QUEUED
+        copy.state = JobStateEnum.JOB_STATE_SUBMITTED
         self.jobs[job_id] = copy
         return RetryJobResponse(num_tasks_rescheduled=1)
 
@@ -76,8 +74,7 @@ class MockJobService(JobServiceStub):
             raise NotFoundError(f"No such job: {job_id}")
 
         copy = JobMessage.FromString(self.jobs[job_id].SerializeToString())
-        copy.canceled = True
-        copy.state = JobState.JOB_STATE_STARTED
+        copy.state = JobStateEnum.JOB_STATE_CANCELED
         self.jobs[job_id] = copy
         return CancelJobResponse()
 
@@ -87,7 +84,7 @@ class MockJobService(JobServiceStub):
             raise NotFoundError(f"No such job: {job_id}")
 
         job = self.jobs[job_id]
-        if job.canceled:
+        if job.state == JobStateEnum.JOB_STATE_CANCELED:
             return Diagram(svg=b"<svg><text>Job canceled</text></svg>")
 
         return Diagram(svg=b"<svg><text>Job queued</text></svg>")
@@ -129,26 +126,26 @@ class JobOperations(RuleBasedStateMachine):
     def get_queued_job(self, job: Job) -> None:
         got = self.job_client.find(job.id)
         assert got.name == job.name
-        assert not got.canceled
+        assert got.state == JobState.SUBMITTED
 
     @rule(job=cancelled_jobs)
     def get_canceled_job(self, job: Job) -> None:
         got = self.job_client.find(job.id)
         assert got.name == job.name
-        assert got.canceled
+        assert got.state == JobState.CANCELED
 
     @rule(target=cancelled_jobs, job=consumes(queued_jobs))  # consumes -> remove from bundle afterwards
     def cancel_job(self, job: Job) -> Job:
         self.job_client.cancel(job.id)
         job = self.job_client.find(job.id)
-        assert job.canceled
+        assert job.state == JobState.CANCELED
         return job
 
     @rule(target=queued_jobs, job=consumes(cancelled_jobs))  # consumes -> remove from bundle afterwards
     def retry_job(self, job: Job) -> Job:
         self.job_client.retry(job.id)
         job = self.job_client.find(job.id)
-        assert not job.canceled
+        assert job.state == JobState.SUBMITTED
         return job
 
     @rule()

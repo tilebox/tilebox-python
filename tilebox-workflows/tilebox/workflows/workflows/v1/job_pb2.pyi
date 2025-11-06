@@ -84,14 +84,18 @@ class VisualizeJobRequest(_message.Message):
     def __init__(self, job_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., render_options: _Optional[_Union[_diagram_pb2.RenderOptions, _Mapping]] = ..., theme: _Optional[_Union[WorkflowDiagramTheme, str]] = ..., include_job_name: bool = ...) -> None: ...
 
 class QueryFilters(_message.Message):
-    __slots__ = ("time_interval", "id_interval", "automation_id")
+    __slots__ = ("time_interval", "id_interval", "automation_ids", "states", "name")
     TIME_INTERVAL_FIELD_NUMBER: _ClassVar[int]
     ID_INTERVAL_FIELD_NUMBER: _ClassVar[int]
-    AUTOMATION_ID_FIELD_NUMBER: _ClassVar[int]
+    AUTOMATION_IDS_FIELD_NUMBER: _ClassVar[int]
+    STATES_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
     time_interval: _query_pb2.TimeInterval
     id_interval: _query_pb2.IDInterval
-    automation_id: _id_pb2.ID
-    def __init__(self, time_interval: _Optional[_Union[_query_pb2.TimeInterval, _Mapping]] = ..., id_interval: _Optional[_Union[_query_pb2.IDInterval, _Mapping]] = ..., automation_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
+    automation_ids: _containers.RepeatedCompositeFieldContainer[_id_pb2.ID]
+    states: _containers.RepeatedScalarFieldContainer[_core_pb2.JobState]
+    name: str
+    def __init__(self, time_interval: _Optional[_Union[_query_pb2.TimeInterval, _Mapping]] = ..., id_interval: _Optional[_Union[_query_pb2.IDInterval, _Mapping]] = ..., automation_ids: _Optional[_Iterable[_Union[_id_pb2.ID, _Mapping]]] = ..., states: _Optional[_Iterable[_Union[_core_pb2.JobState, str]]] = ..., name: _Optional[str] = ...) -> None: ...
 
 class QueryJobsRequest(_message.Message):
     __slots__ = ("filters", "page")

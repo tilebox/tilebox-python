@@ -35,9 +35,7 @@ class JobWidget:
             self.widgets.append(HTML(_render_job_details_html(self.job)))
             self.widgets.append(HTML(_render_job_progress(self.job, False)))
             self.widgets.extend(
-                _progress_indicator_bar(
-                    progress.label or self.job.name, progress.done, progress.total, self.job.canceled
-                )
+                _progress_indicator_bar(progress.label or self.job.name, progress.done, progress.total, self.job.state)
                 for progress in self.job.progress
             )
             self.layout = VBox(self.widgets)
@@ -63,14 +61,17 @@ class JobWidget:
             if last_progress is None:  # first time, don't add the refresh time
                 self.widgets[1] = HTML(_render_job_progress(progress, False))
                 updated = True
-            elif progress.state != last_progress.state or progress.started_at != last_progress.started_at:
+            elif (
+                progress.state != last_progress.state
+                or progress.execution_stats.first_task_started_at != last_progress.execution_stats.first_task_started_at
+            ):
                 self.widgets[1] = HTML(_render_job_progress(progress, True))
                 updated = True
 
             if last_progress is None or progress.progress != last_progress.progress:
                 self.widgets[2:] = [
                     _progress_indicator_bar(
-                        progress.label or self.job.name, progress.done, progress.total, self.job.canceled
+                        progress.label or self.job.name, progress.done, progress.total, self.job.state
                     )
                     for progress in progress.progress
                 ]
@@ -193,13 +194,18 @@ body.vscode-dark {
   padding: 2px 10px;
 }
 
-.tbx-job-state-queued {
+.tbx-job-state-submitted {
   background-color: #f1f5f9;
   color: #0f172a;
 }
 
 .tbx-job-state-running {
   background-color: #0066ff;
+  color: #f8fafc;
+}
+
+.tbx-job-state-started {
+  background-color: #fd9b11;
   color: #f8fafc;
 }
 
@@ -210,6 +216,11 @@ body.vscode-dark {
 
 .tbx-job-state-failed {
   background-color: #f43e5d;
+  color: #f8fafc;
+}
+
+.tbx-job-state-canceled {
+  background-color: #94a2b3;
   color: #f8fafc;
 }
 
@@ -285,12 +296,12 @@ def _render_job_progress(job: Job, include_refresh_time: bool) -> str:
         refresh = f" <span class='tbx-detail-value-muted'>(refreshed at {current_time.strftime('%H:%M:%S')})</span> {_info_icon}"
 
     state_name = job.state.name
-    if job.state == JobState.STARTED:
-        state_name = "RUNNING" if not job.canceled else "FAILED"
 
     no_progress = ""
     if not job.progress:
         no_progress = "<span class='tbx-detail-value-muted'>No user defined progress indicators. <a href='https://docs.tilebox.com/workflows/progress' target='_blank'>Learn more</a></span>"
+
+    started_at = job.execution_stats.first_task_started_at
 
     """Render a job's progress as HTML, needs to be called after render_job_details_html since that injects the necessary CSS."""
     return f"""
@@ -298,7 +309,7 @@ def _render_job_progress(job: Job, include_refresh_time: bool) -> str:
     <div class="tbx-obj-type">Progress{refresh}</div>
     <div class="tbx-job-progress">
         <div><span class="tbx-detail-key tbx-detail-mono">state:</span> <span class="tbx-job-state tbx-job-state-{state_name.lower()}">{state_name}</span><div>
-        <div><span class="tbx-detail-key tbx-detail-mono">started_at:</span> {_render_datetime(job.started_at) if job.started_at else "<span class='tbx-detail-value-muted tbx-detail-mono'>None</span>"}<div>
+        <div><span class="tbx-detail-key tbx-detail-mono">started_at:</span> {_render_datetime(started_at) if started_at else "<span class='tbx-detail-value-muted tbx-detail-mono'>None</span>"}<div>
         <div><span class="tbx-detail-key tbx-detail-mono">progress:</span> {no_progress}</div>
     </div>
 </div>
@@ -312,9 +323,11 @@ _BAR_COLORS = {
 }
 
 
-def _progress_indicator_bar(label: str, done: int, total: int, job_cancelled: bool) -> HBox:
+def _progress_indicator_bar(label: str, done: int, total: int, state: JobState) -> HBox:
     percentage = done / total if total > 0 else 0 if done <= total else 1
-    non_completed_color = _BAR_COLORS["running"] if not job_cancelled else _BAR_COLORS["failed"]
+    non_completed_color = (
+        _BAR_COLORS["failed"] if state in (JobState.FAILED, JobState.CANCELED) else _BAR_COLORS["running"]
+    )
     progress = IntProgress(
         min=0,
         max=total,
