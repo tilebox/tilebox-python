@@ -15,7 +15,7 @@ from tilebox.workflows.data import (
 )
 from tilebox.workflows.jobs.service import JobService
 from tilebox.workflows.observability.tracing import WorkflowTracer, get_trace_parent_of_current_span
-from tilebox.workflows.task import FutureTask
+from tilebox.workflows.task import FutureTask, merge_future_tasks_to_submissions
 from tilebox.workflows.task import Task as TaskInstance
 
 try:
@@ -65,8 +65,9 @@ class JobClient:
         """
         tasks = root_task_or_tasks if isinstance(root_task_or_tasks, list) else [root_task_or_tasks]
 
+        default_cluster = ""
         if isinstance(cluster, ClusterSlugLike | None):
-            slugs = [to_cluster_slug(cluster or "")] * len(tasks)
+            slugs = [to_cluster_slug(cluster or default_cluster)] * len(tasks)
         else:
             slugs = [to_cluster_slug(c) for c in cluster]
 
@@ -76,13 +77,13 @@ class JobClient:
                 f"or exactly one cluster per task. But got {len(tasks)} tasks and {len(slugs)} clusters."
             )
 
-        task_submissions = [
-            FutureTask(i, task, [], slugs[i], max_retries).to_submission() for i, task in enumerate(tasks)
-        ]
+        task_submissions = [FutureTask(i, task, [], slugs[i], max_retries) for i, task in enumerate(tasks)]
 
         with self._tracer.start_as_current_span(f"job/{job_name}"):
             trace_parent = get_trace_parent_of_current_span()
-            return self._service.submit(job_name, trace_parent, task_submissions)
+            return self._service.submit(
+                job_name, trace_parent, merge_future_tasks_to_submissions(task_submissions, default_cluster)
+            )
 
     def retry(self, job_or_id: JobIDLike) -> int:
         """Retry a job.

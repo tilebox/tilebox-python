@@ -56,11 +56,11 @@ class AutomationPrototype(_message.Message):
     DISABLED_FIELD_NUMBER: _ClassVar[int]
     id: _id_pb2.ID
     name: str
-    prototype: _core_pb2.TaskSubmission
+    prototype: _core_pb2.SingleTaskSubmission
     storage_event_triggers: _containers.RepeatedCompositeFieldContainer[StorageEventTrigger]
     cron_triggers: _containers.RepeatedCompositeFieldContainer[CronTrigger]
     disabled: bool
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., prototype: _Optional[_Union[_core_pb2.TaskSubmission, _Mapping]] = ..., storage_event_triggers: _Optional[_Iterable[_Union[StorageEventTrigger, _Mapping]]] = ..., cron_triggers: _Optional[_Iterable[_Union[CronTrigger, _Mapping]]] = ..., disabled: bool = ...) -> None: ...
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., prototype: _Optional[_Union[_core_pb2.SingleTaskSubmission, _Mapping]] = ..., storage_event_triggers: _Optional[_Iterable[_Union[StorageEventTrigger, _Mapping]]] = ..., cron_triggers: _Optional[_Iterable[_Union[CronTrigger, _Mapping]]] = ..., disabled: bool = ...) -> None: ...
 
 class Automations(_message.Message):
     __slots__ = ("automations",)

@@ -497,6 +497,8 @@ class TaskRunner:
                     display=task.display,
                     sub_tasks=merge_future_tasks_to_submissions(
                         context._sub_tasks,  # noqa: SLF001
+                        # if not otherwise specified, we use the cluster of the runner for all subtasks, which is also
+                        # the cluster of the parent task
                         self.tasks_to_run.cluster_slug,
                     ),
                     progress_updates=_finalize_mutable_progress_trackers(context._progress_indicators),  # noqa: SLF001

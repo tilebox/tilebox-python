@@ -38,6 +38,7 @@ from tilebox.workflows.data import (
     JobState,
     ProgressIndicator,
     QueryFilters,
+    SingleTaskSubmission,
     StorageEventTrigger,
     StorageLocation,
     StorageType,
@@ -45,7 +46,8 @@ from tilebox.workflows.data import (
     TaskIdentifier,
     TaskLease,
     TaskState,
-    TaskSubmission,
+    TaskSubmissionGroup,
+    TaskSubmissions,
 )
 
 
@@ -188,16 +190,57 @@ def jobs(draw: DrawFn) -> Job:
 
 
 @composite
-def task_submissions(draw: DrawFn) -> TaskSubmission:
+def task_submission_groups(draw: DrawFn) -> TaskSubmissionGroup:
+    """A hypothesis strategy for generating random task_submission_groups"""
+    dependencies_on_other_groups: list[int] = draw(
+        lists(integers(min_value=0, max_value=1000), min_size=0, max_size=10)
+    )
+    inputs: list[bytes] = draw(lists(task_inputs(), min_size=1, max_size=10))
+    identifier_pointers: list[int] = draw(
+        lists(integers(min_value=0, max_value=1000), min_size=len(inputs), max_size=len(inputs))
+    )
+    cluster_slug_pointers: list[int] = draw(
+        lists(integers(min_value=0, max_value=1000), min_size=len(inputs), max_size=len(inputs))
+    )
+    display_pointers: list[int] = draw(
+        lists(integers(min_value=0, max_value=1000), min_size=len(inputs), max_size=len(inputs))
+    )
+    max_retries_values: list[int] = draw(
+        lists(integers(min_value=0, max_value=100), min_size=len(inputs), max_size=len(inputs))
+    )
+
+    return TaskSubmissionGroup(
+        dependencies_on_other_groups,
+        inputs,
+        identifier_pointers,
+        cluster_slug_pointers,
+        display_pointers,
+        max_retries_values,
+    )
+
+
+@composite
+def task_submissions(draw: DrawFn) -> TaskSubmissions:
+    """A hypothesis strategy for generating random task_submissions"""
+    task_groups = draw(lists(task_submission_groups(), min_size=1, max_size=10))
+    cluster_slug_lookup = draw(lists(alphanumerical_text(), min_size=1, max_size=10))
+    identifier_lookup = draw(lists(task_identifiers(), min_size=1, max_size=10))
+    display_lookup = draw(lists(alphanumerical_text(), min_size=1, max_size=10))
+
+    return TaskSubmissions(task_groups, cluster_slug_lookup, identifier_lookup, display_lookup)
+
+
+@composite
+def single_task_submissions(draw: DrawFn) -> SingleTaskSubmission:
     """A hypothesis strategy for generating random sub_tasks"""
     cluster_slug = str(draw(uuids(version=4)))
     identifier = draw(task_identifiers())
-    inputs = draw(lists(task_inputs(), min_size=1, max_size=5))
+    inputs = draw(task_inputs())
     dependencies: list[int] = draw(lists(integers(min_value=0, max_value=1000), min_size=0, max_size=10))
     display = draw(alphanumerical_text())
     max_retries = draw(integers(min_value=0, max_value=100))
 
-    return TaskSubmission(cluster_slug, identifier, inputs, dependencies, display, max_retries)
+    return SingleTaskSubmission(cluster_slug, identifier, inputs, dependencies, display, max_retries)
 
 
 @composite
@@ -205,7 +248,7 @@ def computed_tasks(draw: DrawFn) -> ComputedTask:
     """A hypothesis strategy for generating random computed_tasks"""
     task_id = draw(uuids(version=4))
     display = draw(alphanumerical_text())
-    subtasks: list[TaskSubmission] = draw(lists(task_submissions(), min_size=1, max_size=10))
+    subtasks = draw(task_submissions())
     progress_updates = draw(lists(progress_indicators(), min_size=0, max_size=3))
 
     return ComputedTask(task_id, display, subtasks, progress_updates)
@@ -254,7 +297,7 @@ def automations(draw: DrawFn) -> AutomationPrototype:
     """A hypothesis strategy for generating random automations"""
     automation_id = draw(uuids(version=4))
     name = draw(alphanumerical_text())
-    prototype = draw(task_submissions())
+    prototype = draw(single_task_submissions())
 
     storage_event = []
     cron = []

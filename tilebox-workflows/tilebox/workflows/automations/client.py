@@ -7,9 +7,9 @@ from tilebox.workflows.clusters.client import ClusterSlugLike, to_cluster_slug
 from tilebox.workflows.data import (
     AutomationPrototype,
     CronTrigger,
+    SingleTaskSubmission,
     StorageEventTrigger,
     StorageLocation,
-    TaskSubmission,
 )
 from tilebox.workflows.task import _task_meta
 
@@ -76,7 +76,7 @@ class AutomationClient:
         automation = AutomationPrototype(
             id=UUID(int=0),
             name=name,
-            prototype=TaskSubmission(
+            prototype=SingleTaskSubmission(
                 cluster_slug=to_cluster_slug(cluster or ""),
                 identifier=_task_meta(task).identifier,
                 input=task._serialize_args(),  # noqa: SLF001
@@ -118,7 +118,7 @@ class AutomationClient:
         automation = AutomationPrototype(
             id=UUID(int=0),
             name=name,
-            prototype=TaskSubmission(
+            prototype=SingleTaskSubmission(
                 cluster_slug=to_cluster_slug(cluster or ""),
                 identifier=_task_meta(task).identifier,
                 input=task._serialize_args(),  # noqa: SLF001

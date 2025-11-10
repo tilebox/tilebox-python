@@ -180,23 +180,49 @@ class Tasks(_message.Message):
     tasks: _containers.RepeatedCompositeFieldContainer[Task]
     def __init__(self, tasks: _Optional[_Iterable[_Union[Task, _Mapping]]] = ...) -> None: ...
 
-class TaskSubmission(_message.Message):
-    __slots__ = ("cluster_slug", "identifier", "display", "dependencies", "max_retries", "input", "inputs")
+class SingleTaskSubmission(_message.Message):
+    __slots__ = ("cluster_slug", "identifier", "display", "dependencies", "max_retries", "input")
     CLUSTER_SLUG_FIELD_NUMBER: _ClassVar[int]
     IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_FIELD_NUMBER: _ClassVar[int]
     DEPENDENCIES_FIELD_NUMBER: _ClassVar[int]
     MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
     INPUT_FIELD_NUMBER: _ClassVar[int]
-    INPUTS_FIELD_NUMBER: _ClassVar[int]
     cluster_slug: str
     identifier: TaskIdentifier
     display: str
     dependencies: _containers.RepeatedScalarFieldContainer[int]
     max_retries: int
     input: bytes
+    def __init__(self, cluster_slug: _Optional[str] = ..., identifier: _Optional[_Union[TaskIdentifier, _Mapping]] = ..., display: _Optional[str] = ..., dependencies: _Optional[_Iterable[int]] = ..., max_retries: _Optional[int] = ..., input: _Optional[bytes] = ...) -> None: ...
+
+class TaskSubmissions(_message.Message):
+    __slots__ = ("task_groups", "cluster_slug_lookup", "identifier_lookup", "display_lookup")
+    TASK_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_SLUG_LOOKUP_FIELD_NUMBER: _ClassVar[int]
+    IDENTIFIER_LOOKUP_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_LOOKUP_FIELD_NUMBER: _ClassVar[int]
+    task_groups: _containers.RepeatedCompositeFieldContainer[TaskSubmissionGroup]
+    cluster_slug_lookup: _containers.RepeatedScalarFieldContainer[str]
+    identifier_lookup: _containers.RepeatedCompositeFieldContainer[TaskIdentifier]
+    display_lookup: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, task_groups: _Optional[_Iterable[_Union[TaskSubmissionGroup, _Mapping]]] = ..., cluster_slug_lookup: _Optional[_Iterable[str]] = ..., identifier_lookup: _Optional[_Iterable[_Union[TaskIdentifier, _Mapping]]] = ..., display_lookup: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class TaskSubmissionGroup(_message.Message):
+    __slots__ = ("dependencies_on_other_groups", "inputs", "identifier_pointers", "cluster_slug_pointers", "display_pointers", "max_retries_values")
+    DEPENDENCIES_ON_OTHER_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    INPUTS_FIELD_NUMBER: _ClassVar[int]
+    IDENTIFIER_POINTERS_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_SLUG_POINTERS_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_POINTERS_FIELD_NUMBER: _ClassVar[int]
+    MAX_RETRIES_VALUES_FIELD_NUMBER: _ClassVar[int]
+    dependencies_on_other_groups: _containers.RepeatedScalarFieldContainer[int]
     inputs: _containers.RepeatedScalarFieldContainer[bytes]
-    def __init__(self, cluster_slug: _Optional[str] = ..., identifier: _Optional[_Union[TaskIdentifier, _Mapping]] = ..., display: _Optional[str] = ..., dependencies: _Optional[_Iterable[int]] = ..., max_retries: _Optional[int] = ..., input: _Optional[bytes] = ..., inputs: _Optional[_Iterable[bytes]] = ...) -> None: ...
+    identifier_pointers: _containers.RepeatedScalarFieldContainer[int]
+    cluster_slug_pointers: _containers.RepeatedScalarFieldContainer[int]
+    display_pointers: _containers.RepeatedScalarFieldContainer[int]
+    max_retries_values: _containers.RepeatedScalarFieldContainer[int]
+    def __init__(self, dependencies_on_other_groups: _Optional[_Iterable[int]] = ..., inputs: _Optional[_Iterable[bytes]] = ..., identifier_pointers: _Optional[_Iterable[int]] = ..., cluster_slug_pointers: _Optional[_Iterable[int]] = ..., display_pointers: _Optional[_Iterable[int]] = ..., max_retries_values: _Optional[_Iterable[int]] = ...) -> None: ...
 
 class TaskLease(_message.Message):
     __slots__ = ("lease", "recommended_wait_until_next_extension")

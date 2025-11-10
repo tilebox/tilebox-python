@@ -8,17 +8,12 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, field, fields, is_dataclass
 from types import NoneType, UnionType
-from typing import Any, cast, get_args, get_origin
-
-try:
-    from typing import Self
-except ImportError:  # Self is only available in Python 3.11+
-    from typing_extensions import Self
+from typing import Any, Generic, TypeVar, cast, get_args, get_origin
 
 # from python 3.11 onwards this is available as typing.dataclass_transform:
 from typing_extensions import dataclass_transform
 
-from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmission
+from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmissionGroup, TaskSubmissions
 
 META_ATTR = "__tilebox_task_meta__"  # the name of the attribute we use to store task metadata on the class
 
@@ -242,40 +237,35 @@ class FutureTask:
     def display(self) -> str:
         return self.task.__class__.__name__
 
-    def to_submission(self, fallback_cluster: str = "") -> TaskSubmission:
-        return TaskSubmission(
-            cluster_slug=self.cluster or fallback_cluster,
-            identifier=self.identifier(),
-            inputs=[self.input()],
-            display=self.display(),
-            dependencies=self.depends_on,
-            max_retries=self.max_retries,
-        )
+
+_T = TypeVar("_T")
 
 
-@dataclass(frozen=True)
-class SubtaskTree:
-    """The properties shared by a set of tasks that are submitted as a batch in a single subtask submission object,
-    and therefore capable of utilizing auto-tree spawning."""
+class _FastIndexLookupList(Generic[_T]):
+    """A list that provides fast lookup by index."""
 
-    identifier: TaskIdentifier
-    dependencies: frozenset[int]
-    dependants: frozenset[int]
-    display: str
-    max_retries: int
+    def __init__(self) -> None:
+        super().__init__()
+        self.values = []
+        self._index_lookup: dict[_T, int] = {}
 
-    @classmethod
-    def from_future_task(cls, task: FutureTask, dependants: frozenset[int] | None) -> "SubtaskTree":
-        return cls(
-            identifier=task.identifier(),
-            dependencies=frozenset(task.depends_on),
-            dependants=dependants or frozenset(),
-            display=task.display(),
-            max_retries=task.max_retries,
-        )
+    def __contains__(self, key: _T) -> bool:
+        return key in self._index_lookup
+
+    def __getitem__(self, key: _T) -> _T:
+        index = self._index_lookup[key]
+        return self.values[index]
+
+    def append_if_unique(self, value: _T) -> int:
+        if value in self._index_lookup:
+            return self._index_lookup[value]
+        index = len(self.values)
+        self.values.append(value)
+        self._index_lookup[value] = index
+        return index
 
 
-def merge_future_tasks_to_submissions(future_tasks: list[FutureTask], fallback_cluster: str) -> list[TaskSubmission]:
+def merge_future_tasks_to_submissions(future_tasks: list[FutureTask], fallback_cluster: str) -> TaskSubmissions:
     dependants = defaultdict(set)
     for task in future_tasks:
         for dep in task.depends_on:
@@ -283,56 +273,54 @@ def merge_future_tasks_to_submissions(future_tasks: list[FutureTask], fallback_c
 
     dependants = {k: frozenset(v) for k, v in dependants.items()}
 
-    # since we potentially merge FutureTasks into a single TaskSubmission, our list indices (dependencies) are
-    # potentially changing, which is why we need to keep track of the original indices and map them to the new ones
-    dependency_index_map = {}
-    submission_inputs: list[
-        tuple[TaskClassKey, list[bytes]]
-    ] = []  # a list instead of a dict to make absolutely sure we preserve the order
-    seen_task_classes: dict[TaskClassKey, int] = {}
-    for task in future_tasks:
-        task_class = TaskClassKey.from_future_task(task, fallback_cluster, dependants.get(task.index))
-        existing_submission_index = seen_task_classes.get(task_class)
-        if existing_submission_index is not None:
-            submission_inputs[existing_submission_index][1].append(task.input())
-            dependency_index_map[task.index] = existing_submission_index
-        else:
-            dependency_index_map[task.index] = len(submission_inputs)
-            seen_task_classes[task_class] = len(submission_inputs)
-            submission_inputs.append((task_class, [task.input()]))
+    # we keep track of which task ends up in which group, so we can convert task dependencies to group dependencies
+    task_index_to_group = {}
 
-    return [task_class.to_submission(inputs, dependency_index_map) for task_class, inputs in submission_inputs]
+    group_keys = _FastIndexLookupList[_TaskGroupUniqueKey]()
+    groups: list[TaskSubmissionGroup] = []
+    # even though in python dicts preserve insertion order, we explicitly keep a list and an explicit lookup dict, to
+    # make the intent clear. This also allows us to more easily port this code to Tilebox clients in other languages.
+    cluster_slugs = _FastIndexLookupList[str]()
+    identifiers = _FastIndexLookupList[TaskIdentifier]()
+    displays = _FastIndexLookupList[str]()
+
+    for task in future_tasks:
+        group_key = _TaskGroupUniqueKey(
+            dependencies=frozenset(task.depends_on),
+            dependants=dependants.get(task.index, frozenset()),
+        )
+        group_index = group_keys.append_if_unique(group_key)
+        if group_index == len(groups):  # it was a new unique group
+            groups.append(TaskSubmissionGroup(dependencies_on_other_groups=task.depends_on))
+
+        group = groups[group_index]
+        task_index_to_group[task.index] = group_index
+
+        group.inputs.append(task.input())
+        group.identifier_pointers.append(identifiers.append_if_unique(task.identifier()))
+        group.cluster_slug_pointers.append(cluster_slugs.append_if_unique(task.cluster or fallback_cluster))
+        group.display_pointers.append(displays.append_if_unique(task.display()))
+        group.max_retries_values.append(task.max_retries)
+
+    for i in range(len(groups)):
+        group = groups[i]
+        group.dependencies_on_other_groups = list(
+            # convert the task dependencies to group dependencies, deduplicate and sort them
+            {task_index_to_group[dep] for dep in group.dependencies_on_other_groups}
+        )
+
+    return TaskSubmissions(
+        task_groups=groups,
+        cluster_slug_lookup=cluster_slugs.values,
+        identifier_lookup=identifiers.values,
+        display_lookup=displays.values,
+    )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
-class TaskClassKey:
-    cluster_slug: str
-    identifier: TaskIdentifier
+class _TaskGroupUniqueKey:
     dependencies: frozenset[int]
     dependants: frozenset[int]
-    display: str
-    max_retries: int = 0
-
-    @classmethod
-    def from_future_task(cls, task: FutureTask, fallback_cluster: str, dependants: frozenset[int] | None) -> Self:
-        return cls(
-            cluster_slug=task.cluster or fallback_cluster,
-            identifier=task.identifier(),
-            dependencies=frozenset(task.depends_on),
-            dependants=dependants or frozenset(),
-            display=task.display(),
-            max_retries=task.max_retries,
-        )
-
-    def to_submission(self, inputs: list[bytes], dependency_index_map: dict[int, int]) -> TaskSubmission:
-        return TaskSubmission(
-            cluster_slug=self.cluster_slug,
-            identifier=self.identifier,
-            inputs=inputs,
-            dependencies=list({dependency_index_map[d] for d in self.dependencies}),
-            display=self.display,
-            max_retries=self.max_retries,
-        )
 
 
 class ProgressUpdate:

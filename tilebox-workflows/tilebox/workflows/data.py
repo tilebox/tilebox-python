@@ -342,32 +342,94 @@ class NextTaskToRun:
 
 
 @dataclass
-class TaskSubmission:
+class TaskSubmissionGroup:
+    dependencies_on_other_groups: list[int]
+    inputs: list[bytes] = field(default_factory=list)
+    identifier_pointers: list[int] = field(default_factory=list)
+    cluster_slug_pointers: list[int] = field(default_factory=list)
+    display_pointers: list[int] = field(default_factory=list)
+    max_retries_values: list[int] = field(default_factory=list)
+
+    @classmethod
+    def from_message(cls, group: core_pb2.TaskSubmissionGroup) -> "TaskSubmissionGroup":
+        """Convert a TaskSubmissionGroup protobuf message to a TaskSubmissionGroup object."""
+        return cls(
+            dependencies_on_other_groups=list(group.dependencies_on_other_groups),
+            inputs=list(group.inputs),
+            identifier_pointers=list(group.identifier_pointers),
+            cluster_slug_pointers=list(group.cluster_slug_pointers),
+            display_pointers=list(group.display_pointers),
+            max_retries_values=list(group.max_retries_values),
+        )
+
+    def to_message(self) -> core_pb2.TaskSubmissionGroup:
+        """Convert a TaskSubmissionGroup object to a TaskSubmissionGroup protobuf message."""
+        return core_pb2.TaskSubmissionGroup(
+            dependencies_on_other_groups=self.dependencies_on_other_groups,
+            inputs=self.inputs,
+            identifier_pointers=self.identifier_pointers,
+            cluster_slug_pointers=self.cluster_slug_pointers,
+            display_pointers=self.display_pointers,
+            max_retries_values=self.max_retries_values,
+        )
+
+
+@dataclass
+class TaskSubmissions:
+    task_groups: list[TaskSubmissionGroup]
+    cluster_slug_lookup: list[str]
+    identifier_lookup: list[TaskIdentifier]
+    display_lookup: list[str]
+
+    @classmethod
+    def from_message(cls, sub_task: core_pb2.TaskSubmissions) -> "TaskSubmissions":
+        """Convert a TaskSubmission protobuf message to a TaskSubmission object."""
+        return cls(
+            task_groups=[TaskSubmissionGroup.from_message(group) for group in sub_task.task_groups],
+            cluster_slug_lookup=list(sub_task.cluster_slug_lookup),
+            identifier_lookup=[TaskIdentifier.from_message(identifier) for identifier in sub_task.identifier_lookup],
+            display_lookup=list(sub_task.display_lookup),
+        )
+
+    def to_message(self) -> core_pb2.TaskSubmissions:
+        """Convert a TaskSubmissions object to a TaskSubmissions protobuf message."""
+        return core_pb2.TaskSubmissions(
+            task_groups=[group.to_message() for group in self.task_groups],
+            cluster_slug_lookup=self.cluster_slug_lookup,
+            identifier_lookup=[identifier.to_message() for identifier in self.identifier_lookup],
+            display_lookup=self.display_lookup,
+        )
+
+
+@dataclass
+class SingleTaskSubmission:
+    """A submission of a single task. Used for automations."""
+
     cluster_slug: str
     identifier: TaskIdentifier
-    inputs: list[bytes]
+    input: bytes
     dependencies: list[int]
     display: str
     max_retries: int = 0
 
     @classmethod
-    def from_message(cls, sub_task: core_pb2.TaskSubmission) -> "TaskSubmission":
-        """Convert a TaskSubmission protobuf message to a TaskSubmission object."""
+    def from_message(cls, sub_task: core_pb2.SingleTaskSubmission) -> "SingleTaskSubmission":
+        """Convert a TaskSubmission protobuf message to a SingleTaskSubmission object."""
         return cls(
             cluster_slug=sub_task.cluster_slug,
             identifier=TaskIdentifier.from_message(sub_task.identifier),
-            inputs=list(sub_task.inputs),
+            input=sub_task.input,
             dependencies=list(sub_task.dependencies),
             display=sub_task.display,
             max_retries=sub_task.max_retries,
         )
 
-    def to_message(self) -> core_pb2.TaskSubmission:
-        """Convert a TaskSubmission object to a TaskSubmission protobuf message."""
-        return core_pb2.TaskSubmission(
+    def to_message(self) -> core_pb2.SingleTaskSubmission:
+        """Convert a SingleTaskSubmission object to a TaskSubmission protobuf message."""
+        return core_pb2.SingleTaskSubmission(
             cluster_slug=self.cluster_slug,
             identifier=self.identifier.to_message(),
-            inputs=self.inputs,
+            input=self.input,
             dependencies=self.dependencies,
             display=self.display,
             max_retries=self.max_retries,
@@ -378,7 +440,7 @@ class TaskSubmission:
 class ComputedTask:
     id: UUID
     display: str | None
-    sub_tasks: list[TaskSubmission]
+    sub_tasks: TaskSubmissions | None
     progress_updates: list[ProgressIndicator]
 
     @classmethod
@@ -387,7 +449,9 @@ class ComputedTask:
         return cls(
             id=uuid_message_to_uuid(computed_task.id),
             display=computed_task.display,
-            sub_tasks=[TaskSubmission.from_message(sub_task) for sub_task in computed_task.sub_tasks],
+            sub_tasks=TaskSubmissions.from_message(computed_task.sub_tasks)
+            if computed_task.HasField("sub_tasks")
+            else None,
             progress_updates=[ProgressIndicator.from_message(progress) for progress in computed_task.progress_updates],
         )
 
@@ -396,7 +460,7 @@ class ComputedTask:
         return task_pb2.ComputedTask(
             id=uuid_to_uuid_message(self.id),
             display=self.display,
-            sub_tasks=[sub_task.to_message() for sub_task in self.sub_tasks],
+            sub_tasks=self.sub_tasks.to_message() if self.sub_tasks else None,
             progress_updates=[progress.to_message() for progress in self.progress_updates],
         )
 
@@ -576,7 +640,7 @@ class TriggeredCronEvent:
 class AutomationPrototype:
     id: UUID
     name: str
-    prototype: TaskSubmission
+    prototype: SingleTaskSubmission
     storage_event_triggers: list[StorageEventTrigger]
     cron_triggers: list[CronTrigger]
 
@@ -586,7 +650,7 @@ class AutomationPrototype:
         return cls(
             id=uuid_message_to_uuid(task.id),
             name=task.name,
-            prototype=TaskSubmission.from_message(task.prototype),
+            prototype=SingleTaskSubmission.from_message(task.prototype),
             storage_event_triggers=[
                 StorageEventTrigger.from_message(trigger) for trigger in task.storage_event_triggers
             ],

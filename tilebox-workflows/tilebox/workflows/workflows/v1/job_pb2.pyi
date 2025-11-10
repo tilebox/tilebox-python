@@ -26,16 +26,18 @@ WORKFLOW_DIAGRAM_THEME_CONSOLE_LIGHT: WorkflowDiagramTheme
 WORKFLOW_DIAGRAM_THEME_CONSOLE_DARK: WorkflowDiagramTheme
 
 class SubmitJobRequest(_message.Message):
-    __slots__ = ("tasks", "job_name", "trace_parent", "automation_id")
+    __slots__ = ("legacy_tasks", "tasks", "job_name", "trace_parent", "automation_id")
+    LEGACY_TASKS_FIELD_NUMBER: _ClassVar[int]
     TASKS_FIELD_NUMBER: _ClassVar[int]
     JOB_NAME_FIELD_NUMBER: _ClassVar[int]
     TRACE_PARENT_FIELD_NUMBER: _ClassVar[int]
     AUTOMATION_ID_FIELD_NUMBER: _ClassVar[int]
-    tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.TaskSubmission]
+    legacy_tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.SingleTaskSubmission]
+    tasks: _core_pb2.TaskSubmissions
     job_name: str
     trace_parent: str
     automation_id: _id_pb2.ID
-    def __init__(self, tasks: _Optional[_Iterable[_Union[_core_pb2.TaskSubmission, _Mapping]]] = ..., job_name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., automation_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
+    def __init__(self, legacy_tasks: _Optional[_Iterable[_Union[_core_pb2.SingleTaskSubmission, _Mapping]]] = ..., tasks: _Optional[_Union[_core_pb2.TaskSubmissions, _Mapping]] = ..., job_name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., automation_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
 
 class GetJobRequest(_message.Message):
     __slots__ = ("job_id",)
@@ -123,9 +125,9 @@ class GetJobPrototypeResponse(_message.Message):
     __slots__ = ("root_tasks", "job_name")
     ROOT_TASKS_FIELD_NUMBER: _ClassVar[int]
     JOB_NAME_FIELD_NUMBER: _ClassVar[int]
-    root_tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.TaskSubmission]
+    root_tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.SingleTaskSubmission]
     job_name: str
-    def __init__(self, root_tasks: _Optional[_Iterable[_Union[_core_pb2.TaskSubmission, _Mapping]]] = ..., job_name: _Optional[str] = ...) -> None: ...
+    def __init__(self, root_tasks: _Optional[_Iterable[_Union[_core_pb2.SingleTaskSubmission, _Mapping]]] = ..., job_name: _Optional[str] = ...) -> None: ...
 
 class CloneJobRequest(_message.Message):
     __slots__ = ("job_id", "root_tasks_overrides", "job_name")
@@ -133,6 +135,6 @@ class CloneJobRequest(_message.Message):
     ROOT_TASKS_OVERRIDES_FIELD_NUMBER: _ClassVar[int]
     JOB_NAME_FIELD_NUMBER: _ClassVar[int]
     job_id: _id_pb2.ID
-    root_tasks_overrides: _containers.RepeatedCompositeFieldContainer[_core_pb2.TaskSubmission]
+    root_tasks_overrides: _containers.RepeatedCompositeFieldContainer[_core_pb2.SingleTaskSubmission]
     job_name: str
-    def __init__(self, job_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., root_tasks_overrides: _Optional[_Iterable[_Union[_core_pb2.TaskSubmission, _Mapping]]] = ..., job_name: _Optional[str] = ...) -> None: ...
+    def __init__(self, job_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., root_tasks_overrides: _Optional[_Iterable[_Union[_core_pb2.SingleTaskSubmission, _Mapping]]] = ..., job_name: _Optional[str] = ...) -> None: ...
