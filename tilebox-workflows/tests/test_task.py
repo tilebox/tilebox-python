@@ -5,13 +5,16 @@ from typing import Annotated
 import pytest
 
 from tests.proto.test_pb2 import SampleArgs
+from tilebox.workflows.cache import InMemoryCache
 from tilebox.workflows.data import TaskIdentifier
+from tilebox.workflows.runner.task_runner import ExecutionContext as RunnerExecutionContext
 from tilebox.workflows.task import (
     ExecutionContext,
     Task,
     TaskMeta,
     _get_deserialization_field_type,
     deserialize_task,
+    merge_future_tasks_to_submissions,
     serialize_task,
 )
 
@@ -401,3 +404,113 @@ def test_get_deserialization_field_type() -> None:
     assert _get_deserialization_field_type(fields["field7"].type) is NestedJson
     assert _get_deserialization_field_type(fields["field8"].type) is NestedJson
     assert _get_deserialization_field_type(fields["field9"].type) == list[NestedJson]
+
+
+class TaskA(Task):
+    x: int
+    s: str
+
+    def execute(self, context: ExecutionContext) -> None:
+        pass
+
+
+class TaskB(Task):
+    f: float
+
+    def execute(self, context: ExecutionContext) -> None:
+        pass
+
+
+def test_merge_future_tasks_to_submissions() -> None:
+    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # type: ignore[arg-type]
+    tasks_1 = context.submit_subtasks([TaskA(3, "three"), TaskA(4, "four"), TaskA(5, "five")])
+    tasks_2 = context.submit_subtasks([TaskB(3.2), TaskB(3.44), TaskB(3.55)])
+    tasks_3 = context.submit_subtasks([TaskA(6, "six"), TaskB(8.12)])
+
+    submissions = merge_future_tasks_to_submissions(tasks_1 + tasks_2 + tasks_3, fallback_cluster="test")
+    assert len(submissions) == 2
+    assert submissions[0].identifier == TaskMeta.for_task(TaskA).identifier
+    assert submissions[0].cluster_slug == "test"
+    assert submissions[0].display == "TaskA"
+    assert submissions[0].dependencies == []
+    assert submissions[0].inputs == [
+        serialize_task(TaskA(3, "three")),
+        serialize_task(TaskA(4, "four")),
+        serialize_task(TaskA(5, "five")),
+        serialize_task(TaskA(6, "six")),
+    ]
+    assert submissions[1].identifier == TaskMeta.for_task(TaskB).identifier
+    assert submissions[1].cluster_slug == "test"
+    assert submissions[1].display == "TaskB"
+    assert submissions[1].dependencies == []
+    assert submissions[1].inputs == [
+        serialize_task(TaskB(3.2)),
+        serialize_task(TaskB(3.44)),
+        serialize_task(TaskB(3.55)),
+        serialize_task(TaskB(8.12)),
+    ]
+
+
+def test_merge_future_tasks_to_submissions_separate_clusters() -> None:
+    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # type: ignore[arg-type]
+    tasks_1 = context.submit_subtasks([TaskA(3, "three"), TaskA(4, "four"), TaskA(5, "five")])
+    tasks_2 = context.submit_subtasks([TaskB(3.2), TaskB(3.44), TaskB(3.55)])
+    tasks_3 = context.submit_subtasks([TaskA(6, "six"), TaskB(8.12)], cluster="other")
+
+    submissions = merge_future_tasks_to_submissions(tasks_1 + tasks_2 + tasks_3, fallback_cluster="test")
+    assert len(submissions) == 4
+    assert submissions[0].identifier == TaskMeta.for_task(TaskA).identifier
+    assert submissions[0].cluster_slug == "test"
+    assert submissions[0].inputs == [
+        serialize_task(TaskA(3, "three")),
+        serialize_task(TaskA(4, "four")),
+        serialize_task(TaskA(5, "five")),
+    ]
+    assert submissions[1].identifier == TaskMeta.for_task(TaskB).identifier
+    assert submissions[1].cluster_slug == "test"
+    assert submissions[1].inputs == [
+        serialize_task(TaskB(3.2)),
+        serialize_task(TaskB(3.44)),
+        serialize_task(TaskB(3.55)),
+    ]
+
+    assert submissions[2].identifier == TaskMeta.for_task(TaskA).identifier
+    assert submissions[2].cluster_slug == "other"
+    assert submissions[2].inputs == [serialize_task(TaskA(6, "six"))]
+
+    assert submissions[3].identifier == TaskMeta.for_task(TaskB).identifier
+    assert submissions[3].cluster_slug == "other"
+    assert submissions[3].inputs == [serialize_task(TaskB(8.12))]
+
+
+def test_merge_future_tasks_to_submissions_dependencies() -> None:
+    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # type: ignore[arg-type]
+    tasks_1 = context.submit_subtasks([TaskA(2, "two"), TaskA(3, "three")])
+    tasks_2 = context.submit_subtasks([TaskA(4, "four"), TaskA(5, "five")])
+    tasks_3 = context.submit_subtasks([TaskB(3.2)], depends_on=tasks_2)
+    tasks_4 = context.submit_subtasks([TaskB(3.44)])
+
+    submissions = merge_future_tasks_to_submissions(tasks_1 + tasks_2 + tasks_3 + tasks_4, fallback_cluster="test")
+    # tasks_1 and tasks_2 should not be merged, because they have different dependants
+    # tasks_3 and tasks_4 should not be merged, because they have different dependencies
+    assert len(submissions) == 4
+    assert submissions[0].identifier == TaskMeta.for_task(TaskA).identifier
+    assert submissions[0].inputs == [serialize_task(TaskA(2, "two")), serialize_task(TaskA(3, "three"))]
+    assert submissions[1].identifier == TaskMeta.for_task(TaskA).identifier
+    assert submissions[1].inputs == [serialize_task(TaskA(4, "four")), serialize_task(TaskA(5, "five"))]
+    assert submissions[2].identifier == TaskMeta.for_task(TaskB).identifier
+    assert submissions[2].inputs == [serialize_task(TaskB(3.2))]
+    assert submissions[2].dependencies == [1]
+    assert submissions[3].identifier == TaskMeta.for_task(TaskB).identifier
+    assert submissions[3].inputs == [serialize_task(TaskB(3.44))]
+
+
+def test_merge_future_tasks_to_one_submission() -> None:
+    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # type: ignore[arg-type]
+    for i in range(100):
+        context.submit_subtask(TaskA(i, f"Task {i}"))
+
+    submissions = merge_future_tasks_to_submissions(context._sub_tasks, fallback_cluster="test")
+    assert len(submissions) == 1
+    assert submissions[0].identifier == TaskMeta.for_task(TaskA).identifier
+    assert len(submissions[0].inputs) == 100

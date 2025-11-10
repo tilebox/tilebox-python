@@ -4,10 +4,16 @@ import json
 import typing
 from abc import ABC, ABCMeta, abstractmethod
 from base64 import b64decode, b64encode
+from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, field, fields, is_dataclass
 from types import NoneType, UnionType
 from typing import Any, cast, get_args, get_origin
+
+try:
+    from typing import Self
+except ImportError:  # Self is only available in Python 3.11+
+    from typing_extensions import Self
 
 # from python 3.11 onwards this is available as typing.dataclass_transform:
 from typing_extensions import dataclass_transform
@@ -240,9 +246,91 @@ class FutureTask:
         return TaskSubmission(
             cluster_slug=self.cluster or fallback_cluster,
             identifier=self.identifier(),
-            input=self.input(),
+            inputs=[self.input()],
             display=self.display(),
             dependencies=self.depends_on,
+            max_retries=self.max_retries,
+        )
+
+
+@dataclass(frozen=True)
+class SubtaskTree:
+    """The properties shared by a set of tasks that are submitted as a batch in a single subtask submission object,
+    and therefore capable of utilizing auto-tree spawning."""
+
+    identifier: TaskIdentifier
+    dependencies: frozenset[int]
+    dependants: frozenset[int]
+    display: str
+    max_retries: int
+
+    @classmethod
+    def from_future_task(cls, task: FutureTask, dependants: frozenset[int] | None) -> "SubtaskTree":
+        return cls(
+            identifier=task.identifier(),
+            dependencies=frozenset(task.depends_on),
+            dependants=dependants or frozenset(),
+            display=task.display(),
+            max_retries=task.max_retries,
+        )
+
+
+def merge_future_tasks_to_submissions(future_tasks: list[FutureTask], fallback_cluster: str) -> list[TaskSubmission]:
+    dependants = defaultdict(set)
+    for task in future_tasks:
+        for dep in task.depends_on:
+            dependants[dep].add(task.index)
+
+    dependants = {k: frozenset(v) for k, v in dependants.items()}
+
+    # since we potentially merge FutureTasks into a single TaskSubmission, our list indices (dependencies) are
+    # potentially changing, which is why we need to keep track of the original indices and map them to the new ones
+    dependency_index_map = {}
+    submission_inputs: list[
+        tuple[TaskClassKey, list[bytes]]
+    ] = []  # a list instead of a dict to make absolutely sure we preserve the order
+    seen_task_classes: dict[TaskClassKey, int] = {}
+    for task in future_tasks:
+        task_class = TaskClassKey.from_future_task(task, fallback_cluster, dependants.get(task.index))
+        existing_submission_index = seen_task_classes.get(task_class)
+        if existing_submission_index is not None:
+            submission_inputs[existing_submission_index][1].append(task.input())
+            dependency_index_map[task.index] = existing_submission_index
+        else:
+            dependency_index_map[task.index] = len(submission_inputs)
+            seen_task_classes[task_class] = len(submission_inputs)
+            submission_inputs.append((task_class, [task.input()]))
+
+    return [task_class.to_submission(inputs, dependency_index_map) for task_class, inputs in submission_inputs]
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class TaskClassKey:
+    cluster_slug: str
+    identifier: TaskIdentifier
+    dependencies: frozenset[int]
+    dependants: frozenset[int]
+    display: str
+    max_retries: int = 0
+
+    @classmethod
+    def from_future_task(cls, task: FutureTask, fallback_cluster: str, dependants: frozenset[int] | None) -> Self:
+        return cls(
+            cluster_slug=task.cluster or fallback_cluster,
+            identifier=task.identifier(),
+            dependencies=frozenset(task.depends_on),
+            dependants=dependants or frozenset(),
+            display=task.display(),
+            max_retries=task.max_retries,
+        )
+
+    def to_submission(self, inputs: list[bytes], dependency_index_map: dict[int, int]) -> TaskSubmission:
+        return TaskSubmission(
+            cluster_slug=self.cluster_slug,
+            identifier=self.identifier,
+            inputs=inputs,
+            dependencies=list({dependency_index_map[d] for d in self.dependencies}),
+            display=self.display,
             max_retries=self.max_retries,
         )
 

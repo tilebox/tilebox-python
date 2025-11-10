@@ -345,7 +345,7 @@ class NextTaskToRun:
 class TaskSubmission:
     cluster_slug: str
     identifier: TaskIdentifier
-    input: bytes
+    inputs: list[bytes]
     dependencies: list[int]
     display: str
     max_retries: int = 0
@@ -356,7 +356,7 @@ class TaskSubmission:
         return cls(
             cluster_slug=sub_task.cluster_slug,
             identifier=TaskIdentifier.from_message(sub_task.identifier),
-            input=sub_task.input,
+            inputs=list(sub_task.inputs),
             dependencies=list(sub_task.dependencies),
             display=sub_task.display,
             max_retries=sub_task.max_retries,
@@ -367,7 +367,7 @@ class TaskSubmission:
         return core_pb2.TaskSubmission(
             cluster_slug=self.cluster_slug,
             identifier=self.identifier.to_message(),
-            input=self.input,
+            inputs=self.inputs,
             dependencies=self.dependencies,
             display=self.display,
             max_retries=self.max_retries,

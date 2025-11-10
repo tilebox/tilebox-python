@@ -192,12 +192,12 @@ def task_submissions(draw: DrawFn) -> TaskSubmission:
     """A hypothesis strategy for generating random sub_tasks"""
     cluster_slug = str(draw(uuids(version=4)))
     identifier = draw(task_identifiers())
-    task_input = draw(task_inputs())
-    dependencies: list[int] = []
+    inputs = draw(lists(task_inputs(), min_size=1, max_size=5))
+    dependencies: list[int] = draw(lists(integers(min_value=0, max_value=1000), min_size=0, max_size=10))
     display = draw(alphanumerical_text())
     max_retries = draw(integers(min_value=0, max_value=100))
 
-    return TaskSubmission(cluster_slug, identifier, task_input, dependencies, display, max_retries)
+    return TaskSubmission(cluster_slug, identifier, inputs, dependencies, display, max_retries)
 
 
 @composite
