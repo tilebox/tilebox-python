@@ -78,12 +78,13 @@ class JobClient:
             )
 
         task_submissions = [FutureTask(i, task, [], slugs[i], max_retries) for i, task in enumerate(tasks)]
+        submissions_merged = merge_future_tasks_to_submissions(task_submissions, default_cluster)
+        if submissions_merged is None:
+            raise ValueError("At least one task must be submitted.")
 
         with self._tracer.start_as_current_span(f"job/{job_name}"):
             trace_parent = get_trace_parent_of_current_span()
-            return self._service.submit(
-                job_name, trace_parent, merge_future_tasks_to_submissions(task_submissions, default_cluster)
-            )
+            return self._service.submit(job_name, trace_parent, submissions_merged)
 
     def retry(self, job_or_id: JobIDLike) -> int:
         """Retry a job.

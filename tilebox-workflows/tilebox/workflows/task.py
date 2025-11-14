@@ -265,7 +265,10 @@ class _FastIndexLookupList(Generic[_T]):
         return index
 
 
-def merge_future_tasks_to_submissions(future_tasks: list[FutureTask], fallback_cluster: str) -> TaskSubmissions:
+def merge_future_tasks_to_submissions(future_tasks: list[FutureTask], fallback_cluster: str) -> TaskSubmissions | None:
+    if len(future_tasks) == 0:
+        return None
+
     dependants = defaultdict(set)
     for task in future_tasks:
         for dep in task.depends_on:
@@ -292,15 +295,7 @@ def merge_future_tasks_to_submissions(future_tasks: list[FutureTask], fallback_c
         group_index = group_keys.append_if_unique(group_key)
         if group_index == len(groups):  # it was a new unique group
             groups.append(TaskSubmissionGroup(dependencies_on_other_groups=task.depends_on))
-
-        group = groups[group_index]
         task_index_to_group[task.index] = group_index
-
-        group.inputs.append(task.input())
-        group.identifier_pointers.append(identifiers.append_if_unique(task.identifier()))
-        group.cluster_slug_pointers.append(cluster_slugs.append_if_unique(task.cluster or fallback_cluster))
-        group.display_pointers.append(displays.append_if_unique(task.display()))
-        group.max_retries_values.append(task.max_retries)
 
     for i in range(len(groups)):
         group = groups[i]
@@ -308,6 +303,16 @@ def merge_future_tasks_to_submissions(future_tasks: list[FutureTask], fallback_c
             # convert the task dependencies to group dependencies, deduplicate and sort them
             {task_index_to_group[dep] for dep in group.dependencies_on_other_groups}
         )
+
+    for task in future_tasks:
+        group_index = task_index_to_group[task.index]
+        group = groups[group_index]
+
+        group.inputs.append(task.input())
+        group.identifier_pointers.append(identifiers.append_if_unique(task.identifier()))
+        group.cluster_slug_pointers.append(cluster_slugs.append_if_unique(task.cluster or fallback_cluster))
+        group.display_pointers.append(displays.append_if_unique(task.display()))
+        group.max_retries_values.append(task.max_retries)
 
     return TaskSubmissions(
         task_groups=groups,

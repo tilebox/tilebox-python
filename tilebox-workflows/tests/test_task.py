@@ -428,6 +428,7 @@ def test_merge_future_tasks_to_submissions() -> None:
     tasks_3 = context.submit_subtasks([TaskA(6, "six"), TaskB(8.12)], cluster="other")
 
     submissions = merge_future_tasks_to_submissions(tasks_1 + tasks_2 + tasks_3, fallback_cluster="test")
+    assert submissions is not None
     assert len(submissions.task_groups) == 1
     group = submissions.task_groups[0]
     assert group.dependencies_on_other_groups == []
@@ -465,6 +466,7 @@ def test_merge_future_tasks_to_submissions_dependencies() -> None:
     # tasks_1, tasks_2 and tasks_4 should not be merged, because they have different dependants
     # tasks_3 and tasks_5 should not be merged, because they have different dependencies
 
+    assert submissions is not None
     assert len(submissions.task_groups) == 5
     assert submissions.task_groups[0].dependencies_on_other_groups == []
     assert submissions.task_groups[0].inputs == [serialize_task(TaskA(2, "two")), serialize_task(TaskA(3, "three"))]
@@ -485,6 +487,7 @@ def test_merge_future_tasks_to_submissions_many_tasks() -> None:
     tasks_2 = context.submit_subtasks([TaskB(i / 3) for i in range(n)], depends_on=tasks_1)
 
     submissions = merge_future_tasks_to_submissions(tasks_1 + tasks_2, fallback_cluster="test")
+    assert submissions is not None
     assert len(submissions.task_groups) == 2
     assert submissions.task_groups[0].dependencies_on_other_groups == []
     assert submissions.task_groups[0].identifier_pointers == [0] * n
@@ -500,4 +503,26 @@ def test_merge_future_tasks_to_submissions_many_non_mergeable_dependency_groups(
         context.submit_subtasks([TaskB(i / 3)], depends_on=task_1)
 
     submissions = merge_future_tasks_to_submissions(context._sub_tasks, fallback_cluster="test")
+    assert submissions is not None
     assert len(submissions.task_groups) == 2 * n
+
+
+def test_merge_future_tasks_two_separate_branches() -> None:
+    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # type: ignore[arg-type]
+    task_a = context.submit_subtasks([TaskA(0, "Task 0")])
+    # left branch
+    task_b_left = context.submit_subtasks([TaskB(0.0)], depends_on=task_a)
+    context.submit_subtasks([TaskB(1.0)], depends_on=task_b_left)
+
+    # right branch
+    task_b_right = context.submit_subtasks([TaskB(2.0)], depends_on=task_a)
+    context.submit_subtasks([TaskB(3.0)], depends_on=task_b_right)
+
+    submissions = merge_future_tasks_to_submissions(context._sub_tasks, fallback_cluster="test")
+    assert submissions is not None
+    assert len(submissions.task_groups) == 5
+    assert submissions.task_groups[0].dependencies_on_other_groups == []
+    assert submissions.task_groups[1].dependencies_on_other_groups == [0]
+    assert submissions.task_groups[2].dependencies_on_other_groups == [1]
+    assert submissions.task_groups[3].dependencies_on_other_groups == [0]
+    assert submissions.task_groups[4].dependencies_on_other_groups == [3]

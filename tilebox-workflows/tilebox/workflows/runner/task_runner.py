@@ -526,12 +526,20 @@ class ExecutionContext(ExecutionContextBase):
     def submit_subtask(
         self,
         task: TaskInstance,
-        depends_on: list[FutureTask] | None = None,
+        depends_on: FutureTask | list[FutureTask] | None = None,
         cluster: str | None = None,
         max_retries: int = 0,
     ) -> FutureTask:
         dependencies: list[int] = []
-        for dep in depends_on or []:
+
+        if depends_on is None:
+            depends_on = []
+        elif isinstance(depends_on, FutureTask):
+            depends_on = [depends_on]
+        elif not isinstance(depends_on, list):
+            raise TypeError(f"Invalid dependency. Expected FutureTask or list[FutureTask], got {type(depends_on)}")
+
+        for dep in depends_on:
             if not isinstance(dep, FutureTask):
                 raise TypeError(f"Invalid dependency. Expected FutureTask, got {type(dep)}")
             if dep.index >= len(self._sub_tasks):
@@ -553,7 +561,7 @@ class ExecutionContext(ExecutionContextBase):
         tasks: Sequence[TaskInstance],
         cluster: str | None = None,
         max_retries: int = 0,
-        depends_on: list[FutureTask] | None = None,
+        depends_on: FutureTask | list[FutureTask] | None = None,
     ) -> list[FutureTask]:
         return [
             self.submit_subtask(task, cluster=cluster, max_retries=max_retries, depends_on=depends_on) for task in tasks
