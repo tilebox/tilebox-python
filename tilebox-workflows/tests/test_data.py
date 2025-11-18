@@ -4,12 +4,16 @@ from tests.tasks_data import (
     automations,
     clusters,
     computed_tasks,
+    execution_stats,
     idling_responses,
     jobs,
     progress_indicators,
+    query_filters,
+    single_task_submissions,
     storage_locations,
     task_identifiers,
     task_leases,
+    task_submission_groups,
     task_submissions,
     tasks,
 )
@@ -17,14 +21,18 @@ from tilebox.workflows.data import (
     AutomationPrototype,
     Cluster,
     ComputedTask,
+    ExecutionStats,
     Idling,
     Job,
     ProgressIndicator,
+    QueryFilters,
+    SingleTaskSubmission,
     StorageLocation,
     Task,
     TaskIdentifier,
     TaskLease,
-    TaskSubmission,
+    TaskSubmissionGroup,
+    TaskSubmissions,
 )
 
 
@@ -48,6 +56,11 @@ def test_idling_responses_to_message_and_back(idling: Idling) -> None:
     assert Idling.from_message(idling.to_message()) == idling
 
 
+@given(execution_stats())
+def test_execution_stats_to_message_and_back(execution_stats: ExecutionStats) -> None:
+    assert ExecutionStats.from_message(execution_stats.to_message()) == execution_stats
+
+
 @given(jobs())
 def test_jobs_to_message_and_back(job: Job) -> None:
     assert Job.from_message(job.to_message()) == job
@@ -65,8 +78,18 @@ def test_clusters_to_message_and_back(cluster: Cluster) -> None:
 
 
 @given(task_submissions())
-def test_sub_tasks_to_message_and_back(sub_task: TaskSubmission) -> None:
-    assert TaskSubmission.from_message(sub_task.to_message()) == sub_task
+def test_task_submissions_to_message_and_back(sub_task: TaskSubmissions) -> None:
+    assert TaskSubmissions.from_message(sub_task.to_message()) == sub_task
+
+
+@given(task_submission_groups())
+def test_task_submission_groups_to_message_and_back(sub_task: TaskSubmissionGroup) -> None:
+    assert TaskSubmissionGroup.from_message(sub_task.to_message()) == sub_task
+
+
+@given(single_task_submissions())
+def test_single_task_submissions_to_message_and_back(sub_task: SingleTaskSubmission) -> None:
+    assert SingleTaskSubmission.from_message(sub_task.to_message()) == sub_task
 
 
 @given(computed_tasks())
@@ -87,3 +110,8 @@ def test_buckets_to_message_and_back(storage_location: StorageLocation) -> None:
 @given(automations())
 def test_automation_to_message_and_back(automation: AutomationPrototype) -> None:
     assert AutomationPrototype.from_message(automation.to_message()) == automation
+
+
+@given(query_filters())
+def test_query_filters_to_message_and_back(filters: QueryFilters) -> None:
+    assert QueryFilters.from_message(filters.to_message()) == filters

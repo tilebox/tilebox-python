@@ -1,10 +1,10 @@
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
 import xarray as xr
-from attr import dataclass
 from hypothesis import assume, given, settings
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, consumes, invariant, rule
 from hypothesis.strategies import lists

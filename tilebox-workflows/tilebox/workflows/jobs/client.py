@@ -9,12 +9,13 @@ from tilebox.datasets.query.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.workflows.clusters.client import ClusterSlugLike, to_cluster_slug
 from tilebox.workflows.data import (
     Job,
+    JobState,
     QueryFilters,
     QueryJobsResponse,
 )
 from tilebox.workflows.jobs.service import JobService
 from tilebox.workflows.observability.tracing import WorkflowTracer, get_trace_parent_of_current_span
-from tilebox.workflows.task import FutureTask
+from tilebox.workflows.task import FutureTask, merge_future_tasks_to_submissions
 from tilebox.workflows.task import Task as TaskInstance
 
 try:
@@ -64,8 +65,9 @@ class JobClient:
         """
         tasks = root_task_or_tasks if isinstance(root_task_or_tasks, list) else [root_task_or_tasks]
 
+        default_cluster = ""
         if isinstance(cluster, ClusterSlugLike | None):
-            slugs = [to_cluster_slug(cluster or "")] * len(tasks)
+            slugs = [to_cluster_slug(cluster or default_cluster)] * len(tasks)
         else:
             slugs = [to_cluster_slug(c) for c in cluster]
 
@@ -75,13 +77,14 @@ class JobClient:
                 f"or exactly one cluster per task. But got {len(tasks)} tasks and {len(slugs)} clusters."
             )
 
-        task_submissions = [
-            FutureTask(i, task, [], slugs[i], max_retries).to_submission() for i, task in enumerate(tasks)
-        ]
+        task_submissions = [FutureTask(i, task, [], slugs[i], max_retries) for i, task in enumerate(tasks)]
+        submissions_merged = merge_future_tasks_to_submissions(task_submissions, default_cluster)
+        if submissions_merged is None:
+            raise ValueError("At least one task must be submitted.")
 
         with self._tracer.start_as_current_span(f"job/{job_name}"):
             trace_parent = get_trace_parent_of_current_span()
-            return self._service.submit(job_name, trace_parent, task_submissions)
+            return self._service.submit(job_name, trace_parent, submissions_merged)
 
     def retry(self, job_or_id: JobIDLike) -> int:
         """Retry a job.
@@ -154,7 +157,13 @@ class JobClient:
         """
         return self._service.visualize(_to_uuid(job), direction, layout, sketchy)
 
-    def query(self, temporal_extent: TimeIntervalLike | IDIntervalLike, automation_id: UUID | None = None) -> list[Job]:
+    def query(
+        self,
+        temporal_extent: TimeIntervalLike | IDIntervalLike,
+        automation_ids: UUID | list[UUID] | None = None,
+        job_states: JobState | list[JobState] | None = None,
+        name: str | None = None,
+    ) -> list[Job]:
         """List jobs in the given temporal extent.
 
         Args:
@@ -170,11 +179,14 @@ class JobClient:
                 - tuple of two UUIDs: [start, end) -> Construct an IDInterval with the given start and end id
                 - tuple of two strings: [start, end) -> Construct an IDInterval with the given start and end id
                     parsed from the strings
-            automation_id: The automation id to filter jobs by. If specified, only jobs created by the given automation
-                are returned.
-
+            automation_ids: An automation id or list of automation ids to filter jobs by.
+                If specified, only jobs created by one of the selected automations are returned.
+            job_states: A job state or list of job states to filter jobs by. If specified, only jobs in one of the
+                selected states are returned.
+            name: A name to filter jobs by. If specified, only jobs with a matching name are returned. The match is
+                case-insensitive and uses a fuzzy matching scheme.
         Returns:
-            A list of jobs.
+            A list of jobs matching the given filters.
         """
         time_interval: TimeInterval | None = None
         id_interval: IDInterval | None = None
@@ -202,7 +214,21 @@ class JobClient:
                     end_inclusive=dataset_time_interval.end_inclusive,
                 )
 
-        filters = QueryFilters(time_interval=time_interval, id_interval=id_interval, automation_id=automation_id)
+        automation_ids = automation_ids or []
+        if not isinstance(automation_ids, list):
+            automation_ids = [automation_ids]
+
+        job_states = job_states or []
+        if not isinstance(job_states, list):
+            job_states = [job_states]
+
+        filters = QueryFilters(
+            time_interval=time_interval,
+            id_interval=id_interval,
+            automation_ids=automation_ids,
+            job_states=job_states,
+            name=name,
+        )
 
         def request(page: PaginationProtocol) -> QueryJobsResponse:
             query_page = Pagination(page.limit, page.starting_after)

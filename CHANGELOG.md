@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.45.0] - 2025-11-17
+
+### Added
+
+- `tilebox-workflows`: Added `execution_stats` to the `Job` object to provide programmatic access to a job's execution
+  statistics.
+- `tilebox-workflows`: Added query filters to the `JobClient.query` method to filter jobs by multiple automation ids,
+  job state, and job name.
+- `tilebox-workflows`: Added additional JobState values to indicate a job's current state and progress more accurately.
+- `tilebox-workflows`: Removed the restriction of `64` subtasks per task.
+
+### Changed
+
+- `tilebox-workflows`: Deprecated the `job.canceled` property, which will be removed in a future version. The
+  equivalent expression behavior for the old `job.canceled` is `(job.state in (JobState.CANCELED, JobState.FAILED)`.
+- `tilebox-workflows`: Deprecated the `job.started_at` property, which will be removed in a future version. The
+  equivalent information is available in `job.execution_stats.first_task_started_at` instead.
+- `tilebox-workflows`: The `JobState.QUEUED` enum value has been renamed in favor of the more accurate
+  `JobState.SUBMITTED`. The `QUEUED` value is still available as an alias for `SUBMITTED` for backwards compatibility,
+  but will be removed in a future version.
+- `tilebox-workflows`: Switched to an updated internal `TaskSubmission` message format that allows for more efficient
+  submission of a very large number of tasks.
+
 ## [0.44.0] - 2025-09-18
 
 ### Added
@@ -266,7 +289,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.44.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.45.0...HEAD
+[0.45.0]: https://github.com/tilebox/tilebox-python/compare/v0.45.0...v0.45.0
 [0.44.0]: https://github.com/tilebox/tilebox-python/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/tilebox/tilebox-python/compare/v0.42.0...v0.43.0
 [0.42.0]: https://github.com/tilebox/tilebox-python/compare/v0.41.0...v0.42.0

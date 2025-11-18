@@ -96,19 +96,19 @@ def test_runner_with_flaky_task() -> None:
 
     runner.run_all()  # task will fail
     job = job_client.find(job)  # load current job state
-    assert job.canceled is True  # since it failed
+    assert job.state == JobState.FAILED
 
     job_client.retry(job)
     job = job_client.find(job)  # load current job state
-    assert job.canceled is False
+    assert job.state == JobState.RUNNING
 
     runner.run_all()  # task will still fail
     job = job_client.find(job)  # load current job state
-    assert job.canceled is True  # since it failed
+    assert job.state == JobState.FAILED  # since it failed
 
     job_client.retry(job)
     job = job_client.find(job)  # load current job state
-    assert job.canceled is False
+    assert job.state == JobState.RUNNING
 
     cache.group(str(job.id))["succeed"] = b"1"
     runner.run_all()  # now task will succeed

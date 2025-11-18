@@ -27,16 +27,18 @@ class NextTaskToRun(_message.Message):
     def __init__(self, cluster_slug: _Optional[str] = ..., identifiers: _Optional[_Iterable[_Union[_core_pb2.TaskIdentifier, _Mapping]]] = ...) -> None: ...
 
 class ComputedTask(_message.Message):
-    __slots__ = ("id", "display", "sub_tasks", "progress_updates")
+    __slots__ = ("id", "display", "legacy_sub_tasks", "sub_tasks", "progress_updates")
     ID_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_FIELD_NUMBER: _ClassVar[int]
+    LEGACY_SUB_TASKS_FIELD_NUMBER: _ClassVar[int]
     SUB_TASKS_FIELD_NUMBER: _ClassVar[int]
     PROGRESS_UPDATES_FIELD_NUMBER: _ClassVar[int]
     id: _id_pb2.ID
     display: str
-    sub_tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.TaskSubmission]
+    legacy_sub_tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.SingleTaskSubmission]
+    sub_tasks: _core_pb2.TaskSubmissions
     progress_updates: _containers.RepeatedCompositeFieldContainer[_core_pb2.Progress]
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., sub_tasks: _Optional[_Iterable[_Union[_core_pb2.TaskSubmission, _Mapping]]] = ..., progress_updates: _Optional[_Iterable[_Union[_core_pb2.Progress, _Mapping]]] = ...) -> None: ...
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., legacy_sub_tasks: _Optional[_Iterable[_Union[_core_pb2.SingleTaskSubmission, _Mapping]]] = ..., sub_tasks: _Optional[_Union[_core_pb2.TaskSubmissions, _Mapping]] = ..., progress_updates: _Optional[_Iterable[_Union[_core_pb2.Progress, _Mapping]]] = ...) -> None: ...
 
 class IdlingResponse(_message.Message):
     __slots__ = ("suggested_idling_duration",)

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 import boto3
@@ -23,7 +23,7 @@ from tilebox.datasets.query.time_interval import (
     timedelta_to_duration,
     timestamp_to_datetime,
 )
-from tilebox.datasets.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.datasets.uuid import must_uuid_to_uuid_message, uuid_message_to_uuid, uuid_to_uuid_message
 
 try:
     # let's not make this a hard dependency, but if it's installed we can use its types
@@ -162,7 +162,7 @@ class Task:
         return core_pb2.Task(
             id=uuid_to_uuid_message(self.id),
             identifier=self.identifier.to_message(),
-            state=f"TASK_STATE_{self.state.name}",
+            state=cast(core_pb2.TaskState, self.state.value),
             input=self.input,
             display=self.display,
             job=self.job.to_message() if self.job else None,
@@ -189,12 +189,65 @@ class Idling:
 
 class JobState(Enum):
     UNSPECIFIED = 0
-    QUEUED = 1
-    STARTED = 2
-    COMPLETED = 3
+    SUBMITTED = 1
+    RUNNING = 2
+    STARTED = 3
+    COMPLETED = 4
+    FAILED = 5
+    CANCELED = 6
 
 
 _JOB_STATES = {state.value: state for state in JobState}
+
+# JobState.QUEUED is deprecated and has been renamed to SUBMITTED, but we keep it around for backwards compatibility
+JobState.QUEUED = JobState.SUBMITTED  # type: ignore[assignment]
+
+
+@dataclass(order=True, frozen=True)
+class ExecutionStats:
+    first_task_started_at: datetime | None
+    last_task_stopped_at: datetime | None
+    compute_time: timedelta
+    elapsed_time: timedelta
+    parallelism: float
+    total_tasks: int
+    tasks_by_state: dict[TaskState, int]
+
+    @classmethod
+    def from_message(cls, execution_stats: core_pb2.ExecutionStats) -> "ExecutionStats":
+        """Convert a ExecutionStats protobuf message to a ExecutionStats object."""
+        return cls(
+            first_task_started_at=timestamp_to_datetime(execution_stats.first_task_started_at)
+            if execution_stats.HasField("first_task_started_at")
+            else None,
+            last_task_stopped_at=timestamp_to_datetime(execution_stats.last_task_stopped_at)
+            if execution_stats.HasField("last_task_stopped_at")
+            else None,
+            compute_time=duration_to_timedelta(execution_stats.compute_time),
+            elapsed_time=duration_to_timedelta(execution_stats.elapsed_time),
+            parallelism=execution_stats.parallelism,
+            total_tasks=execution_stats.total_tasks,
+            tasks_by_state={_TASK_STATES[state.state]: state.count for state in execution_stats.tasks_by_state},
+        )
+
+    def to_message(self) -> core_pb2.ExecutionStats:
+        """Convert a ExecutionStats object to a ExecutionStats protobuf message."""
+        return core_pb2.ExecutionStats(
+            first_task_started_at=datetime_to_timestamp(self.first_task_started_at)
+            if self.first_task_started_at
+            else None,
+            last_task_stopped_at=datetime_to_timestamp(self.last_task_stopped_at)
+            if self.last_task_stopped_at
+            else None,
+            compute_time=timedelta_to_duration(self.compute_time),
+            elapsed_time=timedelta_to_duration(self.elapsed_time),
+            parallelism=self.parallelism,
+            total_tasks=self.total_tasks,
+            tasks_by_state=[
+                core_pb2.TaskStateCount(state=cast(core_pb2.TaskState, state.value), count=count)
+                for state, count in self.tasks_by_state.items()
+            ],
+        )
 
 
 @dataclass(order=True, frozen=True)
@@ -204,9 +257,8 @@ class Job:
     trace_parent: str
     state: JobState
     submitted_at: datetime
-    started_at: datetime | None
-    canceled: bool
     progress: list[ProgressIndicator]
+    execution_stats: ExecutionStats
 
     @classmethod
     def from_message(
@@ -219,9 +271,8 @@ class Job:
             trace_parent=job.trace_parent,
             state=_JOB_STATES[job.state],
             submitted_at=timestamp_to_datetime(job.submitted_at),
-            started_at=timestamp_to_datetime(job.started_at) if job.HasField("started_at") else None,
-            canceled=job.canceled,
             progress=[ProgressIndicator.from_message(progress) for progress in job.progress],
+            execution_stats=ExecutionStats.from_message(job.execution_stats),
             **extra_kwargs,
         )
 
@@ -231,12 +282,32 @@ class Job:
             id=uuid_to_uuid_message(self.id),
             name=self.name,
             trace_parent=self.trace_parent,
-            state=f"JOB_STATE_{self.state.name}",
+            state=cast(core_pb2.JobState, self.state.value),
             submitted_at=datetime_to_timestamp(self.submitted_at),
-            started_at=datetime_to_timestamp(self.started_at) if self.started_at else None,
-            canceled=self.canceled,
             progress=[progress.to_message() for progress in self.progress],
+            execution_stats=self.execution_stats.to_message(),
         )
+
+    @property
+    def canceled(self) -> bool:
+        warnings.warn(
+            "The canceled property on a job has been deprecated, and will be removed in a future version. "
+            "Use job.state == JobState.CANCELED, or job.state == JobState.FAILED instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        # the deprecated canceled property was also true for failed jobs, so we keep that behavior
+        return self.state in (JobState.CANCELED, JobState.FAILED)
+
+    @property
+    def started_at(self) -> datetime | None:
+        warnings.warn(
+            "The started_at property on a job has been deprecated, use `job.execution_stats.first_task_started_at` "
+            "instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.execution_stats.first_task_started_at
 
 
 @dataclass(order=True)
@@ -271,7 +342,69 @@ class NextTaskToRun:
 
 
 @dataclass
-class TaskSubmission:
+class TaskSubmissionGroup:
+    dependencies_on_other_groups: list[int]
+    inputs: list[bytes] = field(default_factory=list)
+    identifier_pointers: list[int] = field(default_factory=list)
+    cluster_slug_pointers: list[int] = field(default_factory=list)
+    display_pointers: list[int] = field(default_factory=list)
+    max_retries_values: list[int] = field(default_factory=list)
+
+    @classmethod
+    def from_message(cls, group: core_pb2.TaskSubmissionGroup) -> "TaskSubmissionGroup":
+        """Convert a TaskSubmissionGroup protobuf message to a TaskSubmissionGroup object."""
+        return cls(
+            dependencies_on_other_groups=list(group.dependencies_on_other_groups),
+            inputs=list(group.inputs),
+            identifier_pointers=list(group.identifier_pointers),
+            cluster_slug_pointers=list(group.cluster_slug_pointers),
+            display_pointers=list(group.display_pointers),
+            max_retries_values=list(group.max_retries_values),
+        )
+
+    def to_message(self) -> core_pb2.TaskSubmissionGroup:
+        """Convert a TaskSubmissionGroup object to a TaskSubmissionGroup protobuf message."""
+        return core_pb2.TaskSubmissionGroup(
+            dependencies_on_other_groups=self.dependencies_on_other_groups,
+            inputs=self.inputs,
+            identifier_pointers=self.identifier_pointers,
+            cluster_slug_pointers=self.cluster_slug_pointers,
+            display_pointers=self.display_pointers,
+            max_retries_values=self.max_retries_values,
+        )
+
+
+@dataclass
+class TaskSubmissions:
+    task_groups: list[TaskSubmissionGroup]
+    cluster_slug_lookup: list[str]
+    identifier_lookup: list[TaskIdentifier]
+    display_lookup: list[str]
+
+    @classmethod
+    def from_message(cls, sub_task: core_pb2.TaskSubmissions) -> "TaskSubmissions":
+        """Convert a TaskSubmission protobuf message to a TaskSubmission object."""
+        return cls(
+            task_groups=[TaskSubmissionGroup.from_message(group) for group in sub_task.task_groups],
+            cluster_slug_lookup=list(sub_task.cluster_slug_lookup),
+            identifier_lookup=[TaskIdentifier.from_message(identifier) for identifier in sub_task.identifier_lookup],
+            display_lookup=list(sub_task.display_lookup),
+        )
+
+    def to_message(self) -> core_pb2.TaskSubmissions:
+        """Convert a TaskSubmissions object to a TaskSubmissions protobuf message."""
+        return core_pb2.TaskSubmissions(
+            task_groups=[group.to_message() for group in self.task_groups],
+            cluster_slug_lookup=self.cluster_slug_lookup,
+            identifier_lookup=[identifier.to_message() for identifier in self.identifier_lookup],
+            display_lookup=self.display_lookup,
+        )
+
+
+@dataclass
+class SingleTaskSubmission:
+    """A submission of a single task. Used for automations."""
+
     cluster_slug: str
     identifier: TaskIdentifier
     input: bytes
@@ -280,8 +413,8 @@ class TaskSubmission:
     max_retries: int = 0
 
     @classmethod
-    def from_message(cls, sub_task: core_pb2.TaskSubmission) -> "TaskSubmission":
-        """Convert a TaskSubmission protobuf message to a TaskSubmission object."""
+    def from_message(cls, sub_task: core_pb2.SingleTaskSubmission) -> "SingleTaskSubmission":
+        """Convert a TaskSubmission protobuf message to a SingleTaskSubmission object."""
         return cls(
             cluster_slug=sub_task.cluster_slug,
             identifier=TaskIdentifier.from_message(sub_task.identifier),
@@ -291,9 +424,9 @@ class TaskSubmission:
             max_retries=sub_task.max_retries,
         )
 
-    def to_message(self) -> core_pb2.TaskSubmission:
-        """Convert a TaskSubmission object to a TaskSubmission protobuf message."""
-        return core_pb2.TaskSubmission(
+    def to_message(self) -> core_pb2.SingleTaskSubmission:
+        """Convert a SingleTaskSubmission object to a TaskSubmission protobuf message."""
+        return core_pb2.SingleTaskSubmission(
             cluster_slug=self.cluster_slug,
             identifier=self.identifier.to_message(),
             input=self.input,
@@ -307,7 +440,7 @@ class TaskSubmission:
 class ComputedTask:
     id: UUID
     display: str | None
-    sub_tasks: list[TaskSubmission]
+    sub_tasks: TaskSubmissions | None
     progress_updates: list[ProgressIndicator]
 
     @classmethod
@@ -316,7 +449,9 @@ class ComputedTask:
         return cls(
             id=uuid_message_to_uuid(computed_task.id),
             display=computed_task.display,
-            sub_tasks=[TaskSubmission.from_message(sub_task) for sub_task in computed_task.sub_tasks],
+            sub_tasks=TaskSubmissions.from_message(computed_task.sub_tasks)
+            if computed_task.HasField("sub_tasks")
+            else None,
             progress_updates=[ProgressIndicator.from_message(progress) for progress in computed_task.progress_updates],
         )
 
@@ -325,7 +460,7 @@ class ComputedTask:
         return task_pb2.ComputedTask(
             id=uuid_to_uuid_message(self.id),
             display=self.display,
-            sub_tasks=[sub_task.to_message() for sub_task in self.sub_tasks],
+            sub_tasks=self.sub_tasks.to_message() if self.sub_tasks else None,
             progress_updates=[progress.to_message() for progress in self.progress_updates],
         )
 
@@ -505,7 +640,7 @@ class TriggeredCronEvent:
 class AutomationPrototype:
     id: UUID
     name: str
-    prototype: TaskSubmission
+    prototype: SingleTaskSubmission
     storage_event_triggers: list[StorageEventTrigger]
     cron_triggers: list[CronTrigger]
 
@@ -515,7 +650,7 @@ class AutomationPrototype:
         return cls(
             id=uuid_message_to_uuid(task.id),
             name=task.name,
-            prototype=TaskSubmission.from_message(task.prototype),
+            prototype=SingleTaskSubmission.from_message(task.prototype),
             storage_event_triggers=[
                 StorageEventTrigger.from_message(trigger) for trigger in task.storage_event_triggers
             ],
@@ -595,21 +730,31 @@ class QueryJobsResponse:
 
 @dataclass(frozen=True)
 class QueryFilters:
-    time_interval: TimeInterval | None = None
-    id_interval: IDInterval | None = None
-    automation_id: UUID | None = None
+    time_interval: TimeInterval | None
+    id_interval: IDInterval | None
+    automation_ids: list[UUID]
+    job_states: list[JobState]
+    name: str | None
 
     @classmethod
     def from_message(cls, filters: job_pb2.QueryFilters) -> "QueryFilters":
         return cls(
-            time_interval=TimeInterval.from_message(filters.time_interval),
-            id_interval=IDInterval.from_message(filters.id_interval),
-            automation_id=uuid_message_to_optional_uuid(filters.automation_id),
+            time_interval=TimeInterval.from_message(filters.time_interval)
+            if filters.HasField("time_interval")
+            else None,
+            id_interval=IDInterval.from_message(filters.id_interval) if filters.HasField("id_interval") else None,
+            automation_ids=[uuid_message_to_uuid(uuid) for uuid in filters.automation_ids],
+            job_states=[_JOB_STATES[state] for state in filters.states],
+            name=filters.name or None,
         )
 
     def to_message(self) -> job_pb2.QueryFilters:
         return job_pb2.QueryFilters(
             time_interval=self.time_interval.to_message() if self.time_interval else None,
             id_interval=self.id_interval.to_message() if self.id_interval else None,
-            automation_id=uuid_to_uuid_message(self.automation_id) if self.automation_id else None,
+            automation_ids=[must_uuid_to_uuid_message(uuid) for uuid in self.automation_ids]
+            if self.automation_ids
+            else None,
+            states=[cast(core_pb2.JobState, state.value) for state in self.job_states] if self.job_states else None,
+            name=self.name or None,  # empty string becomes None
         )

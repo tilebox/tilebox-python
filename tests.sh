@@ -13,7 +13,15 @@ for package in $packages; do
     if [ -d _tilebox ]; then
         module=_tilebox
     fi
-    uv run --all-packages pytest -Wall -Werror --cov=$module --cov-branch -v --junitxml=test-report.xml . || exit 1
+
+    PYTHON_VERSION=$(uv run python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)
+
+    if [ "$PYTHON_VERSION" = "3.10" ]; then
+        # ignore: FutureWarning: You are using a Python version (3.10.11) which Google will stop supporting in new releases of google.api_core once it reaches its end of life (2026-10-04).
+        uv run --all-packages pytest -Wall -Werror -W "ignore::FutureWarning" --cov=$module --cov-branch -v --junitxml=test-report.xml . || exit 1
+    else
+        uv run --all-packages pytest -Wall -Werror --cov=$module --cov-branch -v --junitxml=test-report.xml . || exit 1
+    fi
 
     cd .. || exit 1 # cd back to the root of the monorepo
 done

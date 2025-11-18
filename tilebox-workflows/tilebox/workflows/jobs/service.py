@@ -8,7 +8,7 @@ from tilebox.workflows.data import (
     Job,
     QueryFilters,
     QueryJobsResponse,
-    TaskSubmission,
+    TaskSubmissions,
     uuid_to_uuid_message,
 )
 from tilebox.workflows.formatting.job import JobWidget, RichDisplayJob
@@ -39,9 +39,9 @@ class JobService:
         """
         self.service = with_pythonic_errors(JobServiceStub(channel))
 
-    def submit(self, job_name: str, trace_parent: str, tasks: list[TaskSubmission]) -> Job:
+    def submit(self, job_name: str, trace_parent: str, tasks: TaskSubmissions) -> Job:
         request = SubmitJobRequest(
-            tasks=[task.to_message() for task in tasks],
+            tasks=tasks.to_message(),
             job_name=job_name,
             trace_parent=trace_parent,
         )

@@ -4,15 +4,16 @@ import json
 import typing
 from abc import ABC, ABCMeta, abstractmethod
 from base64 import b64decode, b64encode
+from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, field, fields, is_dataclass
 from types import NoneType, UnionType
-from typing import Any, cast, get_args, get_origin
+from typing import Any, Generic, TypeVar, cast, get_args, get_origin
 
 # from python 3.11 onwards this is available as typing.dataclass_transform:
 from typing_extensions import dataclass_transform
 
-from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmission
+from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmissionGroup, TaskSubmissions
 
 META_ATTR = "__tilebox_task_meta__"  # the name of the attribute we use to store task metadata on the class
 
@@ -236,15 +237,95 @@ class FutureTask:
     def display(self) -> str:
         return self.task.__class__.__name__
 
-    def to_submission(self, fallback_cluster: str = "") -> TaskSubmission:
-        return TaskSubmission(
-            cluster_slug=self.cluster or fallback_cluster,
-            identifier=self.identifier(),
-            input=self.input(),
-            display=self.display(),
-            dependencies=self.depends_on,
-            max_retries=self.max_retries,
+
+_T = TypeVar("_T")
+
+
+class _FastIndexLookupList(Generic[_T]):
+    """A list that provides fast lookup by index."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.values = []
+        self._index_lookup: dict[_T, int] = {}
+
+    def __contains__(self, key: _T) -> bool:
+        return key in self._index_lookup
+
+    def __getitem__(self, key: _T) -> _T:
+        index = self._index_lookup[key]
+        return self.values[index]
+
+    def append_if_unique(self, value: _T) -> int:
+        if value in self._index_lookup:
+            return self._index_lookup[value]
+        index = len(self.values)
+        self.values.append(value)
+        self._index_lookup[value] = index
+        return index
+
+
+def merge_future_tasks_to_submissions(future_tasks: list[FutureTask], fallback_cluster: str) -> TaskSubmissions | None:
+    if len(future_tasks) == 0:
+        return None
+
+    dependants = defaultdict(set)
+    for task in future_tasks:
+        for dep in task.depends_on:
+            dependants[dep].add(task.index)
+
+    dependants = {k: frozenset(v) for k, v in dependants.items()}
+
+    # we keep track of which task ends up in which group, so we can convert task dependencies to group dependencies
+    task_index_to_group = {}
+
+    group_keys = _FastIndexLookupList[_TaskGroupUniqueKey]()
+    groups: list[TaskSubmissionGroup] = []
+    # even though in python dicts preserve insertion order, we explicitly keep a list and an explicit lookup dict, to
+    # make the intent clear. This also allows us to more easily port this code to Tilebox clients in other languages.
+    cluster_slugs = _FastIndexLookupList[str]()
+    identifiers = _FastIndexLookupList[TaskIdentifier]()
+    displays = _FastIndexLookupList[str]()
+
+    for task in future_tasks:
+        group_key = _TaskGroupUniqueKey(
+            dependencies=frozenset(task.depends_on),
+            dependants=dependants.get(task.index, frozenset()),
         )
+        group_index = group_keys.append_if_unique(group_key)
+        if group_index == len(groups):  # it was a new unique group
+            groups.append(TaskSubmissionGroup(dependencies_on_other_groups=task.depends_on))
+        task_index_to_group[task.index] = group_index
+
+    for i in range(len(groups)):
+        group = groups[i]
+        group.dependencies_on_other_groups = list(
+            # convert the task dependencies to group dependencies, deduplicate and sort them
+            {task_index_to_group[dep] for dep in group.dependencies_on_other_groups}
+        )
+
+    for task in future_tasks:
+        group_index = task_index_to_group[task.index]
+        group = groups[group_index]
+
+        group.inputs.append(task.input())
+        group.identifier_pointers.append(identifiers.append_if_unique(task.identifier()))
+        group.cluster_slug_pointers.append(cluster_slugs.append_if_unique(task.cluster or fallback_cluster))
+        group.display_pointers.append(displays.append_if_unique(task.display()))
+        group.max_retries_values.append(task.max_retries)
+
+    return TaskSubmissions(
+        task_groups=groups,
+        cluster_slug_lookup=cluster_slugs.values,
+        identifier_lookup=identifiers.values,
+        display_lookup=displays.values,
+    )
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class _TaskGroupUniqueKey:
+    dependencies: frozenset[int]
+    dependants: frozenset[int]
 
 
 class ProgressUpdate:

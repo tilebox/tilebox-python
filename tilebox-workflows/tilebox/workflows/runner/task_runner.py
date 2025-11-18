@@ -34,7 +34,13 @@ from tilebox.workflows.observability.logging import get_logger
 from tilebox.workflows.observability.tracing import WorkflowTracer
 from tilebox.workflows.runner.task_service import TaskService
 from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
-from tilebox.workflows.task import FutureTask, ProgressUpdate, RunnerContext, TaskMeta
+from tilebox.workflows.task import (
+    FutureTask,
+    ProgressUpdate,
+    RunnerContext,
+    TaskMeta,
+    merge_future_tasks_to_submissions,
+)
 from tilebox.workflows.task import Task as TaskInstance
 
 # The time we give a task to finish it's execution when a runner shutdown is requested before we forcefully stop it
@@ -489,10 +495,12 @@ class TaskRunner:
                 computed_task = ComputedTask(
                     id=task.id,
                     display=task.display,
-                    sub_tasks=[
-                        task.to_submission(self.tasks_to_run.cluster_slug)
-                        for task in context._sub_tasks  # noqa: SLF001
-                    ],
+                    sub_tasks=merge_future_tasks_to_submissions(
+                        context._sub_tasks,  # noqa: SLF001
+                        # if not otherwise specified, we use the cluster of the runner for all subtasks, which is also
+                        # the cluster of the parent task
+                        self.tasks_to_run.cluster_slug,
+                    ),
                     progress_updates=_finalize_mutable_progress_trackers(context._progress_indicators),  # noqa: SLF001
                 )
 
@@ -518,15 +526,30 @@ class ExecutionContext(ExecutionContextBase):
     def submit_subtask(
         self,
         task: TaskInstance,
-        depends_on: list[FutureTask] | None = None,
+        depends_on: FutureTask | list[FutureTask] | None = None,
         cluster: str | None = None,
         max_retries: int = 0,
     ) -> FutureTask:
+        dependencies: list[int] = []
+
+        if depends_on is None:
+            depends_on = []
+        elif isinstance(depends_on, FutureTask):
+            depends_on = [depends_on]
+        elif not isinstance(depends_on, list):
+            raise TypeError(f"Invalid dependency. Expected FutureTask or list[FutureTask], got {type(depends_on)}")
+
+        for dep in depends_on:
+            if not isinstance(dep, FutureTask):
+                raise TypeError(f"Invalid dependency. Expected FutureTask, got {type(dep)}")
+            if dep.index >= len(self._sub_tasks):
+                raise ValueError(f"Dependent task {dep.index} does not exist")
+            dependencies.append(dep.index)
         subtask = FutureTask(
             index=len(self._sub_tasks),
             task=task,
             # cyclic dependencies are not allowed, they are detected by the server and will result in an error
-            depends_on=[d.index for d in depends_on] if depends_on is not None else [],
+            depends_on=dependencies,
             cluster=cluster,
             max_retries=max_retries,
         )
@@ -534,9 +557,15 @@ class ExecutionContext(ExecutionContextBase):
         return subtask
 
     def submit_subtasks(
-        self, tasks: Sequence[TaskInstance], cluster: str | None = None, max_retries: int = 0
+        self,
+        tasks: Sequence[TaskInstance],
+        cluster: str | None = None,
+        max_retries: int = 0,
+        depends_on: FutureTask | list[FutureTask] | None = None,
     ) -> list[FutureTask]:
-        return [self.submit_subtask(task, cluster=cluster, max_retries=max_retries) for task in tasks]
+        return [
+            self.submit_subtask(task, cluster=cluster, max_retries=max_retries, depends_on=depends_on) for task in tasks
+        ]
 
     def submit_batch(
         self, tasks: Sequence[TaskInstance], cluster: str | None = None, max_retries: int = 0
