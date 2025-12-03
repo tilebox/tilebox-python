@@ -2,21 +2,32 @@ import string
 from dataclasses import replace
 from functools import lru_cache
 
-from google.protobuf.descriptor_pb2 import FileDescriptorProto, FileDescriptorSet
+from google.protobuf.descriptor_pb2 import FieldDescriptorProto, FileDescriptorProto, FileDescriptorSet
 from hypothesis.strategies import (
     DrawFn,
+    booleans,
     composite,
     integers,
     just,
     lists,
     none,
     one_of,
+    sampled_from,
     text,
     uuids,
 )
 
 from tests.example_dataset.example_dataset_pb2 import DESCRIPTOR_PROTO
-from tilebox.datasets.data.datasets import AnnotatedType, Dataset, DatasetGroup, FieldAnnotation, ListDatasetsResponse
+from tilebox.datasets.data.datasets import (
+    AnnotatedType,
+    Dataset,
+    DatasetGroup,
+    DatasetKind,
+    DatasetType,
+    Field,
+    FieldAnnotation,
+    ListDatasetsResponse,
+)
 from tilebox.datasets.message_pool import register_once
 
 
@@ -26,6 +37,40 @@ def field_annotations(draw: DrawFn) -> FieldAnnotation:
     description = draw(text(alphabet=string.ascii_letters, min_size=3, max_size=25))
     example_value = draw(text(alphabet=string.ascii_letters + string.digits + "-_", min_size=1, max_size=10))
     return FieldAnnotation(description, example_value)
+
+
+@composite
+def fields(draw: DrawFn) -> Field:
+    """A hypothesis strategy for generating random fields"""
+    name = draw(text(alphabet=string.ascii_lowercase + "_", min_size=3, max_size=25))
+    field_type = draw(
+        one_of(
+            just(FieldDescriptorProto.Type.TYPE_STRING),
+            just(FieldDescriptorProto.Type.TYPE_BYTES),
+            just(FieldDescriptorProto.Type.TYPE_BOOL),
+            just(FieldDescriptorProto.Type.TYPE_INT64),
+            just(FieldDescriptorProto.Type.TYPE_UINT64),
+            just(FieldDescriptorProto.Type.TYPE_DOUBLE),
+            just(FieldDescriptorProto.Type.TYPE_MESSAGE),
+        )
+    )
+    type_name = f".datasets.v1.{name}" if field_type == FieldDescriptorProto.Type.TYPE_MESSAGE else None
+    label = draw(
+        one_of(just(FieldDescriptorProto.Label.LABEL_OPTIONAL), just(FieldDescriptorProto.Label.LABEL_REPEATED))
+    )
+    descriptor = FieldDescriptorProto(name=name, type=field_type, type_name=type_name, label=label)
+
+    annotation = draw(field_annotations())
+    queryable = draw(booleans())
+    return Field(descriptor, annotation, queryable)
+
+
+@composite
+def dataset_types(draw: DrawFn) -> DatasetType:
+    """A hypothesis strategy for generating random dataset types"""
+    kind = draw(sampled_from(DatasetKind) | none())
+    dataset_fields = draw(lists(fields(), min_size=1, max_size=5))
+    return DatasetType(kind, dataset_fields)
 
 
 @lru_cache

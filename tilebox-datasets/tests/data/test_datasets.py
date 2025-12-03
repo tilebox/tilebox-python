@@ -1,12 +1,38 @@
 from hypothesis import given
 
-from tests.data.datasets import annotated_types, dataset_groups, datasets, field_annotations, list_datasets_responses
-from tilebox.datasets.data.datasets import AnnotatedType, Dataset, DatasetGroup, FieldAnnotation, ListDatasetsResponse
+from tests.data.datasets import (
+    annotated_types,
+    dataset_groups,
+    dataset_types,
+    datasets,
+    field_annotations,
+    fields,
+    list_datasets_responses,
+)
+from tilebox.datasets.data.datasets import (
+    AnnotatedType,
+    Dataset,
+    DatasetGroup,
+    DatasetType,
+    Field,
+    FieldAnnotation,
+    ListDatasetsResponse,
+)
 
 
 @given(field_annotations())
 def test_field_annotations_to_message_and_back(annotation: FieldAnnotation) -> None:
     assert FieldAnnotation.from_message(annotation.to_message()) == annotation
+
+
+@given(fields())
+def test_fields_to_message_and_back(field: Field) -> None:
+    assert Field.from_message(field.to_message()) == field
+
+
+@given(dataset_types())
+def test_dataset_types_to_message_and_back(dataset_type: DatasetType) -> None:
+    assert DatasetType.from_message(dataset_type.to_message()) == dataset_type
 
 
 @given(annotated_types())

@@ -7,7 +7,7 @@ from loguru import logger
 from promise import Promise
 
 from _tilebox.grpc.channel import parse_channel_info
-from tilebox.datasets.data.datasets import Dataset, DatasetGroup, ListDatasetsResponse
+from tilebox.datasets.data.datasets import Dataset, DatasetGroup, DatasetKind, FieldDict, ListDatasetsResponse
 from tilebox.datasets.group import Group
 from tilebox.datasets.message_pool import register_once
 from tilebox.datasets.service import TileboxDatasetService
@@ -26,6 +26,27 @@ class Client:
     def __init__(self, service: TileboxDatasetService) -> None:
         self._service = service
 
+    def create_dataset(  # noqa: PLR0913
+        self, kind: DatasetKind, code_name: str, fields: list[FieldDict], name: str, summary: str, dataset_type: type[T]
+    ) -> Promise[T]:
+        """Create a new dataset.
+
+        Args:
+            kind: The kind of the dataset.
+            code_name: The code name of the dataset.
+            fields: The fields of the dataset.
+            name: The name of the dataset. Defaults to the code name.
+            summary: A short summary of the dataset. Optional.
+
+        Returns:
+            The created dataset.
+        """
+        return (
+            self._service.create_dataset(kind, code_name, fields, name, summary)
+            .then(_ensure_registered)
+            .then(lambda dataset: dataset_type(self._service, dataset))
+        )
+
     def datasets(self, dataset_type: type[T]) -> Promise[Group]:
         """Fetch all available datasets."""
         return (
@@ -40,11 +61,10 @@ class Client:
         )
 
     def dataset(self, slug: str, dataset_type: type[T]) -> Promise[T]:
-        """
-        Get a dataset by its slug, e.g. `open_data.copernicus.sentinel1_sar`.
+        """Get a dataset by its slug, e.g. `open_data.copernicus.sentinel1_sar`.
 
         Args:
-            slug: The slug of the dataset
+            slug: The slug of the dataset.
 
         Returns:
             The dataset if it exists.
