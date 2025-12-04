@@ -40,19 +40,40 @@ class Client:
         fields: list[FieldDict],
         *,
         name: str | None = None,
-        summary: str | None = None,
+        description: str | None = None,
     ) -> DatasetClient:
+        """Create a new dataset.
+
+        Args:
+            kind: The kind of the dataset.
+            code_name: The code name of the dataset.
+            fields: The fields of the dataset.
+            name: The name of the dataset. Defaults to the code name.
+            description: A short description of the dataset. Optional.
+
+        Returns:
+            The created dataset.
+        """
         if name is None:
             name = code_name
-        if summary is None:
-            summary = ""
+        if description is None:
+            description = ""
 
-        return self._client.create_dataset(kind, code_name, fields, name, summary, DatasetClient).get()
+        return self._client.create_dataset(kind, code_name, fields, name, description, DatasetClient).get()
 
     def datasets(self) -> Group:
+        """Fetch all available datasets."""
         return self._client.datasets(DatasetClient).get()
 
     def dataset(self, slug: str) -> DatasetClient:
+        """Get a dataset by its slug, e.g. `open_data.copernicus.sentinel1_sar`.
+
+        Args:
+            slug: The slug of the dataset.
+
+        Returns:
+            The dataset if it exists.
+        """
         return self._client.dataset(slug, DatasetClient).get()
 
     def _dataset_by_id(self, dataset_id: str | UUID) -> DatasetClient:

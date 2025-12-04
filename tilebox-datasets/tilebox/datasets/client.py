@@ -29,18 +29,6 @@ class Client:
     def create_dataset(  # noqa: PLR0913
         self, kind: DatasetKind, code_name: str, fields: list[FieldDict], name: str, summary: str, dataset_type: type[T]
     ) -> Promise[T]:
-        """Create a new dataset.
-
-        Args:
-            kind: The kind of the dataset.
-            code_name: The code name of the dataset.
-            fields: The fields of the dataset.
-            name: The name of the dataset. Defaults to the code name.
-            summary: A short summary of the dataset. Optional.
-
-        Returns:
-            The created dataset.
-        """
         return (
             self._service.create_dataset(kind, code_name, fields, name, summary)
             .then(_ensure_registered)
@@ -48,7 +36,6 @@ class Client:
         )
 
     def datasets(self, dataset_type: type[T]) -> Promise[Group]:
-        """Fetch all available datasets."""
         return (
             self._service.list_datasets()
             .then(_log_server_message)
@@ -61,15 +48,6 @@ class Client:
         )
 
     def dataset(self, slug: str, dataset_type: type[T]) -> Promise[T]:
-        """Get a dataset by its slug, e.g. `open_data.copernicus.sentinel1_sar`.
-
-        Args:
-            slug: The slug of the dataset.
-
-        Returns:
-            The dataset if it exists.
-        """
-
         return (
             self._service.get_dataset_by_slug(slug)
             .then(_ensure_registered)
