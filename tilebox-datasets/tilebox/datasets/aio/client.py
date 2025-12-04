@@ -5,6 +5,7 @@ from _tilebox.grpc.aio.error import with_pythonic_errors
 from tilebox.datasets.aio.dataset import DatasetClient
 from tilebox.datasets.client import Client as BaseClient
 from tilebox.datasets.client import token_from_env
+from tilebox.datasets.data.datasets import DatasetKind, FieldDict
 from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceStub
 from tilebox.datasets.datasets.v1.data_access_pb2_grpc import DataAccessServiceStub
 from tilebox.datasets.datasets.v1.data_ingestion_pb2_grpc import DataIngestionServiceStub
@@ -32,10 +33,47 @@ class Client:
         )
         self._client = BaseClient(service)
 
+    async def create_dataset(
+        self,
+        kind: DatasetKind,
+        code_name: str,
+        fields: list[FieldDict],
+        *,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> DatasetClient:
+        """Create a new dataset.
+
+        Args:
+            kind: The kind of the dataset.
+            code_name: The code name of the dataset.
+            fields: The fields of the dataset.
+            name: The name of the dataset. Defaults to the code name.
+            description: A short description of the dataset. Optional.
+
+        Returns:
+            The created dataset.
+        """
+        if name is None:
+            name = code_name
+        if description is None:
+            description = ""
+
+        return await self._client.create_dataset(kind, code_name, fields, name, description, DatasetClient)
+
     async def datasets(self) -> Group:
+        """Fetch all available datasets."""
         return await self._client.datasets(DatasetClient)
 
     async def dataset(self, slug: str) -> DatasetClient:
+        """Get a dataset by its slug, e.g. `open_data.copernicus.sentinel1_sar`.
+
+        Args:
+            slug: The slug of the dataset.
+
+        Returns:
+            The dataset if it exists.
+        """
         return await self._client.dataset(slug, DatasetClient)
 
     async def _dataset_by_id(self, dataset_id: str | UUID) -> DatasetClient:

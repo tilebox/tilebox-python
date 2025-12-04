@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-datasets`: Added `create_dataset` method to `Client` to create a new dataset.
+
 ## [0.45.0] - 2025-11-17
 
 ### Added

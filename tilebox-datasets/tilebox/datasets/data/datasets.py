@@ -1,10 +1,27 @@
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import TypedDict, get_args, get_origin
 from uuid import UUID
 
-from google.protobuf.descriptor_pb2 import FileDescriptorSet
+import numpy as np
+from google.protobuf import duration_pb2, timestamp_pb2
+from google.protobuf.descriptor_pb2 import FieldDescriptorProto, FileDescriptorSet
+from shapely import Geometry
+from typing_extensions import NotRequired, Required
 
-from tilebox.datasets.datasets.v1 import core_pb2, dataset_type_pb2, datasets_pb2
+from tilebox.datasets.datasets.v1 import core_pb2, dataset_type_pb2, datasets_pb2, well_known_types_pb2
 from tilebox.datasets.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
+
+
+class DatasetKind(Enum):
+    TEMPORAL = dataset_type_pb2.DATASET_KIND_TEMPORAL
+    """A dataset that contains a timestamp field."""
+    SPATIOTEMPORAL = dataset_type_pb2.DATASET_KIND_SPATIOTEMPORAL
+    """A dataset that contains a timestamp field and a geometry field."""
+
+
+_dataset_kind_int_to_enum = {kind.value: kind for kind in DatasetKind}
 
 
 @dataclass(frozen=True)
@@ -18,6 +35,116 @@ class FieldAnnotation:
 
     def to_message(self) -> dataset_type_pb2.FieldAnnotation:
         return dataset_type_pb2.FieldAnnotation(description=self.description, example_value=self.example_value)
+
+
+class FieldDict(TypedDict):
+    name: Required[str]
+    type: Required[
+        type[str]
+        | type[list[str]]
+        | type[bytes]
+        | type[list[bytes]]
+        | type[bool]
+        | type[list[bool]]
+        | type[int]
+        | type[list[int]]
+        | type[np.uint64]
+        | type[list[np.uint64]]
+        | type[float]
+        | type[list[float]]
+        | type[timedelta]
+        | type[list[timedelta]]
+        | type[datetime]
+        | type[list[datetime]]
+        | type[UUID]
+        | type[list[UUID]]
+        | type[Geometry]
+        | type[list[Geometry]]
+    ]
+    description: NotRequired[str]
+    example_value: NotRequired[str]
+
+
+_TYPE_INFO: dict[type, tuple[FieldDescriptorProto.Type.ValueType, str | None]] = {
+    str: (FieldDescriptorProto.TYPE_STRING, None),
+    bytes: (FieldDescriptorProto.TYPE_BYTES, None),
+    bool: (FieldDescriptorProto.TYPE_BOOL, None),
+    int: (FieldDescriptorProto.TYPE_INT64, None),
+    np.uint64: (FieldDescriptorProto.TYPE_UINT64, None),
+    float: (FieldDescriptorProto.TYPE_DOUBLE, None),
+    timedelta: (FieldDescriptorProto.TYPE_MESSAGE, f".{duration_pb2.Duration.DESCRIPTOR.full_name}"),
+    datetime: (FieldDescriptorProto.TYPE_MESSAGE, f".{timestamp_pb2.Timestamp.DESCRIPTOR.full_name}"),
+    UUID: (FieldDescriptorProto.TYPE_MESSAGE, f".{well_known_types_pb2.UUID.DESCRIPTOR.full_name}"),
+    Geometry: (FieldDescriptorProto.TYPE_MESSAGE, f".{well_known_types_pb2.Geometry.DESCRIPTOR.full_name}"),
+}
+
+
+@dataclass(frozen=True)
+class Field:
+    descriptor: FieldDescriptorProto
+    annotation: FieldAnnotation
+    queryable: bool
+
+    @classmethod
+    def from_message(cls, field: dataset_type_pb2.Field) -> "Field":
+        return cls(
+            descriptor=field.descriptor,
+            annotation=FieldAnnotation.from_message(field.annotation),
+            queryable=field.queryable,
+        )
+
+    @classmethod
+    def from_dict(cls, field: FieldDict) -> "Field":
+        origin = get_origin(field["type"])
+        if origin is list:
+            label = FieldDescriptorProto.Label.LABEL_REPEATED
+            args = get_args(field["type"])
+            inner_type = args[0] if args else field["type"]
+        else:
+            label = FieldDescriptorProto.Label.LABEL_OPTIONAL
+            inner_type = field["type"]
+
+        (field_type, field_type_name) = _TYPE_INFO[inner_type]
+
+        return cls(
+            descriptor=FieldDescriptorProto(
+                name=field["name"],
+                type=field_type,
+                type_name=field_type_name,
+                label=label,
+            ),
+            annotation=FieldAnnotation(
+                description=field.get("description", ""),
+                example_value=field.get("example_value", ""),
+            ),
+            queryable=False,
+        )
+
+    def to_message(self) -> dataset_type_pb2.Field:
+        return dataset_type_pb2.Field(
+            descriptor=self.descriptor,
+            annotation=self.annotation.to_message(),
+            queryable=self.queryable,
+        )
+
+
+@dataclass(frozen=True)
+class DatasetType:
+    kind: DatasetKind | None
+    fields: list[Field]
+
+    @classmethod
+    def from_message(cls, dataset_type: dataset_type_pb2.DatasetType) -> "DatasetType":
+        return cls(
+            kind=_dataset_kind_int_to_enum.get(dataset_type.kind, None),
+            fields=[Field.from_message(f) for f in dataset_type.fields],
+        )
+
+    def to_message(self) -> dataset_type_pb2.DatasetType:
+        return dataset_type_pb2.DatasetType(
+            kind=self.kind.value if self.kind else dataset_type_pb2.DATASET_KIND_UNSPECIFIED,
+            fields=[f.to_message() for f in self.fields],
+        )
 
 
 @dataclass(frozen=True)
