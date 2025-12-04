@@ -1,7 +1,10 @@
 import string
 from dataclasses import replace
+from datetime import datetime, timedelta
 from functools import lru_cache
+from uuid import UUID
 
+import numpy as np
 from google.protobuf.descriptor_pb2 import FieldDescriptorProto, FileDescriptorProto, FileDescriptorSet
 from hypothesis.strategies import (
     DrawFn,
@@ -16,6 +19,7 @@ from hypothesis.strategies import (
     text,
     uuids,
 )
+from shapely import Geometry
 
 from tests.example_dataset.example_dataset_pb2 import DESCRIPTOR_PROTO
 from tilebox.datasets.data.datasets import (
@@ -26,6 +30,7 @@ from tilebox.datasets.data.datasets import (
     DatasetType,
     Field,
     FieldAnnotation,
+    FieldDict,
     ListDatasetsResponse,
 )
 from tilebox.datasets.message_pool import register_once
@@ -37,6 +42,44 @@ def field_annotations(draw: DrawFn) -> FieldAnnotation:
     description = draw(text(alphabet=string.ascii_letters, min_size=3, max_size=25))
     example_value = draw(text(alphabet=string.ascii_letters + string.digits + "-_", min_size=1, max_size=10))
     return FieldAnnotation(description, example_value)
+
+
+@composite
+def field_dicts(draw: DrawFn) -> FieldDict:
+    """A hypothesis strategy for generating random field dicts"""
+    name = draw(text(alphabet=string.ascii_lowercase + "_", min_size=3, max_size=25))
+    field_type = draw(
+        one_of(
+            just(str),
+            just(list[str]),
+            just(bytes),
+            just(list[bytes]),
+            just(bool),
+            just(list[bool]),
+            just(int),
+            just(list[int]),
+            just(np.uint64),
+            just(list[np.uint64]),
+            just(float),
+            just(list[float]),
+            just(timedelta),
+            just(list[timedelta]),
+            just(datetime),
+            just(list[datetime]),
+            just(UUID),
+            just(list[UUID]),
+            just(Geometry),
+            just(list[Geometry]),
+        )
+    )
+    annotation = draw(field_annotations())
+
+    return {
+        "name": name,
+        "type": field_type,
+        "description": annotation.description,
+        "example_value": annotation.example_value,
+    }
 
 
 @composite
