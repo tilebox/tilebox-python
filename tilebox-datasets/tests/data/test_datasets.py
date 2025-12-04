@@ -6,6 +6,7 @@ from tests.data.datasets import (
     dataset_types,
     datasets,
     field_annotations,
+    field_dicts,
     fields,
     list_datasets_responses,
 )
@@ -16,6 +17,7 @@ from tilebox.datasets.data.datasets import (
     DatasetType,
     Field,
     FieldAnnotation,
+    FieldDict,
     ListDatasetsResponse,
 )
 
@@ -23,6 +25,15 @@ from tilebox.datasets.data.datasets import (
 @given(field_annotations())
 def test_field_annotations_to_message_and_back(annotation: FieldAnnotation) -> None:
     assert FieldAnnotation.from_message(annotation.to_message()) == annotation
+
+
+@given(field_dicts())
+def test_field_from_dict(field_dict: FieldDict) -> None:
+    field = Field.from_dict(field_dict)
+    assert field.descriptor.name == field_dict["name"]
+    assert field.descriptor.type is not None
+    assert field.annotation.description == field_dict.get("description", "")
+    assert field.annotation.example_value == field_dict.get("example_value", "")
 
 
 @given(fields())
