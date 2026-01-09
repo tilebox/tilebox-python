@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
+from pathlib import PurePosixPath as ObjectPath
 
 import xarray as xr
 
@@ -103,7 +103,7 @@ def _thumbnail_relative_to_eodata_location(thumbnail_url: str, location: str) ->
     url_path = thumbnail_url.split("?path=")[-1]
     url_path = url_path.removeprefix("/")
     location = location.removeprefix("/eodata/")
-    return str(Path(url_path).relative_to(location))
+    return str(ObjectPath(url_path).relative_to(location))
 
 
 @dataclass

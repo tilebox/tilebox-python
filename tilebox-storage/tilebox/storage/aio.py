@@ -7,6 +7,7 @@ import zipfile
 from asyncio import Queue, QueueEmpty
 from collections.abc import AsyncIterator
 from pathlib import Path
+from pathlib import PurePosixPath as ObjectPath
 from typing import Any, TypeAlias
 
 import anyio
@@ -259,8 +260,8 @@ class StorageClient(Syncifiable):
 
 async def list_object_paths(store: ObjectStore, prefix: str) -> list[str]:
     objects = await obs.list(store, prefix).collect_async()
-    prefix_path = Path(prefix)
-    return sorted(str(Path(obj["path"]).relative_to(prefix_path)) for obj in objects)
+    prefix_path = ObjectPath(prefix)
+    return sorted(str(ObjectPath(obj["path"]).relative_to(prefix_path)) for obj in objects)
 
 
 async def download_objects(  # noqa: PLR0913
@@ -299,7 +300,7 @@ async def _download_worker(
 async def _download_object(
     store: ObjectStore, prefix: str, obj: str, output_dir: Path, show_progress: bool = True
 ) -> Path:
-    key = str(Path(prefix) / obj)
+    key = str(ObjectPath(prefix) / obj)
     output_path = output_dir / obj
     if output_path.exists():  # already cached
         return output_path
@@ -609,7 +610,7 @@ class CopernicusStorageClient(StorageClient):
         granule = CopernicusStorageGranule.from_data(datapoint)
         # special handling for Sentinel-5P, where the location is not a folder but a single file
         if granule.location.endswith(".nc"):
-            return [Path(granule.granule_name).name]
+            return [str(ObjectPath(granule.granule_name))]
 
         return await list_object_paths(self._store, _copernicus_s3_prefix(granule))
 

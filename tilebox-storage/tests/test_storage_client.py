@@ -17,6 +17,7 @@ from tilebox.storage.aio import (
     UmbraStorageClient,
     USGSLandsatStorageClient,
     _HttpClient,
+    list_object_paths,
 )
 from tilebox.storage.granule import (
     ASFStorageGranule,
@@ -147,6 +148,22 @@ async def test_cached_download(httpx_mock: HTTPXMock, tmp_path: Path, granule: A
     for _ in range(10):
         await client.download(granule, extract=False, show_progress=False)
     assert len(httpx_mock.get_requests(url=granule.urls.data)) == 1
+
+
+@pytest.mark.asyncio
+async def test_list_object_paths() -> None:
+    with TemporaryDirectory() as tmp_path:
+        store_path = Path(tmp_path) / "store"
+        store_path.mkdir(exist_ok=True, parents=True)
+        store = LocalStore(store_path)
+
+        await store.put_async("prefix/object1", b"content1")
+        await store.put_async("prefix/object2", b"content2")
+        await store.put_async("prefix/subdir/object3", b"content3")
+
+        objects = await list_object_paths(store, "prefix")
+        # we always need a forward slash in our paths, even on windows
+        assert objects == ["object1", "object2", "subdir/object3"]
 
 
 @pytest.mark.asyncio

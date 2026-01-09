@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `tilebox-storage`: Fixed a bug on Windows, where the `CopernicusStorageClient` and `USGSLandsatStorageClient` were
+  unable to download products due to an incorrect path separator in the underlying S3 paths.
+
 ## [0.46.0] - 2025-12-04
 
 ### Added
