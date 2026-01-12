@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `tilebox-datasets`: The `create_dataset` method of the `Client` has been removed. Use `create_or_update_dataset` instead.
+
 ### Fixed
 
 - `tilebox-storage`: Fixed a bug on Windows, where the `CopernicusStorageClient` and `USGSLandsatStorageClient` were
