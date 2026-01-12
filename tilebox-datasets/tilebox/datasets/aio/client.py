@@ -2,6 +2,7 @@ from uuid import UUID
 
 from _tilebox.grpc.aio.channel import open_channel
 from _tilebox.grpc.aio.error import with_pythonic_errors
+from _tilebox.grpc.error import NotFoundError
 from tilebox.datasets.aio.dataset import DatasetClient
 from tilebox.datasets.client import Client as BaseClient
 from tilebox.datasets.client import token_from_env
@@ -33,33 +34,38 @@ class Client:
         )
         self._client = BaseClient(service)
 
-    async def create_dataset(
+    async def create_or_update_dataset(
         self,
         kind: DatasetKind,
         code_name: str,
-        fields: list[FieldDict],
+        fields: list[FieldDict] | None = None,
         *,
         name: str | None = None,
-        description: str | None = None,
     ) -> DatasetClient:
         """Create a new dataset.
 
         Args:
             kind: The kind of the dataset.
             code_name: The code name of the dataset.
-            fields: The fields of the dataset.
+            fields: The custom fields of the dataset.
             name: The name of the dataset. Defaults to the code name.
-            description: A short description of the dataset. Optional.
 
         Returns:
             The created dataset.
         """
-        if name is None:
-            name = code_name
-        if description is None:
-            description = ""
 
-        return await self._client.create_dataset(kind, code_name, fields, name, description, DatasetClient)
+        try:
+            dataset = await self.dataset(code_name)
+        except NotFoundError:
+            return await self._client.create_dataset(kind, code_name, fields or [], name or code_name, DatasetClient)
+
+        return await self._client.update_dataset(
+            kind,
+            dataset._dataset.id,  # noqa: SLF001
+            fields or [],
+            name or dataset._dataset.name,  # noqa: SLF001
+            DatasetClient,
+        )
 
     async def datasets(self) -> Group:
         """Fetch all available datasets."""

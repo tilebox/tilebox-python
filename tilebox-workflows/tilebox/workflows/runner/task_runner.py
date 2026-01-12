@@ -559,9 +559,9 @@ class ExecutionContext(ExecutionContextBase):
     def submit_subtasks(
         self,
         tasks: Sequence[TaskInstance],
+        depends_on: FutureTask | list[FutureTask] | None = None,
         cluster: str | None = None,
         max_retries: int = 0,
-        depends_on: FutureTask | list[FutureTask] | None = None,
     ) -> list[FutureTask]:
         return [
             self.submit_subtask(task, cluster=cluster, max_retries=max_retries, depends_on=depends_on) for task in tasks
@@ -575,7 +575,7 @@ class ExecutionContext(ExecutionContextBase):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.submit_subtasks(tasks, cluster, max_retries)
+        return self.submit_subtasks(tasks, cluster=cluster, max_retries=max_retries)
 
     def progress(self, label: str | None = None) -> ProgressUpdate:
         if label == "":

@@ -356,7 +356,11 @@ class ExecutionContext(ABC):
 
     @abstractmethod
     def submit_subtask(
-        self, task: Task, depends_on: list[FutureTask] | None = None, cluster: str | None = None, max_retries: int = 0
+        self,
+        task: Task,
+        depends_on: FutureTask | list[FutureTask] | None = None,
+        cluster: str | None = None,
+        max_retries: int = 0,
     ) -> FutureTask:
         """Submit a subtask of the current task.
 
@@ -374,7 +378,11 @@ class ExecutionContext(ABC):
 
     @abstractmethod
     def submit_subtasks(
-        self, tasks: Sequence[Task], cluster: str | None = None, max_retries: int = 0
+        self,
+        tasks: Sequence[Task],
+        depends_on: FutureTask | list[FutureTask] | None = None,
+        cluster: str | None = None,
+        max_retries: int = 0,
     ) -> list[FutureTask]:
         """Submit a batch of subtasks of the current task. Similar to `submit_subtask`, but for multiple tasks."""
 

@@ -26,13 +26,32 @@ class Client:
     def __init__(self, service: TileboxDatasetService) -> None:
         self._service = service
 
-    def create_dataset(  # noqa: PLR0913
-        self, kind: DatasetKind, code_name: str, fields: list[FieldDict], name: str, summary: str, dataset_type: type[T]
+    def create_dataset(
+        self,
+        kind: DatasetKind,
+        code_name: str,
+        fields: list[FieldDict] | None,
+        name: str | None,
+        py_dataset_class: type[T],
     ) -> Promise[T]:
         return (
-            self._service.create_dataset(kind, code_name, fields, name, summary)
+            self._service.create_dataset(kind, code_name, name or code_name, fields or [])
             .then(_ensure_registered)
-            .then(lambda dataset: dataset_type(self._service, dataset))
+            .then(lambda dataset: py_dataset_class(self._service, dataset))
+        )
+
+    def update_dataset(
+        self,
+        kind: DatasetKind,
+        dataset_id: UUID,
+        fields: list[FieldDict] | None,
+        name: str | None,
+        py_dataset_class: type[T],
+    ) -> Promise[T]:
+        return (
+            self._service.update_dataset(kind, dataset_id, name, fields or [])
+            .then(_ensure_registered)
+            .then(lambda dataset: py_dataset_class(self._service, dataset))
         )
 
     def datasets(self, dataset_type: type[T]) -> Promise[Group]:

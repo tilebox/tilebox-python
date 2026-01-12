@@ -37,6 +37,7 @@ from tilebox.datasets.datasets.v1.datasets_pb2 import (
     GetDatasetRequest,
     ListDatasetsRequest,
     Package,
+    UpdateDatasetRequest,
 )
 from tilebox.datasets.datasets.v1.datasets_pb2_grpc import DatasetServiceStub
 from tilebox.datasets.query.pagination import Pagination
@@ -64,23 +65,69 @@ class TileboxDatasetService:
         self._data_ingestion_service = data_ingestion_service_stub
 
     def create_dataset(
-        self, kind: DatasetKind, code_name: str, fields: list[FieldDict], name: str, summary: str
+        self, kind: DatasetKind, code_name: str, name: str, custom_fields: list[FieldDict]
     ) -> Promise[Dataset]:
         """Create a new dataset.
 
         Args:
             kind: The kind of the dataset.
             code_name: The code name of the dataset.
-            fields: The fields of the dataset.
             name: The name of the dataset.
-            summary: A short summary of the dataset.
+            fields: The custom fields of the dataset
 
         Returns:
             The created dataset.
         """
-        dataset_type = DatasetType(kind, _REQUIRED_FIELDS_PER_DATASET_KIND[kind] + [Field.from_dict(f) for f in fields])
-        req = CreateDatasetRequest(name=name, type=dataset_type.to_message(), summary=summary, code_name=code_name)
+        dataset_type = DatasetType(
+            kind, _REQUIRED_FIELDS_PER_DATASET_KIND[kind] + [Field.from_dict(f) for f in custom_fields]
+        )
+        req = CreateDatasetRequest(name=name, type=dataset_type.to_message(), code_name=code_name)
         return Promise.resolve(self._dataset_service.CreateDataset(req)).then(Dataset.from_message)
+
+    def update_dataset(
+        self, kind: DatasetKind, dataset_id: UUID, name: str | None, custom_fields: list[FieldDict]
+    ) -> Promise[Dataset]:
+        """Update a dataset.
+
+        Args:
+            kind: The kind of the dataset to update, cannot be changed.
+            dataset_id: The id of the dataset to update, cannot be changed.
+            name: The new name of the dataset.
+            custom_fields: The new list of custom fields of the dataset.
+
+        Returns:
+            The updated dataset.
+        """
+        dataset_type = DatasetType(
+            kind, _REQUIRED_FIELDS_PER_DATASET_KIND[kind] + [Field.from_dict(f) for f in custom_fields]
+        )
+        req = UpdateDatasetRequest(id=uuid_to_uuid_message(dataset_id), name=name, type=dataset_type.to_message())
+        return Promise.resolve(self._dataset_service.UpdateDataset(req)).then(Dataset.from_message)
+
+    def create_or_update_dataset(
+        self, kind: DatasetKind, code_name: str, name: str, custom_fields: list[FieldDict]
+    ) -> Promise[Dataset]:
+        """Create a new dataset, or update it if it already exists.
+
+        Args:
+            kind: The kind of the dataset.
+            code_name: The code name of the dataset.
+            name: The name of the dataset.
+            custom_fields: The custom fields of the dataset
+
+        Returns:
+            The created or updated dataset.
+        """
+        return (
+            Promise.resolve(self._dataset_service.GetDataset(GetDatasetRequest(slug=code_name)))
+            .then(
+                did_fulfill=lambda dataset: self.update_dataset(
+                    kind, Dataset.from_message(dataset).id, name, custom_fields
+                ),
+                did_reject=lambda _: self.create_dataset(kind, code_name, name, custom_fields),
+            )
+            .then(Dataset.from_message)
+        )
 
     def list_datasets(self) -> Promise[ListDatasetsResponse]:
         """List all datasets and dataset groups."""
