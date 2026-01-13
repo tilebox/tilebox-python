@@ -24,11 +24,10 @@ dev = [
     "pyarrow>=17.0.0",
     # some dev tooling
     "ruff>=0.11.10",
-    # pyright 1.1.401 reports many wrong false positives, let's wait until that is fixed before upgrading
-    "pyright>=1.1.379,<1.1.401",
     "pre-commit>=3.8.0",
     "types-protobuf>=6.30",
     "junitparser>=3.2.0",
+    "ty>=0.0.11",
 ]
 
 [project.scripts]
@@ -112,33 +111,10 @@ known-first-party = ["tilebox", "_tilebox"]
 [tool.ruff.lint.per-file-ignores]
 "*/tests/*" = ["INP001", "SLF001"]
 
-[tool.pyright]
+[tool.ty.src]
 exclude = [
-    "**/.ipynb_checkpoints",
-    "**/__pycache__",
-    ".venv",
-    "tilebox-datasets/tests/example_dataset/*", # auto-generated code
-    "tilebox-workflows/tests/proto/*",          # auto-generated code
+    # auto-generated code
+    "**/*_pb2.py",
+    "**/*_pb2.pyi",
+    "**/*pb2_grpc.py"
 ]
-
-# ignore warnings in those files, but still type check them when used as a dependency in other files
-ignore = [
-    # it's auto generated
-    "**/datasets/v1",
-    "**/workflows/v1",
-    "**/tilebox/v1",
-    "**/buf/validate",
-]
-
-# pyright needs to have all the dependencies installed to be able to type check
-# we can make sure of this by telling it to use the uv venv
-venvPath = "."
-venv = ".venv"
-extraPaths = [
-    "tilebox-datasets",
-    "tilebox-grpc",
-    "tilebox-storage",
-    "tilebox-workflows",
-]
-
-reportPrivateImportUsage = false
