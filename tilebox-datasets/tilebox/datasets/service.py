@@ -271,7 +271,7 @@ def _client_info() -> ClientInfo:
 def _environment_info() -> str:
     python_version = sys.version.split(" ")[0]
     try:
-        shell = str(get_ipython())  # type: ignore[name-defined]
+        shell = str(get_ipython())  # ty: ignore[unresolved-reference]
     except NameError:
         return f"Python {python_version}"  # Probably standard Python interpreter
 

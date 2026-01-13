@@ -110,7 +110,7 @@ def _otel_log_exporter(
         headers=headers,
     )
     schedule_delay = int(export_interval.total_seconds() * 1000) if export_interval is not None else None
-    return BatchLogRecordProcessor(exporter, schedule_delay_millis=schedule_delay)  # type: ignore[arg-type]
+    return BatchLogRecordProcessor(exporter, schedule_delay_millis=schedule_delay)
 
 
 def configure_otel_logging(
@@ -324,7 +324,7 @@ def get_logger(name: str | None = None, level: int = logging.NOTSET) -> logging.
         handler.setFormatter(ColorfulConsoleFormatter())
         # we set a special attribute, which allows as to remove this handler again as soon
         # as we configure an actual logging handler
-        handler._is_default = True  # type: ignore[attr-defined] # noqa: SLF001
+        handler._is_default = True  # ty: ignore[unresolved-attribute] # noqa: SLF001
         root_logger.addHandler(handler)
 
     logger = logging.getLogger(f"{_LOGGING_NAMESPACE}.{name}")

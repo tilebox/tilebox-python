@@ -57,7 +57,7 @@ def with_pythonic_errors(stub: Stub, async_funcs: bool = False) -> Stub:
     wrap_func = _wrap_rpc if not async_funcs else _async_wrap_rpc
     for name, rpc in stub.__dict__.items():
         if callable(rpc):
-            setattr(stub, name, wrap_func(rpc))  # type: ignore[assignment]
+            setattr(stub, name, wrap_func(rpc))
     return stub
 
 

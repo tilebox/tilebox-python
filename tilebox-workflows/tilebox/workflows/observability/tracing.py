@@ -116,7 +116,7 @@ def _otel_span_exporter(
         headers=headers,
     )
     schedule_delay = int(export_interval.total_seconds() * 1000) if export_interval is not None else None
-    return BatchSpanProcessor(exporter, schedule_delay_millis=schedule_delay)  # type: ignore[arg-type]
+    return BatchSpanProcessor(exporter, schedule_delay_millis=schedule_delay)
 
 
 class SpanEventLoggingHandler(logging.Handler):

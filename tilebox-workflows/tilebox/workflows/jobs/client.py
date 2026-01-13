@@ -19,7 +19,7 @@ from tilebox.workflows.task import FutureTask, merge_future_tasks_to_submissions
 from tilebox.workflows.task import Task as TaskInstance
 
 try:
-    from IPython.display import HTML, display  # type: ignore[assignment]
+    from IPython.display import HTML, display
 except ImportError:
 
     class HTML:
@@ -192,11 +192,13 @@ class JobClient:
         id_interval: IDInterval | None = None
         match temporal_extent:
             case (str(), str()):
+                # ty doesn't narrow types on match statements yet, once it does we can remove this cast
+                str_temporal_extent: tuple[str, str] = temporal_extent  # ty: ignore[invalid-assignment]
                 # this is either a tuple of datetimes or a tuple of UUIDs
                 try:
-                    id_interval = IDInterval.parse(temporal_extent)
+                    id_interval = IDInterval.parse(str_temporal_extent)
                 except ValueError:
-                    dataset_time_interval = TimeInterval.parse(temporal_extent)
+                    dataset_time_interval = TimeInterval.parse(str_temporal_extent)
                     time_interval = TimeInterval(
                         start=dataset_time_interval.start,
                         end=dataset_time_interval.end,
@@ -206,7 +208,10 @@ class JobClient:
             case IDInterval(_, _, _, _) | (UUID(), UUID()):
                 id_interval = IDInterval.parse(temporal_extent)
             case _:
-                dataset_time_interval = TimeInterval.parse(temporal_extent)
+                # ty doesn't narrow types on match statements yet, once it does we can remove this cast
+                # because due to the match statement above we know that temporal_extent is a TimeIntervalLike
+                time_interval_like: TimeIntervalLike = temporal_extent  # ty: ignore[invalid-assignment]
+                dataset_time_interval = TimeInterval.parse(time_interval_like)
                 time_interval = TimeInterval(
                     start=dataset_time_interval.start,
                     end=dataset_time_interval.end,

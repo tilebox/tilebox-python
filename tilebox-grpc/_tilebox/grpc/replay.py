@@ -40,7 +40,7 @@ def open_recording_channel(url: str, auth_token: str | None, recording: str | Pa
 
 
 def open_replay_channel(recording: str | Path, assert_request_matches: bool = True) -> Channel:
-    return _ReplayChannel(recording, assert_request_matches)  # type: ignore[return-value]
+    return _ReplayChannel(recording, assert_request_matches)  # ty: ignore[invalid-return-type]  # not a subclass, but same interface so works
 
 
 class _ConcreteValue(Future):
@@ -87,7 +87,7 @@ class _RecordRPCsInterceptor(UnaryUnaryClientInterceptor):
         client_call_details: ClientCallDetails,
         request: RequestType,
     ) -> Future:
-        request_data = base64.b64encode(request.SerializeToString())  # type: ignore[attr-defined]
+        request_data = base64.b64encode(request.SerializeToString())  # ty: ignore[unresolved-attribute]
         with self.recording.open("ab") as file:
             method = client_call_details.method
             if isinstance(method, str):
@@ -162,7 +162,7 @@ class _ReplayChannel:
 
         if recorded_status != StatusCode.OK.value[0]:  # the recorded call was an error, so raise it again
             code = _STATUS_CODES[recorded_status]
-            error = AioRpcError(code, None, None, recorded_response.decode())  # type: ignore[arg-type]
+            error = AioRpcError(code, None, None, recorded_response.decode())  # ty: ignore[invalid-argument-type]
             raise error
 
         return response_deserializer(base64.b64decode(recorded_response))

@@ -30,7 +30,7 @@ from tilebox.storage.granule import (
 from tilebox.storage.providers import login
 
 try:
-    from IPython.display import HTML, Image, display  # type: ignore[assignment]
+    from IPython.display import HTML, Image, display
 except ImportError:
     # IPython is not available, so we can't display the quicklook image
     # but let's define stubs for the type checker

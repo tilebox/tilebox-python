@@ -62,7 +62,7 @@ def example_datapoints(draw: DrawFn, generated_fields: bool = False, missing_fie
         some_time=draw(datetime_messages() | maybe_none),
         some_duration=draw(duration_messages() | maybe_none),
         some_bytes=draw(binary(min_size=1, max_size=10) | maybe_none),
-        some_bool=draw(booleans() | maybe_none),  # type: ignore[arg-type]
+        some_bool=draw(booleans() | maybe_none),
         # well-known types
         some_identifier=draw(uuid_messages() | maybe_none),
         some_vec3=draw(vec3_messages() | maybe_none),

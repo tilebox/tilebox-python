@@ -77,7 +77,7 @@ def _retry_backoff(func: Callable[..., WrappedFnReturnT], stop: stop_base) -> Ca
     Returns:
         The wrapped function
     """
-    return retry(  # type: ignore[no-any-return]
+    return retry(
         retry=retry_if_exception_type(InternalServerError),
         stop=stop,
         wait=wait_random_exponential(
@@ -159,8 +159,8 @@ class _LeaseRenewer(SpawnProcess):
         # we don't want to fork the current process, but instead spawn a new one
         # therefore we need to use the spawn context to create the queues
         ctx = get_context("spawn")
-        self._new_leases: Queue[tuple[UUID, TaskLease]] = ctx.Queue()  # type: ignore[assignment]
-        self._done_tasks: Queue[UUID] = ctx.Queue()  # type: ignore[assignment]
+        self._new_leases: Queue[tuple[UUID, TaskLease]] = ctx.Queue()
+        self._done_tasks: Queue[UUID] = ctx.Queue()
 
     def run(self) -> None:
         lease_renewer(self._url, self._token, self._new_leases, self._done_tasks)
@@ -467,7 +467,7 @@ class TaskRunner:
                 span.update_name(f"task/{task_class.__name__}")
 
                 try:
-                    task_instance = task_class._deserialize(task.input, self._context)  # noqa: SLF001
+                    task_instance = task_class._deserialize(task.input, self._context)  # ty: ignore[possibly-missing-attribute] # noqa: SLF001
                 except json.JSONDecodeError:
                     self.logger.exception(f"Failed to deserialize input for task execution {task.id}")
                     raise ValueError(f"Failed to deserialize input for task execution {task.id}") from None

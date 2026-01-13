@@ -1,5 +1,6 @@
 from google.protobuf import descriptor_pb2, duration_pb2, timestamp_pb2
 from google.protobuf.descriptor_pool import Default
+from google.protobuf.message import Message
 from google.protobuf.message_factory import GetMessageClass, GetMessages
 
 from tilebox.datasets.data.datasets import AnnotatedType
@@ -25,5 +26,5 @@ def register_message_types(descriptor_set: descriptor_pb2.FileDescriptorSet) -> 
     GetMessages(descriptor_set.file, pool=Default())
 
 
-def get_message_type(type_url: str) -> type:
+def get_message_type(type_url: str) -> type[Message]:
     return GetMessageClass(Default().FindMessageTypeByName(type_url))

@@ -29,7 +29,7 @@ class Client:
             token: The API Key to authenticate with. If not set the `TILEBOX_API_KEY` environment variable will be used.
         """
         token = _token_from_env(url, token)
-        self._auth = {"token": token, "url": url}
+        self._auth: dict[str, str] = {"token": token, "url": url}
         self._channel = open_channel(url, token)
 
         self._tracer: WorkflowTracer | None = None

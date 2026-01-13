@@ -62,7 +62,8 @@ class TimeIntervalProgressBar:
 
     def set_progress(self, time: datetime) -> None:
         """Set the progress of the progress bar to the given time"""
-        done = min(self._calc_progress_seconds(time), self._progress_bar.total)
+        total = self._calc_progress_seconds(self._interval.end)
+        done = min(self._calc_progress_seconds(time), total)
         self._progress_bar.update(done - self._progress_bar.n)
 
     def set_download_info(self, datapoints: int, byte_size: int, download_time: float) -> None:
@@ -79,7 +80,8 @@ class TimeIntervalProgressBar:
     ) -> None:
         try:
             if traceback is None:
-                self._progress_bar.update(self._progress_bar.total - self._progress_bar.n)  # set to 100%
+                total = self._calc_progress_seconds(self._interval.end)
+                self._progress_bar.update(total - self._progress_bar.n)  # set to 100%
 
             self._progress_bar.close()  # mark as completed or failed
         except AttributeError:

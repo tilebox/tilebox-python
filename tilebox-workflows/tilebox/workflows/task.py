@@ -427,7 +427,7 @@ def serialize_task(task: Task) -> bytes:
 
 def _serialize_as_dict(task: Task) -> dict[str, Any]:
     as_dict: dict[str, Any] = {}
-    for dataclass_field in fields(task):  # type: ignore[union-attr]
+    for dataclass_field in fields(task):  # ty: ignore[invalid-argument-type]
         skip = dataclass_field.metadata.get("skip_serialization", False)
         if skip:
             continue
@@ -456,7 +456,10 @@ def _serialize_value(value: Any, base64_encode_protobuf: bool) -> Any:  # noqa: 
     return value
 
 
-def deserialize_task(task_cls: type, task_input: bytes) -> Task:
+_T = TypeVar("_T", bound=Task)
+
+
+def deserialize_task(task_cls: type[_T], task_input: bytes) -> _T:
     """Deserialize the input of a task from a buffer of bytes.
 
     The task_cls is expected to be a dataclass, containing an arbitrary number of fields.
@@ -470,7 +473,7 @@ def deserialize_task(task_cls: type, task_input: bytes) -> Task:
         # if there is only one field, we deserialize it directly
         field_type = _get_deserialization_field_type(task_fields[0].type)  # ty: ignore[invalid-argument-type]
         if hasattr(field_type, "FromString"):  # protobuf message
-            value = field_type.FromString(task_input)  # type: ignore[arg-type]
+            value = field_type.FromString(task_input)  # ty: ignore[call-non-callable]
         else:
             value = _deserialize_value(field_type, json.loads(task_input.decode()))
 
@@ -479,7 +482,7 @@ def deserialize_task(task_cls: type, task_input: bytes) -> Task:
     return _deserialize_dataclass(task_cls, json.loads(task_input.decode()))
 
 
-def _deserialize_dataclass(cls: type, params: dict[str, Any]) -> Task:
+def _deserialize_dataclass(cls: type[_T], params: dict[str, Any]) -> _T:
     """Deserialize a dataclass, while allowing recursively nested dataclasses or protobuf messages."""
     for param in list(params):
         # recursively deserialize nested dataclasses

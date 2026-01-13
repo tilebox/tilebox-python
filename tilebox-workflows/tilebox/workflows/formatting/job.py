@@ -341,8 +341,7 @@ def _progress_indicator_bar(label: str, done: int, total: int, state: JobState) 
         f"<span class='tbx-detail-mono'><span class='tbx-detail-value'>{percentage:.0%}</span> "
         f"<span class='tbx-detail-value-muted'>({done} / {total})</span></span>"
     )
-    label = HTML(label_html)
-    return HBox([progress, label])
+    return HBox([progress, HTML(label_html)])
 
 
 _eye_icon = """
