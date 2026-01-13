@@ -24,10 +24,10 @@ dev = [
     "pyarrow>=17.0.0",
     # some dev tooling
     "ruff>=0.11.10",
-    "pre-commit>=3.8.0",
     "types-protobuf>=6.30",
     "junitparser>=3.2.0",
     "ty>=0.0.11",
+    "prek>=0.2.27",
 ]
 
 [project.scripts]

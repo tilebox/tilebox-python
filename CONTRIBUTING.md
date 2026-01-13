@@ -42,7 +42,7 @@ uv run --package tilebox-datasets pytest tilebox-datasets
 uv run ruff format . && uv run ruff check --fix .
 
 # type checking:
-uv run pyright .
+uv run ty check
 ```
 
 ### Adding dependencies to one of the packages
@@ -54,8 +54,8 @@ uv add --package tilebox-datasets "numpy>=2"
 ### Used code quality tools
 
 - [ruff](https://github.com/astral-sh/ruff) for linting and formatting
-- [pyright](https://github.com/microsoft/pyright) for type checking
-- [pre-commit](https://pre-commit.com/) for running all of the above automatically on each git commit
+- [ty](github.com/astral-sh/ty) for type checking
+- [prek](https://prek.j178.dev/) for running all of the above automatically on each git commit
 
 ## Protobuf usage
 
