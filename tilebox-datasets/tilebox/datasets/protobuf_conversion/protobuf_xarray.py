@@ -3,7 +3,7 @@ Functionality for converting protobuf messages to xarray datasets.
 """
 
 import contextlib
-from collections.abc import Sized
+from collections.abc import Sequence
 from typing import Any, TypeVar
 
 import numpy as np
@@ -231,10 +231,10 @@ class _SimpleFieldConverter(_FieldConverter):
         elif buffer_size > len(self._data):
             # resize the data buffer to the new capacity, by just padding it with zeros at the end
             missing = buffer_size - len(self._data)
-            self._data = np.pad(
+            self._data = np.pad(  # ty: ignore[no-matching-overload]
                 self._data,
                 ((0, missing), (0, 0)),
-                constant_values=self._type.fill_value,  # type: ignore[arg-type]
+                constant_values=self._type.fill_value,
             )
 
 
@@ -258,13 +258,13 @@ class _ArrayFieldConverter(_FieldConverter):
         self._array_dim: int | None = None
 
     def __call__(self, index: int, value: ProtoFieldValue) -> None:
-        if not isinstance(value, Sized):
+        if not isinstance(value, Sequence):
             raise TypeError(f"Expected array field but got {type(value)}")
 
         if self._array_dim is None or len(value) > self._array_dim:
             self._resize_array_dim(len(value))
 
-        for i, v in enumerate(value):  # type: ignore[arg-type]  # somehow the isinstance(value, Sized) isn't used here
+        for i, v in enumerate(value):  # somehow the isinstance(value, Sized) isn't used here
             self._data[index, i, :] = self._type.from_proto(v)
 
     def finalize(
@@ -309,10 +309,10 @@ class _ArrayFieldConverter(_FieldConverter):
         else:  # resize the data buffer to the new capacity, by just padding it with zeros at the end
             missing_capacity = self._capacity - self._data.shape[0]
             missing_array_dim = self._array_dim - self._data.shape[1]
-            self._data = np.pad(
+            self._data = np.pad(  # ty: ignore[no-matching-overload]
                 self._data,
                 ((0, missing_capacity), (0, missing_array_dim), (0, 0)),
-                constant_values=self._type.fill_value,  # type: ignore[arg-type]
+                constant_values=self._type.fill_value,
             )
 
 
@@ -374,13 +374,13 @@ def _create_field_converter(field: FieldDescriptor) -> _FieldConverter:
     """
     # special handling for enums:
     if field.type == FieldDescriptor.TYPE_ENUM:
-        if field.is_repeated:  # type: ignore[attr-defined]
+        if field.is_repeated:
             raise NotImplementedError("Repeated enum fields are not supported")
 
         return _EnumFieldConverter(field.name, enum_mapping_from_field_descriptor(field))
 
     field_type = infer_field_type(field)
-    if field.is_repeated:  # type: ignore[attr-defined]
+    if field.is_repeated:
         return _ArrayFieldConverter(field.name, field_type)
 
     return _SimpleFieldConverter(field.name, field_type)

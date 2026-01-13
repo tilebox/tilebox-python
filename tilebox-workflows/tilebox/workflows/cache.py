@@ -199,16 +199,16 @@ class GoogleStorageCache(JobCache):
 
     def __contains__(self, key: str) -> bool:
         # GCS library has some weird typing issues, so let's ignore them for now
-        return self._blob(key).exists()  # type: ignore[arg-type]
+        return self._blob(key).exists()
 
     def __setitem__(self, key: str, value: bytes) -> None:
         # GCS library has some weird typing issues, so let's ignore them for now
-        self._blob(key).upload_from_file(BytesIO(value))  # type: ignore[arg-type]
+        self._blob(key).upload_from_file(BytesIO(value))
 
     def __getitem__(self, key: str) -> bytes:
         try:
             # GCS library has some weird typing issues, so let's ignore them for now
-            return self._blob(key).download_as_bytes()  # type: ignore[arg-type]
+            return self._blob(key).download_as_bytes()
         except NotFound:
             raise KeyError(f"{key} is not cached!") from None
 
@@ -224,7 +224,7 @@ class GoogleStorageCache(JobCache):
         # in the "folder", and not the ones in subfolders
 
         # GCS library has some weird typing issues, so let's ignore them for now
-        blobs = self.bucket.list_blobs(prefix=prefix, delimiter="/")  # type: ignore[arg-type]
+        blobs = self.bucket.list_blobs(prefix=prefix, delimiter="/")
 
         # make the names relative to the cache prefix (but including the key in the name)
         for blob in blobs:

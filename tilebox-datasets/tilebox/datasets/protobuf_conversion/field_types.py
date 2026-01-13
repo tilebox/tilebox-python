@@ -1,4 +1,4 @@
-from collections.abc import Sized
+from collections.abc import Sequence
 from datetime import timedelta
 from typing import Any
 from uuid import UUID
@@ -16,9 +16,10 @@ from shapely import from_wkb
 from tilebox.datasets.datasets.v1.well_known_types_pb2 import UUID as UUIDMessage  # noqa: N811
 from tilebox.datasets.datasets.v1.well_known_types_pb2 import Geometry, LatLon, LatLonAlt, Quaternion, Vec3
 
-ProtoFieldValue = Message | float | str | bool | bytes | Sized | None
+ScalarProtoFieldValue = Message | float | str | bool | bytes
+ProtoFieldValue = ScalarProtoFieldValue | Sequence[ScalarProtoFieldValue] | None
 
-_FILL_VALUES_BY_DTYPE = {
+_FILL_VALUES_BY_DTYPE: dict[type[np.dtype[Any]], Any] = {
     npdtypes.Int8DType: np.int8(0),
     npdtypes.Int16DType: np.int16(0),
     npdtypes.Int32DType: np.int32(0),

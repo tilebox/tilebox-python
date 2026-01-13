@@ -20,7 +20,7 @@ DatapointIDs = pd.DataFrame | pd.Series | xr.Dataset | xr.DataArray | np.ndarray
 
 def to_messages(  # noqa: C901, PLR0912
     data: IngestionData,
-    message_type: type,
+    message_type: type[Message],
     required_fields: list[str] | None = None,
     ignore_fields: list[str] | None = None,
 ) -> list[Message]:
@@ -44,9 +44,9 @@ def to_messages(  # noqa: C901, PLR0912
     # let's validate our fields, to make sure that they are all known fields for the given protobuf message
     # and that they are all lists of the same length
     field_lengths = defaultdict(list)
-    fields: dict[str, pd.Series | np.ndarray] = {}
+    fields: dict[str, pd.Series | np.ndarray | list[ProtoFieldValue]] = {}
 
-    field_names = list(map(str, data))
+    field_names = [str(field) for field in data]
     if isinstance(data, xr.Dataset):
         # list(dataset) only returns the variables, not the coords, so for xarray we need to add the coords as well
         # but not all coords, we only care abou time for now
@@ -84,7 +84,7 @@ def to_messages(  # noqa: C901, PLR0912
         else:
             values = convert_values_to_proto(values, field_type, filter_none=False)
 
-        fields[field_name] = values  # type: ignore[assignment]
+        fields[field_name] = values
 
     # now convert every datapoint to a protobuf message
     if len(field_lengths) == 0:  # early return, no actual data to convert
@@ -103,7 +103,7 @@ def marshal_messages(messages: list[Message]) -> list[bytes]:
 
 
 def columnar_to_row_based(
-    data: dict[str, pd.Series | np.ndarray],
+    data: dict[str, pd.Series | np.ndarray | list[ProtoFieldValue]],
 ) -> Iterator[dict[str, Any]]:
     if len(data) == 0:
         return
@@ -126,12 +126,12 @@ def convert_values_to_proto(
 
 def convert_repeated_values_to_proto(
     values: np.ndarray | pd.Series | list[np.ndarray], field_type: ProtobufFieldType
-) -> Any:
+) -> list[ProtoFieldValue]:
     if isinstance(values, np.ndarray):  # it was an xarray, with potentially padded fill values at the end
         values = trim_trailing_fill_values(values, field_type.fill_value)
 
     # since repeated fields can have different lengths between datapoints, we can filter out None values here
-    return [convert_values_to_proto(repeated_values, field_type, filter_none=True) for repeated_values in values]
+    return [convert_values_to_proto(repeated_values, field_type, filter_none=True) for repeated_values in values]  # ty: ignore[invalid-return-type]
 
 
 def trim_trailing_fill_values(values: np.ndarray, fill_value: Any) -> list[np.ndarray]:

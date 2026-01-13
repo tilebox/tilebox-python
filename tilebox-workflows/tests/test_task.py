@@ -54,7 +54,7 @@ def test_task_validation_execute_invalid_signature_no_params() -> None:
             def identifier() -> tuple[str, str]:
                 return "tilebox.tests.TaskWithInvalidExecuteSignature", "v0.1"
 
-            def execute(self) -> None:  # type: ignore[override]
+            def execute(self) -> None:  # ty: ignore[invalid-method-override]
                 pass
 
 
@@ -66,7 +66,7 @@ def test_task_validation_execute_invalid_signature_too_many_params() -> None:
             def identifier() -> tuple[str, str]:
                 return "tilebox.tests.TaskWithInvalidExecuteSignature", "v0.1"
 
-            def execute(self, context: ExecutionContext, invalid: int) -> None:  # type: ignore[override]
+            def execute(self, context: ExecutionContext, invalid: int) -> None:  # ty: ignore[invalid-method-override]
                 pass
 
 
@@ -78,7 +78,7 @@ def test_task_validation_execute_invalid_return_type() -> None:
             def identifier() -> tuple[str, str]:
                 return "tilebox.tests.TaskWithInvalidExecuteReturnType", "v0.1"
 
-            def execute(self, context: ExecutionContext) -> int:  # type: ignore[override]
+            def execute(self, context: ExecutionContext) -> int:  # ty: ignore[invalid-method-override]
                 _ = context
                 return 5
 
@@ -395,15 +395,19 @@ class FieldTypesTest(Task):
 
 def test_get_deserialization_field_type() -> None:
     fields = FieldTypesTest.__dataclass_fields__
-    assert _get_deserialization_field_type(fields["field1"].type) is str
-    assert _get_deserialization_field_type(fields["field2"].type) is str
-    assert _get_deserialization_field_type(fields["field3"].type) is NestedJson
-    assert _get_deserialization_field_type(fields["field4"].type) is NestedJson
-    assert _get_deserialization_field_type(fields["field5"].type) is NestedJson
-    assert _get_deserialization_field_type(fields["field6"].type) is NestedJson
-    assert _get_deserialization_field_type(fields["field7"].type) is NestedJson
-    assert _get_deserialization_field_type(fields["field8"].type) is NestedJson
-    assert _get_deserialization_field_type(fields["field9"].type) == list[NestedJson]
+
+    def _get_field_type(field_name: str) -> type:
+        return _get_deserialization_field_type(fields[field_name].type)  # ty: ignore[invalid-argument-type]
+
+    assert _get_field_type("field1") is str
+    assert _get_field_type("field2") is str
+    assert _get_field_type("field3") is NestedJson
+    assert _get_field_type("field4") is NestedJson
+    assert _get_field_type("field5") is NestedJson
+    assert _get_field_type("field6") is NestedJson
+    assert _get_field_type("field7") is NestedJson
+    assert _get_field_type("field8") is NestedJson
+    assert _get_field_type("field9") == list[NestedJson]
 
 
 class TaskA(Task):
@@ -422,7 +426,7 @@ class TaskB(Task):
 
 
 def test_merge_future_tasks_to_submissions() -> None:
-    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # type: ignore[arg-type]
+    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # ty: ignore[invalid-argument-type]
     tasks_1 = context.submit_subtasks([TaskA(3, "three"), TaskA(4, "four"), TaskA(5, "five")])
     tasks_2 = context.submit_subtasks([TaskB(3.2), TaskB(3.44), TaskB(3.55)], max_retries=1)
     tasks_3 = context.submit_subtasks([TaskA(6, "six"), TaskB(8.12)], cluster="other")
@@ -453,7 +457,7 @@ def test_merge_future_tasks_to_submissions() -> None:
 
 
 def test_merge_future_tasks_to_submissions_dependencies() -> None:
-    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # type: ignore[arg-type]
+    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # ty: ignore[invalid-argument-type]
     tasks_1 = context.submit_subtasks([TaskA(2, "two"), TaskA(3, "three")])
     tasks_2 = context.submit_subtasks([TaskA(4, "four"), TaskA(5, "five")])
     tasks_3 = context.submit_subtasks([TaskB(3.2)], depends_on=tasks_1)
@@ -481,7 +485,7 @@ def test_merge_future_tasks_to_submissions_dependencies() -> None:
 
 
 def test_merge_future_tasks_to_submissions_many_tasks() -> None:
-    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # type: ignore[arg-type]
+    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # ty: ignore[invalid-argument-type]
     n = 100
     tasks_1 = context.submit_subtasks([TaskA(i, f"Task {i}") for i in range(n)])
     tasks_2 = context.submit_subtasks([TaskB(i / 3) for i in range(n)], depends_on=tasks_1)
@@ -496,7 +500,7 @@ def test_merge_future_tasks_to_submissions_many_tasks() -> None:
 
 
 def test_merge_future_tasks_to_submissions_many_non_mergeable_dependency_groups() -> None:
-    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # type: ignore[arg-type]
+    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # ty: ignore[invalid-argument-type]
     n = 100
     for i in range(n):
         task_1 = context.submit_subtasks([TaskA(i, f"Task {i}")])
@@ -508,7 +512,7 @@ def test_merge_future_tasks_to_submissions_many_non_mergeable_dependency_groups(
 
 
 def test_merge_future_tasks_two_separate_branches() -> None:
-    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # type: ignore[arg-type]
+    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # ty: ignore[invalid-argument-type]
     task_a = context.submit_subtasks([TaskA(0, "Task 0")])
     # left branch
     task_b_left = context.submit_subtasks([TaskB(0.0)], depends_on=task_a)

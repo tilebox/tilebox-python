@@ -1,9 +1,8 @@
 from dataclasses import replace
 from datetime import datetime, timezone
-from typing import cast
 
 try:
-    from typing import Self
+    from typing import Self  # ty: ignore[unresolved-import]
 except ImportError:  # Self is only available in Python 3.11+
     from typing_extensions import Self
 
@@ -35,11 +34,11 @@ class CronTask(Task):
         return message.SerializeToString()
 
     @classmethod
-    def _deserialize(cls, task_input: bytes, context: RunnerContext | None = None) -> Self:  # noqa: ARG003
+    def _deserialize(cls: "type[CronTask]", task_input: bytes, context: RunnerContext | None = None) -> Self:  # noqa: ARG003
         message = AutomationMessage()
         message.ParseFromString(task_input)
 
-        task = cast(Self, deserialize_task(cls, message.args))
+        task = deserialize_task(cls, message.args)
 
         event_message = TriggeredCronEventMessage()
         event_message.ParseFromString(message.trigger_event)

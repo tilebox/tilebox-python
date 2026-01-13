@@ -55,7 +55,8 @@ class IDInterval:
             case IDInterval(_, _, _, _):
                 return arg
             case (UUID(), UUID()):
-                start, end = arg
+                start: UUID = arg[0]
+                end: UUID = arg[1]
                 return IDInterval(
                     start_id=start,
                     end_id=end,
@@ -63,10 +64,13 @@ class IDInterval:
                     end_inclusive=end_inclusive,
                 )
             case (str(), str()):
-                start, end = arg
+                start: str = arg[0]
+                end: str = arg[1]
                 return IDInterval(
                     start_id=UUID(start),
                     end_id=UUID(end),
                     start_exclusive=start_exclusive,
                     end_inclusive=end_inclusive,
                 )
+
+        raise ValueError(f"Failed to convert {arg} ({type(arg)}) to IDInterval")

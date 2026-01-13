@@ -50,7 +50,7 @@ class _Taskify(type):
             return task_class
 
         # Convert the class to a dataclass
-        task_class = dataclass(task_class)  # type: ignore[arg-type]
+        task_class = dataclass(task_class)
 
         # we allow overriding the execute method, but we still want to validate it
         # so we search for the closest base class that has an execute method and use
@@ -118,7 +118,7 @@ class Task(metaclass=_ABCTaskify):
 
     @classmethod
     def _deserialize(cls, task_input: bytes, context: RunnerContext | None = None) -> "Task":  # noqa: ARG003
-        return cast(Task, deserialize_task(cls, task_input))
+        return deserialize_task(cls, task_input)
 
 
 def _validate_execute_method(
@@ -201,7 +201,7 @@ def _get_task_identifier(task_class: type) -> TaskIdentifier:
     class_name = task_class.__name__
     if hasattr(task_class, "identifier"):  # if the task class has an identifier method, we use that
         try:
-            name, version = task_class.identifier()
+            name, version = task_class.identifier()  # ty: ignore[call-non-callable]
         except TypeError as err:
             raise ValueError(
                 f"Failed to invoke {class_name}.identifier(). Is it a staticmethod or classmethod without parameters?"
@@ -422,12 +422,12 @@ def serialize_task(task: Task) -> bytes:
             field = json.dumps(field).encode()
         return field
 
-    return json.dumps(_serialize_as_dict(task)).encode()  # type: ignore[arg-type]
+    return json.dumps(_serialize_as_dict(task)).encode()
 
 
 def _serialize_as_dict(task: Task) -> dict[str, Any]:
     as_dict: dict[str, Any] = {}
-    for dataclass_field in fields(task):  # type: ignore[union-attr]
+    for dataclass_field in fields(task):  # ty: ignore[invalid-argument-type]
         skip = dataclass_field.metadata.get("skip_serialization", False)
         if skip:
             continue
@@ -452,11 +452,14 @@ def _serialize_value(value: Any, base64_encode_protobuf: bool) -> Any:  # noqa: 
             return b64encode(value.SerializeToString()).decode("ascii")
         return value.SerializeToString()
     if is_dataclass(value):
-        return _serialize_as_dict(value)  # type: ignore[arg-type]
+        return _serialize_as_dict(value)
     return value
 
 
-def deserialize_task(task_cls: type, task_input: bytes) -> Task:
+_T = TypeVar("_T", bound=Task)
+
+
+def deserialize_task(task_cls: type[_T], task_input: bytes) -> _T:
     """Deserialize the input of a task from a buffer of bytes.
 
     The task_cls is expected to be a dataclass, containing an arbitrary number of fields.
@@ -468,22 +471,22 @@ def deserialize_task(task_cls: type, task_input: bytes) -> Task:
         return task_cls()  # empty task
     if len(task_fields) == 1:
         # if there is only one field, we deserialize it directly
-        field_type = _get_deserialization_field_type(task_fields[0].type)  # type: ignore[arg-type]
+        field_type = _get_deserialization_field_type(task_fields[0].type)  # ty: ignore[invalid-argument-type]
         if hasattr(field_type, "FromString"):  # protobuf message
-            value = field_type.FromString(task_input)  # type: ignore[arg-type]
+            value = field_type.FromString(task_input)  # ty: ignore[call-non-callable]
         else:
-            value = _deserialize_value(field_type, json.loads(task_input.decode()))  # type: ignore[arg-type]
+            value = _deserialize_value(field_type, json.loads(task_input.decode()))
 
         return task_cls(**{task_fields[0].name: value})
 
     return _deserialize_dataclass(task_cls, json.loads(task_input.decode()))
 
 
-def _deserialize_dataclass(cls: type, params: dict[str, Any]) -> Task:
+def _deserialize_dataclass(cls: type[_T], params: dict[str, Any]) -> _T:
     """Deserialize a dataclass, while allowing recursively nested dataclasses or protobuf messages."""
     for param in list(params):
         # recursively deserialize nested dataclasses
-        field = cls.__dataclass_fields__[param]
+        field = cls.__dataclass_fields__[param]  # ty: ignore[unresolved-attribute]
         params[field.name] = _deserialize_value(field.type, params[field.name])
 
     return cls(**params)
@@ -495,7 +498,7 @@ def _deserialize_value(field_type: type, value: Any) -> Any:  # noqa: PLR0911
 
     field_type = _get_deserialization_field_type(field_type)
     if hasattr(field_type, "FromString"):
-        return field_type.FromString(b64decode(value))
+        return field_type.FromString(b64decode(value))  # ty: ignore[call-non-callable]
     if is_dataclass(field_type) and isinstance(value, dict):
         return _deserialize_dataclass(field_type, value)
 

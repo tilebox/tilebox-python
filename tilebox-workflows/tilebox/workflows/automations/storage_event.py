@@ -1,9 +1,8 @@
 from dataclasses import replace
-from typing import cast
 from uuid import UUID
 
 try:
-    from typing import Self
+    from typing import Self  # ty: ignore[unresolved-import]
 except ImportError:  # Self is only available in Python 3.11+
     from typing_extensions import Self
 
@@ -43,11 +42,11 @@ class StorageEventTask(Task):
         return message.SerializeToString()
 
     @classmethod
-    def _deserialize(cls, task_input: bytes, context: RunnerContext | None = None) -> Self:
+    def _deserialize(cls: "type[StorageEventTask]", task_input: bytes, context: RunnerContext | None = None) -> Self:
         message = AutomationMessage()
         message.ParseFromString(task_input)
 
-        task = cast(cls, deserialize_task(cls, message.args))  # type: ignore[invalid-type-form]
+        task = deserialize_task(cls, message.args)
 
         event_message = TriggeredStorageEventMessage()
         event_message.ParseFromString(message.trigger_event)

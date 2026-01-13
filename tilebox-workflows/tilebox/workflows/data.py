@@ -200,7 +200,7 @@ class JobState(Enum):
 _JOB_STATES = {state.value: state for state in JobState}
 
 # JobState.QUEUED is deprecated and has been renamed to SUBMITTED, but we keep it around for backwards compatibility
-JobState.QUEUED = JobState.SUBMITTED  # type: ignore[assignment]
+JobState.QUEUED = JobState.SUBMITTED  # ty: ignore[unresolved-attribute]
 
 
 @dataclass(order=True, frozen=True)
@@ -529,8 +529,8 @@ class StorageLocation:
                     span.set_attribute("bucket", self.location)
                     span.set_attribute("path", path)
                     # GCS library has some weird typing issues, so let's ignore them for now
-                    blob = runner_context.gcs_client(self.location).blob(path)  # type: ignore[arg-type]
-                    return blob.download_as_bytes()  # type: ignore[arg-type]
+                    blob = runner_context.gcs_client(self.location).blob(path)
+                    return blob.download_as_bytes()
             case StorageType.S3:
                 with runner_context.tracer.start_as_current_span("s3.read") as span:
                     span.set_attribute("bucket", self.location)

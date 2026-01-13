@@ -26,11 +26,11 @@ def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: 
     if not isinstance(task, TimeseriesTask):
         raise TypeError("Task is not a timeseries task. Inherit from TimeseriesTask to mark it as such.")
 
-    chunk: TimeseriesDatasetChunk = task.timeseries_data  # type: ignore[attr-defined]
+    chunk: TimeseriesDatasetChunk = task.timeseries_data
 
     # let's get a collection client
     datasets_client = context.runner_context.datasets_client
-    dataset = datasets_client._dataset_by_id(str(chunk.dataset_id))  # type: ignore[attr-defined]  # noqa: SLF001
+    dataset = datasets_client._dataset_by_id(str(chunk.dataset_id))  # ty: ignore[possibly-missing-attribute]  # noqa: SLF001
     # we already know the collection id, so we can skip the lookup (we don't know the name, but don't need it)
     collection_info = CollectionInfo(Collection(chunk.collection_id, "unknown"), None, None)
     collection = CollectionClient(dataset, collection_info)
@@ -50,7 +50,7 @@ def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: 
 
         for i in range(datapoints.sizes["time"]):
             datapoint = datapoints.isel(time=i)
-            call_next(context, datapoint)  # type: ignore[call-arg]
+            call_next(context, datapoint)  # ty: ignore[too-many-positional-arguments]
 
         return  # we are done
 
@@ -90,7 +90,7 @@ def _timeseries_dataset_chunk(task: Task, call_next: ForwardExecution, context: 
         for sub_chunk_start, sub_chunk_end in pairwise(chunks):
             sub_chunks.append(replace(chunk, time_interval=TimeInterval(sub_chunk_start, sub_chunk_end)))
 
-    subtasks = [replace(task, timeseries_data=sub_chunk) for sub_chunk in sub_chunks]  # type: ignore[misc]
+    subtasks = [replace(task, timeseries_data=sub_chunk) for sub_chunk in sub_chunks]
     if len(subtasks) > 0:
         context.submit_subtasks(subtasks)
 
@@ -103,7 +103,7 @@ class TimeseriesTask(Task):
     timeseries_data: TimeseriesDatasetChunk
 
     @override
-    def execute(self, context: ExecutionContext, datapoint: xr.Dataset) -> None:  # type: ignore[override]
+    def execute(self, context: ExecutionContext, datapoint: xr.Dataset) -> None:  # ty: ignore[invalid-method-override]
         pass
 
 
@@ -136,14 +136,14 @@ def _time_interval_chunk(task: Task, call_next: ForwardExecution, context: Execu
     if not isinstance(task, TimeIntervalTask):
         raise TypeError("Task is not a time interval task. Inherit from TimeIntervalTask to mark it as such.")
 
-    chunk: TimeChunk = task.interval  # type: ignore[attr-defined]
+    chunk: TimeChunk = task.interval
 
     start = _make_multiple(chunk.time_interval.start, chunk.chunk_size, before=True)
     end = _make_multiple(chunk.time_interval.end, chunk.chunk_size, before=False)
 
     n = (end - start) // chunk.chunk_size
     if n <= 1:  # we are already a leaf task
-        return call_next(context, TimeInterval(start, end))  # type: ignore[call-arg]
+        return call_next(context, TimeInterval(start, end))  # ty: ignore[too-many-positional-arguments]
 
     chunks: list[datetime] = []
     if n < 4:  # we are a branch task with less than 4 sub chunks, so a further split is not worth it
@@ -158,9 +158,7 @@ def _time_interval_chunk(task: Task, call_next: ForwardExecution, context: Execu
         TimeChunk(TimeInterval(chunk_start, chunk_end), chunk.chunk_size) for chunk_start, chunk_end in pairwise(chunks)
     ]
 
-    context.submit_subtasks(
-        [replace(task, interval=time_chunk) for time_chunk in time_chunks]  # type: ignore[misc]
-    )
+    context.submit_subtasks([replace(task, interval=time_chunk) for time_chunk in time_chunks])
     return None
 
 
@@ -170,12 +168,12 @@ class TimeIntervalTask(Task):
     interval: TimeChunk
 
     @override
-    def execute(self, context: ExecutionContext, time_interval: TimeInterval) -> None:  # type: ignore[override]
+    def execute(self, context: ExecutionContext, time_interval: TimeInterval) -> None:  # ty: ignore[invalid-method-override]
         pass
 
 
 def batch_process_time_interval(interval: TimeIntervalLike, chunk_size: timedelta) -> TimeChunk:
-    return TimeChunk(time_interval=TimeInterval.parse(interval).to_half_open(), chunk_size=chunk_size)  # type: ignore[arg-type]
+    return TimeChunk(time_interval=TimeInterval.parse(interval).to_half_open(), chunk_size=chunk_size)
 
 
 def _make_multiple(time: datetime, duration: timedelta, start: datetime = _EPOCH, before: bool = True) -> datetime:

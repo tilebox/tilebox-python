@@ -25,7 +25,7 @@ class FibonacciTask(Task):
     n: int
 
     def execute(self, context: ExecutionContext) -> None:
-        cache: JobCache = context.job_cache  # type: ignore[attr-defined]
+        cache: JobCache = context.job_cache  # ty: ignore[unresolved-attribute]
         key = f"fib_{self.n}"
         if f"fib_{self.n}" in cache:
             # If the result is already in the cache, we can skip the calculation
@@ -46,7 +46,7 @@ class SumResultTask(Task):
     n: int
 
     def execute(self, context: ExecutionContext) -> None:
-        cache: JobCache = context.job_cache  # type: ignore[attr-defined]
+        cache: JobCache = context.job_cache  # ty: ignore[unresolved-attribute]
         fib_n_1 = bytes_to_int(cache[f"fib_{self.n - 1}"])
         fib_n_2 = bytes_to_int(cache[f"fib_{self.n - 2}"])
 
@@ -74,7 +74,7 @@ def test_runner_with_fibonacci_workflow() -> None:
 
 class FlakyTask(Task):
     def execute(self, context: ExecutionContext) -> None:
-        cache: JobCache = context.job_cache  # type: ignore[attr-defined]
+        cache: JobCache = context.job_cache  # ty: ignore[unresolved-attribute]
         if "succeed" in cache:
             return  # finally succeed
 

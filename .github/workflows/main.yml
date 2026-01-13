@@ -29,8 +29,8 @@ jobs:
         run: uv sync --all-packages --frozen
       - name: Ruff
         run: uv run ruff format --check . && uv run ruff check .
-      - name: Pyright
-        run: uv run pyright .
+      - name: Ty
+        run: uv run ty check
 
   tests:
     name: Run tests
