@@ -15,7 +15,7 @@ _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 # A type alias for the different types that can be used to specify a time interval
 TimeIntervalLike: TypeAlias = (
-    DatetimeScalar | tuple[DatetimeScalar, DatetimeScalar] | xr.DataArray | xr.Dataset | "TimeInterval"
+    "DatetimeScalar | tuple[DatetimeScalar, DatetimeScalar] | xr.DataArray | xr.Dataset | TimeInterval"
 )
 
 

@@ -4,6 +4,7 @@ from typing import Any
 from uuid import UUID
 
 import numpy as np
+import pandas as pd
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.message import Message
@@ -17,6 +18,21 @@ from tilebox.datasets.datasets.v1.well_known_types_pb2 import UUID as UUIDMessag
 from tilebox.datasets.datasets.v1.well_known_types_pb2 import Geometry, LatLon, LatLonAlt, Quaternion, Vec3
 
 ScalarProtoFieldValue = Message | float | str | bool | bytes
+
+
+def _is_missing(value: Any) -> bool:
+    """Check if a value represents a missing/null value.
+
+    Handles None, np.nan, pd.NA, NaT, and other pandas missing value sentinels.
+    This is needed for pandas 3.0+ compatibility where object-dtype columns use
+    np.nan instead of None for missing values.
+    """
+    if value is None:
+        return True
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
 ProtoFieldValue = ScalarProtoFieldValue | Sequence[ScalarProtoFieldValue] | None
 
 _FILL_VALUES_BY_DTYPE: dict[type[np.dtype[Any]], Any] = {
@@ -107,7 +123,7 @@ class TimestampField(ProtobufFieldType):
         return value.seconds * 10**9 + value.nanos
 
     def to_proto(self, value: DatetimeScalar) -> Timestamp | None:
-        if value is None or (isinstance(value, np.datetime64) and np.isnat(value)):
+        if _is_missing(value) or (isinstance(value, np.datetime64) and np.isnat(value)):
             return None
         # we use pandas to_datetime function to handle a variety of input types that can be coerced to datetimes
         seconds, nanos = divmod(to_datetime(value, utc=True).value, 10**9)
@@ -124,7 +140,7 @@ class TimeDeltaField(ProtobufFieldType):
         return value.seconds * 10**9 + value.nanos
 
     def to_proto(self, value: str | float | timedelta | np.timedelta64) -> Duration | None:
-        if value is None or (isinstance(value, np.timedelta64) and np.isnat(value)):
+        if _is_missing(value) or (isinstance(value, np.timedelta64) and np.isnat(value)):
             return None
         # we use pandas to_timedelta function to handle a variety of input types that can be coerced to timedeltas
         seconds, nanos = divmod(to_timedelta(value).value, 10**9)  # type: ignore[arg-type]
@@ -141,7 +157,7 @@ class UUIDField(ProtobufFieldType):
         return str(UUID(bytes=value.uuid))
 
     def to_proto(self, value: str | UUID) -> UUIDMessage | None:
-        if not value:  # None or empty string
+        if _is_missing(value) or value == "":  # missing or empty string
             return None
 
         if isinstance(value, str):
@@ -160,7 +176,7 @@ class GeometryField(ProtobufFieldType):
         return from_wkb(value.wkb)
 
     def to_proto(self, value: Any) -> Geometry | None:
-        if value is None:
+        if _is_missing(value):
             return None
         return Geometry(wkb=value.wkb)
 
@@ -175,7 +191,7 @@ class Vec3Field(ProtobufFieldType):
         return value.x, value.y, value.z
 
     def to_proto(self, value: tuple[float, float, float]) -> Vec3 | None:
-        if value is None or np.all(np.isnan(value)):
+        if _is_missing(value) or np.all(np.isnan(value)):
             return None
         return Vec3(x=value[0], y=value[1], z=value[2])
 
@@ -190,7 +206,7 @@ class QuaternionField(ProtobufFieldType):
         return value.q1, value.q2, value.q3, value.q4
 
     def to_proto(self, value: tuple[float, float, float, float]) -> Quaternion | None:
-        if value is None or np.all(np.isnan(value)):
+        if _is_missing(value) or np.all(np.isnan(value)):
             return None
         return Quaternion(q1=value[0], q2=value[1], q3=value[2], q4=value[3])
 
@@ -205,7 +221,7 @@ class LatLonField(ProtobufFieldType):
         return value.latitude, value.longitude
 
     def to_proto(self, value: tuple[float, float]) -> LatLon | None:
-        if value is None or np.all(np.isnan(value)):
+        if _is_missing(value) or np.all(np.isnan(value)):
             return None
         return LatLon(latitude=value[0], longitude=value[1])
 
@@ -221,7 +237,7 @@ class LatLonAltField(ProtobufFieldType):
         return value.latitude, value.longitude, value.altitude
 
     def to_proto(self, value: tuple[float, float, float]) -> LatLonAlt | None:
-        if value is None or np.all(np.isnan(value)):
+        if _is_missing(value) or np.all(np.isnan(value)):
             return None
         return LatLonAlt(latitude=value[0], longitude=value[1], altitude=value[2])
 
