@@ -129,7 +129,7 @@ def _is_scalar_missing(value: Any) -> bool:
         # pd.isna returns an array for array-like inputs; we only want scalar True/False
         if isinstance(result, (bool, np.bool_)):
             return bool(result)
-        return False
+        return False  # noqa: TRY300
     except (TypeError, ValueError):
         return False
 
