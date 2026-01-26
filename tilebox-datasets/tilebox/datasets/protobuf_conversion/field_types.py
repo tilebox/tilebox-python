@@ -33,6 +33,8 @@ def _is_missing(value: Any) -> bool:
         return bool(pd.isna(value))
     except (TypeError, ValueError):
         return False
+
+
 ProtoFieldValue = ScalarProtoFieldValue | Sequence[ScalarProtoFieldValue] | None
 
 _FILL_VALUES_BY_DTYPE: dict[type[np.dtype[Any]], Any] = {
