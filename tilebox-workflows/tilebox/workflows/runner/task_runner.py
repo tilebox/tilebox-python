@@ -19,6 +19,11 @@ from typing import Any, TypeAlias, TypeVar
 from uuid import UUID
 from warnings import warn
 
+try:
+    from typing import Self  # ty: ignore[unresolved-import]
+except ImportError:  # Self is only available in Python 3.11+
+    from typing_extensions import Self
+
 from loguru import logger
 from opentelemetry.trace.status import StatusCode
 from tenacity import retry, retry_if_exception_type, stop_when_event_set, wait_random_exponential
@@ -260,7 +265,7 @@ class _GracefulShutdown:
         """Sleep for a given number of seconds, or until an interrupt signal is received."""
         self._interrupted.wait(seconds)
 
-    def __enter__(self) -> "_GracefulShutdown":
+    def __enter__(self) -> Self:
         """Enter a graceful shutdown context. Intercepts SIGTERM and SIGINT signals and delays them by a grace period."""
         self._original_sigterm = signal.signal(signal.SIGTERM, self._external_interrupt_handler)
         self._original_sigint = signal.signal(signal.SIGINT, self._external_interrupt_handler)

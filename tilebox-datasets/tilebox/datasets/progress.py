@@ -3,6 +3,11 @@ from datetime import datetime
 from types import TracebackType
 from typing import Any
 
+try:
+    from typing import Self  # ty: ignore[unresolved-import]
+except ImportError:  # Self is only available in Python 3.11+
+    from typing_extensions import Self
+
 from tqdm.auto import tqdm
 
 from tilebox.datasets.query.time_interval import TimeInterval
@@ -42,7 +47,7 @@ class TimeIntervalProgressBar:
         self._actual_start_time = actual_start_time
         self._total_data_points = 0
 
-    def __enter__(self) -> "TimeIntervalProgressBar":
+    def __enter__(self) -> Self:
         self._progress_bar = tqdm(
             bar_format="{l_bar}{bar}[{elapsed}<{remaining}{postfix}]",
             total=self._calc_progress_seconds(self._interval.end),
