@@ -12,6 +12,7 @@ from tilebox.datasets.protobuf_conversion.field_types import (
     ProtobufFieldType,
     ProtoFieldValue,
     infer_field_type,
+    is_missing,
 )
 
 IngestionData = Mapping[str, Collection[Any]] | Iterable[tuple[str, Collection[Any]]] | pd.DataFrame | xr.Dataset
@@ -116,29 +117,11 @@ def columnar_to_row_based(
         yield datapoint
 
 
-def _is_scalar_missing(value: Any) -> bool:
-    """Check if a scalar value is missing (None, NaN, NA, NaT).
-
-    Handles both scalar and array-like values safely - for arrays, returns False
-    since pd.isna would return an array which can't be used in a boolean context.
-    """
-    if value is None:
-        return True
-    try:
-        result = pd.isna(value)
-        # pd.isna returns an array for array-like inputs; we only want scalar True/False
-        if isinstance(result, (bool, np.bool_)):
-            return bool(result)
-        return False  # noqa: TRY300
-    except (TypeError, ValueError):
-        return False
-
-
 def convert_values_to_proto(
     values: np.ndarray | pd.Series, field_type: ProtobufFieldType, filter_none: bool = False
 ) -> list[ProtoFieldValue]:
     if filter_none:
-        return [field_type.to_proto(value) for value in values if not _is_scalar_missing(value)]
+        return [field_type.to_proto(value) for value in values if not is_missing(value)]
     return [field_type.to_proto(value) for value in values]
 
 
