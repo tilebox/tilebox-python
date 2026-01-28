@@ -12,6 +12,7 @@ from tilebox.datasets.protobuf_conversion.field_types import (
     ProtobufFieldType,
     ProtoFieldValue,
     infer_field_type,
+    is_missing,
 )
 
 IngestionData = Mapping[str, Collection[Any]] | Iterable[tuple[str, Collection[Any]]] | pd.DataFrame | xr.Dataset
@@ -120,7 +121,7 @@ def convert_values_to_proto(
     values: np.ndarray | pd.Series, field_type: ProtobufFieldType, filter_none: bool = False
 ) -> list[ProtoFieldValue]:
     if filter_none:
-        return [field_type.to_proto(value) for value in values if value is not None]
+        return [field_type.to_proto(value) for value in values if not is_missing(value)]
     return [field_type.to_proto(value) for value in values]
 
 

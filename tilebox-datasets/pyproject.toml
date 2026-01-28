@@ -42,7 +42,6 @@ dev = [
     "pytest>=8.3.2",
 ]
 
-
 [project.urls]
 Homepage = "https://tilebox.com"
 Documentation = "https://docs.tilebox.com/datasets/introduction"

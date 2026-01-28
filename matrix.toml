@@ -1,0 +1,86 @@
+# Matrix test configuration for testing pandas compatibility across Python versions
+# Run with: pymatrix --config matrix.toml
+#
+# Split into scenarios per package due to pytest conftest collision when running
+# multiple packages together (each has tests/conftest.py).
+
+[[scenarios]]
+name = "datasets-pandas2"
+python = ["3.10", "3.11", "3.12", "3.13"]
+working-dir = "tilebox-datasets"
+test-command = "pytest"
+test-args = ["-v"]
+
+[scenarios.packages]
+pandas = ["2.2.3"]
+
+[[scenarios]]
+name = "datasets-pandas3"
+python = ["3.11", "3.12", "3.13"]  # pandas 3.0 requires Python 3.11+
+working-dir = "tilebox-datasets"
+test-command = "pytest"
+test-args = ["-v"]
+
+[scenarios.packages]
+pandas = ["3.0.0"]
+
+[[scenarios]]
+name = "storage-pandas2"
+python = ["3.10", "3.11", "3.12", "3.13"]
+working-dir = "tilebox-storage"
+test-command = "pytest"
+test-args = ["-v"]
+
+[scenarios.packages]
+pandas = ["2.2.3"]
+
+[[scenarios]]
+name = "storage-pandas3"
+python = ["3.11", "3.12", "3.13"]  # pandas 3.0 requires Python 3.11+
+working-dir = "tilebox-storage"
+test-command = "pytest"
+test-args = ["-v"]
+
+[scenarios.packages]
+pandas = ["3.0.0"]
+
+[[scenarios]]
+name = "grpc-pandas2"
+python = ["3.10", "3.11", "3.12", "3.13"]
+working-dir = "tilebox-grpc"
+test-command = "pytest"
+test-args = ["-v"]
+
+[scenarios.packages]
+pandas = ["2.2.3"]
+
+[[scenarios]]
+name = "grpc-pandas3"
+python = ["3.11", "3.12", "3.13"]  # pandas 3.0 requires Python 3.11+
+working-dir = "tilebox-grpc"
+test-command = "pytest"
+test-args = ["-v"]
+
+[scenarios.packages]
+pandas = ["3.0.0"]
+
+[[scenarios]]
+name = "workflows-pandas2"
+python = ["3.10", "3.11", "3.12", "3.13"]
+working-dir = "tilebox-workflows"
+test-command = "pytest"
+# Ignore FutureWarning: google-cloud-storage raises deprecation warning on Python 3.10
+test-args = ["-v", "-W", "ignore::FutureWarning"]
+
+[scenarios.packages]
+pandas = ["2.2.3"]
+
+[[scenarios]]
+name = "workflows-pandas3"
+python = ["3.11", "3.12", "3.13"]  # pandas 3.0 requires Python 3.11+
+working-dir = "tilebox-workflows"
+test-command = "pytest"
+test-args = ["-v"]
+
+[scenarios.packages]
+pandas = ["3.0.0"]

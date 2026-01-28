@@ -50,22 +50,16 @@ class IDInterval:
         Returns:
             IDInterval: The parsed ID interval
         """
+        if isinstance(arg, IDInterval):
+            return arg
 
-        match arg:
-            case IDInterval(_, _, _, _):
-                return arg
-            case (UUID(), UUID()):
-                start: UUID = arg[0]
-                end: UUID = arg[1]
+        if isinstance(arg, tuple) and len(arg) == 2:
+            start, end = arg
+            if isinstance(start, UUID) and isinstance(end, UUID):
                 return IDInterval(
-                    start_id=start,
-                    end_id=end,
-                    start_exclusive=start_exclusive,
-                    end_inclusive=end_inclusive,
+                    start_id=start, end_id=end, start_exclusive=start_exclusive, end_inclusive=end_inclusive
                 )
-            case (str(), str()):
-                start: str = arg[0]
-                end: str = arg[1]
+            if isinstance(start, str) and isinstance(end, str):
                 return IDInterval(
                     start_id=UUID(start),
                     end_id=UUID(end),

@@ -1,5 +1,6 @@
 from uuid import UUID
 
+import pandas as pd
 import pytest
 from hypothesis import given, settings
 from hypothesis.strategies import lists
@@ -152,21 +153,21 @@ def test_convert_datapoints(datapoints: list[ExampleDatapoint]) -> None:  # noqa
         for uuid in dataset.some_id.to_numpy():
             assert isinstance(uuid, str)
 
-    # strings should be stored as object arrays, with None as the fill value if missing
+    # strings should be stored as object arrays, with missing values (None or NaN) as fill
     if "some_string" in dataset:
         for string in dataset.some_string.to_numpy():
-            assert string is None or isinstance(string, str)
+            assert pd.isna(string) or isinstance(string, str)
     if "some_repeated_string" in dataset:
         for string in dataset.some_repeated_string.to_numpy().ravel():
-            assert string is None or isinstance(string, str)
+            assert pd.isna(string) or isinstance(string, str)
 
-    # bytes should be stored as object arrays, with None as the fill value if missing
+    # bytes should be stored as object arrays, with missing values (None or NaN) as fill
     if "some_bytes" in dataset:
         for bytes_ in dataset.some_bytes.to_numpy():
-            assert bytes_ is None or isinstance(bytes_, bytes)
+            assert pd.isna(bytes_) or isinstance(bytes_, bytes)
     if "some_repeated_bytes" in dataset:
         for bytes_ in dataset.some_repeated_bytes.to_numpy().ravel():
-            assert bytes_ is None or isinstance(bytes_, bytes)
+            assert pd.isna(bytes_) or isinstance(bytes_, bytes)
 
 
 @given(lists(example_datapoints(missing_fields=True), min_size=1, max_size=10))
