@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Any, TypeAlias
 from uuid import UUID
 
@@ -161,7 +159,7 @@ class JobClient:
 
     def query(
         self,
-        temporal_extent: TimeIntervalLike | IDIntervalLike,
+        temporal_extent: "TimeIntervalLike | IDIntervalLike",
         automation_ids: UUID | list[UUID] | None = None,
         job_states: JobState | list[JobState] | None = None,
         name: str | None = None,
