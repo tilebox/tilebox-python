@@ -2,6 +2,7 @@ from pathlib import Path
 
 from tilebox.storage.aio import ASFStorageClient as _ASFStorageClient
 from tilebox.storage.aio import CopernicusStorageClient as _CopernicusStorageClient
+from tilebox.storage.aio import LocalFileSystemStorageClient as _LocalFileSystemStorageClient
 from tilebox.storage.aio import UmbraStorageClient as _UmbraStorageClient
 from tilebox.storage.aio import USGSLandsatStorageClient as _USGSLandsatStorageClient
 
@@ -65,4 +66,15 @@ class USGSLandsatStorageClient(_USGSLandsatStorageClient):
                no cache is used and the `output_dir` parameter will need be set when downloading data.
         """
         super().__init__(cache_directory)
+        self._syncify()
+
+
+class LocalFileSystemStorageClient(_LocalFileSystemStorageClient):
+    def __init__(self, root: Path) -> None:
+        """A tilebox storage client for accessing data on a local file system, or a mounted network file system.
+
+        Args:
+            root: The root directory of the file system to access.
+        """
+        super().__init__(root)
         self._syncify()
