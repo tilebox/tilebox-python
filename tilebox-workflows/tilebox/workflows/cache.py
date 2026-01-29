@@ -1,13 +1,16 @@
+import contextlib
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from io import BytesIO
 from pathlib import Path
+from pathlib import PurePosixPath as ObjectPath
 
 import boto3
 from botocore.exceptions import ClientError
 from google.cloud.exceptions import NotFound
 from google.cloud.storage import Blob, Bucket
+from obstore.store import ObjectStore
 
 
 class JobCache(ABC):
@@ -60,6 +63,53 @@ class NoCache(JobCache):
     def group(self, key: str) -> "NoCache":
         _ = key
         return self
+
+
+class ObstoreCache(JobCache):
+    def __init__(self, store: ObjectStore, prefix: str | ObjectPath = ObjectPath(".")) -> None:
+        """A cache implementation backed by an obstore ObjectStore.
+
+        This cache implementation is the recommended way of working with the cache, as it provides a unified interface
+        for working with different object stores, while also providing a way to transparently work with local files
+        as well.
+
+        Args:
+            store: The object store to use for the cache.
+            prefix: A path prefix to append to all objects stored in the cache. Defaults to no prefix.
+        """
+        self.store = store
+        self.prefix = ObjectPath(prefix)
+
+    def __contains__(self, key: str) -> bool:
+        with contextlib.suppress(OSError):
+            self.store.get(str(self.prefix / key))
+            return True  # if get is successful, we know the key is in the cache
+
+        return False
+
+    def __setitem__(self, key: str, value: bytes) -> None:
+        self.store.put(str(self.prefix / key), value)
+
+    def __delitem__(self, key: str) -> None:
+        try:
+            self.store.delete(str(self.prefix / key))
+        except OSError:
+            raise KeyError(f"{key} is not cached!") from None
+
+    def __getitem__(self, key: str) -> bytes:
+        try:
+            entry = self.store.get(str(self.prefix / key))
+            return bytes(entry.bytes())
+        except OSError:
+            raise KeyError(f"{key} is not cached!") from None
+
+    def __iter__(self) -> Iterator[str]:
+        for obj in self.store.list_with_delimiter(str(self.prefix))["objects"]:
+            path: str = obj["path"]
+            yield path.removeprefix(str(self.prefix) + "/")
+
+    def group(self, key: str) -> "ObstoreCache":
+        return ObstoreCache(self.store, prefix=str(self.prefix / key))
 
 
 class InMemoryCache(JobCache):
@@ -153,7 +203,7 @@ class LocalFileSystemCache(JobCache):
         Args:
             root: File system path where the cache will be stored. Defaults to "cache" in the current working directory.
         """
-        self.root = root if isinstance(root, Path) else Path(root)
+        self.root = Path(root)
 
     def __contains__(self, key: str) -> bool:
         return (self.root / key).exists()
@@ -184,7 +234,7 @@ class LocalFileSystemCache(JobCache):
 
 
 class GoogleStorageCache(JobCache):
-    def __init__(self, bucket: Bucket, prefix: str = "jobs") -> None:
+    def __init__(self, bucket: Bucket, prefix: str | ObjectPath = "jobs") -> None:
         """A cache implementation that stores data in Google Cloud Storage.
 
         Args:
@@ -192,7 +242,9 @@ class GoogleStorageCache(JobCache):
             prefix: A path prefix to append to all objects stored in the cache. Defaults to "jobs".
         """
         self.bucket = bucket
-        self.prefix = Path(prefix)  # we still use pathlib here, because it's easier to work with when joining paths
+        self.prefix = ObjectPath(
+            prefix
+        )  # we still use pathlib here, because it's easier to work with when joining paths
 
     def _blob(self, key: str) -> Blob:
         return self.bucket.blob(str(self.prefix / key))
@@ -228,14 +280,14 @@ class GoogleStorageCache(JobCache):
 
         # make the names relative to the cache prefix (but including the key in the name)
         for blob in blobs:
-            yield str(Path(blob.name).relative_to(self.prefix))
+            yield str(ObjectPath(blob.name).relative_to(self.prefix))
 
     def group(self, key: str) -> "GoogleStorageCache":
         return GoogleStorageCache(self.bucket, prefix=str(self.prefix / key))
 
 
 class AmazonS3Cache(JobCache):
-    def __init__(self, bucket: str, prefix: str = "jobs") -> None:
+    def __init__(self, bucket: str, prefix: str | ObjectPath = "jobs") -> None:
         """A cache implementation that stores data in Amazon S3.
 
         Args:
@@ -243,7 +295,7 @@ class AmazonS3Cache(JobCache):
             prefix: A path prefix to append to all objects stored in the cache. Defaults to "jobs".
         """
         self.bucket = bucket
-        self.prefix = Path(prefix)
+        self.prefix = ObjectPath(prefix)
         with warnings.catch_warnings():
             # https://github.com/boto/boto3/issues/3889
             warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*datetime.utcnow.*")
