@@ -7,14 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-01-29
+
 ### Added
 
-`tilebox-storage`: Added a `LocalFileSystemStorageClient` to access data on a local file system, a mounted network file
+- `tilebox-storage`: Added a `LocalFileSystemStorageClient` to access data on a local file system, a mounted network file
 system or a syncified directory with a remote file system (e.g. Dropbox, Google Drive, etc.).
+- `tilebox-workflows`: Added an `ObstoreCache` implementation for the task cache powered by `obstore`.
 
 ### Changed
 
-`tilebox-storage`: Renamed the existing `StorageClient` base class in `tilebox.storage.aio` to `CachingStorageClient`
+- `tilebox-storage`: Renamed the existing `StorageClient` base class in `tilebox.storage.aio` to `CachingStorageClient`
 to accomodate the new `StorageClient` base class that does not provide caching, since `LocalFileSystemStorageClient` is
 the first client that does not cache data (since it's already on the local file system).
 
@@ -321,7 +324,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.47.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.48.0...HEAD
+[0.48.0]: https://github.com/tilebox/tilebox-python/compare/v0.47.0...v0.48.0
 [0.47.0]: https://github.com/tilebox/tilebox-python/compare/v0.46.0...v0.47.0
 [0.46.0]: https://github.com/tilebox/tilebox-python/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/tilebox/tilebox-python/compare/v0.44.0...v0.45.0
