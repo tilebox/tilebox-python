@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+`tilebox-storage`: Added a `LocalFileSystemStorageClient` to access data on a local file system, a mounted network file
+system or a syncified directory with a remote file system (e.g. Dropbox, Google Drive, etc.).
+
+### Changed
+
+`tilebox-storage`: Renamed the existing `StorageClient` base class in `tilebox.storage.aio` to `CachingStorageClient`
+to accomodate the new `StorageClient` base class that does not provide caching, since `LocalFileSystemStorageClient` is
+the first client that does not cache data (since it's already on the local file system).
+
 ## [0.47.0] - 2026-01-28
 
 ### Added

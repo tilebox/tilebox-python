@@ -24,6 +24,7 @@ from _tilebox.grpc.aio.syncify import Syncifiable
 from tilebox.storage.granule import (
     ASFStorageGranule,
     CopernicusStorageGranule,
+    LocationStorageGranule,
     UmbraStorageGranule,
     USGSLandsatStorageGranule,
 )
@@ -241,6 +242,10 @@ def _display_quicklook(image_data: bytes | Path, width: int, height: int, image_
 
 
 class StorageClient(Syncifiable):
+    """Base class for all storage clients."""
+
+
+class CachingStorageClient(StorageClient):
     def __init__(self, cache_directory: Path | None) -> None:
         self._cache = cache_directory
 
@@ -323,7 +328,7 @@ async def _download_object(
     return output_path
 
 
-class ASFStorageClient(StorageClient):
+class ASFStorageClient(CachingStorageClient):
     def __init__(self, user: str, password: str, cache_directory: Path = Path.home() / ".cache" / "tilebox") -> None:
         """A tilebox storage client that downloads data from the Alaska Satellite Facility.
 
@@ -415,7 +420,7 @@ class ASFStorageClient(StorageClient):
         """
         granule = ASFStorageGranule.from_data(datapoint)
         if Image is None:
-            raise ImportError("IPython is not available, please use download_preview instead.")
+            raise ImportError("IPython is not available, please use download_quicklook instead.")
         quicklook = await self._download_quicklook(datapoint)
         _display_quicklook(quicklook, width, height, f"<code>Image {quicklook.name} © ASF {granule.time.year}</code>")
 
@@ -439,7 +444,7 @@ def _umbra_s3_prefix(datapoint: xr.Dataset | UmbraStorageGranule) -> str:
     return f"sar-data/tasks/{granule.location}/"
 
 
-class UmbraStorageClient(StorageClient):
+class UmbraStorageClient(CachingStorageClient):
     _STORAGE_PROVIDER = "Umbra"
     _BUCKET = "umbra-open-data-catalog"
     _REGION = "us-west-2"
@@ -539,7 +544,7 @@ def _copernicus_s3_prefix(datapoint: xr.Dataset | CopernicusStorageGranule) -> s
     return granule.location.removeprefix("/eodata/")
 
 
-class CopernicusStorageClient(StorageClient):
+class CopernicusStorageClient(CachingStorageClient):
     _STORAGE_PROVIDER = "CopernicusDataspace"
     _BUCKET = "eodata"
     _ENDPOINT_URL = "https://eodata.dataspace.copernicus.eu"
@@ -724,7 +729,7 @@ class CopernicusStorageClient(StorageClient):
             ValueError: If no quicklook is available for the given datapoint.
         """
         if Image is None:
-            raise ImportError("IPython is not available, please use download_preview instead.")
+            raise ImportError("IPython is not available, please use download_quicklook instead.")
         granule = CopernicusStorageGranule.from_data(datapoint)
         quicklook = await self._download_quicklook(granule)
         _display_quicklook(quicklook, width, height, f"<code>{granule.granule_name} © ESA {granule.time.year}</code>")
@@ -750,7 +755,7 @@ def _landsat_s3_prefix(datapoint: xr.Dataset | USGSLandsatStorageGranule) -> str
     return granule.location.removeprefix("s3://usgs-landsat/")
 
 
-class USGSLandsatStorageClient(StorageClient):
+class USGSLandsatStorageClient(CachingStorageClient):
     """
     A client for downloading USGS Landsat data from the usgs-landsat and usgs-landsat-ard S3 bucket.
 
@@ -883,7 +888,7 @@ class USGSLandsatStorageClient(StorageClient):
             ValueError: If no quicklook is available for the given datapoint.
         """
         if Image is None:
-            raise ImportError("IPython is not available, please use download_preview instead.")
+            raise ImportError("IPython is not available, please use download_quicklook instead.")
         quicklook = await self._download_quicklook(datapoint)
         _display_quicklook(quicklook, width, height, f"<code>Image {quicklook.name} © USGS</code>")
 
@@ -901,3 +906,77 @@ class USGSLandsatStorageClient(StorageClient):
 
         await download_objects(self._store, prefix, [granule.thumbnail], output_folder, show_progress=False)
         return output_folder / granule.thumbnail
+
+
+class LocalFileSystemStorageClient(StorageClient):
+    def __init__(self, root: Path) -> None:
+        """A tilebox storage client for accessing data on a local file system, or a mounted network file system.
+
+        Args:
+            root: The root directory of the file system to access.
+        """
+        super().__init__()
+        self._root = Path(root)
+
+    async def list_objects(self, datapoint: xr.Dataset | LocationStorageGranule) -> list[str]:
+        """List all available objects for a given datapoint."""
+        granule = LocationStorageGranule.from_data(datapoint)
+        granule_path = self._root / granule.location
+        return [p.relative_to(granule_path).as_posix() for p in granule_path.rglob("**/*") if p.is_file()]
+
+    async def download(
+        self,
+        datapoint: xr.Dataset | LocationStorageGranule,
+    ) -> Path:
+        """No-op download method, as the data is already on the local file system.
+
+        Args:
+            datapoint: The datapoint to locate the data for in the local file system.
+
+        Returns:
+            The path to the data on the local file system.
+        """
+        granule = LocationStorageGranule.from_data(datapoint)
+        granule_path = self._root / granule.location
+        if not granule_path.exists():
+            raise ValueError(f"Data not found on the local file system: {granule_path}")
+        return granule_path
+
+    async def _download_quicklook(self, datapoint: xr.Dataset | LocationStorageGranule) -> Path:
+        granule = LocationStorageGranule.from_data(datapoint)
+        if granule.thumbnail is None:
+            raise ValueError(f"No quicklook available for {granule.location}")
+        quicklook_path = self._root / granule.thumbnail
+        if not quicklook_path.exists():
+            raise ValueError(f"Quicklook not found on the local file system: {quicklook_path}")
+        return quicklook_path
+
+    async def download_quicklook(self, datapoint: xr.Dataset | LocationStorageGranule) -> Path:
+        """No-op download_quicklook method, as the quicklook image is already on the local file system.
+
+        Args:
+            datapoint: The datapoint to locate the quicklook image for in the local file system.
+
+        Returns:
+            The path to the data on the local file system.
+
+        Raises:
+            ValueError: If no quicklook image is available for the given datapoint, or if the quicklook image is not
+                found on the local file system.
+        """
+        return await self._download_quicklook(datapoint)
+
+    async def quicklook(
+        self, datapoint: xr.Dataset | LocationStorageGranule, width: int = 600, height: int = 600
+    ) -> None:
+        """Display the quicklook image for a given datapoint.
+
+        Args:
+            datapoint: The datapoint to display the quicklook for.
+            width: Display width of the image in pixels. Defaults to 600.
+            height: Display height of the image in pixels. Defaults to 600.
+        """
+        quicklook_path = await self._download_quicklook(datapoint)
+        if Image is None:
+            raise ImportError("IPython is not available, please use download_quicklook instead.")
+        _display_quicklook(quicklook_path, width, height, None)

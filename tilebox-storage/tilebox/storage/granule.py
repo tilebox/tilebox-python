@@ -183,3 +183,28 @@ class USGSLandsatStorageGranule:
             dataset.location.item().replace("s3://usgs-landsat-ard/", "s3://usgs-landsat/"),
             thumbnail,
         )
+
+
+@dataclass
+class LocationStorageGranule:
+    location: str
+    thumbnail: str | None = None
+
+    @classmethod
+    def from_data(cls, dataset: "xr.Dataset | LocationStorageGranule") -> "LocationStorageGranule":
+        """Extract the granule information from a datapoint given as xarray dataset."""
+        if isinstance(dataset, LocationStorageGranule):
+            return dataset
+
+        if "location" not in dataset:
+            raise ValueError("The given dataset has no location information.")
+
+        thumbnail = None
+        if "thumbnail" in dataset:
+            thumbnail = dataset.thumbnail.item()
+        elif "overview" in dataset:
+            thumbnail = dataset.overview.item()
+        elif "quicklook" in dataset:
+            thumbnail = dataset.quicklook.item()
+
+        return cls(dataset.location.item(), thumbnail)
