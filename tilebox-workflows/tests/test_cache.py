@@ -8,8 +8,9 @@ import pytest
 from _pytest.fixtures import SubRequest
 from moto import mock_aws
 from mypy_boto3_s3 import S3Client
+from obstore.store import LocalStore, MemoryStore
 
-from tilebox.workflows.cache import AmazonS3Cache, InMemoryCache, JobCache, LocalFileSystemCache
+from tilebox.workflows.cache import AmazonS3Cache, InMemoryCache, JobCache, LocalFileSystemCache, ObstoreCache
 
 
 @pytest.fixture
@@ -30,7 +31,7 @@ def aws(_aws_credentials: None) -> Iterator[S3Client]:
         yield boto3.client("s3", region_name="us-east-1")
 
 
-caches = ["LocalFileSystem", "InMemory", "AmazonS3", "AmazonS3_no_prefix"]
+caches = ["LocalFileSystem", "InMemory", "AmazonS3", "AmazonS3_no_prefix", "ObstoreMemory", "ObstoreLocal"]
 
 
 @pytest.fixture
@@ -48,6 +49,10 @@ def cache(request: SubRequest, tmp_path: Path, aws: S3Client) -> JobCache:
             bucket = "bucket1"
             aws.create_bucket(Bucket=bucket)
             return AmazonS3Cache(bucket, prefix="")
+        case "ObstoreMemory":
+            return ObstoreCache(MemoryStore())
+        case "ObstoreLocal":
+            return ObstoreCache(LocalStore(tmp_path))
         case _:
             raise ValueError("Invalid cache type")
 
