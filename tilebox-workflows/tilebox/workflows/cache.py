@@ -104,7 +104,8 @@ class ObstoreCache(JobCache):
             raise KeyError(f"{key} is not cached!") from None
 
     def __iter__(self) -> Iterator[str]:
-        for obj in self.store.list_with_delimiter(str(self.prefix))["objects"]:
+        prefix = "" if self.prefix == ObjectPath(".") else str(self.prefix)
+        for obj in self.store.list_with_delimiter(prefix)["objects"]:
             path: str = obj["path"]
             yield path.removeprefix(str(self.prefix) + "/")
 
