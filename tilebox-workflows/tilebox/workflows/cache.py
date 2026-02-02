@@ -10,6 +10,7 @@ import boto3
 from botocore.exceptions import ClientError
 from google.cloud.exceptions import NotFound
 from google.cloud.storage import Blob, Bucket
+from obstore.exceptions import GenericError
 from obstore.store import ObjectStore
 
 
@@ -100,7 +101,9 @@ class ObstoreCache(JobCache):
         try:
             entry = self.store.get(str(self.prefix / key))
             return bytes(entry.bytes())
-        except OSError:
+        except (OSError, GenericError):
+            # GenericError is raised if the key contains separator characters, but one of the parents is a file
+            # instead of a directory
             raise KeyError(f"{key} is not cached!") from None
 
     def __iter__(self) -> Iterator[str]:
