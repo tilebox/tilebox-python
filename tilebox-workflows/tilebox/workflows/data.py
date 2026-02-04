@@ -349,6 +349,7 @@ class TaskSubmissionGroup:
     cluster_slug_pointers: list[int] = field(default_factory=list)
     display_pointers: list[int] = field(default_factory=list)
     max_retries_values: list[int] = field(default_factory=list)
+    optional_values: list[bool] = field(default_factory=list)
 
     @classmethod
     def from_message(cls, group: core_pb2.TaskSubmissionGroup) -> "TaskSubmissionGroup":
@@ -360,6 +361,7 @@ class TaskSubmissionGroup:
             cluster_slug_pointers=list(group.cluster_slug_pointers),
             display_pointers=list(group.display_pointers),
             max_retries_values=list(group.max_retries_values),
+            optional_values=list(group.optional_values),
         )
 
     def to_message(self) -> core_pb2.TaskSubmissionGroup:
@@ -371,6 +373,7 @@ class TaskSubmissionGroup:
             cluster_slug_pointers=self.cluster_slug_pointers,
             display_pointers=self.display_pointers,
             max_retries_values=self.max_retries_values,
+            optional_values=self.optional_values,
         )
 
 

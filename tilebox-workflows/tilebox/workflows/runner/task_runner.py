@@ -534,6 +534,7 @@ class ExecutionContext(ExecutionContextBase):
         depends_on: FutureTask | list[FutureTask] | None = None,
         cluster: str | None = None,
         max_retries: int = 0,
+        optional: bool = False,
     ) -> FutureTask:
         dependencies: list[int] = []
 
@@ -557,6 +558,7 @@ class ExecutionContext(ExecutionContextBase):
             depends_on=dependencies,
             cluster=cluster,
             max_retries=max_retries,
+            optional=optional,
         )
         self._sub_tasks.append(subtask)
         return subtask
@@ -567,9 +569,13 @@ class ExecutionContext(ExecutionContextBase):
         depends_on: FutureTask | list[FutureTask] | None = None,
         cluster: str | None = None,
         max_retries: int = 0,
+        optional: bool = False,
     ) -> list[FutureTask]:
         return [
-            self.submit_subtask(task, cluster=cluster, max_retries=max_retries, depends_on=depends_on) for task in tasks
+            self.submit_subtask(
+                task, cluster=cluster, max_retries=max_retries, depends_on=depends_on, optional=optional
+            )
+            for task in tasks
         ]
 
     def submit_batch(

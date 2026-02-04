@@ -1,9 +1,10 @@
 from tilebox.datasets.buf.validate import validate_pb2 as _validate_pb2
 from tilebox.datasets.datasets.v1 import core_pb2 as _core_pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
+from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from collections.abc import Mapping as _Mapping
+from collections.abc import Iterable as _Iterable, Mapping as _Mapping
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
@@ -49,3 +50,13 @@ class ListCollectionsRequest(_message.Message):
     with_availability: bool
     with_count: bool
     def __init__(self, dataset_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., with_availability: bool = ..., with_count: bool = ...) -> None: ...
+
+class ListCollectionsResponse(_message.Message):
+    __slots__ = ("data", "owned_collections", "maximum_owned_collections")
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    OWNED_COLLECTIONS_FIELD_NUMBER: _ClassVar[int]
+    MAXIMUM_OWNED_COLLECTIONS_FIELD_NUMBER: _ClassVar[int]
+    data: _containers.RepeatedCompositeFieldContainer[_core_pb2.CollectionInfo]
+    owned_collections: int
+    maximum_owned_collections: int
+    def __init__(self, data: _Optional[_Iterable[_Union[_core_pb2.CollectionInfo, _Mapping]]] = ..., owned_collections: _Optional[int] = ..., maximum_owned_collections: _Optional[int] = ...) -> None: ...

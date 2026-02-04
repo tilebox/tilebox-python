@@ -105,12 +105,6 @@ class CollectionInfo(_message.Message):
     count: int
     def __init__(self, collection: _Optional[_Union[Collection, _Mapping]] = ..., availability: _Optional[_Union[_query_pb2.TimeInterval, _Mapping]] = ..., count: _Optional[int] = ...) -> None: ...
 
-class CollectionInfos(_message.Message):
-    __slots__ = ("data",)
-    DATA_FIELD_NUMBER: _ClassVar[int]
-    data: _containers.RepeatedCompositeFieldContainer[CollectionInfo]
-    def __init__(self, data: _Optional[_Iterable[_Union[CollectionInfo, _Mapping]]] = ...) -> None: ...
-
 class Dataset(_message.Message):
     __slots__ = ("id", "group_id", "type", "code_name", "name", "summary", "icon", "description", "permissions", "visibility", "slug", "type_editable", "collections")
     ID_FIELD_NUMBER: _ClassVar[int]

@@ -26,18 +26,18 @@ WORKFLOW_DIAGRAM_THEME_CONSOLE_LIGHT: WorkflowDiagramTheme
 WORKFLOW_DIAGRAM_THEME_CONSOLE_DARK: WorkflowDiagramTheme
 
 class SubmitJobRequest(_message.Message):
-    __slots__ = ("legacy_tasks", "tasks", "job_name", "trace_parent", "automation_id")
-    LEGACY_TASKS_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("tasks", "job_name", "trace_parent", "automation_id", "legacy_tasks")
     TASKS_FIELD_NUMBER: _ClassVar[int]
     JOB_NAME_FIELD_NUMBER: _ClassVar[int]
     TRACE_PARENT_FIELD_NUMBER: _ClassVar[int]
     AUTOMATION_ID_FIELD_NUMBER: _ClassVar[int]
-    legacy_tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.SingleTaskSubmission]
+    LEGACY_TASKS_FIELD_NUMBER: _ClassVar[int]
     tasks: _core_pb2.TaskSubmissions
     job_name: str
     trace_parent: str
     automation_id: _id_pb2.ID
-    def __init__(self, legacy_tasks: _Optional[_Iterable[_Union[_core_pb2.SingleTaskSubmission, _Mapping]]] = ..., tasks: _Optional[_Union[_core_pb2.TaskSubmissions, _Mapping]] = ..., job_name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., automation_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
+    legacy_tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.SingleTaskSubmission]
+    def __init__(self, tasks: _Optional[_Union[_core_pb2.TaskSubmissions, _Mapping]] = ..., job_name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., automation_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., legacy_tasks: _Optional[_Iterable[_Union[_core_pb2.SingleTaskSubmission, _Mapping]]] = ...) -> None: ...
 
 class GetJobRequest(_message.Message):
     __slots__ = ("job_id",)

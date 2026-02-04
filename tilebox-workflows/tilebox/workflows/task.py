@@ -227,6 +227,7 @@ class FutureTask:
     depends_on: list[int]
     cluster: str | None
     max_retries: int
+    optional: bool
 
     def identifier(self) -> TaskIdentifier:
         return _task_meta(self.task).identifier
@@ -313,6 +314,7 @@ def merge_future_tasks_to_submissions(future_tasks: list[FutureTask], fallback_c
         group.cluster_slug_pointers.append(cluster_slugs.append_if_unique(task.cluster or fallback_cluster))
         group.display_pointers.append(displays.append_if_unique(task.display()))
         group.max_retries_values.append(task.max_retries)
+        group.optional_values.append(task.optional)
 
     return TaskSubmissions(
         task_groups=groups,
@@ -361,6 +363,7 @@ class ExecutionContext(ABC):
         depends_on: FutureTask | list[FutureTask] | None = None,
         cluster: str | None = None,
         max_retries: int = 0,
+        optional: bool = False,
     ) -> FutureTask:
         """Submit a subtask of the current task.
 
@@ -371,6 +374,9 @@ class ExecutionContext(ABC):
             cluster: Slug of the cluster to submit the subtask to. Defaults to None, which means the same cluster as the
                 task runner will be used.
             max_retries: The maximum number of retries for the subtask in case of failure. Defaults to 0.
+            optional: Whether the subtask is optional. If True, the subtask will not fail the job if it fails. Also
+                tasks that depend on this task will still execute after this task even if this task failed. Defaults
+                to False.
 
         Returns:
             Submitted subtask.
@@ -383,6 +389,7 @@ class ExecutionContext(ABC):
         depends_on: FutureTask | list[FutureTask] | None = None,
         cluster: str | None = None,
         max_retries: int = 0,
+        optional: bool = False,
     ) -> list[FutureTask]:
         """Submit a batch of subtasks of the current task. Similar to `submit_subtask`, but for multiple tasks."""
 

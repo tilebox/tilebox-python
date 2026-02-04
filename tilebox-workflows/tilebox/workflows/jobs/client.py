@@ -35,10 +35,10 @@ JobIDLike: TypeAlias = Job | UUID | str
 class JobClient:
     def __init__(self, service: JobService, tracer: WorkflowTracer | None = None) -> None:
         """Create a new job client.
-
-        Args:
-            service: The service to use for job operations.
-            tracer: The tracer to use for tracing.
+        z
+                Args:
+                    service: The service to use for job operations.
+                    tracer: The tracer to use for tracing.
         """
         self._service = service
         self._tracer = tracer or WorkflowTracer()
@@ -77,7 +77,9 @@ class JobClient:
                 f"or exactly one cluster per task. But got {len(tasks)} tasks and {len(slugs)} clusters."
             )
 
-        task_submissions = [FutureTask(i, task, [], slugs[i], max_retries) for i, task in enumerate(tasks)]
+        task_submissions = [
+            FutureTask(i, task, [], slugs[i], max_retries, optional=False) for i, task in enumerate(tasks)
+        ]
         submissions_merged = merge_future_tasks_to_submissions(task_submissions, default_cluster)
         if submissions_merged is None:
             raise ValueError("At least one task must be submitted.")
