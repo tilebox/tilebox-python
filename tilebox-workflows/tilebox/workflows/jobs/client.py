@@ -12,6 +12,7 @@ from tilebox.workflows.data import (
     JobState,
     QueryFilters,
     QueryJobsResponse,
+    TaskState,
 )
 from tilebox.workflows.jobs.service import JobService
 from tilebox.workflows.observability.tracing import WorkflowTracer, get_trace_parent_of_current_span
@@ -35,10 +36,10 @@ JobIDLike: TypeAlias = Job | UUID | str
 class JobClient:
     def __init__(self, service: JobService, tracer: WorkflowTracer | None = None) -> None:
         """Create a new job client.
-
-        Args:
-            service: The service to use for job operations.
-            tracer: The tracer to use for tracing.
+        z
+                Args:
+                    service: The service to use for job operations.
+                    tracer: The tracer to use for tracing.
         """
         self._service = service
         self._tracer = tracer or WorkflowTracer()
@@ -77,7 +78,9 @@ class JobClient:
                 f"or exactly one cluster per task. But got {len(tasks)} tasks and {len(slugs)} clusters."
             )
 
-        task_submissions = [FutureTask(i, task, [], slugs[i], max_retries) for i, task in enumerate(tasks)]
+        task_submissions = [
+            FutureTask(i, task, [], slugs[i], max_retries, optional=False) for i, task in enumerate(tasks)
+        ]
         submissions_merged = merge_future_tasks_to_submissions(task_submissions, default_cluster)
         if submissions_merged is None:
             raise ValueError("At least one task must be submitted.")
@@ -163,6 +166,7 @@ class JobClient:
         automation_ids: UUID | list[UUID] | None = None,
         job_states: JobState | list[JobState] | None = None,
         name: str | None = None,
+        task_states: TaskState | list[TaskState] | None = None,
     ) -> list[Job]:
         """List jobs in the given temporal extent.
 
@@ -185,6 +189,9 @@ class JobClient:
                 selected states are returned.
             name: A name to filter jobs by. If specified, only jobs with a matching name are returned. The match is
                 case-insensitive and uses a fuzzy matching scheme.
+            task_states: A task state or list of task states to filter jobs by. If specified, only jobs that have at
+                least one task in any of the selected states are returned.
+
         Returns:
             A list of jobs matching the given filters.
         """
@@ -227,12 +234,17 @@ class JobClient:
         if not isinstance(job_states, list):
             job_states = [job_states]
 
+        task_states = task_states or []
+        if not isinstance(task_states, list):
+            task_states = [task_states]
+
         filters = QueryFilters(
             time_interval=time_interval,
             id_interval=id_interval,
             automation_ids=automation_ids,
             job_states=job_states,
             name=name,
+            task_states=task_states,
         )
 
         def request(page: PaginationProtocol) -> QueryJobsResponse:

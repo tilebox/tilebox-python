@@ -34,7 +34,7 @@ class CollectionServiceStub(object):
         self.ListCollections = channel.unary_unary(
                 '/datasets.v1.CollectionService/ListCollections',
                 request_serializer=datasets_dot_v1_dot_collections__pb2.ListCollectionsRequest.SerializeToString,
-                response_deserializer=datasets_dot_v1_dot_core__pb2.CollectionInfos.FromString,
+                response_deserializer=datasets_dot_v1_dot_collections__pb2.ListCollectionsResponse.FromString,
                 _registered_method=True)
 
 
@@ -87,7 +87,7 @@ def add_CollectionServiceServicer_to_server(servicer, server):
             'ListCollections': grpc.unary_unary_rpc_method_handler(
                     servicer.ListCollections,
                     request_deserializer=datasets_dot_v1_dot_collections__pb2.ListCollectionsRequest.FromString,
-                    response_serializer=datasets_dot_v1_dot_core__pb2.CollectionInfos.SerializeToString,
+                    response_serializer=datasets_dot_v1_dot_collections__pb2.ListCollectionsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -198,7 +198,7 @@ class CollectionService(object):
             target,
             '/datasets.v1.CollectionService/ListCollections',
             datasets_dot_v1_dot_collections__pb2.ListCollectionsRequest.SerializeToString,
-            datasets_dot_v1_dot_core__pb2.CollectionInfos.FromString,
+            datasets_dot_v1_dot_collections__pb2.ListCollectionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

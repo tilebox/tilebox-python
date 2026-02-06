@@ -344,9 +344,14 @@ def query_filters(draw: DrawFn) -> QueryFilters:
 
     automation_ids = draw(lists(uuids(version=4), min_size=0, max_size=10))
 
-    job_states = draw(lists(sampled_from(JobState), min_size=0, max_size=10))
+    job_states = draw(lists(sampled_from(JobState), min_size=0, max_size=3))
     if job_states is not None:
         job_states = list(set(job_states))  # de-duplicate
 
     name = draw(alphanumerical_text() | none())
-    return QueryFilters(time_interval, id_interval, automation_ids, job_states, name)
+
+    task_states = draw(lists(sampled_from(TaskState), min_size=0, max_size=3))
+    if task_states is not None:
+        task_states = list(set(task_states))  # de-duplicate
+
+    return QueryFilters(time_interval, id_interval, automation_ids, job_states, name, task_states)

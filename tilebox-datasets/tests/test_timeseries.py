@@ -24,11 +24,11 @@ from tilebox.datasets.datasets.v1.collections_pb2 import (
     DeleteCollectionRequest,
     GetCollectionByNameRequest,
     ListCollectionsRequest,
+    ListCollectionsResponse,
 )
 from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceStub
 from tilebox.datasets.datasets.v1.core_pb2 import Collection as CollectionMessage
 from tilebox.datasets.datasets.v1.core_pb2 import CollectionInfo as CollectionInfoMessage
-from tilebox.datasets.datasets.v1.core_pb2 import CollectionInfos as CollectionInfosMessage
 from tilebox.datasets.query.time_interval import (
     _EMPTY_TIME_INTERVAL,
     TimeInterval,
@@ -298,9 +298,9 @@ class MockCollectionService(CollectionServiceStub):
                 del self.collections[collection.collection.name]
                 return
 
-    def ListCollections(self, req: ListCollectionsRequest) -> CollectionInfosMessage:  # noqa: N802
+    def ListCollections(self, req: ListCollectionsRequest) -> ListCollectionsResponse:  # noqa: N802
         _ = req
-        return CollectionInfosMessage(data=list(self.collections.values()))
+        return ListCollectionsResponse(data=list(self.collections.values()), owned_collections=len(self.collections))
 
 
 class CollectionCRUDOperations(RuleBasedStateMachine):

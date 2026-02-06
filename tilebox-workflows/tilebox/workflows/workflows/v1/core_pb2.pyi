@@ -35,6 +35,8 @@ class TaskState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     TASK_STATE_RUNNING: _ClassVar[TaskState]
     TASK_STATE_COMPUTED: _ClassVar[TaskState]
     TASK_STATE_FAILED: _ClassVar[TaskState]
+    TASK_STATE_SKIPPED: _ClassVar[TaskState]
+    TASK_STATE_FAILED_OPTIONAL: _ClassVar[TaskState]
 LEGACY_JOB_STATE_UNSPECIFIED: LegacyJobState
 LEGACY_JOB_STATE_QUEUED: LegacyJobState
 LEGACY_JOB_STATE_STARTED: LegacyJobState
@@ -51,6 +53,8 @@ TASK_STATE_QUEUED: TaskState
 TASK_STATE_RUNNING: TaskState
 TASK_STATE_COMPUTED: TaskState
 TASK_STATE_FAILED: TaskState
+TASK_STATE_SKIPPED: TaskState
+TASK_STATE_FAILED_OPTIONAL: TaskState
 
 class Cluster(_message.Message):
     __slots__ = ("slug", "display_name", "deletable")
@@ -209,20 +213,22 @@ class TaskSubmissions(_message.Message):
     def __init__(self, task_groups: _Optional[_Iterable[_Union[TaskSubmissionGroup, _Mapping]]] = ..., cluster_slug_lookup: _Optional[_Iterable[str]] = ..., identifier_lookup: _Optional[_Iterable[_Union[TaskIdentifier, _Mapping]]] = ..., display_lookup: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class TaskSubmissionGroup(_message.Message):
-    __slots__ = ("dependencies_on_other_groups", "inputs", "identifier_pointers", "cluster_slug_pointers", "display_pointers", "max_retries_values")
+    __slots__ = ("dependencies_on_other_groups", "inputs", "identifier_pointers", "cluster_slug_pointers", "display_pointers", "max_retries_values", "optional_values")
     DEPENDENCIES_ON_OTHER_GROUPS_FIELD_NUMBER: _ClassVar[int]
     INPUTS_FIELD_NUMBER: _ClassVar[int]
     IDENTIFIER_POINTERS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_SLUG_POINTERS_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_POINTERS_FIELD_NUMBER: _ClassVar[int]
     MAX_RETRIES_VALUES_FIELD_NUMBER: _ClassVar[int]
+    OPTIONAL_VALUES_FIELD_NUMBER: _ClassVar[int]
     dependencies_on_other_groups: _containers.RepeatedScalarFieldContainer[int]
     inputs: _containers.RepeatedScalarFieldContainer[bytes]
     identifier_pointers: _containers.RepeatedScalarFieldContainer[int]
     cluster_slug_pointers: _containers.RepeatedScalarFieldContainer[int]
     display_pointers: _containers.RepeatedScalarFieldContainer[int]
     max_retries_values: _containers.RepeatedScalarFieldContainer[int]
-    def __init__(self, dependencies_on_other_groups: _Optional[_Iterable[int]] = ..., inputs: _Optional[_Iterable[bytes]] = ..., identifier_pointers: _Optional[_Iterable[int]] = ..., cluster_slug_pointers: _Optional[_Iterable[int]] = ..., display_pointers: _Optional[_Iterable[int]] = ..., max_retries_values: _Optional[_Iterable[int]] = ...) -> None: ...
+    optional_values: _containers.RepeatedScalarFieldContainer[bool]
+    def __init__(self, dependencies_on_other_groups: _Optional[_Iterable[int]] = ..., inputs: _Optional[_Iterable[bytes]] = ..., identifier_pointers: _Optional[_Iterable[int]] = ..., cluster_slug_pointers: _Optional[_Iterable[int]] = ..., display_pointers: _Optional[_Iterable[int]] = ..., max_retries_values: _Optional[_Iterable[int]] = ..., optional_values: _Optional[_Iterable[bool]] = ...) -> None: ...
 
 class TaskLease(_message.Message):
     __slots__ = ("lease", "recommended_wait_until_next_extension")
