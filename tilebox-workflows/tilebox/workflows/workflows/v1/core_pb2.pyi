@@ -35,6 +35,8 @@ class TaskState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     TASK_STATE_RUNNING: _ClassVar[TaskState]
     TASK_STATE_COMPUTED: _ClassVar[TaskState]
     TASK_STATE_FAILED: _ClassVar[TaskState]
+    TASK_STATE_SKIPPED: _ClassVar[TaskState]
+    TASK_STATE_FAILED_OPTIONAL: _ClassVar[TaskState]
 LEGACY_JOB_STATE_UNSPECIFIED: LegacyJobState
 LEGACY_JOB_STATE_QUEUED: LegacyJobState
 LEGACY_JOB_STATE_STARTED: LegacyJobState
@@ -51,6 +53,8 @@ TASK_STATE_QUEUED: TaskState
 TASK_STATE_RUNNING: TaskState
 TASK_STATE_COMPUTED: TaskState
 TASK_STATE_FAILED: TaskState
+TASK_STATE_SKIPPED: TaskState
+TASK_STATE_FAILED_OPTIONAL: TaskState
 
 class Cluster(_message.Message):
     __slots__ = ("slug", "display_name", "deletable")

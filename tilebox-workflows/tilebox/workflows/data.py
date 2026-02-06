@@ -45,7 +45,8 @@ class TaskState(Enum):
     RUNNING = 2
     COMPUTED = 3
     FAILED = 4
-    CANCELLED = 5
+    SKIPPED = 5
+    FAILED_OPTIONAL = 6
 
 
 _TASK_STATES = {state.value: state for state in TaskState}
@@ -738,6 +739,7 @@ class QueryFilters:
     automation_ids: list[UUID]
     job_states: list[JobState]
     name: str | None
+    task_states: list[TaskState]
 
     @classmethod
     def from_message(cls, filters: job_pb2.QueryFilters) -> "QueryFilters":
@@ -749,6 +751,7 @@ class QueryFilters:
             automation_ids=[uuid_message_to_uuid(uuid) for uuid in filters.automation_ids],
             job_states=[_JOB_STATES[state] for state in filters.states],
             name=filters.name or None,
+            task_states=[_TASK_STATES[state] for state in filters.task_states],
         )
 
     def to_message(self) -> job_pb2.QueryFilters:
@@ -760,4 +763,7 @@ class QueryFilters:
             else None,
             states=[cast(core_pb2.JobState, state.value) for state in self.job_states] if self.job_states else None,
             name=self.name or None,  # empty string becomes None
+            task_states=[cast(core_pb2.TaskState, state.value) for state in self.task_states]
+            if self.task_states
+            else None,
         )
