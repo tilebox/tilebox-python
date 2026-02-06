@@ -190,7 +190,7 @@ class JobClient:
             name: A name to filter jobs by. If specified, only jobs with a matching name are returned. The match is
                 case-insensitive and uses a fuzzy matching scheme.
             task_states: A task state or list of task states to filter jobs by. If specified, only jobs that have at
-                least one task in all of the selected states are returned.
+                least one task in any of the selected states are returned.
 
         Returns:
             A list of jobs matching the given filters.
