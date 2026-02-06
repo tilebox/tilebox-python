@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-workflows`: Added ability to mark tasks as optional. Optional tasks will not fail the job if they fail and
+  tasks that depend on them will still execute even if they fail, allowing for a job to complete even if some tasks fail.
+- `tilebox-workflows`: Added a `task_states` parameter to `JobClient.query`, to allow filtering jobs by whether they
+  contain tasks in one of the given state.
+
 ## [0.48.0] - 2026-01-29
 
 ### Added
