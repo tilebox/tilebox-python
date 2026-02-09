@@ -55,16 +55,16 @@ class NextTaskResponse(_message.Message):
     def __init__(self, next_task: _Optional[_Union[_core_pb2.Task, _Mapping]] = ..., idling: _Optional[_Union[IdlingResponse, _Mapping]] = ...) -> None: ...
 
 class TaskFailedRequest(_message.Message):
-    __slots__ = ("task_id", "display", "cancel_job", "progress_updates")
+    __slots__ = ("task_id", "display", "was_workflow_error", "progress_updates")
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_FIELD_NUMBER: _ClassVar[int]
-    CANCEL_JOB_FIELD_NUMBER: _ClassVar[int]
+    WAS_WORKFLOW_ERROR_FIELD_NUMBER: _ClassVar[int]
     PROGRESS_UPDATES_FIELD_NUMBER: _ClassVar[int]
     task_id: _id_pb2.ID
     display: str
-    cancel_job: bool
+    was_workflow_error: bool
     progress_updates: _containers.RepeatedCompositeFieldContainer[_core_pb2.Progress]
-    def __init__(self, task_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., cancel_job: bool = ..., progress_updates: _Optional[_Iterable[_Union[_core_pb2.Progress, _Mapping]]] = ...) -> None: ...
+    def __init__(self, task_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., was_workflow_error: bool = ..., progress_updates: _Optional[_Iterable[_Union[_core_pb2.Progress, _Mapping]]] = ...) -> None: ...
 
 class TaskStateResponse(_message.Message):
     __slots__ = ("state",)

@@ -232,7 +232,7 @@ class _GracefulShutdown:
                 self._service.task_failed(
                     self._task,
                     RunnerShutdown("Task was interrupted"),
-                    cancel_job=False,
+                    was_workflow_error=False,
                     progress_updates=progress,
                 )
 
@@ -441,9 +441,11 @@ class TaskRunner:
             self.logger.exception(f"Task {task_repr} failed!")
 
             task_failed_retry = _retry_backoff(self._service.task_failed, stop=shutdown_context.stop_if_shutting_down())
-            cancel_job = True
-            progress_updates = _finalize_mutable_progress_trackers(context._progress_indicators)  # noqa: SLF001
-            task_failed_retry(task, e, cancel_job, progress_updates)
+            was_workflow_error = True
+            progress_updates: list[ProgressIndicator] = _finalize_mutable_progress_trackers(
+                context._progress_indicators  # noqa: SLF001
+            )
+            task_failed_retry(task, e, was_workflow_error, progress_updates)
 
         return None
 

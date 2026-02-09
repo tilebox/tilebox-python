@@ -9,7 +9,7 @@ from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
 from tilebox.workflows import ExecutionContext, Task
 from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.client import Client
-from tilebox.workflows.data import JobState, ProgressIndicator, RunnerContext
+from tilebox.workflows.data import JobState, ProgressIndicator, RunnerContext, TaskState
 from tilebox.workflows.runner.task_runner import TaskRunner
 
 
@@ -243,3 +243,79 @@ def test_runner_disallow_duplicate_task_identifiers() -> None:
         ),
     ):
         runner.register(ExplicitIdentifierTaskV2)
+
+
+class OptionalSubbranch(Task):
+    def execute(self, context: ExecutionContext) -> None:
+        context.submit_subtask(OptionalSubtasks(False), optional=True)
+        context.submit_subtask(SucceedingTask())
+
+
+class OptionalSubtasks(Task):
+    failing_task_optional: bool
+
+    def execute(self, context: ExecutionContext) -> None:
+        f = context.submit_subtask(FailingTask(), optional=self.failing_task_optional)
+        context.submit_subtask(SucceedingTask(), depends_on=[f])
+
+
+class FailingTask(Task):
+    def execute(self, context: ExecutionContext) -> None:
+        cache = context.job_cache  # ty: ignore[unresolved-attribute]
+        cache["failing_task"] = b"1"  # to make sure it actually ran
+        raise ValueError("This task always fails")
+
+
+class SucceedingTask(Task):
+    def execute(self, context: ExecutionContext) -> None:
+        cache = context.job_cache  # ty: ignore[unresolved-attribute]
+        cache["succeeding_task"] = b"1"  # to make sure it actually ran
+
+
+def test_runner_optional_subbranch() -> None:
+    client = replay_client("optional_subbranch.rpcs.bin")
+    job_client = client.jobs()
+
+    with patch("tilebox.workflows.jobs.client.get_trace_parent_of_current_span") as get_trace_parent_mock:
+        # we hardcode the trace parent for the job, which allows us to assert that every single outgoing request
+        # matches exactly byte for byte
+        get_trace_parent_mock.return_value = "00-42fe17a0cc6752adf16a5a326d37f51c-795dd6a3bc5a0b81-01"
+        job = client.jobs().submit("optional-subbranch-test", OptionalSubbranch())
+
+    cache = InMemoryCache()
+    runner = client.runner(tasks=[OptionalSubbranch, OptionalSubtasks, FailingTask, SucceedingTask], cache=cache)
+
+    runner.run_all()
+    job = job_client.find(job)  # load current job state
+    assert job.state == JobState.COMPLETED
+
+    assert job.execution_stats.tasks_by_state[TaskState.COMPUTED] == 3
+    assert job.execution_stats.tasks_by_state[TaskState.FAILED_OPTIONAL] == 1
+    assert job.execution_stats.tasks_by_state[TaskState.SKIPPED] == 1
+
+    assert cache.group(str(job.id))["failing_task"] == b"1"
+    assert cache.group(str(job.id))["succeeding_task"] == b"1"
+
+
+def test_runner_optional_subtask() -> None:
+    client = replay_client("optional_subtask.rpcs.bin")
+    job_client = client.jobs()
+
+    with patch("tilebox.workflows.jobs.client.get_trace_parent_of_current_span") as get_trace_parent_mock:
+        # we hardcode the trace parent for the job, which allows us to assert that every single outgoing request
+        # matches exactly byte for byte
+        get_trace_parent_mock.return_value = "00-154ffe629cc5b746584825bfbb37963d-3ed10512af70309c-01"
+        job = client.jobs().submit("optional-subtasks-test", OptionalSubtasks(True))
+
+    cache = InMemoryCache()
+    runner = client.runner(tasks=[OptionalSubtasks, FailingTask, SucceedingTask], cache=cache)
+
+    runner.run_all()
+    job = job_client.find(job)  # load current job state
+    assert job.state == JobState.COMPLETED
+
+    assert job.execution_stats.tasks_by_state[TaskState.COMPUTED] == 2
+    assert job.execution_stats.tasks_by_state[TaskState.FAILED_OPTIONAL] == 1
+
+    assert cache.group(str(job.id))["failing_task"] == b"1"
+    assert cache.group(str(job.id))["succeeding_task"] == b"1"
