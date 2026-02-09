@@ -49,7 +49,7 @@ class TaskService:
         return None
 
     def task_failed(
-        self, task: Task, error: Exception, cancel_job: bool, progress_updates: list[ProgressIndicator]
+        self, task: Task, error: Exception, was_workflow_error: bool, progress_updates: list[ProgressIndicator]
     ) -> None:
         # job ouptut is limited to 1KB, so truncate the error message if necessary
         error_message = repr(error)[: (1024 - len(task.display or "None") - 1)]
@@ -57,7 +57,7 @@ class TaskService:
 
         request = TaskFailedRequest(
             task_id=uuid_to_uuid_message(task.id),
-            cancel_job=cancel_job,
+            was_workflow_error=was_workflow_error,
             display=display,
             progress_updates=[progress.to_message() for progress in progress_updates],
         )
