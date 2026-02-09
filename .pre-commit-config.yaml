@@ -16,10 +16,9 @@ repos:
       - id: ruff-format
   - repo: local
     hooks:
-      - id: ty-check
+      - id: ty
         name: ty-check
+        entry: uv run ty check
         language: python
-        entry: ty check
-        pass_filenames: false
-        args: [--python=.venv/]
-        additional_dependencies: [ty]
+        types: [python]
+        pass_filenames: true
