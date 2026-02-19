@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-02-19
+
 ### Added
 
 - `tilebox-workflows`: Added ability to mark tasks as optional. Optional tasks will not fail the job if they fail and
@@ -331,7 +333,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.48.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.49.0...HEAD
+[0.49.0]: https://github.com/tilebox/tilebox-python/compare/v0.48.0...v0.49.0
 [0.48.0]: https://github.com/tilebox/tilebox-python/compare/v0.47.0...v0.48.0
 [0.47.0]: https://github.com/tilebox/tilebox-python/compare/v0.46.0...v0.47.0
 [0.46.0]: https://github.com/tilebox/tilebox-python/compare/v0.45.0...v0.46.0
