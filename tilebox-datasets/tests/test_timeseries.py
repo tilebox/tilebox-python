@@ -198,6 +198,68 @@ def test_timeseries_dataset_collection_find_not_found() -> None:
         mocked.collection.find("14eb91a2-a42f-421f-9397-1dab577f05a9")
 
 
+@settings(max_examples=1)
+@given(example_datapoints(generated_fields=True, missing_fields=True))
+def test_timeseries_dataset_find_multiple_collections(expected_datapoint: ExampleDatapoint) -> None:
+    """Test that DatasetClient.find() supports querying by mixed collection reference types."""
+    dataset, service = _mocked_dataset()
+
+    named_collection = CollectionInfo(Collection(uuid4(), "named-collection"), None, None)
+    other_collection = CollectionInfo(Collection(uuid4(), "other-collection"), None, None)
+
+    service.get_collections.return_value = Promise.resolve([named_collection, other_collection])
+    message = AnyMessage(example_dataset_type_url(), expected_datapoint.SerializeToString())
+    service.query_by_id.return_value = Promise.resolve(message)
+
+    datapoint_id = uuid_message_to_uuid(expected_datapoint.id)
+    datapoint = dataset.find(
+        datapoint_id,
+        [
+            named_collection.collection.name,
+        ],
+    )
+
+    assert isinstance(datapoint, xr.Dataset)
+    service.get_collections.assert_called_once_with(dataset._dataset.id, True, True)
+    service.query_by_id.assert_called_once_with(
+        dataset._dataset.id,
+        [
+            named_collection.collection.id,
+        ],
+        datapoint_id,
+        False,
+    )
+
+
+@settings(max_examples=1)
+@given(pages=paginated_query_results())
+def test_timeseries_dataset_query_multiple_collections(pages: list[QueryResultPage]) -> None:
+    """Test that DatasetClient.query() forwards all selected collection ids to the backend query endpoint."""
+    dataset, service = _mocked_dataset()
+
+    named_collection = CollectionInfo(Collection(uuid4(), "named-collection"), None, None)
+    other_collection = CollectionInfo(Collection(uuid4(), "other-collection"), None, None)
+
+    service.get_collections.return_value = Promise.resolve([named_collection, other_collection])
+    service.query.side_effect = [Promise.resolve(page) for page in pages]
+
+    interval = TimeInterval(datetime.now(), datetime.now() + timedelta(days=1))
+    queried = dataset.query(
+        collections=[
+            named_collection.collection.name,
+        ],
+        temporal_extent=interval,
+    )
+
+    _assert_datapoints_match(queried, pages)
+    service.get_collections.assert_called_once_with(dataset._dataset.id, True, True)
+    first_call_args = service.query.call_args_list[0][0]
+    assert first_call_args[0] == dataset._dataset.id
+    assert first_call_args[1] == [
+        named_collection.collection.id,
+    ]
+
+
 @patch("tilebox.datasets.sync.pagination.tqdm")
 @patch("tilebox.datasets.progress.tqdm")
 @settings(deadline=1000, max_examples=3)  # increase deadline to 1s to not timeout because of the progress bar

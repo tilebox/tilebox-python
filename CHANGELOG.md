@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-datasets`: Added dataset-level `find` and `query` methods on both sync and async `DatasetClient` to query
+  across multiple collections.
+
+
 ## [0.49.0] - 2026-02-19
 
 ### Added
