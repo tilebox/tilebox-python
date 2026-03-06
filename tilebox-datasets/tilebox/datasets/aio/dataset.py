@@ -12,7 +12,7 @@ from _tilebox.grpc.aio.pagination import paginated_request
 from _tilebox.grpc.aio.producer_consumer import async_producer_consumer
 from _tilebox.grpc.error import ArgumentError, NotFoundError
 from tilebox.datasets.aio.pagination import with_progressbar, with_time_progress_callback, with_time_progressbar
-from tilebox.datasets.data.collection import CollectionInfo
+from tilebox.datasets.data.collection import Collection, CollectionInfo
 from tilebox.datasets.data.data_access import QueryFilters, SpatialFilter, SpatialFilterLike
 from tilebox.datasets.data.datapoint import QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
@@ -139,6 +139,122 @@ class DatasetClient:
 
         await self._service.delete_collection(self._dataset.id, collection_id)
 
+    async def find(
+        self,
+        datapoint_id: str | UUID,
+        collections: "list[str] | list[UUID] | list[Collection] | list[CollectionInfo] | list[CollectionClient] | None" = None,
+        skip_data: bool = False,
+    ) -> xr.Dataset:
+        """
+        Find a specific datapoint in one of the specified collections by its id.
+
+        Args:
+            datapoint_id: The id of the datapoint to find.
+            collections: The collections to search in. Supports collection names, ids or collection objects.
+                If not specified, all collections in the dataset are searched.
+            skip_data: Whether to skip the actual data of the datapoint. If True, only
+                datapoint metadata is returned.
+
+        Returns:
+            The datapoint as an xarray dataset.
+        """
+        collection_ids = await self._collection_ids(collections)
+        try:
+            datapoint = await self._service.query_by_id(
+                self._dataset.id,
+                collection_ids,
+                as_uuid(datapoint_id),
+                skip_data,
+            )
+        except ArgumentError:
+            raise ValueError(f"Invalid datapoint id: {datapoint_id} is not a valid UUID") from None
+        except NotFoundError:
+            raise NotFoundError(f"No such datapoint {datapoint_id}") from None
+
+        message_type = get_message_type(datapoint.type_url)
+        data = message_type.FromString(datapoint.value)
+
+        converter = MessageToXarrayConverter(initial_capacity=1)
+        converter.convert(data)
+        return converter.finalize("time", skip_empty_fields=skip_data).isel(time=0)
+
+    async def query(
+        self,
+        *,
+        collections: "list[str] | list[UUID] | list[Collection] | list[CollectionInfo] | list[CollectionClient] | dict[str, CollectionClient] | None",
+        temporal_extent: TimeIntervalLike,
+        spatial_extent: SpatialFilterLike | None = None,
+        skip_data: bool = False,
+        show_progress: bool | ProgressCallback = False,
+    ) -> xr.Dataset:
+        """
+        Query datapoints in the specified collections and temporal extent.
+
+        Args:
+            collections: The collections to query in. Supports collection names, ids or collection objects.
+                If not specified, all collections in the dataset are queried.
+            temporal_extent: The temporal extent to query data for. (Required)
+            spatial_extent: The spatial extent to query data in. (Optional)
+            skip_data: Whether to skip the actual data of the datapoint. If True, only
+                datapoint metadata is returned.
+            show_progress: Whether to show a progress bar while loading the data.
+                If a callable is specified it is used as callback to report progress percentages.
+
+        Returns:
+            Matching datapoints in the given temporal and spatial extent as an xarray dataset.
+        """
+        if temporal_extent is None:
+            raise ValueError("A temporal_extent for your query must be specified")
+
+        collection_ids = await self._collection_ids(collections)
+        pages = _iter_query_pages(
+            self._service,
+            self._dataset.id,
+            collection_ids,
+            temporal_extent,
+            spatial_extent,
+            skip_data,
+            dataset_name=self.name,
+            show_progress=show_progress,
+        )
+        return await _convert_to_dataset(pages, skip_empty_fields=skip_data)
+
+    async def _collection_id(self, collection: "UUID | Collection | CollectionInfo | CollectionClient") -> UUID:
+        if isinstance(collection, CollectionClient):
+            return collection._collection.id
+        if isinstance(collection, CollectionInfo):
+            return collection.collection.id
+        if isinstance(collection, Collection):
+            return collection.id
+        return collection
+
+    async def _collection_ids(
+        self,
+        collections: "list[str] | list[UUID] | list[Collection] | list[CollectionInfo] | list[CollectionClient] | dict[str, CollectionClient] | None",
+    ) -> list[UUID]:
+        if collections is None:
+            return []
+
+        all_collections: list[CollectionInfo] = await self._service.get_collections(self._dataset.id, True, True)
+        # find all valid collection names and ids
+        collections_by_name = {c.collection.name: c.collection.id for c in all_collections}
+        valid_collection_ids = {c.collection.id for c in all_collections}
+
+        collection_ids: list[UUID] = []
+        for collection in collections:
+            if isinstance(collection, str):
+                try:
+                    collection_ids.append(collections_by_name[collection])
+                except KeyError:
+                    raise ValueError(f"Collection {collection} not found in dataset {self.name}") from None
+            else:
+                collection_id = await self._collection_id(collection)
+                if collection_id not in valid_collection_ids:
+                    raise ValueError(f"Collection {collection_id} is not part of the dataset {self.name}")
+                collection_ids.append(collection_id)
+
+        return collection_ids
+
     def __repr__(self) -> str:
         return f"{self.name} [Timeseries Dataset]: {self._dataset.summary}"
 
@@ -221,7 +337,7 @@ class CollectionClient:
         """
         try:
             datapoint = await self._dataset._service.query_by_id(
-                [self._collection.id], as_uuid(datapoint_id), skip_data
+                self._dataset._dataset.id, [self._collection.id], as_uuid(datapoint_id), skip_data
             )
         except ArgumentError:
             raise ValueError(f"Invalid datapoint id: {datapoint_id} is not a valid UUID") from None
@@ -259,8 +375,14 @@ class CollectionClient:
         filters = QueryFilters(temporal_extent=IDInterval.parse(datapoint_id_interval, end_inclusive=end_inclusive))
 
         async def request(page: PaginationProtocol) -> QueryResultPage:
-            query_page = Pagination(page.limit, page.starting_after)
-            return await self._dataset._service.query([self._collection.id], filters, skip_data, query_page)
+            return await _query_page(
+                self._dataset._service,
+                self._dataset._dataset.id,
+                [self._collection.id],
+                filters,
+                skip_data,
+                page,
+            )
 
         initial_page = Pagination()
         pages = paginated_request(request, initial_page)
@@ -350,7 +472,16 @@ class CollectionClient:
         if temporal_extent is None:
             raise ValueError("A temporal_extent for your query must be specified")
 
-        pages = self._iter_pages(temporal_extent, spatial_extent, skip_data, show_progress=show_progress)
+        pages = _iter_query_pages(
+            self._dataset._service,
+            self._dataset._dataset.id,
+            [self._collection.id],
+            temporal_extent,
+            spatial_extent,
+            skip_data,
+            dataset_name=self._dataset.name,
+            show_progress=show_progress,
+        )
         return await _convert_to_dataset(pages, skip_empty_fields=skip_data)
 
     async def _iter_pages(
@@ -361,28 +492,18 @@ class CollectionClient:
         show_progress: bool | ProgressCallback = False,
         page_size: int | None = None,
     ) -> AsyncIterator[QueryResultPage]:
-        time_interval = TimeInterval.parse(temporal_extent)
-        filters = QueryFilters(time_interval, SpatialFilter.parse(spatial_extent) if spatial_extent else None)
-
-        request = partial(self._query_page, filters, skip_data)
-
-        initial_page = Pagination(limit=page_size)
-        pages = paginated_request(request, initial_page)
-
-        if callable(show_progress):
-            pages = with_time_progress_callback(pages, time_interval, show_progress)
-        elif show_progress:
-            message = f"Fetching {self._dataset.name}"
-            pages = with_time_progressbar(pages, time_interval, message)
-
-        async for page in pages:
+        async for page in _iter_query_pages(
+            self._dataset._service,
+            self._dataset._dataset.id,
+            [self._collection.id],
+            temporal_extent,
+            spatial_extent,
+            skip_data,
+            dataset_name=self._dataset.name,
+            show_progress=show_progress,
+            page_size=page_size,
+        ):
             yield page
-
-    async def _query_page(
-        self, filters: QueryFilters, skip_data: bool, page: PaginationProtocol | None = None
-    ) -> QueryResultPage:
-        query_page = Pagination(page.limit, page.starting_after) if page else Pagination()
-        return await self._dataset._service.query([self._collection.id], filters, skip_data, query_page)
 
     async def ingest(
         self,
@@ -475,6 +596,47 @@ class CollectionClient:
                     show_progress(num_deleted / len(datapoint_ids))
                 self._info = None  # invalidate collection info, since we just deleted some data from it
         return num_deleted
+
+
+async def _query_page(  # noqa: PLR0913
+    service: TileboxDatasetService,
+    dataset_id: UUID,
+    collection_ids: list[UUID] | None,
+    filters: QueryFilters,
+    skip_data: bool,
+    page: PaginationProtocol | None = None,
+) -> QueryResultPage:
+    query_page = Pagination(page.limit, page.starting_after) if page else Pagination()
+    return await service.query(dataset_id, collection_ids or [], filters, skip_data, query_page)
+
+
+async def _iter_query_pages(  # noqa: PLR0913
+    service: TileboxDatasetService,
+    dataset_id: UUID,
+    collection_ids: list[UUID] | None,
+    temporal_extent: TimeIntervalLike,
+    spatial_extent: SpatialFilterLike | None = None,
+    skip_data: bool = False,
+    *,
+    dataset_name: str,
+    show_progress: bool | ProgressCallback = False,
+    page_size: int | None = None,
+) -> AsyncIterator[QueryResultPage]:
+    time_interval = TimeInterval.parse(temporal_extent)
+    filters = QueryFilters(time_interval, SpatialFilter.parse(spatial_extent) if spatial_extent else None)
+
+    request = partial(_query_page, service, dataset_id, collection_ids, filters, skip_data)
+
+    initial_page = Pagination(limit=page_size)
+    pages = paginated_request(request, initial_page)
+
+    if callable(show_progress):
+        pages = with_time_progress_callback(pages, time_interval, show_progress)
+    elif show_progress:
+        pages = with_time_progressbar(pages, time_interval, f"Fetching {dataset_name}")
+
+    async for page in pages:
+        yield page
 
 
 async def _convert_to_dataset(pages: AsyncIterator[QueryResultPage], skip_empty_fields: bool = False) -> xr.Dataset:

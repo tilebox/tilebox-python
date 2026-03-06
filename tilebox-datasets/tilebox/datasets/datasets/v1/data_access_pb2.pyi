@@ -57,14 +57,16 @@ class GetDatapointByIdRequest(_message.Message):
     def __init__(self, collection_id: _Optional[str] = ..., id: _Optional[str] = ..., skip_data: bool = ...) -> None: ...
 
 class QueryByIDRequest(_message.Message):
-    __slots__ = ("collection_ids", "id", "skip_data")
+    __slots__ = ("dataset_id", "collection_ids", "id", "skip_data")
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     COLLECTION_IDS_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
     SKIP_DATA_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: _id_pb2.ID
     collection_ids: _containers.RepeatedCompositeFieldContainer[_id_pb2.ID]
     id: _id_pb2.ID
     skip_data: bool
-    def __init__(self, collection_ids: _Optional[_Iterable[_Union[_id_pb2.ID, _Mapping]]] = ..., id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., skip_data: bool = ...) -> None: ...
+    def __init__(self, dataset_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., collection_ids: _Optional[_Iterable[_Union[_id_pb2.ID, _Mapping]]] = ..., id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., skip_data: bool = ...) -> None: ...
 
 class QueryFilters(_message.Message):
     __slots__ = ("time_interval", "datapoint_interval", "spatial_extent")
@@ -87,16 +89,18 @@ class SpatialFilter(_message.Message):
     def __init__(self, geometry: _Optional[_Union[_well_known_types_pb2.Geometry, _Mapping]] = ..., mode: _Optional[_Union[SpatialFilterMode, str]] = ..., coordinate_system: _Optional[_Union[SpatialCoordinateSystem, str]] = ...) -> None: ...
 
 class QueryRequest(_message.Message):
-    __slots__ = ("collection_ids", "filters", "page", "skip_data")
+    __slots__ = ("dataset_id", "collection_ids", "filters", "page", "skip_data")
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     COLLECTION_IDS_FIELD_NUMBER: _ClassVar[int]
     FILTERS_FIELD_NUMBER: _ClassVar[int]
     PAGE_FIELD_NUMBER: _ClassVar[int]
     SKIP_DATA_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: _id_pb2.ID
     collection_ids: _containers.RepeatedCompositeFieldContainer[_id_pb2.ID]
     filters: QueryFilters
     page: _query_pb2.Pagination
     skip_data: bool
-    def __init__(self, collection_ids: _Optional[_Iterable[_Union[_id_pb2.ID, _Mapping]]] = ..., filters: _Optional[_Union[QueryFilters, _Mapping]] = ..., page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ..., skip_data: bool = ...) -> None: ...
+    def __init__(self, dataset_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., collection_ids: _Optional[_Iterable[_Union[_id_pb2.ID, _Mapping]]] = ..., filters: _Optional[_Union[QueryFilters, _Mapping]] = ..., page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ..., skip_data: bool = ...) -> None: ...
 
 class QueryResultPage(_message.Message):
     __slots__ = ("data", "next_page")

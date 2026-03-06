@@ -31,11 +31,6 @@ class DatasetServiceStub(object):
                 request_serializer=datasets_dot_v1_dot_datasets__pb2.UpdateDatasetRequest.SerializeToString,
                 response_deserializer=datasets_dot_v1_dot_core__pb2.Dataset.FromString,
                 _registered_method=True)
-        self.UpdateDatasetDescription = channel.unary_unary(
-                '/datasets.v1.DatasetService/UpdateDatasetDescription',
-                request_serializer=datasets_dot_v1_dot_datasets__pb2.UpdateDatasetDescriptionRequest.SerializeToString,
-                response_deserializer=datasets_dot_v1_dot_core__pb2.Dataset.FromString,
-                _registered_method=True)
         self.DeleteDataset = channel.unary_unary(
                 '/datasets.v1.DatasetService/DeleteDataset',
                 request_serializer=datasets_dot_v1_dot_datasets__pb2.DeleteDatasetRequest.SerializeToString,
@@ -70,12 +65,6 @@ class DatasetServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def UpdateDatasetDescription(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def DeleteDataset(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -104,11 +93,6 @@ def add_DatasetServiceServicer_to_server(servicer, server):
             'UpdateDataset': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateDataset,
                     request_deserializer=datasets_dot_v1_dot_datasets__pb2.UpdateDatasetRequest.FromString,
-                    response_serializer=datasets_dot_v1_dot_core__pb2.Dataset.SerializeToString,
-            ),
-            'UpdateDatasetDescription': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpdateDatasetDescription,
-                    request_deserializer=datasets_dot_v1_dot_datasets__pb2.UpdateDatasetDescriptionRequest.FromString,
                     response_serializer=datasets_dot_v1_dot_core__pb2.Dataset.SerializeToString,
             ),
             'DeleteDataset': grpc.unary_unary_rpc_method_handler(
@@ -203,33 +187,6 @@ class DatasetService(object):
             target,
             '/datasets.v1.DatasetService/UpdateDataset',
             datasets_dot_v1_dot_datasets__pb2.UpdateDatasetRequest.SerializeToString,
-            datasets_dot_v1_dot_core__pb2.Dataset.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def UpdateDatasetDescription(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/datasets.v1.DatasetService/UpdateDatasetDescription',
-            datasets_dot_v1_dot_datasets__pb2.UpdateDatasetDescriptionRequest.SerializeToString,
             datasets_dot_v1_dot_core__pb2.Dataset.FromString,
             options,
             channel_credentials,

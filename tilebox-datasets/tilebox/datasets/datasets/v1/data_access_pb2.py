@@ -29,7 +29,7 @@ from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 from tilebox.datasets.tilebox.v1 import query_pb2 as tilebox_dot_v1_dot_query__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1d\x64\x61tasets/v1/data_access.proto\x12\x0b\x64\x61tasets.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x16\x64\x61tasets/v1/core.proto\x1a\"datasets/v1/well_known_types.proto\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto\"\xbd\x02\n\x1cGetDatasetForIntervalRequest\x12#\n\rcollection_id\x18\x01 \x01(\tR\x0c\x63ollectionId\x12=\n\rtime_interval\x18\x02 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12\x45\n\x12\x64\x61tapoint_interval\x18\x06 \x01(\x0b\x32\x16.tilebox.v1.IDIntervalR\x11\x64\x61tapointInterval\x12\x38\n\x04page\x18\x03 \x01(\x0b\x32\x1d.datasets.v1.LegacyPaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12\x1b\n\tskip_data\x18\x04 \x01(\x08R\x08skipData\x12\x1b\n\tskip_meta\x18\x05 \x01(\x08R\x08skipMeta\"k\n\x17GetDatapointByIdRequest\x12#\n\rcollection_id\x18\x01 \x01(\tR\x0c\x63ollectionId\x12\x0e\n\x02id\x18\x02 \x01(\tR\x02id\x12\x1b\n\tskip_data\x18\x03 \x01(\x08R\x08skipData\"\x9a\x01\n\x10QueryByIDRequest\x12\x41\n\x0e\x63ollection_ids\x18\x01 \x03(\x0b\x32\x0e.tilebox.v1.IDB\n\xbaH\x07\x92\x01\x04\x08\x01\x10\x64R\rcollectionIds\x12&\n\x02id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x02id\x12\x1b\n\tskip_data\x18\x03 \x01(\x08R\x08skipData\"\x83\x02\n\x0cQueryFilters\x12=\n\rtime_interval\x18\x01 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12\x45\n\x12\x64\x61tapoint_interval\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.IDIntervalR\x11\x64\x61tapointInterval\x12\x41\n\x0espatial_extent\x18\x03 \x01(\x0b\x32\x1a.datasets.v1.SpatialFilterR\rspatialExtent:*\xbaH\'\"%\n\rtime_interval\n\x12\x64\x61tapoint_interval\x10\x01\"\xe5\x01\n\rSpatialFilter\x12\x39\n\x08geometry\x18\x01 \x01(\x0b\x32\x15.datasets.v1.GeometryB\x06\xbaH\x03\xc8\x01\x01R\x08geometry\x12<\n\x04mode\x18\x02 \x01(\x0e\x32\x1e.datasets.v1.SpatialFilterModeB\x08\xbaH\x05\x82\x01\x02\x10\x01R\x04mode\x12[\n\x11\x63oordinate_system\x18\x03 \x01(\x0e\x32$.datasets.v1.SpatialCoordinateSystemB\x08\xbaH\x05\x82\x01\x02\x10\x01R\x10\x63oordinateSystem\"\xd6\x01\n\x0cQueryRequest\x12\x41\n\x0e\x63ollection_ids\x18\x01 \x03(\x0b\x32\x0e.tilebox.v1.IDB\n\xbaH\x07\x92\x01\x04\x08\x01\x10\x64R\rcollectionIds\x12\x33\n\x07\x66ilters\x18\x02 \x01(\x0b\x32\x19.datasets.v1.QueryFiltersR\x07\x66ilters\x12\x31\n\x04page\x18\x03 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12\x1b\n\tskip_data\x18\x04 \x01(\x08R\x08skipData\"{\n\x0fQueryResultPage\x12,\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x18.datasets.v1.RepeatedAnyR\x04\x64\x61ta\x12:\n\tnext_page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x08nextPage*~\n\x11SpatialFilterMode\x12#\n\x1fSPATIAL_FILTER_MODE_UNSPECIFIED\x10\x00\x12\"\n\x1eSPATIAL_FILTER_MODE_INTERSECTS\x10\x01\x12 \n\x1cSPATIAL_FILTER_MODE_CONTAINS\x10\x02*\x96\x01\n\x17SpatialCoordinateSystem\x12)\n%SPATIAL_COORDINATE_SYSTEM_UNSPECIFIED\x10\x00\x12\'\n#SPATIAL_COORDINATE_SYSTEM_CARTESIAN\x10\x01\x12\'\n#SPATIAL_COORDINATE_SYSTEM_SPHERICAL\x10\x02\x32\xcd\x02\n\x11\x44\x61taAccessService\x12`\n\x15GetDatasetForInterval\x12).datasets.v1.GetDatasetForIntervalRequest\x1a\x1a.datasets.v1.DatapointPage\"\x00\x12R\n\x10GetDatapointByID\x12$.datasets.v1.GetDatapointByIdRequest\x1a\x16.datasets.v1.Datapoint\"\x00\x12>\n\tQueryByID\x12\x1d.datasets.v1.QueryByIDRequest\x1a\x10.datasets.v1.Any\"\x00\x12\x42\n\x05Query\x12\x19.datasets.v1.QueryRequest\x1a\x1c.datasets.v1.QueryResultPage\"\x00\x42t\n\x0f\x63om.datasets.v1B\x0f\x44\x61taAccessProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1d\x64\x61tasets/v1/data_access.proto\x12\x0b\x64\x61tasets.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x16\x64\x61tasets/v1/core.proto\x1a\"datasets/v1/well_known_types.proto\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto\"\xbd\x02\n\x1cGetDatasetForIntervalRequest\x12#\n\rcollection_id\x18\x01 \x01(\tR\x0c\x63ollectionId\x12=\n\rtime_interval\x18\x02 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12\x45\n\x12\x64\x61tapoint_interval\x18\x06 \x01(\x0b\x32\x16.tilebox.v1.IDIntervalR\x11\x64\x61tapointInterval\x12\x38\n\x04page\x18\x03 \x01(\x0b\x32\x1d.datasets.v1.LegacyPaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12\x1b\n\tskip_data\x18\x04 \x01(\x08R\x08skipData\x12\x1b\n\tskip_meta\x18\x05 \x01(\x08R\x08skipMeta\"k\n\x17GetDatapointByIdRequest\x12#\n\rcollection_id\x18\x01 \x01(\tR\x0c\x63ollectionId\x12\x0e\n\x02id\x18\x02 \x01(\tR\x02id\x12\x1b\n\tskip_data\x18\x03 \x01(\x08R\x08skipData\"\xc9\x01\n\x10QueryByIDRequest\x12-\n\ndataset_id\x18\x04 \x01(\x0b\x32\x0e.tilebox.v1.IDR\tdatasetId\x12\x41\n\x0e\x63ollection_ids\x18\x01 \x03(\x0b\x32\x0e.tilebox.v1.IDB\n\xbaH\x07\x92\x01\x04\x08\x00\x10\x64R\rcollectionIds\x12&\n\x02id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x02id\x12\x1b\n\tskip_data\x18\x03 \x01(\x08R\x08skipData\"\x83\x02\n\x0cQueryFilters\x12=\n\rtime_interval\x18\x01 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12\x45\n\x12\x64\x61tapoint_interval\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.IDIntervalR\x11\x64\x61tapointInterval\x12\x41\n\x0espatial_extent\x18\x03 \x01(\x0b\x32\x1a.datasets.v1.SpatialFilterR\rspatialExtent:*\xbaH\'\"%\n\rtime_interval\n\x12\x64\x61tapoint_interval\x10\x01\"\xe5\x01\n\rSpatialFilter\x12\x39\n\x08geometry\x18\x01 \x01(\x0b\x32\x15.datasets.v1.GeometryB\x06\xbaH\x03\xc8\x01\x01R\x08geometry\x12<\n\x04mode\x18\x02 \x01(\x0e\x32\x1e.datasets.v1.SpatialFilterModeB\x08\xbaH\x05\x82\x01\x02\x10\x01R\x04mode\x12[\n\x11\x63oordinate_system\x18\x03 \x01(\x0e\x32$.datasets.v1.SpatialCoordinateSystemB\x08\xbaH\x05\x82\x01\x02\x10\x01R\x10\x63oordinateSystem\"\x85\x02\n\x0cQueryRequest\x12-\n\ndataset_id\x18\x05 \x01(\x0b\x32\x0e.tilebox.v1.IDR\tdatasetId\x12\x41\n\x0e\x63ollection_ids\x18\x01 \x03(\x0b\x32\x0e.tilebox.v1.IDB\n\xbaH\x07\x92\x01\x04\x08\x00\x10\x64R\rcollectionIds\x12\x33\n\x07\x66ilters\x18\x02 \x01(\x0b\x32\x19.datasets.v1.QueryFiltersR\x07\x66ilters\x12\x31\n\x04page\x18\x03 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12\x1b\n\tskip_data\x18\x04 \x01(\x08R\x08skipData\"{\n\x0fQueryResultPage\x12,\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x18.datasets.v1.RepeatedAnyR\x04\x64\x61ta\x12:\n\tnext_page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x08nextPage*~\n\x11SpatialFilterMode\x12#\n\x1fSPATIAL_FILTER_MODE_UNSPECIFIED\x10\x00\x12\"\n\x1eSPATIAL_FILTER_MODE_INTERSECTS\x10\x01\x12 \n\x1cSPATIAL_FILTER_MODE_CONTAINS\x10\x02*\x96\x01\n\x17SpatialCoordinateSystem\x12)\n%SPATIAL_COORDINATE_SYSTEM_UNSPECIFIED\x10\x00\x12\'\n#SPATIAL_COORDINATE_SYSTEM_CARTESIAN\x10\x01\x12\'\n#SPATIAL_COORDINATE_SYSTEM_SPHERICAL\x10\x02\x32\xcd\x02\n\x11\x44\x61taAccessService\x12`\n\x15GetDatasetForInterval\x12).datasets.v1.GetDatasetForIntervalRequest\x1a\x1a.datasets.v1.DatapointPage\"\x00\x12R\n\x10GetDatapointByID\x12$.datasets.v1.GetDatapointByIdRequest\x1a\x16.datasets.v1.Datapoint\"\x00\x12>\n\tQueryByID\x12\x1d.datasets.v1.QueryByIDRequest\x1a\x10.datasets.v1.Any\"\x00\x12\x42\n\x05Query\x12\x19.datasets.v1.QueryRequest\x1a\x1c.datasets.v1.QueryResultPage\"\x00\x42t\n\x0f\x63om.datasets.v1B\x0f\x44\x61taAccessProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -40,7 +40,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_GETDATASETFORINTERVALREQUEST'].fields_by_name['page']._loaded_options = None
   _globals['_GETDATASETFORINTERVALREQUEST'].fields_by_name['page']._serialized_options = b'\252\001\002\010\001'
   _globals['_QUERYBYIDREQUEST'].fields_by_name['collection_ids']._loaded_options = None
-  _globals['_QUERYBYIDREQUEST'].fields_by_name['collection_ids']._serialized_options = b'\272H\007\222\001\004\010\001\020d'
+  _globals['_QUERYBYIDREQUEST'].fields_by_name['collection_ids']._serialized_options = b'\272H\007\222\001\004\010\000\020d'
   _globals['_QUERYBYIDREQUEST'].fields_by_name['id']._loaded_options = None
   _globals['_QUERYBYIDREQUEST'].fields_by_name['id']._serialized_options = b'\272H\003\310\001\001'
   _globals['_QUERYFILTERS']._loaded_options = None
@@ -52,29 +52,29 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_SPATIALFILTER'].fields_by_name['coordinate_system']._loaded_options = None
   _globals['_SPATIALFILTER'].fields_by_name['coordinate_system']._serialized_options = b'\272H\005\202\001\002\020\001'
   _globals['_QUERYREQUEST'].fields_by_name['collection_ids']._loaded_options = None
-  _globals['_QUERYREQUEST'].fields_by_name['collection_ids']._serialized_options = b'\272H\007\222\001\004\010\001\020d'
+  _globals['_QUERYREQUEST'].fields_by_name['collection_ids']._serialized_options = b'\272H\007\222\001\004\010\000\020d'
   _globals['_QUERYREQUEST'].fields_by_name['page']._loaded_options = None
   _globals['_QUERYREQUEST'].fields_by_name['page']._serialized_options = b'\252\001\002\010\001'
   _globals['_QUERYRESULTPAGE'].fields_by_name['next_page']._loaded_options = None
   _globals['_QUERYRESULTPAGE'].fields_by_name['next_page']._serialized_options = b'\252\001\002\010\001'
-  _globals['_SPATIALFILTERMODE']._serialized_start=1602
-  _globals['_SPATIALFILTERMODE']._serialized_end=1728
-  _globals['_SPATIALCOORDINATESYSTEM']._serialized_start=1731
-  _globals['_SPATIALCOORDINATESYSTEM']._serialized_end=1881
+  _globals['_SPATIALFILTERMODE']._serialized_start=1696
+  _globals['_SPATIALFILTERMODE']._serialized_end=1822
+  _globals['_SPATIALCOORDINATESYSTEM']._serialized_start=1825
+  _globals['_SPATIALCOORDINATESYSTEM']._serialized_end=1975
   _globals['_GETDATASETFORINTERVALREQUEST']._serialized_start=181
   _globals['_GETDATASETFORINTERVALREQUEST']._serialized_end=498
   _globals['_GETDATAPOINTBYIDREQUEST']._serialized_start=500
   _globals['_GETDATAPOINTBYIDREQUEST']._serialized_end=607
   _globals['_QUERYBYIDREQUEST']._serialized_start=610
-  _globals['_QUERYBYIDREQUEST']._serialized_end=764
-  _globals['_QUERYFILTERS']._serialized_start=767
-  _globals['_QUERYFILTERS']._serialized_end=1026
-  _globals['_SPATIALFILTER']._serialized_start=1029
-  _globals['_SPATIALFILTER']._serialized_end=1258
-  _globals['_QUERYREQUEST']._serialized_start=1261
-  _globals['_QUERYREQUEST']._serialized_end=1475
-  _globals['_QUERYRESULTPAGE']._serialized_start=1477
-  _globals['_QUERYRESULTPAGE']._serialized_end=1600
-  _globals['_DATAACCESSSERVICE']._serialized_start=1884
-  _globals['_DATAACCESSSERVICE']._serialized_end=2217
+  _globals['_QUERYBYIDREQUEST']._serialized_end=811
+  _globals['_QUERYFILTERS']._serialized_start=814
+  _globals['_QUERYFILTERS']._serialized_end=1073
+  _globals['_SPATIALFILTER']._serialized_start=1076
+  _globals['_SPATIALFILTER']._serialized_end=1305
+  _globals['_QUERYREQUEST']._serialized_start=1308
+  _globals['_QUERYREQUEST']._serialized_end=1569
+  _globals['_QUERYRESULTPAGE']._serialized_start=1571
+  _globals['_QUERYRESULTPAGE']._serialized_end=1694
+  _globals['_DATAACCESSSERVICE']._serialized_start=1978
+  _globals['_DATAACCESSSERVICE']._serialized_end=2311
 # @@protoc_insertion_point(module_scope)

@@ -11,16 +11,18 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class CreateDatasetRequest(_message.Message):
-    __slots__ = ("name", "type", "summary", "code_name")
+    __slots__ = ("name", "type", "summary", "code_name", "description")
     NAME_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     SUMMARY_FIELD_NUMBER: _ClassVar[int]
     CODE_NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     name: str
     type: _dataset_type_pb2.DatasetType
     summary: str
     code_name: str
-    def __init__(self, name: _Optional[str] = ..., type: _Optional[_Union[_dataset_type_pb2.DatasetType, _Mapping]] = ..., summary: _Optional[str] = ..., code_name: _Optional[str] = ...) -> None: ...
+    description: str
+    def __init__(self, name: _Optional[str] = ..., type: _Optional[_Union[_dataset_type_pb2.DatasetType, _Mapping]] = ..., summary: _Optional[str] = ..., code_name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
 
 class GetDatasetRequest(_message.Message):
     __slots__ = ("slug", "id")
@@ -31,16 +33,20 @@ class GetDatasetRequest(_message.Message):
     def __init__(self, slug: _Optional[str] = ..., id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
 
 class UpdateDatasetRequest(_message.Message):
-    __slots__ = ("id", "name", "type", "summary")
+    __slots__ = ("id", "name", "type", "summary", "code_name", "description")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    CODE_NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     id: _id_pb2.ID
     name: str
     type: _dataset_type_pb2.DatasetType
     summary: str
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., type: _Optional[_Union[_dataset_type_pb2.DatasetType, _Mapping]] = ..., summary: _Optional[str] = ...) -> None: ...
+    code_name: str
+    description: str
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., type: _Optional[_Union[_dataset_type_pb2.DatasetType, _Mapping]] = ..., summary: _Optional[str] = ..., code_name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
 
 class ClientInfo(_message.Message):
     __slots__ = ("name", "environment", "packages")
@@ -59,14 +65,6 @@ class Package(_message.Message):
     name: str
     version: str
     def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
-
-class UpdateDatasetDescriptionRequest(_message.Message):
-    __slots__ = ("id", "description")
-    ID_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    id: _id_pb2.ID
-    description: str
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., description: _Optional[str] = ...) -> None: ...
 
 class DeleteDatasetRequest(_message.Message):
     __slots__ = ("id",)

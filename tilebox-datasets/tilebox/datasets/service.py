@@ -197,8 +197,15 @@ class TileboxDatasetService:
             CollectionInfo.from_message,
         )
 
-    def query_by_id(self, collection_ids: list[UUID], datapoint_id: UUID, skip_data: bool) -> Promise[AnyMessage]:
+    def query_by_id(
+        self,
+        dataset_id: UUID,
+        collection_ids: list[UUID],
+        datapoint_id: UUID,
+        skip_data: bool,
+    ) -> Promise[AnyMessage]:
         req = QueryByIDRequest(
+            dataset_id=must_uuid_to_uuid_message(dataset_id),
             collection_ids=list(map(must_uuid_to_uuid_message, collection_ids)),
             id=must_uuid_to_uuid_message(datapoint_id),
             skip_data=skip_data,
@@ -207,12 +214,14 @@ class TileboxDatasetService:
 
     def query(
         self,
+        dataset_id: UUID,
         collection_ids: list[UUID],
         filters: QueryFilters,
         skip_data: bool,
         page: Pagination | None = None,
     ) -> Promise[QueryResultPage]:
         req = QueryRequest(
+            dataset_id=must_uuid_to_uuid_message(dataset_id),
             collection_ids=list(map(must_uuid_to_uuid_message, collection_ids)),
             filters=filters.to_message(),
             page=page.to_message() if page is not None else None,
