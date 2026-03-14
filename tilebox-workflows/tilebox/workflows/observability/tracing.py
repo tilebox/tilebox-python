@@ -18,6 +18,10 @@ from opentelemetry.trace import get_current_span
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from tilebox.workflows.data import Job
+from tilebox.workflows.observability.execution_attributes import (
+    bind_execution_attributes,
+    set_span_execution_attributes,
+)
 from tilebox.workflows.observability.logging import _LOGGING_NAMESPACE, _get_default_resource, _parse_duration
 
 _AXIOM_ENDPOINT = "https://api.axiom.co/v1/traces"
@@ -79,7 +83,11 @@ class WorkflowTracer:
     @contextmanager
     def start_job_span(self, job: Job, span_name: str) -> Iterator[OTSpan]:
         context = _PROPAGATOR.extract({"traceparent": job.trace_parent})
-        with self._tracer.start_as_current_span(span_name, context=context) as span:
+        with (
+            bind_execution_attributes(job_id=str(job.id)),
+            self._tracer.start_as_current_span(span_name, context=context) as span,
+        ):
+            set_span_execution_attributes(span, job_id=str(job.id))
             yield span
 
 

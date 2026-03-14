@@ -35,6 +35,10 @@ from tilebox.datasets.sync.dataset import DatasetClient
 from tilebox.workflows.cache import JobCache
 from tilebox.workflows.data import ComputedTask, Idling, NextTaskToRun, ProgressIndicator, Task, TaskLease
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
+from tilebox.workflows.observability.execution_attributes import (
+    bind_execution_attributes,
+    set_span_execution_attributes,
+)
 from tilebox.workflows.observability.logging import get_logger
 from tilebox.workflows.observability.tracing import WorkflowTracer
 from tilebox.workflows.runner.task_service import TaskService
@@ -438,7 +442,10 @@ class TaskRunner:
             # otherwise, if it's not possible, we just log the task id
             with contextlib.suppress(KeyError):
                 task_repr = self.tasks_to_run.identifiers[task.identifier].__name__
-            self.logger.exception(f"Task {task_repr} failed!")
+            # _try_execute emits task errors after its execution-attribute scope has exited,
+            # so we bind execution identifiers again to keep failure logs queryable by job/task.
+            with bind_execution_attributes(job_id=str(task.job.id), task_id=str(task.id)):
+                self.logger.exception(f"Task {task_repr} failed!")
 
             task_failed_retry = _retry_backoff(self._service.task_failed, stop=shutdown_context.stop_if_shutting_down())
             was_workflow_error = True
@@ -461,8 +468,10 @@ class TaskRunner:
         with (
             self._lease_renewer.lease_extension(task.id, task.lease),
             self.tracer.start_job_span(task.job, f"task/{task.id}") as span,
+            bind_execution_attributes(job_id=str(task.job.id), task_id=str(task.id)),
         ):
             try:
+                set_span_execution_attributes(span, job_id=str(task.job.id), task_id=str(task.id))
                 try:
                     task_class = self.tasks_to_run.identifiers[task.identifier]
                 except KeyError:

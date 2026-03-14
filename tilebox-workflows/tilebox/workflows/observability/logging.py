@@ -23,6 +23,8 @@ from opentelemetry.sdk.resources import SERVICE_INSTANCE_ID, SERVICE_NAME, SERVI
 from opentelemetry.semconv.attributes import exception_attributes
 from opentelemetry.util.types import _ExtendedAttributes
 
+from tilebox.workflows.observability.execution_attributes import current_execution_attributes_dict
+
 # prefix for stdlib loggers
 _LOGGING_NAMESPACE = "tilebox.workflows"
 
@@ -66,7 +68,7 @@ def _root_logger() -> logging.Logger:
 class OTELLoggingHandler(LoggingHandler):
     @staticmethod
     def _get_attributes(record: logging.LogRecord) -> _ExtendedAttributes:
-        attributes = {}
+        attributes: _ExtendedAttributes = current_execution_attributes_dict()
         # the default implementation returns attributes for the filepath, lineno and function of the log record
         # we don't want that by default, so we override it to return an empty dict
         if record.exc_info:
