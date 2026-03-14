@@ -48,10 +48,10 @@ Homepage = "https://tilebox.com"
 Documentation = "https://docs.tilebox.com/workflows/introduction"
 
 [tool.hatch.build.targets.sdist]
-packages = ["tilebox"]
+packages = ["tilebox", "tilebox_publish_discover"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["tilebox"]
+packages = ["tilebox", "tilebox_publish_discover"]
 
 [tool.coverage.run]
 omit = ["tilebox/workflows/workflows/v1/*"]
