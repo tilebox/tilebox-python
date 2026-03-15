@@ -1,0 +1,255 @@
+import threading
+import time
+from uuid import uuid4
+
+import pytest
+
+from tilebox.workflows import ExecutionContext, Task
+from tilebox.workflows.runner.worker_rpc_v1 import (
+    CancelTaskRequest,
+    ExecuteTaskRequest,
+    ExecuteTaskStatus,
+    HandshakeRequest,
+    ProtocolVersion,
+    ProtocolVersionMismatchError,
+    PythonWorkerShim,
+    StartWorkerRequest,
+)
+
+
+class ChildTask(Task):
+    value: int
+
+
+class EmitSubtasksTask(Task):
+    count: int
+
+    def execute(self, context: ExecutionContext) -> None:
+        progress = context.progress("items")
+        progress.add(self.count)
+        progress.done(2)
+
+        first = context.submit_subtask(ChildTask(value=1), max_retries=2)
+        context.submit_subtask(ChildTask(value=2), depends_on=[first], optional=True)
+
+
+class FailingTask(Task):
+    def execute(self, context: ExecutionContext) -> None:
+        _ = context
+        msg = "boom"
+        raise RuntimeError(msg)
+
+
+class CooperativeCancelTask(Task):
+    def execute(self, context: ExecutionContext) -> None:
+        while True:
+            maybe_cancel = getattr(context, "raise_if_cancellation_requested", None)
+            if callable(maybe_cancel):
+                maybe_cancel()
+            time.sleep(0.01)
+
+
+def _started_worker(shim: PythonWorkerShim) -> str:
+    response = shim.start_worker(
+        StartWorkerRequest(
+            environment_digest="sha256:env",
+            runtime_kind="python_uv",
+            artifact_uri="file:///artifact.tar.zst",
+            artifact_digest="sha256:artifact",
+            entrypoint="tilebox_worker:main",
+        )
+    )
+    assert response.ready
+    return response.worker_instance_id
+
+
+def test_handshake_rejects_major_mismatch() -> None:
+    shim = PythonWorkerShim(tasks=[EmitSubtasksTask])
+
+    with pytest.raises(ProtocolVersionMismatchError):
+        shim.handshake(
+            HandshakeRequest(
+                supervisor_protocol=ProtocolVersion(major=2, minor=0),
+                worker_runtime="python",
+            )
+        )
+
+
+def test_start_worker_requires_registered_tasks() -> None:
+    shim = PythonWorkerShim()
+
+    response = shim.start_worker(
+        StartWorkerRequest(
+            environment_digest="sha256:env",
+            runtime_kind="python_uv",
+            artifact_uri="file:///artifact.tar.zst",
+            artifact_digest="sha256:artifact",
+            entrypoint="tilebox_worker:main",
+        )
+    )
+
+    assert response.ready is False
+    assert "no registered executable tasks" in response.message.lower()
+
+
+def test_start_worker_rejects_mismatched_expected_digests() -> None:
+    shim = PythonWorkerShim(
+        tasks=[EmitSubtasksTask],
+        expected_environment_digest="sha256:expected-env",
+        expected_artifact_digest="sha256:expected-artifact",
+        expected_entrypoint="tilebox_worker:main",
+    )
+
+    response = shim.start_worker(
+        StartWorkerRequest(
+            environment_digest="sha256:other-env",
+            runtime_kind="python_uv",
+            artifact_uri="file:///artifact.tar.zst",
+            artifact_digest="sha256:other-artifact",
+            entrypoint="tilebox_worker:main",
+        )
+    )
+
+    assert response.ready is False
+    assert "environment digest mismatch" in response.message.lower()
+
+
+def test_execute_task_maps_progress_and_subtasks() -> None:
+    shim = PythonWorkerShim(tasks=[EmitSubtasksTask], default_cluster_slug="cluster-a")
+    worker_instance_id = _started_worker(shim)
+
+    task = EmitSubtasksTask(count=5)
+    request = ExecuteTaskRequest(
+        worker_instance_id=worker_instance_id,
+        task_id=str(uuid4()),
+        task_identifier_name="EmitSubtasksTask",
+        task_identifier_version="v0.0",
+        task_input=task._serialize(),
+        task_display="emit-subtasks",
+    )
+
+    response = shim.execute_task(request)
+
+    assert response.status == ExecuteTaskStatus.STATUS_COMPUTED
+    assert response.error_message == ""
+    assert response.was_workflow_error is False
+
+    assert len(response.progress_updates) == 1
+    assert response.progress_updates[0].label == "items"
+    assert response.progress_updates[0].total == 5
+    assert response.progress_updates[0].done == 2
+
+    assert len(response.submitted_subtasks) == 2
+    first, second = response.submitted_subtasks
+    assert first.cluster_slug == "cluster-a"
+    assert first.identifier_name == "ChildTask"
+    assert first.identifier_version == "v0.0"
+    assert first.max_retries == 2
+    assert list(first.depends_on) == []
+    assert first.optional is False
+
+    assert list(second.depends_on) == [0]
+    assert second.optional is True
+
+
+def test_execute_task_maps_failures() -> None:
+    shim = PythonWorkerShim(tasks=[FailingTask])
+    worker_instance_id = _started_worker(shim)
+
+    request = ExecuteTaskRequest(
+        worker_instance_id=worker_instance_id,
+        task_id=str(uuid4()),
+        task_identifier_name="FailingTask",
+        task_identifier_version="v0.0",
+        task_input=FailingTask()._serialize(),
+        task_display="failing-task",
+    )
+
+    response = shim.execute_task(request)
+
+    assert response.status == ExecuteTaskStatus.STATUS_FAILED
+    assert response.was_workflow_error is True
+    assert "boom" in response.error_message
+
+
+def test_cancel_task_marks_running_execution_as_canceled() -> None:
+    shim = PythonWorkerShim(tasks=[CooperativeCancelTask])
+    worker_instance_id = _started_worker(shim)
+    task_id = str(uuid4())
+
+    request = ExecuteTaskRequest(
+        worker_instance_id=worker_instance_id,
+        task_id=task_id,
+        task_identifier_name="CooperativeCancelTask",
+        task_identifier_version="v0.0",
+        task_input=CooperativeCancelTask()._serialize(),
+        task_display="cancel-me",
+    )
+
+    result_holder: list = []
+
+    def _execute() -> None:
+        result_holder.append(shim.execute_task(request))
+
+    execution_thread = threading.Thread(target=_execute)
+    execution_thread.start()
+
+    accepted = False
+    deadline = time.monotonic() + 1.5
+    while time.monotonic() < deadline and not accepted:
+        accepted = shim.cancel_task(
+            CancelTaskRequest(worker_instance_id=worker_instance_id, task_id=task_id, reason="test-cancel")
+        ).accepted
+        if not accepted:
+            time.sleep(0.01)
+
+    assert accepted is True
+
+    execution_thread.join(timeout=2)
+    assert not execution_thread.is_alive()
+    assert len(result_holder) == 1
+    assert result_holder[0].status == ExecuteTaskStatus.STATUS_CANCELED
+    assert result_holder[0].was_workflow_error is False
+
+
+def test_shutdown_cancels_inflight_and_refuses_new_task() -> None:
+    shim = PythonWorkerShim(tasks=[CooperativeCancelTask])
+    worker_instance_id = _started_worker(shim)
+    task_id = str(uuid4())
+
+    request = ExecuteTaskRequest(
+        worker_instance_id=worker_instance_id,
+        task_id=task_id,
+        task_identifier_name="CooperativeCancelTask",
+        task_identifier_version="v0.0",
+        task_input=CooperativeCancelTask()._serialize(),
+        task_display="shutdown-me",
+    )
+
+    result_holder: list = []
+
+    def _execute() -> None:
+        result_holder.append(shim.execute_task(request))
+
+    execution_thread = threading.Thread(target=_execute)
+    execution_thread.start()
+
+    # Let the task start first, then request shutdown.
+    time.sleep(0.05)
+    assert shim.request_shutdown("test-shutdown") is True
+
+    execution_thread.join(timeout=2)
+    assert len(result_holder) == 1
+    assert result_holder[0].status == ExecuteTaskStatus.STATUS_CANCELED
+
+    follow_up = shim.execute_task(
+        ExecuteTaskRequest(
+            worker_instance_id=worker_instance_id,
+            task_id=str(uuid4()),
+            task_identifier_name="CooperativeCancelTask",
+            task_identifier_version="v0.0",
+            task_input=CooperativeCancelTask()._serialize(),
+            task_display="new-task",
+        )
+    )
+    assert follow_up.status == ExecuteTaskStatus.STATUS_CANCELED
