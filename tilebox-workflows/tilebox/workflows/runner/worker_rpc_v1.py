@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import signal
 import threading
 from collections.abc import Collection, Iterator, Sequence
@@ -80,13 +81,32 @@ def _basic_start_worker_readiness_error(request: StartWorkerRequest) -> str | No
         (request.artifact_digest == "", "Missing artifact digest"),
         (not _is_sha256_digest(request.artifact_digest), "Invalid artifact digest format"),
         (request.artifact_uri.strip() == "", "Missing artifact URI"),
-        (_canonical_entrypoint(request.entrypoint) == "", "Missing worker entrypoint"),
     )
     for failed, message in checks:
         if failed:
             return message
 
     return None
+
+
+def _import_task_class(entrypoint: str) -> type:
+    """Import a task class from 'module:ClassName' entrypoint string."""
+    if ":" not in entrypoint:
+        msg = f"Invalid entrypoint format '{entrypoint}', expected 'module:ClassName'"
+        raise ValueError(msg)
+
+    module_name, _, class_name = entrypoint.partition(":")
+    if not module_name or not class_name:
+        msg = f"Invalid entrypoint format '{entrypoint}', module and class must be non-empty"
+        raise ValueError(msg)
+
+    module = importlib.import_module(module_name)
+    task_class = getattr(module, class_name, None)
+    if task_class is None:
+        msg = f"Entrypoint class '{class_name}' not found in module '{module_name}'"
+        raise ValueError(msg)
+
+    return task_class
 
 
 @dataclass(slots=True)
@@ -370,6 +390,48 @@ class PythonWorkerShim:
                 message=readiness_error,
             )
 
+        # Dynamically import and register tasks from the entrypoint if no
+        # tasks were pre-registered.  The entrypoint may be a single
+        # "module:Class" string or a comma-separated list of them.  The worker
+        # process is expected to already run inside the correct uv environment
+        # (deps installed), so the entrypoint modules are importable on
+        # sys.path.
+        if len(self._registered_tasks) == 0:
+            raw_entrypoint = _canonical_entrypoint(request.entrypoint)
+            entrypoints = [ep.strip() for ep in raw_entrypoint.split(",") if ep.strip()]
+            if not entrypoints:
+                return StartWorkerResponse(
+                    worker_instance_id="",
+                    ready=False,
+                    message="No entrypoints provided",
+                )
+
+            for entrypoint in entrypoints:
+                try:
+                    task_class = _import_task_class(entrypoint)
+                except Exception as exc:  # noqa: BLE001
+                    return StartWorkerResponse(
+                        worker_instance_id="",
+                        ready=False,
+                        message=f"Failed to load task from entrypoint '{entrypoint}': {exc}",
+                    )
+
+                if not (isinstance(task_class, type) and issubclass(task_class, TaskInstance)):
+                    return StartWorkerResponse(
+                        worker_instance_id="",
+                        ready=False,
+                        message=f"Entrypoint '{entrypoint}' does not resolve to a Task subclass",
+                    )
+
+                try:
+                    self.register(task_class)
+                except ValueError as exc:
+                    return StartWorkerResponse(
+                        worker_instance_id="",
+                        ready=False,
+                        message=str(exc),
+                    )
+
         worker_instance_id = str(uuid4())
         with self._lock:
             self._workers[worker_instance_id] = _WorkerInstanceState(ready=True)
@@ -400,9 +462,6 @@ class PythonWorkerShim:
 
         if self._expected_entrypoint is not None and requested_entrypoint != self._expected_entrypoint:
             return f"Worker entrypoint mismatch: expected '{self._expected_entrypoint}', got '{requested_entrypoint}'"
-
-        if len(self._registered_tasks) == 0:
-            return "Worker has no registered executable tasks"
 
         return None
 

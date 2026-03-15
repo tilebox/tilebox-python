@@ -75,7 +75,7 @@ def test_handshake_rejects_major_mismatch() -> None:
         )
 
 
-def test_start_worker_requires_registered_tasks() -> None:
+def test_start_worker_requires_entrypoint_when_no_tasks_registered() -> None:
     shim = PythonWorkerShim()
 
     response = shim.start_worker(
@@ -84,12 +84,28 @@ def test_start_worker_requires_registered_tasks() -> None:
             runtime_kind="python_uv",
             artifact_uri="file:///artifact.tar.zst",
             artifact_digest="sha256:artifact",
-            entrypoint="tilebox_worker:main",
+            entrypoint="",
         )
     )
 
     assert response.ready is False
-    assert "no registered executable tasks" in response.message.lower()
+    assert "no entrypoints provided" in response.message.lower()
+
+
+def test_start_worker_accepts_pre_registered_tasks_without_entrypoint() -> None:
+    shim = PythonWorkerShim(tasks=[EmitSubtasksTask])
+
+    response = shim.start_worker(
+        StartWorkerRequest(
+            environment_digest="sha256:env",
+            runtime_kind="python_uv",
+            artifact_uri="file:///artifact.tar.zst",
+            artifact_digest="sha256:artifact",
+            entrypoint="",
+        )
+    )
+
+    assert response.ready is True
 
 
 def test_start_worker_rejects_mismatched_expected_digests() -> None:
