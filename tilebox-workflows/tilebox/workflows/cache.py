@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import warnings
 from abc import ABC, abstractmethod
@@ -5,13 +7,11 @@ from collections.abc import Iterator
 from io import BytesIO
 from pathlib import Path
 from pathlib import PurePosixPath as ObjectPath
+from typing import TYPE_CHECKING
 
-import boto3
-from botocore.exceptions import ClientError
-from google.cloud.exceptions import NotFound
-from google.cloud.storage import Blob, Bucket
-from obstore.exceptions import GenericError
-from obstore.store import ObjectStore
+if TYPE_CHECKING:
+    from google.cloud.storage import Blob, Bucket
+    from obstore.store import ObjectStore
 
 
 class JobCache(ABC):
@@ -101,9 +101,11 @@ class ObstoreCache(JobCache):
         try:
             entry = self.store.get(str(self.prefix / key))
             return bytes(entry.bytes())
-        except (OSError, GenericError):
-            # GenericError is raised if the key contains separator characters, but one of the parents is a file
-            # instead of a directory
+        except OSError:
+            raise KeyError(f"{key} is not cached!") from None
+        except Exception:
+            # GenericError from obstore is raised if the key contains separator characters,
+            # but one of the parents is a file instead of a directory
             raise KeyError(f"{key} is not cached!") from None
 
     def __iter__(self) -> Iterator[str]:
@@ -262,6 +264,8 @@ class GoogleStorageCache(JobCache):
         self._blob(key).upload_from_file(BytesIO(value))
 
     def __getitem__(self, key: str) -> bytes:
+        from google.cloud.exceptions import NotFound  # noqa: PLC0415
+
         try:
             # GCS library has some weird typing issues, so let's ignore them for now
             return self._blob(key).download_as_bytes()
@@ -298,6 +302,8 @@ class AmazonS3Cache(JobCache):
             bucket: The Amazon S3 bucket to use for the cache.
             prefix: A path prefix to append to all objects stored in the cache. Defaults to "jobs".
         """
+        import boto3  # noqa: PLC0415
+
         self.bucket = bucket
         self.prefix = ObjectPath(prefix)
         with warnings.catch_warnings():
@@ -306,6 +312,8 @@ class AmazonS3Cache(JobCache):
             self._s3 = boto3.client("s3")
 
     def __contains__(self, key: str) -> bool:
+        from botocore.exceptions import ClientError  # noqa: PLC0415
+
         try:
             self._s3.head_object(Bucket=self.bucket, Key=str(self.prefix / key))
         except ClientError as e:
@@ -320,6 +328,8 @@ class AmazonS3Cache(JobCache):
         self._s3.upload_fileobj(BytesIO(value), self.bucket, str(self.prefix / key))
 
     def __getitem__(self, key: str) -> bytes:
+        from botocore.exceptions import ClientError  # noqa: PLC0415
+
         item = BytesIO()
         try:
             self._s3.download_fileobj(self.bucket, str(self.prefix / key), item)
