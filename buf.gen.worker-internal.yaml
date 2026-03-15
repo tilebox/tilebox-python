@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://www.schemastore.org/buf.gen.json
+version: v2
+managed:
+  enabled: true
+plugins:
+  - remote: buf.build/grpc/python
+    out: tilebox-python/tilebox-workflows
+  - remote: buf.build/protocolbuffers/python:v30.0 # use the minimum version that supports protobuf 6
+    out: tilebox-python/tilebox-workflows
+  - remote: buf.build/protocolbuffers/pyi:v30.0 # use the minimum version that supports protobuf 6
+    out: tilebox-python/tilebox-workflows
+inputs:
+  - directory: core/workflows-service/apis-internal
