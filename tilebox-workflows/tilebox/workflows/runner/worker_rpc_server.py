@@ -161,6 +161,10 @@ def _flush_observability() -> None:
 
 
 def serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
+    # runner.main() calls serve_worker_rpc() directly, so OTEL autoconfiguration must
+    # happen here (not only in worker_rpc_server.main()).
+    _auto_configure_observability()
+
     server = grpc.server(ThreadPoolExecutor(max_workers=1))
     worker_pb2_grpc.add_WorkerControlServiceServicer_to_server(_WorkerControlServicer(shim), server)
     worker_pb2_grpc.add_WorkerExecutionServiceServicer_to_server(_WorkerExecutionServicer(shim), server)
@@ -185,8 +189,6 @@ def main() -> int:
     if not rpc_address:
         msg = "TILEBOX_WORKER_RPC_ADDRESS must be set"
         raise RuntimeError(msg)
-
-    _auto_configure_observability()
 
     shim = PythonWorkerShim(
         expected_environment_digest=os.getenv("TILEBOX_WORKER_ENVIRONMENT_DIGEST") or None,
