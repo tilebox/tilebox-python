@@ -4,20 +4,22 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from threading import Lock
 from urllib.parse import urlparse
 
 import grpc
 
+from tilebox.runner.worker.v1 import worker_pb2, worker_pb2_grpc
 from tilebox.workflows.observability.logging import _parse_duration, configure_otel_logging
 from tilebox.workflows.observability.metrics import configure_otel_metrics
 from tilebox.workflows.observability.tracing import configure_otel_tracing
-
-from tilebox.runner.worker.v1 import worker_pb2, worker_pb2_grpc
 from tilebox.workflows.runner.worker_rpc_v1 import (
     ProtocolVersionMismatchError,
     PythonWorkerShim,
     RequiredCapabilitiesMissingError,
 )
+
+_CONTROL_RPC_MAX_WORKERS = 4
 
 
 def _rpc_bind_address(value: str) -> str:
@@ -81,6 +83,8 @@ class _WorkerControlServicer(worker_pb2_grpc.WorkerControlServiceServicer):
 class _WorkerExecutionServicer(worker_pb2_grpc.WorkerExecutionServiceServicer):
     def __init__(self, shim: PythonWorkerShim) -> None:
         self._shim = shim
+        self._execution_pool = ThreadPoolExecutor(max_workers=1)
+        self._execution_pool_lock = Lock()
 
     def ExecuteTask(  # noqa: N802
         self,
@@ -88,7 +92,9 @@ class _WorkerExecutionServicer(worker_pb2_grpc.WorkerExecutionServiceServicer):
         context: grpc.ServicerContext,
     ) -> worker_pb2.ExecuteTaskResponse:
         _ = context
-        return self._shim.execute_task(request)
+        with self._execution_pool_lock:
+            future = self._execution_pool.submit(self._shim.execute_task, request)
+        return future.result()
 
     def CancelTask(  # noqa: N802
         self,
@@ -97,6 +103,9 @@ class _WorkerExecutionServicer(worker_pb2_grpc.WorkerExecutionServiceServicer):
     ) -> worker_pb2.CancelTaskResponse:
         _ = context
         return self._shim.cancel_task(request)
+
+    def shutdown(self) -> None:
+        self._execution_pool.shutdown(wait=True)
 
 
 def _auto_configure_observability() -> None:
@@ -161,9 +170,10 @@ def _flush_observability() -> None:
 
 
 def _serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
-    server = grpc.server(ThreadPoolExecutor(max_workers=1))
+    server = grpc.server(ThreadPoolExecutor(max_workers=_CONTROL_RPC_MAX_WORKERS))
+    execution_servicer = _WorkerExecutionServicer(shim)
     worker_pb2_grpc.add_WorkerControlServiceServicer_to_server(_WorkerControlServicer(shim), server)
-    worker_pb2_grpc.add_WorkerExecutionServiceServicer_to_server(_WorkerExecutionServicer(shim), server)
+    worker_pb2_grpc.add_WorkerExecutionServiceServicer_to_server(execution_servicer, server)
 
     bound_port = server.add_insecure_port(_rpc_bind_address(address))
     if bound_port <= 0:
@@ -177,7 +187,12 @@ def _serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
                 time.sleep(0.1)
         finally:
             server.stop(grace=5).wait()
+            execution_servicer.shutdown()
             _flush_observability()
+
+
+def serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
+    _serve_worker_rpc(shim=shim, address=address)
 
 
 def _run_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
