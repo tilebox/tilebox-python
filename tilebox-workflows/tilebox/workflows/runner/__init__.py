@@ -6,7 +6,7 @@ import os
 import sys
 from collections.abc import Sequence
 
-from tilebox.workflows.runner.worker_rpc_server import run_worker_rpc
+from tilebox.workflows.runner.worker_rpc_server import _run_worker_rpc
 from tilebox.workflows.runner.worker_rpc_v1 import PythonWorkerShim
 from tilebox.workflows.task import Task as TaskInstance
 from tilebox.workflows.task import TaskMeta
@@ -110,7 +110,7 @@ def _run_worker() -> int:
         expected_artifact_digest=os.getenv("TILEBOX_WORKER_ARTIFACT_DIGEST") or None,
         expected_entrypoint=os.getenv("TILEBOX_WORKER_ENTRYPOINT") or None,
     )
-    run_worker_rpc(shim=shim, address=rpc_address)
+    _run_worker_rpc(shim=shim, address=rpc_address)
     return 0
 
 

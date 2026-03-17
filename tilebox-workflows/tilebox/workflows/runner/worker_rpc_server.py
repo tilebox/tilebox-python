@@ -160,7 +160,7 @@ def _flush_observability() -> None:
             pass
 
 
-def serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
+def _serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
     server = grpc.server(ThreadPoolExecutor(max_workers=1))
     worker_pb2_grpc.add_WorkerControlServiceServicer_to_server(_WorkerControlServicer(shim), server)
     worker_pb2_grpc.add_WorkerExecutionServiceServicer_to_server(_WorkerExecutionServicer(shim), server)
@@ -180,9 +180,9 @@ def serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
             _flush_observability()
 
 
-def run_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
+def _run_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
     _auto_configure_observability()
-    serve_worker_rpc(shim=shim, address=address)
+    _serve_worker_rpc(shim=shim, address=address)
 
 
 def main() -> int:
@@ -196,5 +196,5 @@ def main() -> int:
         expected_artifact_digest=os.getenv("TILEBOX_WORKER_ARTIFACT_DIGEST") or None,
         expected_entrypoint=os.getenv("TILEBOX_WORKER_ENTRYPOINT") or None,
     )
-    run_worker_rpc(shim=shim, address=rpc_address)
+    _run_worker_rpc(shim=shim, address=rpc_address)
     return 0
