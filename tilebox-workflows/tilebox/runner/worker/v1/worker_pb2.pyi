@@ -105,7 +105,7 @@ class SubmittedTask(_message.Message):
     def __init__(self, input: _Optional[bytes] = ..., cluster_slug: _Optional[str] = ..., identifier_name: _Optional[str] = ..., identifier_version: _Optional[str] = ..., display: _Optional[str] = ..., max_retries: _Optional[int] = ..., depends_on: _Optional[_Iterable[int]] = ..., optional: bool = ...) -> None: ...
 
 class ExecuteTaskRequest(_message.Message):
-    __slots__ = ("worker_instance_id", "task_id", "task_identifier_name", "task_identifier_version", "task_input", "task_display", "trace_context", "job_id")
+    __slots__ = ("worker_instance_id", "task_id", "task_identifier_name", "task_identifier_version", "task_input", "task_display", "trace_context", "job_id", "job_name", "job_trace_parent", "task_parent_id", "task_depends_on", "task_retry_count")
     WORKER_INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     TASK_IDENTIFIER_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -114,6 +114,11 @@ class ExecuteTaskRequest(_message.Message):
     TASK_DISPLAY_FIELD_NUMBER: _ClassVar[int]
     TRACE_CONTEXT_FIELD_NUMBER: _ClassVar[int]
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    JOB_NAME_FIELD_NUMBER: _ClassVar[int]
+    JOB_TRACE_PARENT_FIELD_NUMBER: _ClassVar[int]
+    TASK_PARENT_ID_FIELD_NUMBER: _ClassVar[int]
+    TASK_DEPENDS_ON_FIELD_NUMBER: _ClassVar[int]
+    TASK_RETRY_COUNT_FIELD_NUMBER: _ClassVar[int]
     worker_instance_id: str
     task_id: str
     task_identifier_name: str
@@ -122,7 +127,12 @@ class ExecuteTaskRequest(_message.Message):
     task_display: str
     trace_context: bytes
     job_id: str
-    def __init__(self, worker_instance_id: _Optional[str] = ..., task_id: _Optional[str] = ..., task_identifier_name: _Optional[str] = ..., task_identifier_version: _Optional[str] = ..., task_input: _Optional[bytes] = ..., task_display: _Optional[str] = ..., trace_context: _Optional[bytes] = ..., job_id: _Optional[str] = ...) -> None: ...
+    job_name: str
+    job_trace_parent: str
+    task_parent_id: str
+    task_depends_on: _containers.RepeatedScalarFieldContainer[str]
+    task_retry_count: int
+    def __init__(self, worker_instance_id: _Optional[str] = ..., task_id: _Optional[str] = ..., task_identifier_name: _Optional[str] = ..., task_identifier_version: _Optional[str] = ..., task_input: _Optional[bytes] = ..., task_display: _Optional[str] = ..., trace_context: _Optional[bytes] = ..., job_id: _Optional[str] = ..., job_name: _Optional[str] = ..., job_trace_parent: _Optional[str] = ..., task_parent_id: _Optional[str] = ..., task_depends_on: _Optional[_Iterable[str]] = ..., task_retry_count: _Optional[int] = ...) -> None: ...
 
 class ExecuteTaskResponse(_message.Message):
     __slots__ = ("status", "display", "error_message", "was_workflow_error", "progress_updates", "submitted_subtasks", "execution_duration")

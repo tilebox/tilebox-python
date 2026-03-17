@@ -151,6 +151,7 @@ def test_execute_task_maps_progress_and_subtasks() -> None:
     request = ExecuteTaskRequest(
         worker_instance_id=worker_instance_id,
         task_id=str(uuid4()),
+        job_id=str(uuid4()),
         task_identifier_name="EmitSubtasksTask",
         task_identifier_version="v0.0",
         task_input=task._serialize(),
@@ -188,6 +189,7 @@ def test_execute_task_maps_failures() -> None:
     request = ExecuteTaskRequest(
         worker_instance_id=worker_instance_id,
         task_id=str(uuid4()),
+        job_id=str(uuid4()),
         task_identifier_name="FailingTask",
         task_identifier_version="v0.0",
         task_input=FailingTask()._serialize(),
@@ -284,6 +286,7 @@ def test_cancel_task_marks_running_execution_as_canceled() -> None:
     request = ExecuteTaskRequest(
         worker_instance_id=worker_instance_id,
         task_id=task_id,
+        job_id=str(uuid4()),
         task_identifier_name="CooperativeCancelTask",
         task_identifier_version="v0.0",
         task_input=CooperativeCancelTask()._serialize(),
@@ -324,6 +327,7 @@ def test_shutdown_cancels_inflight_and_refuses_new_task() -> None:
     request = ExecuteTaskRequest(
         worker_instance_id=worker_instance_id,
         task_id=task_id,
+        job_id=str(uuid4()),
         task_identifier_name="CooperativeCancelTask",
         task_identifier_version="v0.0",
         task_input=CooperativeCancelTask()._serialize(),
@@ -350,6 +354,7 @@ def test_shutdown_cancels_inflight_and_refuses_new_task() -> None:
         ExecuteTaskRequest(
             worker_instance_id=worker_instance_id,
             task_id=str(uuid4()),
+            job_id=str(uuid4()),
             task_identifier_name="CooperativeCancelTask",
             task_identifier_version="v0.0",
             task_input=CooperativeCancelTask()._serialize(),
