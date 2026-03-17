@@ -1,10 +1,13 @@
 import threading
 import time
+from typing import ClassVar
 from uuid import uuid4
 
 import pytest
+from opentelemetry.trace import get_current_span
 
 from tilebox.workflows import ExecutionContext, Task
+from tilebox.workflows.observability.execution_attributes import current_execution_attributes_dict
 from tilebox.workflows.runner.worker_rpc_v1 import (
     CancelTaskRequest,
     ExecuteTaskRequest,
@@ -47,6 +50,16 @@ class CooperativeCancelTask(Task):
             if callable(maybe_cancel):
                 maybe_cancel()
             time.sleep(0.01)
+
+
+class CaptureExecutionAttributesTask(Task):
+    captured_attributes: ClassVar[dict[str, str]] = {}
+    captured_trace_id: ClassVar[int | None] = None
+
+    def execute(self, context: ExecutionContext) -> None:
+        _ = context
+        CaptureExecutionAttributesTask.captured_attributes = current_execution_attributes_dict().copy()
+        CaptureExecutionAttributesTask.captured_trace_id = get_current_span().get_span_context().trace_id
 
 
 def _started_worker(shim: PythonWorkerShim) -> str:
@@ -186,6 +199,81 @@ def test_execute_task_maps_failures() -> None:
     assert response.status == ExecuteTaskStatus.STATUS_FAILED
     assert response.was_workflow_error is True
     assert "boom" in response.error_message
+
+
+def test_execute_task_binds_execution_attributes() -> None:
+    shim = PythonWorkerShim(tasks=[CaptureExecutionAttributesTask])
+    worker_instance_id = _started_worker(shim)
+
+    CaptureExecutionAttributesTask.captured_attributes = {}
+    CaptureExecutionAttributesTask.captured_trace_id = None
+
+    request = ExecuteTaskRequest(
+        worker_instance_id=worker_instance_id,
+        task_id=str(uuid4()),
+        job_id=str(uuid4()),
+        task_identifier_name="CaptureExecutionAttributesTask",
+        task_identifier_version="v0.0",
+        task_input=CaptureExecutionAttributesTask()._serialize(),
+        task_display="capture-execution-attributes",
+    )
+
+    response = shim.execute_task(request)
+
+    assert response.status == ExecuteTaskStatus.STATUS_COMPUTED
+    assert CaptureExecutionAttributesTask.captured_attributes == {
+        "job.id": request.job_id,
+        "tilebox.job_id": request.job_id,
+        "task.id": request.task_id,
+        "tilebox.task_id": request.task_id,
+    }
+
+
+def test_execute_task_accepts_valid_trace_context() -> None:
+    shim = PythonWorkerShim(tasks=[CaptureExecutionAttributesTask])
+    worker_instance_id = _started_worker(shim)
+
+    CaptureExecutionAttributesTask.captured_trace_id = None
+
+    traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    request = ExecuteTaskRequest(
+        worker_instance_id=worker_instance_id,
+        task_id=str(uuid4()),
+        job_id=str(uuid4()),
+        task_identifier_name="CaptureExecutionAttributesTask",
+        task_identifier_version="v0.0",
+        task_input=CaptureExecutionAttributesTask()._serialize(),
+        task_display="capture-trace-context",
+        trace_context=traceparent.encode("utf-8"),
+    )
+
+    response = shim.execute_task(request)
+
+    assert response.status == ExecuteTaskStatus.STATUS_COMPUTED
+    assert CaptureExecutionAttributesTask.captured_trace_id is not None
+    assert CaptureExecutionAttributesTask.captured_trace_id == int("4bf92f3577b34da6a3ce929d0e0e4736", 16)
+
+
+def test_execute_task_ignores_invalid_trace_context(caplog: pytest.LogCaptureFixture) -> None:
+    shim = PythonWorkerShim(tasks=[CaptureExecutionAttributesTask])
+    worker_instance_id = _started_worker(shim)
+
+    caplog.set_level("DEBUG", logger="tilebox.workflows.runner.worker_rpc_v1")
+    request = ExecuteTaskRequest(
+        worker_instance_id=worker_instance_id,
+        task_id=str(uuid4()),
+        job_id=str(uuid4()),
+        task_identifier_name="CaptureExecutionAttributesTask",
+        task_identifier_version="v0.0",
+        task_input=CaptureExecutionAttributesTask()._serialize(),
+        task_display="capture-invalid-trace-context",
+        trace_context=b"not-a-valid-traceparent",
+    )
+
+    response = shim.execute_task(request)
+
+    assert response.status == ExecuteTaskStatus.STATUS_COMPUTED
+    assert any("invalid traceparent" in record.message for record in caplog.records)
 
 
 def test_cancel_task_marks_running_execution_as_canceled() -> None:

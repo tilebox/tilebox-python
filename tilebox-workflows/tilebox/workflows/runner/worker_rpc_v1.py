@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib
+import logging
+import re
 import signal
 import threading
 from collections.abc import Collection, Iterator, Sequence
@@ -13,11 +15,14 @@ from types import FrameType
 from uuid import UUID, uuid4
 
 from google.protobuf.duration_pb2 import Duration
+from opentelemetry.context import attach, detach
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from tilebox.runner.worker.v1 import worker_pb2
 from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.data import RunnerContext, TaskIdentifier
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
+from tilebox.workflows.observability.execution_attributes import bind_execution_attributes
 from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
 from tilebox.workflows.task import FutureTask, TaskMeta
 from tilebox.workflows.task import ProgressUpdate as TaskProgressUpdate
@@ -25,6 +30,9 @@ from tilebox.workflows.task import Task as TaskInstance
 
 _PHASE1_RUNTIME_KIND = "python_uv"
 _MAX_TASK_PROGRESS_INDICATORS = 1000
+_LOGGER = logging.getLogger(__name__)
+_TRACE_CONTEXT_PROPAGATOR = TraceContextTextMapPropagator()
+_TRACEPARENT_PATTERN = re.compile(r"^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$")
 
 
 ProtocolVersion = worker_pb2.ProtocolVersion
@@ -51,6 +59,49 @@ def _duration_from_seconds(seconds: float) -> Duration:
     duration = Duration()
     duration.FromTimedelta(timedelta(seconds=seconds))
     return duration
+
+
+@contextmanager
+def _attach_trace_context(trace_context_bytes: bytes) -> Iterator[None]:
+    if not trace_context_bytes:
+        yield
+        return
+
+    try:
+        trace_parent = trace_context_bytes.decode("utf-8").strip()
+    except UnicodeDecodeError:
+        _LOGGER.debug("Ignoring worker trace context: non-UTF-8 trace_context bytes", exc_info=True)
+        yield
+        return
+
+    if trace_parent == "":
+        yield
+        return
+
+    normalized_trace_parent = trace_parent.lower()
+    if not _TRACEPARENT_PATTERN.fullmatch(normalized_trace_parent):
+        _LOGGER.debug("Ignoring worker trace context: invalid traceparent")
+        yield
+        return
+
+    _, trace_id_hex, span_id_hex, _ = normalized_trace_parent.split("-")
+    if trace_id_hex == "0" * 32 or span_id_hex == "0" * 16:
+        _LOGGER.debug("Ignoring worker trace context: invalid traceparent")
+        yield
+        return
+
+    try:
+        extracted_context = _TRACE_CONTEXT_PROPAGATOR.extract({"traceparent": normalized_trace_parent})
+    except Exception:  # noqa: BLE001
+        _LOGGER.debug("Ignoring worker trace context: invalid traceparent", exc_info=True)
+        yield
+        return
+
+    token = attach(extracted_context)
+    try:
+        yield
+    finally:
+        detach(token)
 
 
 class ProtocolVersionMismatchError(ValueError):
@@ -559,7 +610,11 @@ class PythonWorkerShim:
             context.raise_if_cancellation_requested()
 
             task_instance = task_class._deserialize(request.task_input, self._runner_context)  # noqa: SLF001
-            _execute_task_with_interceptors(task_instance, context, self._interceptors)
+            with (
+                bind_execution_attributes(job_id=request.job_id, task_id=request.task_id),
+                _attach_trace_context(request.trace_context),
+            ):
+                _execute_task_with_interceptors(task_instance, context, self._interceptors)
 
             if context.is_cancellation_requested() or self._shutdown_event.is_set():
                 return ExecuteTaskResponse(
