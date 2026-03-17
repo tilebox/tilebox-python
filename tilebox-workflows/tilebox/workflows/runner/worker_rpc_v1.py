@@ -8,7 +8,7 @@ import threading
 from collections.abc import Collection, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from functools import partial
 from time import monotonic
 from types import FrameType
@@ -20,7 +20,7 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 
 from tilebox.runner.worker.v1 import worker_pb2
 from tilebox.workflows.cache import InMemoryCache, JobCache
-from tilebox.workflows.data import RunnerContext, TaskIdentifier
+from tilebox.workflows.data import ExecutionStats, Job, JobState, RunnerContext, Task as WorkflowTask, TaskIdentifier, TaskState
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
 from tilebox.workflows.observability.execution_attributes import bind_execution_attributes, set_span_execution_attributes
 from tilebox.workflows.observability.tracing import _get_tilebox_tracer_provider
@@ -170,6 +170,77 @@ def _import_task_class(entrypoint: str) -> type:
     return task_class
 
 
+def _parse_uuid(value: str, field_name: str) -> UUID:
+    try:
+        return UUID(value)
+    except ValueError as error:
+        msg = f"Invalid {field_name}: {value!r}"
+        raise ValueError(msg) from error
+
+
+def _parse_optional_uuid(value: str, field_name: str) -> UUID | None:
+    trimmed = value.strip()
+    if trimmed == "":
+        return None
+    return _parse_uuid(trimmed, field_name)
+
+
+def _parse_depends_on(values: Sequence[str]) -> list[UUID]:
+    return [_parse_uuid(value, "task_depends_on") for value in values]
+
+
+def _job_from_request(request: ExecuteTaskRequest, job_id: UUID) -> Job:
+    execution_stats = ExecutionStats(
+        first_task_started_at=None,
+        last_task_stopped_at=None,
+        compute_time=timedelta(0),
+        elapsed_time=timedelta(0),
+        parallelism=0.0,
+        total_tasks=0,
+        tasks_by_state={},
+    )
+    return Job(
+        id=job_id,
+        name=request.job_name,
+        trace_parent=request.job_trace_parent,
+        state=JobState.STARTED,
+        submitted_at=datetime.now(tz=timezone.utc),
+        progress=[],
+        execution_stats=execution_stats,
+    )
+
+
+def _task_from_request(request: ExecuteTaskRequest) -> WorkflowTask:
+    if request.task_retry_count < 0:
+        msg = f"Invalid task_retry_count: {request.task_retry_count}"
+        raise ValueError(msg)
+
+    task_id = _parse_uuid(request.task_id, "task_id")
+    job_id = _parse_uuid(request.job_id, "job_id")
+
+    return WorkflowTask(
+        id=task_id,
+        identifier=TaskIdentifier.from_name_and_version(request.task_identifier_name, request.task_identifier_version),
+        state=TaskState.RUNNING,
+        input=request.task_input,
+        display=request.task_display or None,
+        job=_job_from_request(request, job_id),
+        parent_id=_parse_optional_uuid(request.task_parent_id, "task_parent_id"),
+        depends_on=_parse_depends_on(request.task_depends_on),
+        retry_count=request.task_retry_count,
+    )
+
+
+def _response_display(context: "WorkerExecutionContext | None", fallback_display: str) -> str:
+    if context is None:
+        return fallback_display
+
+    display = context.current_task.display
+    if display is None:
+        return fallback_display
+    return display
+
+
 @dataclass(slots=True)
 class _WorkerInstanceState:
     ready: bool = True
@@ -199,9 +270,11 @@ class WorkerExecutionContext(ExecutionContextBase):
         job_cache: JobCache,
         fallback_cluster_slug: str,
         cancellation_event: threading.Event,
+        current_task: WorkflowTask,
     ) -> None:
         self._runner_context = runner_context
         self.job_cache = job_cache
+        self.current_task = current_task
         self._fallback_cluster_slug = fallback_cluster_slug
         self._cancellation_event = cancellation_event
         self._sub_tasks: list[FutureTask] = []
@@ -606,16 +679,17 @@ class PythonWorkerShim:
 
             task_class = self._registered_task_class(task_identifier)
 
-            UUID(task_id)
-
             cache_scope = request.task_id
             if request.trace_context:
                 cache_scope = request.trace_context.hex()
+
+            current_task = _task_from_request(request)
             context = WorkerExecutionContext(
                 runner_context=self._runner_context,
                 job_cache=self._cache.group(cache_scope),
                 fallback_cluster_slug=self._default_cluster_slug,
                 cancellation_event=cancellation_event,
+                current_task=current_task,
             )
             context.raise_if_cancellation_requested()
 
@@ -630,7 +704,7 @@ class PythonWorkerShim:
             if context.is_cancellation_requested() or self._shutdown_event.is_set():
                 return ExecuteTaskResponse(
                     status=ExecuteTaskStatus.STATUS_CANCELED,
-                    display=request.task_display,
+                    display=_response_display(context, request.task_display),
                     error_message="Task was canceled",
                     was_workflow_error=False,
                     progress_updates=context.progress_updates(),
@@ -640,7 +714,7 @@ class PythonWorkerShim:
 
             return ExecuteTaskResponse(
                 status=ExecuteTaskStatus.STATUS_COMPUTED,
-                display=request.task_display,
+                display=_response_display(context, request.task_display),
                 progress_updates=context.progress_updates(),
                 submitted_subtasks=context.submitted_subtasks(),
                 execution_duration=_duration_from_seconds(monotonic() - start_time),
@@ -648,7 +722,7 @@ class PythonWorkerShim:
         except TaskExecutionCanceledError as error:
             return ExecuteTaskResponse(
                 status=ExecuteTaskStatus.STATUS_CANCELED,
-                display=request.task_display,
+                display=_response_display(context, request.task_display),
                 error_message=str(error),
                 was_workflow_error=False,
                 progress_updates=[] if context is None else context.progress_updates(),
@@ -658,7 +732,7 @@ class PythonWorkerShim:
         except Exception as error:  # noqa: BLE001
             return ExecuteTaskResponse(
                 status=ExecuteTaskStatus.STATUS_FAILED,
-                display=request.task_display,
+                display=_response_display(context, request.task_display),
                 error_message=repr(error),
                 was_workflow_error=True,
                 progress_updates=[] if context is None else context.progress_updates(),
