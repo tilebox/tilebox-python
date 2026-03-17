@@ -22,7 +22,8 @@ from tilebox.runner.worker.v1 import worker_pb2
 from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.data import RunnerContext, TaskIdentifier
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
-from tilebox.workflows.observability.execution_attributes import bind_execution_attributes
+from tilebox.workflows.observability.execution_attributes import bind_execution_attributes, set_span_execution_attributes
+from tilebox.workflows.observability.tracing import _get_tilebox_tracer_provider
 from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
 from tilebox.workflows.task import FutureTask, TaskMeta
 from tilebox.workflows.task import ProgressUpdate as TaskProgressUpdate
@@ -102,6 +103,15 @@ def _attach_trace_context(trace_context_bytes: bytes) -> Iterator[None]:
         yield
     finally:
         detach(token)
+
+
+@contextmanager
+def _start_task_span(task_name: str, job_id: str, task_id: str) -> Iterator[None]:
+    """Create a span for task execution under the currently propagated trace context."""
+    tracer = _get_tilebox_tracer_provider().get_tracer("tilebox.com/observability")
+    with tracer.start_as_current_span(f"task/{task_name}") as span:
+        set_span_execution_attributes(span, job_id=job_id, task_id=task_id)
+        yield
 
 
 class ProtocolVersionMismatchError(ValueError):
@@ -611,8 +621,9 @@ class PythonWorkerShim:
 
             task_instance = task_class._deserialize(request.task_input, self._runner_context)  # noqa: SLF001
             with (
-                bind_execution_attributes(job_id=request.job_id, task_id=request.task_id),
                 _attach_trace_context(request.trace_context),
+                _start_task_span(request.task_identifier_name, request.job_id, request.task_id),
+                bind_execution_attributes(job_id=request.job_id, task_id=request.task_id),
             ):
                 _execute_task_with_interceptors(task_instance, context, self._interceptors)
 

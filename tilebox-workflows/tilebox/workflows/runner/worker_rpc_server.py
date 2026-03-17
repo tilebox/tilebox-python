@@ -3,9 +3,14 @@ from __future__ import annotations
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from urllib.parse import urlparse
 
 import grpc
+
+from tilebox.workflows.observability.logging import _parse_duration, configure_otel_logging
+from tilebox.workflows.observability.metrics import configure_otel_metrics
+from tilebox.workflows.observability.tracing import configure_otel_tracing
 
 from tilebox.runner.worker.v1 import worker_pb2, worker_pb2_grpc
 from tilebox.workflows.runner.worker_rpc_v1 import (
@@ -94,8 +99,69 @@ class _WorkerExecutionServicer(worker_pb2_grpc.WorkerExecutionServiceServicer):
         return self._shim.cancel_task(request)
 
 
+def _auto_configure_observability() -> None:
+    """Auto-configure OTEL logging, tracing, and metrics if injected env vars are present."""
+    endpoint = os.getenv("TILEBOX_OTEL_ENDPOINT")
+    authorization = os.getenv("TILEBOX_OTEL_AUTHORIZATION")
+    if not endpoint or not authorization:
+        return
+
+    export_interval_str = os.getenv("TILEBOX_OTEL_EXPORT_INTERVAL")
+    export_interval: timedelta | None = None
+    if export_interval_str:
+        try:
+            export_interval = _parse_duration(export_interval_str)
+        except ValueError:
+            pass
+
+    headers = {"Authorization": authorization}
+
+    configure_otel_logging(endpoint=endpoint, headers=headers, export_interval=export_interval)
+    configure_otel_tracing(endpoint=endpoint, headers=headers, export_interval=export_interval)
+    configure_otel_metrics(endpoint=endpoint, headers=headers, export_interval=export_interval)
+
+
+def _flush_observability() -> None:
+    """Flush any pending OTEL data before the worker process exits."""
+    import logging as _logging
+
+    from opentelemetry import metrics as _metrics
+    from opentelemetry.sdk._logs import LoggerProvider as _LoggerProvider
+    from opentelemetry.sdk.metrics import MeterProvider as _MeterProvider
+
+    from tilebox.workflows.observability.logging import _root_logger
+    from tilebox.workflows.observability.tracing import _get_tilebox_tracer_provider
+
+    # Flush tracer provider
+    tracer_provider = _get_tilebox_tracer_provider()
+    if hasattr(tracer_provider, "force_flush"):
+        try:
+            tracer_provider.force_flush()
+        except Exception:  # noqa: BLE001
+            pass
+
+    # Flush logger providers attached to the root logger
+    root = _root_logger()
+    for handler in root.handlers:
+        if hasattr(handler, "_logger_provider"):
+            provider = handler._logger_provider  # noqa: SLF001
+            if isinstance(provider, _LoggerProvider) and hasattr(provider, "force_flush"):
+                try:
+                    provider.force_flush()
+                except Exception:  # noqa: BLE001
+                    pass
+
+    # Flush meter provider
+    meter_provider = _metrics.get_meter_provider()
+    if isinstance(meter_provider, _MeterProvider) and hasattr(meter_provider, "force_flush"):
+        try:
+            meter_provider.force_flush()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
-    server = grpc.server(ThreadPoolExecutor(max_workers=8))
+    server = grpc.server(ThreadPoolExecutor(max_workers=1))
     worker_pb2_grpc.add_WorkerControlServiceServicer_to_server(_WorkerControlServicer(shim), server)
     worker_pb2_grpc.add_WorkerExecutionServiceServicer_to_server(_WorkerExecutionServicer(shim), server)
 
@@ -111,6 +177,7 @@ def serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
                 time.sleep(0.1)
         finally:
             server.stop(grace=5).wait()
+            _flush_observability()
 
 
 def main() -> int:
@@ -118,6 +185,8 @@ def main() -> int:
     if not rpc_address:
         msg = "TILEBOX_WORKER_RPC_ADDRESS must be set"
         raise RuntimeError(msg)
+
+    _auto_configure_observability()
 
     shim = PythonWorkerShim(
         expected_environment_digest=os.getenv("TILEBOX_WORKER_ENVIRONMENT_DIGEST") or None,

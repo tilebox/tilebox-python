@@ -91,6 +91,25 @@ class WorkflowTracer:
             yield span
 
 
+def get_tracer(name: str | None = None) -> WorkflowTracer:
+    """
+    Get a tracer that uses the globally configured Tilebox tracer provider.
+
+    Tracers created using this function will use the tracer provider configured via
+    `configure_otel_tracing()`. Spans created by the returned tracer will automatically
+    be exported to the configured endpoint.
+
+    Args:
+        name: An optional name for the tracer. Currently unused but included for API
+            consistency with `get_logger()` and `get_meter()`.
+
+    Returns:
+        A WorkflowTracer instance backed by the global Tilebox tracer provider.
+    """
+    _ = name
+    return WorkflowTracer()
+
+
 def get_trace_parent_of_current_span() -> str:
     carrier: dict[str, str] = {}
     _PROPAGATOR.inject(carrier)
