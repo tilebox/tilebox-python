@@ -62,6 +62,32 @@ class CaptureExecutionAttributesTask(Task):
         CaptureExecutionAttributesTask.captured_trace_id = get_current_span().get_span_context().trace_id
 
 
+class CacheWriteTask(Task):
+    key: str
+    value: str
+
+    def execute(self, context: ExecutionContext) -> None:
+        cache = context.job_cache  # ty: ignore[unresolved-attribute]
+        cache[self.key] = self.value.encode("utf-8")
+
+
+class CacheReadTask(Task):
+    key: str
+    expected_value: str
+
+    def execute(self, context: ExecutionContext) -> None:
+        cache = context.job_cache  # ty: ignore[unresolved-attribute]
+        assert cache[self.key] == self.expected_value.encode("utf-8")
+
+
+class CacheMissingKeyTask(Task):
+    key: str
+
+    def execute(self, context: ExecutionContext) -> None:
+        cache = context.job_cache  # ty: ignore[unresolved-attribute]
+        _ = cache[self.key]
+
+
 def _started_worker(shim: PythonWorkerShim) -> str:
     response = shim.start_worker(
         StartWorkerRequest(
@@ -276,6 +302,77 @@ def test_execute_task_ignores_invalid_trace_context(caplog: pytest.LogCaptureFix
 
     assert response.status == ExecuteTaskStatus.STATUS_COMPUTED
     assert any("invalid traceparent" in record.message for record in caplog.records)
+
+
+def test_execute_task_scopes_cache_by_job_id_even_if_trace_context_changes() -> None:
+    shim = PythonWorkerShim(tasks=[CacheWriteTask, CacheReadTask])
+    worker_instance_id = _started_worker(shim)
+    job_id = str(uuid4())
+
+    writer_response = shim.execute_task(
+        ExecuteTaskRequest(
+            worker_instance_id=worker_instance_id,
+            task_id=str(uuid4()),
+            job_id=job_id,
+            task_identifier_name="CacheWriteTask",
+            task_identifier_version="v0.0",
+            task_input=CacheWriteTask(key="shared", value="value-1")._serialize(),
+            task_display="cache-write",
+            trace_context=b"00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01",
+        )
+    )
+    assert writer_response.status == ExecuteTaskStatus.STATUS_COMPUTED
+
+    reader_response = shim.execute_task(
+        ExecuteTaskRequest(
+            worker_instance_id=worker_instance_id,
+            task_id=str(uuid4()),
+            job_id=job_id,
+            task_identifier_name="CacheReadTask",
+            task_identifier_version="v0.0",
+            task_input=CacheReadTask(key="shared", expected_value="value-1")._serialize(),
+            task_display="cache-read",
+            trace_context=b"00-cccccccccccccccccccccccccccccccc-dddddddddddddddd-01",
+        )
+    )
+
+    assert reader_response.status == ExecuteTaskStatus.STATUS_COMPUTED
+
+
+def test_execute_task_isolates_cache_between_jobs_even_if_trace_context_matches() -> None:
+    shim = PythonWorkerShim(tasks=[CacheWriteTask, CacheMissingKeyTask])
+    worker_instance_id = _started_worker(shim)
+    shared_trace_context = b"00-11111111111111111111111111111111-2222222222222222-01"
+
+    writer_response = shim.execute_task(
+        ExecuteTaskRequest(
+            worker_instance_id=worker_instance_id,
+            task_id=str(uuid4()),
+            job_id=str(uuid4()),
+            task_identifier_name="CacheWriteTask",
+            task_identifier_version="v0.0",
+            task_input=CacheWriteTask(key="shared", value="value-1")._serialize(),
+            task_display="cache-write",
+            trace_context=shared_trace_context,
+        )
+    )
+    assert writer_response.status == ExecuteTaskStatus.STATUS_COMPUTED
+
+    missing_response = shim.execute_task(
+        ExecuteTaskRequest(
+            worker_instance_id=worker_instance_id,
+            task_id=str(uuid4()),
+            job_id=str(uuid4()),
+            task_identifier_name="CacheMissingKeyTask",
+            task_identifier_version="v0.0",
+            task_input=CacheMissingKeyTask(key="shared")._serialize(),
+            task_display="cache-missing",
+            trace_context=shared_trace_context,
+        )
+    )
+
+    assert missing_response.status == ExecuteTaskStatus.STATUS_FAILED
+    assert "KeyError" in missing_response.error_message
 
 
 def test_cancel_task_marks_running_execution_as_canceled() -> None:
