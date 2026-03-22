@@ -679,14 +679,12 @@ class PythonWorkerShim:
 
             task_class = self._registered_task_class(task_identifier)
 
-            cache_scope = request.task_id
-            if request.trace_context:
-                cache_scope = request.trace_context.hex()
-
             current_task = _task_from_request(request)
             context = WorkerExecutionContext(
                 runner_context=self._runner_context,
-                job_cache=self._cache.group(cache_scope),
+                # Scope cache by job id to keep cache sharing stable for all tasks of the same job.
+                # Trace context can be absent or reused across jobs, so it is not a reliable cache partition key.
+                job_cache=self._cache.group(request.job_id),
                 fallback_cluster_slug=self._default_cluster_slug,
                 cancellation_event=cancellation_event,
                 current_task=current_task,
