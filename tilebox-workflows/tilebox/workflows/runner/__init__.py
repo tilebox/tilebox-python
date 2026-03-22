@@ -5,7 +5,10 @@ import json
 import os
 import sys
 from collections.abc import Sequence
+from pathlib import Path
+from urllib.parse import urlparse
 
+from tilebox.workflows.cache import JobCache
 from tilebox.workflows.runner.worker_rpc_server import _run_worker_rpc
 from tilebox.workflows.runner.worker_rpc_v1 import PythonWorkerShim
 from tilebox.workflows.task import Task as TaskInstance
@@ -93,6 +96,72 @@ def _run_discovery() -> int:
     return 0
 
 
+def _google_storage_cache(bucket: str, prefix: str) -> JobCache:
+    from google.cloud.storage import Client as StorageClient  # noqa: PLC0415
+    from tilebox.workflows.cache import GoogleStorageCache  # noqa: PLC0415
+
+    storage_client = StorageClient(project=os.getenv("GOOGLE_CLOUD_PROJECT"))
+    return GoogleStorageCache(storage_client.bucket(bucket), prefix=prefix)
+
+
+def _parse_cache_uri(uri: str) -> tuple[str, str, str | None]:
+    parsed = urlparse(uri)
+    scheme = parsed.scheme.lower()
+    bucket_or_host = parsed.netloc.strip()
+    parsed_path = parsed.path.strip().strip("/")
+    return scheme, bucket_or_host, parsed_path or None
+
+
+def _resolve_worker_cache() -> JobCache:
+    configured_cache = os.getenv("TILEBOX_WORKER_CACHE", "").strip()
+    if configured_cache == "" or configured_cache.lower() == "inmemory":
+        from tilebox.workflows.cache import InMemoryCache  # noqa: PLC0415
+
+        return InMemoryCache()
+
+    cache_lower = configured_cache.lower()
+    if cache_lower == "none":
+        from tilebox.workflows.cache import NoCache  # noqa: PLC0415
+
+        return NoCache()
+    if cache_lower == "filesystem":
+        from tilebox.workflows.cache import LocalFileSystemCache  # noqa: PLC0415
+
+        return LocalFileSystemCache(Path("./cache"))
+
+    scheme, bucket_or_host, parsed_path = _parse_cache_uri(configured_cache)
+    if scheme == "file":
+        if bucket_or_host != "":
+            msg = (
+                "Invalid TILEBOX_WORKER_CACHE value for filesystem cache. "
+                "Use file:///absolute/path (for example file:///opt/tilebox/cache)."
+            )
+            raise ValueError(msg)
+
+        filesystem_root = f"/{parsed_path}" if parsed_path else "/"
+        from tilebox.workflows.cache import LocalFileSystemCache  # noqa: PLC0415
+
+        return LocalFileSystemCache(Path(filesystem_root))
+
+    if scheme in {"s3", "gs", "gcs"}:
+        if bucket_or_host == "":
+            msg = "TILEBOX_WORKER_CACHE must include a bucket for s3://, gs://, and gcs:// values."
+            raise ValueError(msg)
+
+        cache_prefix = parsed_path or "jobs"
+        if scheme in {"gs", "gcs"}:
+            return _google_storage_cache(bucket_or_host, cache_prefix)
+        from tilebox.workflows.cache import AmazonS3Cache  # noqa: PLC0415
+
+        return AmazonS3Cache(bucket_or_host, prefix=cache_prefix)
+
+    msg = (
+        "Invalid TILEBOX_WORKER_CACHE value. "
+        "Use one of: inmemory, none, filesystem, file:///absolute/path, s3://bucket[/prefix], gs://bucket[/prefix], gcs://bucket[/prefix]."
+    )
+    raise ValueError(msg)
+
+
 def _run_worker() -> int:
     rpc_address = os.getenv("TILEBOX_WORKER_RPC_ADDRESS")
     if not rpc_address:
@@ -106,6 +175,7 @@ def _run_worker() -> int:
 
     shim = PythonWorkerShim(
         tasks=tasks,
+        cache=_resolve_worker_cache(),
         expected_environment_digest=os.getenv("TILEBOX_WORKER_ENVIRONMENT_DIGEST") or None,
         expected_artifact_digest=os.getenv("TILEBOX_WORKER_ARTIFACT_DIGEST") or None,
         expected_entrypoint=os.getenv("TILEBOX_WORKER_ENTRYPOINT") or None,
