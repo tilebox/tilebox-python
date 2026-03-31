@@ -1,9 +1,12 @@
+import os
 from uuid import UUID
+
+from loguru import logger
 
 from _tilebox.grpc.channel import open_channel
 from _tilebox.grpc.error import NotFoundError, with_pythonic_errors
+from tilebox.datasets.client import _TILEBOX_API_KEY_ENV_VAR, _TILEBOX_API_URL
 from tilebox.datasets.client import Client as BaseClient
-from tilebox.datasets.client import token_from_env
 from tilebox.datasets.data.datasets import DatasetKind, FieldDict
 from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceStub
 from tilebox.datasets.datasets.v1.data_access_pb2_grpc import DataAccessServiceStub
@@ -15,15 +18,31 @@ from tilebox.datasets.sync.dataset import DatasetClient
 
 
 class Client:
-    def __init__(self, *, url: str = "https://api.tilebox.com", token: str | None = None) -> None:
+    def __init__(
+        self, *, url: str = _TILEBOX_API_URL, token: str | None = None, warn_if_unauthenticated: bool = True
+    ) -> None:
         """
         Create a Tilebox datasets client.
 
         Args:
             url: Tilebox API Url. Defaults to "https://api.tilebox.com".
             token: The API Key to authenticate with. If not set the `TILEBOX_API_KEY` environment variable will be used.
+                If no token is provided or found, anonymous open data access will be used.
+            warn_if_unauthenticated: Whether to warn if no API key is provided and the client is used with the default
+                Tilebox API URL. Defaults to True.
         """
-        channel = open_channel(url, token_from_env(url, token))
+        if token is None:
+            token = os.environ.get(_TILEBOX_API_KEY_ENV_VAR, None)
+
+        if token is None and url == _TILEBOX_API_URL and warn_if_unauthenticated:
+            logger.opt(colors=True).info(
+                "<yellow>"
+                "No Tilebox API key detected. Using <bold>anonymous open data access</bold> without authentication. "
+                "For higher throughput and rate limits, sign up for a free account at https://console.tilebox.com."
+                "</yellow>"
+            )
+
+        channel = open_channel(url, token)
         dataset_service_stub = with_pythonic_errors(DatasetServiceStub(channel))
         collection_service_stub = with_pythonic_errors(CollectionServiceStub(channel))
         data_access_service_stub = with_pythonic_errors(DataAccessServiceStub(channel))

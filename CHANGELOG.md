@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.50.1] - 2026-03-31
+
+### Added
+
+- `tilebox-datasets`: Allow anonymous access to open data datasets.
+
 ## [0.50.0] - 2026-03-06
 
 ### Added
@@ -342,6 +348,7 @@ the first client that does not cache data (since it's already on the local file 
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
 [Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.50.0...HEAD
+[0.50.1]: https://github.com/tilebox/tilebox-python/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/tilebox/tilebox-python/compare/v0.49.0...v0.50.0
 [0.49.0]: https://github.com/tilebox/tilebox-python/compare/v0.48.0...v0.49.0
 [0.48.0]: https://github.com/tilebox/tilebox-python/compare/v0.47.0...v0.48.0
