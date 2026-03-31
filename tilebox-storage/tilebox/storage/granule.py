@@ -51,7 +51,7 @@ _ASF_URL = "https://datapool.asf.alaska.edu"
 
 
 def _asf_download_urls(granule_name: str) -> StorageURLs:
-    platform = granule_name.split("_")[0]
+    platform = granule_name.split("_", maxsplit=1)[0]
     file_name = granule_name
     processing_level = "L0"
     quicklook = None
@@ -100,7 +100,7 @@ def _thumbnail_relative_to_eodata_location(thumbnail_url: str, location: str) ->
         "preview/thumbnail.png"
     """
 
-    url_path = thumbnail_url.split("?path=")[-1]
+    url_path = thumbnail_url.rsplit("?path=", maxsplit=1)[-1]
     url_path = url_path.removeprefix("/")
     location = location.removeprefix("/eodata/")
     return str(ObjectPath(url_path).relative_to(location))

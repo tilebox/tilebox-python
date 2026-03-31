@@ -62,8 +62,8 @@ class SpatialFilter:
     def from_message(cls, filter_message: data_access_pb2.SpatialFilter) -> "SpatialFilter":
         return SpatialFilter(
             geometry=from_wkb(filter_message.geometry.wkb),
-            mode=_filter_mode_int_to_enum.get(filter_message.mode, None),
-            coordinate_system=_coordinate_system_int_to_enum.get(filter_message.coordinate_system, None),
+            mode=_filter_mode_int_to_enum.get(filter_message.mode),
+            coordinate_system=_coordinate_system_int_to_enum.get(filter_message.coordinate_system),
         )
 
     def to_message(self) -> data_access_pb2.SpatialFilter:
@@ -91,10 +91,10 @@ class SpatialFilter:
         if isinstance(spatial_filter_like, dict):
             mode = spatial_filter_like.get("mode", None)
             if isinstance(mode, str):
-                mode = _filter_modes_from_string.get(mode.lower(), None)
+                mode = _filter_modes_from_string.get(mode.lower())
             coordinate_system = spatial_filter_like.get("coordinate_system", None)
             if isinstance(coordinate_system, str):
-                coordinate_system = _coordinate_systems_from_string.get(coordinate_system.lower(), None)
+                coordinate_system = _coordinate_systems_from_string.get(coordinate_system.lower())
             return SpatialFilter(
                 geometry=spatial_filter_like["geometry"], mode=mode, coordinate_system=coordinate_system
             )

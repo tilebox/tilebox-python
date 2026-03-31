@@ -209,7 +209,7 @@ class _HttpClient(Syncifiable):
         if progress is not None:
             progress.close()
 
-        output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)  # noqa: ASYNC240
         output_file = output_dir / url.rsplit("/", 1)[-1]
         shutil.move(download_file, output_file)
         return output_file
