@@ -8,6 +8,9 @@ from collections.abc import Sequence
 from pathlib import Path
 from urllib.parse import urlparse
 
+from obstore.auth.boto3 import Boto3CredentialProvider
+from obstore.store import GCSStore, S3Store
+
 from tilebox.workflows.cache import JobCache
 from tilebox.workflows.runner.worker_rpc_server import _run_worker_rpc
 from tilebox.workflows.runner.worker_rpc_v1 import PythonWorkerShim
@@ -96,14 +99,6 @@ def _run_discovery() -> int:
     return 0
 
 
-def _google_storage_cache(bucket: str, prefix: str) -> JobCache:
-    from google.cloud.storage import Client as StorageClient  # noqa: PLC0415
-    from tilebox.workflows.cache import GoogleStorageCache  # noqa: PLC0415
-
-    storage_client = StorageClient(project=os.getenv("GOOGLE_CLOUD_PROJECT"))
-    return GoogleStorageCache(storage_client.bucket(bucket), prefix=prefix)
-
-
 def _parse_cache_uri(uri: str) -> tuple[str, str, str | None]:
     parsed = urlparse(uri)
     scheme = parsed.scheme.lower()
@@ -143,21 +138,41 @@ def _resolve_worker_cache() -> JobCache:
 
         return LocalFileSystemCache(Path(filesystem_root))
 
-    if scheme in {"s3", "gs", "gcs"}:
-        if bucket_or_host == "":
-            msg = "TILEBOX_WORKER_CACHE must include a bucket for s3://, gs://, and gcs:// values."
+    # for buckets, use the obstore cache always
+    from tilebox.workflows.cache import ObstoreCache
+
+    if bucket_or_host == "":
+        msg = "TILEBOX_WORKER_CACHE must include a bucket name for object storage caches."
+        raise ValueError(msg)
+
+    cache_prefix = parsed_path or "jobs"
+    if scheme == "gs":
+        return ObstoreCache(GCSStore(bucket=bucket_or_host, prefix=cache_prefix))
+    if scheme == "s3":
+        return ObstoreCache(
+            S3Store(bucket=bucket_or_host, prefix=cache_prefix, credential_provider=Boto3CredentialProvider())
+        )
+    if scheme == "obs":
+        obs_endpoint = os.environ.get("OBS_ENDPOINT_URL", "https://obs.eu-nl.otc.t-systems.com")
+        obs_access_key = os.environ.get("OBS_ACCESS_KEY_ID")
+        obs_secret_key = os.environ.get("OBS_SECRET_ACCESS_KEY")
+        if not obs_access_key or not obs_secret_key:
+            msg = "OBS_ACCESS_KEY_ID and OBS_SECRET_ACCESS_KEY must be set for OBS caches."
             raise ValueError(msg)
 
-        cache_prefix = parsed_path or "jobs"
-        if scheme in {"gs", "gcs"}:
-            return _google_storage_cache(bucket_or_host, cache_prefix)
-        from tilebox.workflows.cache import AmazonS3Cache  # noqa: PLC0415
-
-        return AmazonS3Cache(bucket_or_host, prefix=cache_prefix)
+        return ObstoreCache(
+            S3Store(
+                bucket=bucket_or_host,
+                endpoint=obs_endpoint,
+                access_key_id=obs_access_key,
+                secret_access_key=obs_secret_key,
+                prefix=cache_prefix,
+            )
+        )
 
     msg = (
-        "Invalid TILEBOX_WORKER_CACHE value. "
-        "Use one of: inmemory, none, filesystem, file:///absolute/path, s3://bucket[/prefix], gs://bucket[/prefix], gcs://bucket[/prefix]."
+        f"Invalid TILEBOX_WORKER_CACHE value. Unsupported bucket scheme '{scheme}'. "
+        f" Expected one of: gs, s3, obs, inmemory, none, filesystem, file."
     )
     raise ValueError(msg)
 
