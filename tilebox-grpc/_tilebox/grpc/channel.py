@@ -61,13 +61,14 @@ class ChannelInfo:
     """The protocol to use for the channel."""
 
 
-def open_channel(url: str, auth_token: str | None = None) -> Channel:
+def open_channel(url: str, auth_token: str | None = None, rpc_method_prefix: str | None = None) -> Channel:
     """Open a sync gRPC channel to the given URL.
 
     Args:
         url: The URL to open a channel to. Depending on the URL, the channel will be a secure (SSL) or insecure channel.
         auth_token: Authentication token for the channel. If set, an interceptor channel will be created which adds
             the given token as metadata to each request.
+        rpc_method_prefix: Optional prefix to prepend to each outgoing RPC method path, e.g. `/public`.
 
     Returns:
         A sync gRPC channel.
@@ -76,6 +77,8 @@ def open_channel(url: str, auth_token: str | None = None) -> Channel:
     interceptors: list[UnaryUnaryClientInterceptor] = []
     if auth_token is not None:
         interceptors = [_AuthMetadataInterceptor(auth_token), *interceptors]  # add auth interceptor as the first one
+    if rpc_method_prefix is not None:
+        interceptors = [*interceptors, _RpcMethodPrefixInterceptor(rpc_method_prefix)]
 
     return intercept_channel(_open_channel(channel_info), *interceptors)
 
@@ -165,15 +168,63 @@ class _AuthMetadataInterceptor(UnaryUnaryClientInterceptor):
         return continuation(add_metadata(client_call_details, [self._auth]), request)
 
 
+class _RpcMethodPrefixInterceptor(UnaryUnaryClientInterceptor):
+    def __init__(self, prefix: str) -> None:
+        """A sync gRPC channel interceptor which prefixes every outgoing RPC method path."""
+        super().__init__()
+        self._prefix = prefix
+
+    def intercept_unary_unary(
+        self,
+        continuation: Callable[[ClientCallDetails, RequestType], ResponseType],
+        client_call_details: ClientCallDetails,
+        request: RequestType,
+    ) -> ResponseType:
+        return continuation(update_method(client_call_details, self._prefix), request)
+
+
 def add_metadata(
     client_call_details: ClientCallDetails, additional_metadata: list[tuple[str, str]]
 ) -> ClientCallDetails:
     metadata = [] if client_call_details.metadata is None else list(client_call_details.metadata)
     metadata.extend(additional_metadata)
+    return _replace_call_details(client_call_details, metadata=metadata)
+
+
+def update_method(client_call_details: ClientCallDetails, prefix: str) -> ClientCallDetails:
+    return _replace_call_details(client_call_details, method=prefix_rpc_method(client_call_details.method, prefix))
+
+
+def prefix_rpc_method(method: str | bytes, prefix: str) -> str | bytes:
+    normalized_prefix = prefix.strip("/")
+    if normalized_prefix == "":
+        return method
+
+    if isinstance(method, bytes):
+        prefix_bytes = f"/{normalized_prefix}".encode()
+        normalized_method = method if method.startswith(b"/") else b"/" + method
+        if normalized_method == prefix_bytes or normalized_method.startswith(prefix_bytes + b"/"):
+            return normalized_method
+        return prefix_bytes + normalized_method
+
+    prefix = f"/{normalized_prefix}"
+    normalized_method = method if method.startswith("/") else f"/{method}"
+    if normalized_method == prefix or normalized_method.startswith(f"{prefix}/"):
+        return normalized_method
+
+    return f"{prefix}{normalized_method}"
+
+
+def _replace_call_details(
+    client_call_details: ClientCallDetails,
+    *,
+    method: str | bytes | None = None,
+    metadata: list[tuple[str, str]] | None = None,
+) -> ClientCallDetails:
     return ClientCallDetails(
-        client_call_details.method,
+        client_call_details.method if method is None else method,
         client_call_details.timeout,
-        metadata,
+        client_call_details.metadata if metadata is None else metadata,
         client_call_details.credentials,
         client_call_details.wait_for_ready,
     )

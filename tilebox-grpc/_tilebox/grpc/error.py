@@ -5,12 +5,17 @@ This module contains error classes for translating various gRPC server response 
 from collections.abc import Callable, Coroutine
 from typing import Any, Protocol, TypeVar, cast
 
+from _tilebox.grpc.public import _PUBLIC_RPC_METHOD_PREFIX
 from grpc import RpcError, StatusCode
 from grpc.aio import AioRpcError
 
 
 class NetworkError(IOError):
     """NetworkError indicates that a network error occurred while communicating with the server"""
+
+
+class TooManyRequestsError(NetworkError):
+    """TooManyRequestsError indicates that too many requests originated from the same IP"""
 
 
 class NetworkTimeoutError(NetworkError, TimeoutError):
@@ -37,6 +42,10 @@ class InternalServerError(KeyError):
     """InternalServerError indicates that an unexpected error happened on the server side"""
 
 
+class InvalidRequestError(IOError):
+    """"""
+
+
 Stub = TypeVar("Stub")
 
 
@@ -61,14 +70,22 @@ def with_pythonic_errors(stub: Stub, async_funcs: bool = False) -> Stub:
     return stub
 
 
+class RPCState(Protocol):
+    @property
+    def method(self) -> str: ...
+
+
 class AnyRpcError(Protocol):
     """Protocol for gRPC errors that works for both sync and async gRPC."""
 
     def code(self) -> StatusCode: ...
     def details(self) -> str: ...
 
+    @property
+    def args(self) -> tuple[RPCState, ...]: ...
 
-def translate_rpc_error(err: AnyRpcError) -> BaseException:  # noqa: PLR0911, C901
+
+def translate_rpc_error(err: AnyRpcError) -> BaseException:  # noqa: PLR0911, PLR0912, C901
     # translate specific error codes to more pythonic errors
 
     # https://grpc.io/docs/guides/error/
@@ -87,7 +104,19 @@ def translate_rpc_error(err: AnyRpcError) -> BaseException:  # noqa: PLR0911, C9
             # Deadline expired before server returned status
             return NetworkTimeoutError(f"Request timed out: {err.details()}")
         case StatusCode.UNAVAILABLE:
+            is_too_many_requests = "status: 429" in err.details()
+            is_public, method_name = _is_public_method(err)
+            if is_too_many_requests:
+                if is_public:
+                    return TooManyRequestsError(
+                        "Too many requests, try again later. To increase your request quota create a free account at "
+                        "https://console.tilebox.com and authenticate with an API Key."
+                    )
+                return TooManyRequestsError("Too many requests, try again later.")
+
             # Server shutting down, or some data transmitted and then the connection broke
+            if method_name != "":
+                return NetworkError(f"network error when requesting {method_name}: {err.details()}")
             return NetworkError(err.details())
         case StatusCode.ABORTED:
             return NetworkError(f"Request aborted: {err.details()}")
@@ -100,11 +129,47 @@ def translate_rpc_error(err: AnyRpcError) -> BaseException:  # noqa: PLR0911, C9
             # Client application cancelled the request
             return KeyboardInterrupt(f"Request canceled by user: {err.details()}")
         case StatusCode.UNIMPLEMENTED:
-            # Method not found on server
-            return NotImplementedError(err.details())
+            # Method not found on server, either due to a mismatch in Client / server version
+            # or because no token was provided and the given method is not part of the /public/ prefix
+            # so let's check which one it is
+            is_public, method_name = _is_public_method(err)
+            if is_public:
+                action = method_name.rsplit("/", maxsplit=1)[-1]
+                return AuthenticationError(
+                    f"{action} is only available for authenticated users. Please provide a valid API Key "
+                    f"token in your Client. Create a free account at https://console.tilebox.com"
+                )
+
+            if method_name != "":
+                return InvalidRequestError(
+                    f"Requested URL {method_name} not found. Update your Tilebox Python Clients to the latest version."
+                )
+
+            # if we don't know anything else about the error, just forward the details directly
+            return InvalidRequestError(err.details())
 
     # for all other errors we raise a generic internal server error
     return InternalServerError(f"Oops, something went wrong: {err.details()}")
+
+
+def _is_public_method(err: AnyRpcError) -> tuple[bool, str]:
+    """
+    _is_public_method checks whether the error was the result of calling an RPC with the /public prefix
+
+    Args:
+        err: A received RPC error
+
+    Returns:
+        tuple[bool, str]: Whether the error originated from an RPC to a public endpoint, and if available
+            the method path that was called.
+    """
+    if len(err.args) >= 1:
+        method = err.args[0].method
+        if method.startswith(_PUBLIC_RPC_METHOD_PREFIX):
+            return True, method
+        return False, method
+
+    return False, ""
 
 
 def _wrap_rpc(rpc: Callable[[Any], Any]) -> Callable[[Any], Any]:

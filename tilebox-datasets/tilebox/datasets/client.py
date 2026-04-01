@@ -6,12 +6,15 @@ from uuid import UUID
 from loguru import logger
 from promise import Promise
 
-from _tilebox.grpc.channel import parse_channel_info
 from tilebox.datasets.data.datasets import Dataset, DatasetGroup, DatasetKind, FieldDict, ListDatasetsResponse
 from tilebox.datasets.group import Group
 from tilebox.datasets.message_pool import register_once
 from tilebox.datasets.service import TileboxDatasetService
 from tilebox.datasets.uuid import as_uuid
+
+_TILEBOX_API_URL = "https://api.tilebox.com"
+_TILEBOX_DEV_API_URL = "https://api.tilebox.dev"
+_TILEBOX_API_KEY_ENV_VAR = "TILEBOX_API_KEY"
 
 
 class TimeseriesDatasetLike(Protocol):
@@ -79,19 +82,6 @@ class Client:
             .then(_ensure_registered)
             .then(lambda dataset: dataset_type(self._service, dataset))
         )
-
-
-def token_from_env(url: str, token: str | None) -> str | None:
-    if token is None:  # if no token is provided, try to get it from the environment
-        token = os.environ.get("TILEBOX_API_KEY", None)
-
-    if token is None and parse_channel_info(url).address == "api.tilebox.com":
-        raise ValueError(
-            "No API key provided and no TILEBOX_API_KEY environment variable set. Please specify an API key using "
-            "the token argument. For example: `Client(token='YOUR_TILEBOX_API_KEY')`"
-        )
-
-    return token
 
 
 def _log_server_message(response: ListDatasetsResponse) -> ListDatasetsResponse:

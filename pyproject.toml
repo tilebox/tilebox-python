@@ -26,7 +26,8 @@ dev = [
     "ruff>=0.14.10",
     "types-protobuf>=6.30",
     "junitparser>=3.2.0",
-    "ty>=0.0.14",
+    # https://github.com/astral-sh/ty/issues/2759
+    "ty==0.0.14",
     "prek>=0.2.27",
 ]
 
@@ -116,5 +117,5 @@ exclude = [
     # auto-generated code
     "**/*_pb2.py",
     "**/*_pb2.pyi",
-    "**/*pb2_grpc.py"
+    "**/*pb2_grpc.py",
 ]

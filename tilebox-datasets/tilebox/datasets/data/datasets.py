@@ -136,7 +136,7 @@ class DatasetType:
     @classmethod
     def from_message(cls, dataset_type: dataset_type_pb2.DatasetType) -> "DatasetType":
         return cls(
-            kind=_dataset_kind_int_to_enum.get(dataset_type.kind, None),
+            kind=_dataset_kind_int_to_enum.get(dataset_type.kind),
             fields=[Field.from_message(f) for f in dataset_type.fields],
         )
 

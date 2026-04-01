@@ -49,7 +49,7 @@ def datetime_scalar_for_datetime(draw: DrawFn, dt: datetime) -> DatetimeScalar:
     """
     understood_formats = [
         lambda dt: dt,  # converting a datetime to a datetime scalar should be a no-op
-        lambda dt: pd.to_datetime(dt),  # pandas Timestamp objects are also supported
+        lambda dt: pd.to_datetime(dt),  # noqa: PLW0108 # pandas Timestamp objects are also supported
         lambda dt: pd.to_datetime(dt).to_datetime64(),  # and so are numpy datetime64 objects
         lambda dt: datetime_to_us(dt) * 10**3,  # timestamp in nanoseconds
         # as well as strings in various formats

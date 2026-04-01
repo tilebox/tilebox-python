@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import xarray as xr
@@ -10,8 +10,24 @@ from shapely import Polygon
 from _tilebox.grpc.error import NotFoundError
 from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
 from tilebox.datasets import Client, DatasetClient
+from tilebox.datasets.client import _TILEBOX_API_URL, _TILEBOX_DEV_API_URL
 from tilebox.datasets.data.datapoint import QueryResultPage
 from tilebox.datasets.query.time_interval import us_to_datetime
+
+
+@pytest.mark.parametrize("url", [_TILEBOX_API_URL, _TILEBOX_DEV_API_URL, f"{_TILEBOX_API_URL}/"])
+@patch.dict(os.environ, {}, clear=True)
+@patch("tilebox.datasets.sync.client.open_channel")
+def test_tilebox_client_init_uses_public_rpc_prefix_for_tilebox_urls(open_channel_mock: MagicMock, url: str) -> None:
+    Client(url=url, token=None)
+    open_channel_mock.assert_called_once_with(url.removesuffix("/"), None, rpc_method_prefix="/public")
+
+
+@patch.dict(os.environ, {}, clear=True)
+@patch("tilebox.datasets.sync.client.open_channel")
+def test_tilebox_client_init_skips_public_rpc_prefix_for_custom_urls(open_channel_mock: MagicMock) -> None:
+    Client(url="some-url", token=None)
+    open_channel_mock.assert_called_once_with("some-url", None, rpc_method_prefix=None)
 
 
 def replay_client(replay_file: str, assert_request_matches: bool = True) -> Client:

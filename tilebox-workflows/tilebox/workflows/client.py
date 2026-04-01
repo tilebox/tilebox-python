@@ -104,7 +104,7 @@ class Client:
         runner_context_type = context or RunnerContext
         runner_context = runner_context_type(
             tracer._tracer,  # noqa: SLF001
-            datasets_client=DatasetsClient(**self._auth),
+            datasets_client=DatasetsClient(**self._auth),  # ty: ignore[invalid-argument-type]
             storage_locations=storage_locations,
         )
 
