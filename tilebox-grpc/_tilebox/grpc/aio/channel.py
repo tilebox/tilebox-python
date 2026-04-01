@@ -1,7 +1,14 @@
 from collections.abc import Callable, Sequence
 from typing import TypeVar
 
-from _tilebox.grpc.channel import CHANNEL_OPTIONS, ChannelInfo, ChannelProtocol, add_metadata, parse_channel_info
+from _tilebox.grpc.channel import (
+    CHANNEL_OPTIONS,
+    ChannelInfo,
+    ChannelProtocol,
+    add_metadata,
+    parse_channel_info,
+    update_method,
+)
 from grpc import Compression, ssl_channel_credentials
 from grpc.aio import (
     Channel,
@@ -14,13 +21,14 @@ from grpc.aio import (
 )
 
 
-def open_channel(url: str, auth_token: str | None = None) -> Channel:
+def open_channel(url: str, auth_token: str | None = None, rpc_method_prefix: str | None = None) -> Channel:
     """Open an async gRPC channel to the given URL.
 
     Args:
         url: The URL to open a channel to. Depending on the URL, the channel will be a secure (SSL) or insecure channel.
         auth_token: Authentication token for the channel. If set, an interceptor channel will be created which adds
             the given token as metadata to each request.
+        rpc_method_prefix: Optional prefix to prepend to each outgoing RPC method path, e.g. `/public`.
 
     Returns:
         A gRPC channel.
@@ -29,6 +37,8 @@ def open_channel(url: str, auth_token: str | None = None) -> Channel:
     interceptors: list[ClientInterceptor] = []
     if auth_token is not None:
         interceptors = [_AuthMetadataInterceptor(auth_token), *interceptors]  # add auth interceptor as the first one
+    if rpc_method_prefix is not None:
+        interceptors = [*interceptors, _RpcMethodPrefixInterceptor(rpc_method_prefix)]
 
     return _open_channel(channel_info, interceptors)
 
@@ -78,3 +88,18 @@ class _AuthMetadataInterceptor(UnaryUnaryClientInterceptor):
         request: RequestType,
     ) -> UnaryUnaryCall:
         return await continuation(add_metadata(client_call_details, [self._auth]), request)
+
+
+class _RpcMethodPrefixInterceptor(UnaryUnaryClientInterceptor):
+    def __init__(self, prefix: str) -> None:
+        """A gRPC channel interceptor which prefixes every outgoing RPC method path."""
+        super().__init__()
+        self._prefix = prefix
+
+    async def intercept_unary_unary(
+        self,
+        continuation: Callable[[ClientCallDetails, RequestType], UnaryUnaryCall],
+        client_call_details: ClientCallDetails,
+        request: RequestType,
+    ) -> UnaryUnaryCall:
+        return await continuation(update_method(client_call_details, self._prefix), request)

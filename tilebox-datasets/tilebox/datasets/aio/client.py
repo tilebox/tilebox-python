@@ -6,8 +6,9 @@ from loguru import logger
 from _tilebox.grpc.aio.channel import open_channel
 from _tilebox.grpc.aio.error import with_pythonic_errors
 from _tilebox.grpc.error import NotFoundError
+from _tilebox.grpc.public import _PUBLIC_RPC_METHOD_PREFIX
 from tilebox.datasets.aio.dataset import DatasetClient
-from tilebox.datasets.client import _TILEBOX_API_KEY_ENV_VAR, _TILEBOX_API_URL
+from tilebox.datasets.client import _TILEBOX_API_KEY_ENV_VAR, _TILEBOX_API_URL, _TILEBOX_DEV_API_URL
 from tilebox.datasets.client import Client as BaseClient
 from tilebox.datasets.data.datasets import DatasetKind, FieldDict
 from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceStub
@@ -32,10 +33,13 @@ class Client:
             warn_if_unauthenticated: Whether to warn if no API key is provided and the client is used with the default
                 Tilebox API URL. Defaults to True.
         """
+        url = url.removesuffix("/")
+
         if token is None:
             token = os.environ.get(_TILEBOX_API_KEY_ENV_VAR, None)
 
-        if token is None and url == _TILEBOX_API_URL and warn_if_unauthenticated:
+        is_tilebox_deployment = url in (_TILEBOX_API_URL, _TILEBOX_DEV_API_URL)
+        if token is None and is_tilebox_deployment and warn_if_unauthenticated:
             logger.opt(colors=True).info(
                 "<yellow>"
                 "No Tilebox API key detected. Using <bold>anonymous open data access</bold> without authentication. "
@@ -43,7 +47,11 @@ class Client:
                 "</yellow>"
             )
 
-        channel = open_channel(url, token)
+        channel = open_channel(
+            url,
+            token,
+            rpc_method_prefix=_PUBLIC_RPC_METHOD_PREFIX if (is_tilebox_deployment and token is None) else None,
+        )
         dataset_service_stub = with_pythonic_errors(DatasetServiceStub(channel))
         collection_service_stub = with_pythonic_errors(CollectionServiceStub(channel))
         data_access_service_stub = with_pythonic_errors(DataAccessServiceStub(channel))

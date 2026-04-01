@@ -13,6 +13,7 @@ from tilebox.datasets.service import TileboxDatasetService
 from tilebox.datasets.uuid import as_uuid
 
 _TILEBOX_API_URL = "https://api.tilebox.com"
+_TILEBOX_DEV_API_URL = "https://api.tilebox.dev"
 _TILEBOX_API_KEY_ENV_VAR = "TILEBOX_API_KEY"
 
 

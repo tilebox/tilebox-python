@@ -5,6 +5,7 @@ This module contains error classes for translating various gRPC server response 
 from collections.abc import Callable, Coroutine
 from typing import Any, Protocol, TypeVar, cast
 
+from _tilebox.grpc.public import _PUBLIC_RPC_METHOD_PREFIX
 from grpc import RpcError, StatusCode
 from grpc.aio import AioRpcError
 
@@ -37,6 +38,10 @@ class InternalServerError(KeyError):
     """InternalServerError indicates that an unexpected error happened on the server side"""
 
 
+class InvalidRequestError(IOError):
+    """"""
+
+
 Stub = TypeVar("Stub")
 
 
@@ -61,14 +66,22 @@ def with_pythonic_errors(stub: Stub, async_funcs: bool = False) -> Stub:
     return stub
 
 
+class RPCState(Protocol):
+    @property
+    def method(self) -> str: ...
+
+
 class AnyRpcError(Protocol):
     """Protocol for gRPC errors that works for both sync and async gRPC."""
 
     def code(self) -> StatusCode: ...
     def details(self) -> str: ...
 
+    @property
+    def args(self) -> tuple[RPCState, ...]: ...
 
-def translate_rpc_error(err: AnyRpcError) -> BaseException:  # noqa: PLR0911, C901
+
+def translate_rpc_error(err: AnyRpcError) -> BaseException:  # noqa: PLR0911, PLR0912, C901
     # translate specific error codes to more pythonic errors
 
     # https://grpc.io/docs/guides/error/
@@ -100,8 +113,24 @@ def translate_rpc_error(err: AnyRpcError) -> BaseException:  # noqa: PLR0911, C9
             # Client application cancelled the request
             return KeyboardInterrupt(f"Request canceled by user: {err.details()}")
         case StatusCode.UNIMPLEMENTED:
-            # Method not found on server
-            return NotImplementedError(err.details())
+            # Method not found on server, either due to a mismatch in Client / server version
+            # or because no token was provided and the given method is not part of the /public/ prefix
+            # so let's check which one it is
+
+            if len(err.args) >= 1:
+                method = err.args[0].method
+                if method.startswith(_PUBLIC_RPC_METHOD_PREFIX):
+                    action = method.rsplit("/", maxsplit=1)[-1]
+                    return AuthenticationError(
+                        f"{action} is only available for authenticated users. Please provide a valid API Key "
+                        f"token in your Client. Create a free account at https://console.tilebox.com"
+                    )
+                return InvalidRequestError(
+                    f"Requested URL {method} not found. Update your Tilebox Python Clients to the latest version."
+                )
+
+            # if we don't know anything else about the error, just forward the details directly
+            return InvalidRequestError(err.details())
 
     # for all other errors we raise a generic internal server error
     return InternalServerError(f"Oops, something went wrong: {err.details()}")

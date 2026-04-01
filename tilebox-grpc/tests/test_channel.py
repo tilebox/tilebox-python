@@ -5,6 +5,8 @@ import pytest
 from _tilebox.grpc.channel import (
     CHANNEL_OPTIONS,
     ChannelProtocol,
+    ClientCallDetails,
+    _RpcMethodPrefixInterceptor,
     open_channel,
     parse_channel_info,
 )
@@ -34,6 +36,31 @@ def test_open_authenticated_channel(open_func: MagicMock, intercept_func: MagicM
     intercept_func.assert_called_once()
 
     assert intercept_func.call_args[0][1]._auth == ("authorization", "Bearer very-secret")
+
+
+@patch("_tilebox.grpc.channel.intercept_channel")
+@patch("_tilebox.grpc.channel.secure_channel")
+def test_open_channel_with_rpc_method_prefix(open_func: MagicMock, intercept_func: MagicMock) -> None:
+    open_channel("api.tilebox.com", rpc_method_prefix="/public")
+    open_func.assert_called_once()
+    intercept_func.assert_called_once()
+
+    assert intercept_func.call_args[0][1]._prefix == "/public"
+
+
+def test_rpc_method_prefix_interceptor() -> None:
+    interceptor = _RpcMethodPrefixInterceptor("/public")
+    continuation = MagicMock()
+
+    interceptor.intercept_unary_unary(
+        continuation,
+        ClientCallDetails("/datasets.v1.DatasetService/ListDatasets", 10, None, None, True),
+        MagicMock(),
+    )
+
+    continuation.assert_called_once()
+    updated_call_details = continuation.call_args[0][0]
+    assert updated_call_details.method == "/public/datasets.v1.DatasetService/ListDatasets"
 
 
 @pytest.mark.parametrize(
