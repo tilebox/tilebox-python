@@ -1,27 +1,36 @@
 import re
+from typing import cast
 
 import pytest
-from httpx import AsyncClient, BasicAuth
-from pytest_httpx import HTTPXMock
+import responses
+from niquests import AsyncSession
+from niquests.cookies import RequestsCookieJar
 
 from tilebox.storage.providers import _asf_login
 
+pytestmark = pytest.mark.usefixtures("responses_mock")
+
+ASF_LOGIN_URL = "https://urs.earthdata.nasa.gov/oauth/authorize"
+
 
 @pytest.mark.asyncio
-async def test_asf_login(httpx_mock: HTTPXMock) -> None:
-    httpx_mock.add_response(headers={"Set-Cookie": "logged_in=yes"})
+async def test_asf_login() -> None:
+    responses.add(responses.GET, ASF_LOGIN_URL, headers={"Set-Cookie": "logged_in=yes"})
 
     client = await _asf_login(("username", "password"))
-    assert isinstance(client, AsyncClient)
-    assert "asf_search" in client.headers["Client-Id"]
-    assert isinstance(client.auth, BasicAuth)
-    assert client.cookies["logged_in"] == "yes"
+    cookies = cast(RequestsCookieJar, client.cookies)
 
-    await client.aclose()
+    assert isinstance(client, AsyncSession)
+    assert "asf_search" in str(client.headers["Client-Id"])
+    assert client.auth == ("username", "password")
+    assert cookies["logged_in"] == "yes"
+
+    await client.close()
 
 
 @pytest.mark.asyncio
-async def test_asf_login_invalid_auth(httpx_mock: HTTPXMock) -> None:
-    httpx_mock.add_response(401)
+async def test_asf_login_invalid_auth() -> None:
+    responses.add(responses.GET, ASF_LOGIN_URL, status=401)
+
     with pytest.raises(ValueError, match=re.escape("Invalid username or password.")):
         await _asf_login(("username", "password"))

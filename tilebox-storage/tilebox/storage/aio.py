@@ -11,10 +11,10 @@ from pathlib import PurePosixPath as ObjectPath
 from typing import Any, TypeAlias
 
 import anyio
+import niquests
 import obstore as obs
 import xarray as xr
 from aiofile import async_open
-from httpx import AsyncClient
 from obstore.auth.boto3 import Boto3CredentialProvider
 from obstore.store import GCSStore, LocalStore, S3Store
 from tqdm.auto import tqdm
@@ -51,12 +51,12 @@ ObjectStore: TypeAlias = S3Store | LocalStore | GCSStore
 class _HttpClient(Syncifiable):
     def __init__(self, auth: dict[str, tuple[str, str]]) -> None:
         """A tilebox storage client that directly downloads files from the storage provider to a given directory."""
-        self._clients: dict[str, AsyncClient] = {}
+        self._clients: dict[str, niquests.AsyncSession] = {}
         self._auth = auth
 
     def __del__(self) -> None:
         for client in self._clients.values():
-            asyncio.run(client.aclose())
+            asyncio.run(client.close())
 
     async def download_quicklook(
         self, datapoint: xr.Dataset | ASFStorageGranule, output_dir: Path | None = None
@@ -113,9 +113,10 @@ class _HttpClient(Syncifiable):
             raise ValueError("No quicklook available for this granule.")
 
         client = await self._client("ASF")
-        response = await client.get(granule.urls.quicklook, follow_redirects=True)
+        response = await client.get(granule.urls.quicklook, allow_redirects=True)
         response.raise_for_status()
-        return response.content
+        content = response.content
+        return content if content is not None else b""
 
     async def download(
         self,
@@ -183,10 +184,13 @@ class _HttpClient(Syncifiable):
 
         async def downloader() -> AsyncIterator[bytes]:
             client = await self._client("ASF")
-            async with client.stream("GET", url, follow_redirects=True) as response:
+            response = await client.get(url, allow_redirects=True, stream=True)
+            try:
                 response.raise_for_status()
-                async for chunk in response.aiter_bytes():
+                async for chunk in await response.iter_content():
                     yield chunk
+            finally:
+                await response.close()
 
         md5 = hashlib.md5() if verify else None  # noqa: S324
         progress = None
@@ -214,7 +218,7 @@ class _HttpClient(Syncifiable):
         shutil.move(download_file, output_file)
         return output_file
 
-    async def _client(self, storage_provider: str) -> AsyncClient:
+    async def _client(self, storage_provider: str) -> niquests.AsyncSession:
         """Get an authenticated client for the given storage provider.
 
         Args:

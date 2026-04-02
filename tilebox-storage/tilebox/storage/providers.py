@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from platform import python_version
 
-from httpx import AsyncClient
+from niquests import AsyncSession
 
 
 @dataclass
@@ -10,7 +10,7 @@ class StorageURLs:
     quicklook: str | None
 
 
-async def login(storage_provider: str, auth: tuple[str, str]) -> AsyncClient:
+async def login(storage_provider: str, auth: tuple[str, str]) -> AsyncSession:
     match storage_provider:
         case "ASF":
             return await _asf_login(auth)
@@ -22,9 +22,9 @@ async def login(storage_provider: str, auth: tuple[str, str]) -> AsyncClient:
 _ASF_URL = "https://datapool.asf.alaska.edu"
 
 
-async def _asf_login(auth: tuple[str, str]) -> AsyncClient:
+async def _asf_login(auth: tuple[str, str]) -> AsyncSession:
     """
-    Create a http session for downloading data from the ASF server.
+    Create an HTTP session for downloading data from the ASF server.
 
     Args:
         auth: Tuple of username and password for the ASF server
@@ -33,7 +33,7 @@ async def _asf_login(auth: tuple[str, str]) -> AsyncClient:
         ValueError: If the username/password or token authentication is invalid.
 
     Returns:
-        AsyncClient: The authenticated Async Client to use for downloading data.
+        AsyncSession: The authenticated async session to use for downloading data.
     """
     login_url = "https://urs.earthdata.nasa.gov/oauth/authorize"
     user_agent = "; ".join(
@@ -50,18 +50,17 @@ async def _asf_login(auth: tuple[str, str]) -> AsyncClient:
         "Client-Id": client_id,
     }
 
-    client = AsyncClient(auth=auth, headers=headers)
+    client = AsyncSession(auth=auth, headers=headers)
     response = await client.get(
         login_url,
-        follow_redirects=True,
+        allow_redirects=True,
         params={
             "client_id": "BO_n7nTIlMljdvU6kRRB3g",
             "response_type": "code",
             "redirect_uri": "https://auth.asf.alaska.edu/login",
         },
     )
-    await response.aclose()
     if response.status_code == 401:
-        await client.aclose()
+        await client.close()
         raise ValueError("Invalid username or password.")
     return client
