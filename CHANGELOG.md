@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-04-07
+
 ### Changed
 
 - `tilebox-storage`: Replaced `httpx` with `niquests` for ASF HTTP downloads.
+
+### Fixed
+
+- `tilebox-storage`: Fixed an issue with the Copernicus storage client that prevented downloading granules pointing to the Copernicus OData thumbnail endpoint. (All granules ingested from March 2026 onwards).
 
 ## [0.50.1] - 2026-04-01
 
@@ -351,7 +357,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.50.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.51.0...HEAD
+[0.51.0]: https://github.com/tilebox/tilebox-python/compare/v0.50.1...v0.51.0
 [0.50.1]: https://github.com/tilebox/tilebox-python/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/tilebox/tilebox-python/compare/v0.49.0...v0.50.0
 [0.49.0]: https://github.com/tilebox/tilebox-python/compare/v0.48.0...v0.49.0

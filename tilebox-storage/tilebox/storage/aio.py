@@ -27,6 +27,7 @@ from tilebox.storage.granule import (
     LocationStorageGranule,
     UmbraStorageGranule,
     USGSLandsatStorageGranule,
+    _is_copernicus_odata_url,
 )
 from tilebox.storage.providers import login
 
@@ -749,6 +750,22 @@ class CopernicusStorageClient(CachingStorageClient):
             if self._cache is not None
             else Path.cwd() / self._STORAGE_PROVIDER
         )
+
+        if _is_copernicus_odata_url(granule.thumbnail):
+            # the thumbnail is not stored in the S3 bucket, but is accessible via a public URL. So download it
+            # directly.
+            response = await niquests.aget(
+                granule.thumbnail, allow_redirects=True
+            )  # to check if the thumbnail is accessible, raises if not
+            response.raise_for_status()
+            content = response.content
+            if content is None:
+                raise ValueError("Received empty content when downloading quicklook.")
+
+            download_location = (output_folder / granule.granule_name).with_suffix(".jpg")
+            download_location.parent.mkdir(parents=True, exist_ok=True)
+            download_location.write_bytes(content)
+            return download_location
 
         await download_objects(self._store, prefix, [granule.thumbnail], output_folder, show_progress=False)
         return output_folder / granule.thumbnail

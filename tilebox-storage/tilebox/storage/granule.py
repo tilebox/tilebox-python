@@ -99,11 +99,34 @@ def _thumbnail_relative_to_eodata_location(thumbnail_url: str, location: str) ->
         >>> )
         "preview/thumbnail.png"
     """
-
     url_path = thumbnail_url.rsplit("?path=", maxsplit=1)[-1]
     url_path = url_path.removeprefix("/")
     location = location.removeprefix("/eodata/")
-    return str(ObjectPath(url_path).relative_to(location))
+    try:
+        return str(ObjectPath(url_path).relative_to(location))
+    except ValueError:
+        # in case the path couldn't be properly parsed, relative_to will fail. Fall back to the default value then
+        return thumbnail_url
+
+
+def _is_copernicus_odata_url(url: str) -> bool:
+    """
+    Checks whether a thumbnail path is an URL pointing to the Copernicus OData API
+
+    Those URLs don't encode the actual filename/location, so we cannot easily convert them to the S3 Paths.
+    Therefore those thumbnails we'll always download via HTTP
+
+    Example:
+        >>> _is_copernicus_odata_url("https://catalogue.dataspace.copernicus.eu/odata/v1/Assets(822e7592-0a66-41b1-b87d-27eec64c377b)/$value")
+        True
+
+    Args:
+        url: The granule thumbnail URL to check
+
+    Returns:
+        bool: True if the URL is a Copernicus OData API URL, False otherwise
+    """
+    return url.startswith("https://catalogue.dataspace.copernicus.eu/odata/v1/Assets") and url.endswith("/$value")
 
 
 @dataclass
@@ -133,11 +156,9 @@ class CopernicusStorageGranule:
         if "thumbnail" in dataset:
             thumbnail_path = dataset.thumbnail.item().strip()
 
-        thumbnail = (
-            _thumbnail_relative_to_eodata_location(thumbnail_path, location)
-            if isinstance(thumbnail_path, str) and len(thumbnail_path) > 0
-            else None
-        )
+        thumbnail = thumbnail_path if isinstance(thumbnail_path, str) and len(thumbnail_path) > 0 else None
+        if thumbnail is not None and not _is_copernicus_odata_url(thumbnail):
+            thumbnail = _thumbnail_relative_to_eodata_location(thumbnail, location)
 
         return cls(
             time,
