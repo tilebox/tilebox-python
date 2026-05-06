@@ -23,12 +23,11 @@ _sym_db = _symbol_database.Default()
 
 
 from tilebox.datasets.datasets.v1 import dataset_type_pb2 as datasets_dot_v1_dot_dataset__type__pb2
-from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 from tilebox.datasets.tilebox.v1 import query_pb2 as tilebox_dot_v1_dot_query__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16\x64\x61tasets/v1/core.proto\x12\x0b\x64\x61tasets.v1\x1a\x1e\x64\x61tasets/v1/dataset_type.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto\"]\n\x10LegacyPagination\x12\x1b\n\x05limit\x18\x01 \x01(\x03\x42\x05\xaa\x01\x02\x08\x01R\x05limit\x12,\n\x0estarting_after\x18\x02 \x01(\tB\x05\xaa\x01\x02\x08\x01R\rstartingAfter\"6\n\x03\x41ny\x12\x19\n\x08type_url\x18\x01 \x01(\tR\x07typeUrl\x12\x14\n\x05value\x18\x02 \x01(\x0cR\x05value\">\n\x0bRepeatedAny\x12\x19\n\x08type_url\x18\x01 \x01(\tR\x07typeUrl\x12\x14\n\x05value\x18\x02 \x03(\x0cR\x05value\"\xa8\x01\n\x11\x44\x61tapointMetadata\x12\x39\n\nevent_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\teventTime\x12\x41\n\x0eingestion_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ringestionTime\x12\x15\n\x02id\x18\x03 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x02id\"\xb4\x01\n\rDatapointPage\x12\x32\n\x04meta\x18\x01 \x03(\x0b\x32\x1e.datasets.v1.DatapointMetadataR\x04meta\x12,\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x18.datasets.v1.RepeatedAnyR\x04\x64\x61ta\x12\x41\n\tnext_page\x18\x03 \x01(\x0b\x32\x1d.datasets.v1.LegacyPaginationB\x05\xaa\x01\x02\x08\x01R\x08nextPage\"e\n\tDatapoint\x12\x32\n\x04meta\x18\x01 \x01(\x0b\x32\x1e.datasets.v1.DatapointMetadataR\x04meta\x12$\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x10.datasets.v1.AnyR\x04\x64\x61ta\"]\n\nCollection\x12\x1b\n\tlegacy_id\x18\x01 \x01(\tR\x08legacyId\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1e\n\x02id\x18\x03 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\"\xab\x01\n\x0e\x43ollectionInfo\x12\x37\n\ncollection\x18\x01 \x01(\x0b\x32\x17.datasets.v1.CollectionR\ncollection\x12\x43\n\x0c\x61vailability\x18\x02 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalB\x05\xaa\x01\x02\x08\x01R\x0c\x61vailability\x12\x1b\n\x05\x63ount\x18\x03 \x01(\x04\x42\x05\xaa\x01\x02\x08\x01R\x05\x63ount\"\xf8\x03\n\x07\x44\x61taset\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12)\n\x08group_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x07groupId\x12.\n\x04type\x18\x03 \x01(\x0b\x32\x1a.datasets.v1.AnnotatedTypeR\x04type\x12\x1b\n\tcode_name\x18\x04 \x01(\tR\x08\x63odeName\x12\x12\n\x04name\x18\x05 \x01(\tR\x04name\x12\x18\n\x07summary\x18\x06 \x01(\tR\x07summary\x12\x12\n\x04icon\x18\x07 \x01(\tR\x04icon\x12 \n\x0b\x64\x65scription\x18\x08 \x01(\tR\x0b\x64\x65scription\x12@\n\x0bpermissions\x18\n \x03(\x0e\x32\x1e.datasets.v1.DatasetPermissionR\x0bpermissions\x12\x37\n\nvisibility\x18\x0b \x01(\x0e\x32\x17.datasets.v1.VisibilityR\nvisibility\x12\x12\n\x04slug\x18\x0c \x01(\tR\x04slug\x12#\n\rtype_editable\x18\r \x01(\x08R\x0ctypeEditable\x12=\n\x0b\x63ollections\x18\x0e \x03(\x0b\x32\x1b.datasets.v1.CollectionInfoR\x0b\x63ollections\"\xa0\x01\n\x0c\x44\x61tasetGroup\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12+\n\tparent_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x08parentId\x12\x1b\n\tcode_name\x18\x03 \x01(\tR\x08\x63odeName\x12\x12\n\x04name\x18\x04 \x01(\tR\x04name\x12\x12\n\x04icon\x18\x05 \x01(\tR\x04icon*\x9b\x01\n\x11\x44\x61tasetPermission\x12\"\n\x1e\x44\x41TASET_PERMISSION_UNSPECIFIED\x10\x00\x12\"\n\x1e\x44\x41TASET_PERMISSION_ACCESS_DATA\x10\x01\x12!\n\x1d\x44\x41TASET_PERMISSION_WRITE_DATA\x10\x02\x12\x1b\n\x17\x44\x41TASET_PERMISSION_EDIT\x10\x03*v\n\nVisibility\x12\x1a\n\x16VISIBILITY_UNSPECIFIED\x10\x00\x12\x16\n\x12VISIBILITY_PRIVATE\x10\x01\x12\x1d\n\x19VISIBILITY_SHARED_WITH_ME\x10\x02\x12\x15\n\x11VISIBILITY_PUBLIC\x10\x03\x42n\n\x0f\x63om.datasets.v1B\tCoreProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16\x64\x61tasets/v1/core.proto\x12\x0b\x64\x61tasets.v1\x1a\x1e\x64\x61tasets/v1/dataset_type.proto\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto\"6\n\x03\x41ny\x12\x19\n\x08type_url\x18\x01 \x01(\tR\x07typeUrl\x12\x14\n\x05value\x18\x02 \x01(\x0cR\x05value\">\n\x0bRepeatedAny\x12\x19\n\x08type_url\x18\x01 \x01(\tR\x07typeUrl\x12\x14\n\x05value\x18\x02 \x03(\x0cR\x05value\"F\n\nCollection\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1e\n\x02id\x18\x03 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02idJ\x04\x08\x01\x10\x02\"\xab\x01\n\x0e\x43ollectionInfo\x12\x37\n\ncollection\x18\x01 \x01(\x0b\x32\x17.datasets.v1.CollectionR\ncollection\x12\x43\n\x0c\x61vailability\x18\x02 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalB\x05\xaa\x01\x02\x08\x01R\x0c\x61vailability\x12\x1b\n\x05\x63ount\x18\x03 \x01(\x04\x42\x05\xaa\x01\x02\x08\x01R\x05\x63ount\"\xf8\x03\n\x07\x44\x61taset\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12)\n\x08group_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x07groupId\x12.\n\x04type\x18\x03 \x01(\x0b\x32\x1a.datasets.v1.AnnotatedTypeR\x04type\x12\x1b\n\tcode_name\x18\x04 \x01(\tR\x08\x63odeName\x12\x12\n\x04name\x18\x05 \x01(\tR\x04name\x12\x18\n\x07summary\x18\x06 \x01(\tR\x07summary\x12\x12\n\x04icon\x18\x07 \x01(\tR\x04icon\x12 \n\x0b\x64\x65scription\x18\x08 \x01(\tR\x0b\x64\x65scription\x12@\n\x0bpermissions\x18\n \x03(\x0e\x32\x1e.datasets.v1.DatasetPermissionR\x0bpermissions\x12\x37\n\nvisibility\x18\x0b \x01(\x0e\x32\x17.datasets.v1.VisibilityR\nvisibility\x12\x12\n\x04slug\x18\x0c \x01(\tR\x04slug\x12#\n\rtype_editable\x18\r \x01(\x08R\x0ctypeEditable\x12=\n\x0b\x63ollections\x18\x0e \x03(\x0b\x32\x1b.datasets.v1.CollectionInfoR\x0b\x63ollections\"\xa0\x01\n\x0c\x44\x61tasetGroup\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12+\n\tparent_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x08parentId\x12\x1b\n\tcode_name\x18\x03 \x01(\tR\x08\x63odeName\x12\x12\n\x04name\x18\x04 \x01(\tR\x04name\x12\x12\n\x04icon\x18\x05 \x01(\tR\x04icon*\x9b\x01\n\x11\x44\x61tasetPermission\x12\"\n\x1e\x44\x41TASET_PERMISSION_UNSPECIFIED\x10\x00\x12\"\n\x1e\x44\x41TASET_PERMISSION_ACCESS_DATA\x10\x01\x12!\n\x1d\x44\x41TASET_PERMISSION_WRITE_DATA\x10\x02\x12\x1b\n\x17\x44\x41TASET_PERMISSION_EDIT\x10\x03*v\n\nVisibility\x12\x1a\n\x16VISIBILITY_UNSPECIFIED\x10\x00\x12\x16\n\x12VISIBILITY_PRIVATE\x10\x01\x12\x1d\n\x19VISIBILITY_SHARED_WITH_ME\x10\x02\x12\x15\n\x11VISIBILITY_PUBLIC\x10\x03\x42n\n\x0f\x63om.datasets.v1B\tCoreProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,40 +35,24 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'datasets.v1.core_pb2', _glo
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\017com.datasets.v1B\tCoreProtoP\001\242\002\003DXX\252\002\013Datasets.V1\312\002\013Datasets\\V1\342\002\027Datasets\\V1\\GPBMetadata\352\002\014Datasets::V1\222\003\002\010\002'
-  _globals['_LEGACYPAGINATION'].fields_by_name['limit']._loaded_options = None
-  _globals['_LEGACYPAGINATION'].fields_by_name['limit']._serialized_options = b'\252\001\002\010\001'
-  _globals['_LEGACYPAGINATION'].fields_by_name['starting_after']._loaded_options = None
-  _globals['_LEGACYPAGINATION'].fields_by_name['starting_after']._serialized_options = b'\252\001\002\010\001'
-  _globals['_DATAPOINTMETADATA'].fields_by_name['id']._loaded_options = None
-  _globals['_DATAPOINTMETADATA'].fields_by_name['id']._serialized_options = b'\252\001\002\010\001'
-  _globals['_DATAPOINTPAGE'].fields_by_name['next_page']._loaded_options = None
-  _globals['_DATAPOINTPAGE'].fields_by_name['next_page']._serialized_options = b'\252\001\002\010\001'
   _globals['_COLLECTIONINFO'].fields_by_name['availability']._loaded_options = None
   _globals['_COLLECTIONINFO'].fields_by_name['availability']._serialized_options = b'\252\001\002\010\001'
   _globals['_COLLECTIONINFO'].fields_by_name['count']._loaded_options = None
   _globals['_COLLECTIONINFO'].fields_by_name['count']._serialized_options = b'\252\001\002\010\001'
-  _globals['_DATASETPERMISSION']._serialized_start=1761
-  _globals['_DATASETPERMISSION']._serialized_end=1916
-  _globals['_VISIBILITY']._serialized_start=1918
-  _globals['_VISIBILITY']._serialized_end=2036
-  _globals['_LEGACYPAGINATION']._serialized_start=149
-  _globals['_LEGACYPAGINATION']._serialized_end=242
-  _globals['_ANY']._serialized_start=244
-  _globals['_ANY']._serialized_end=298
-  _globals['_REPEATEDANY']._serialized_start=300
-  _globals['_REPEATEDANY']._serialized_end=362
-  _globals['_DATAPOINTMETADATA']._serialized_start=365
-  _globals['_DATAPOINTMETADATA']._serialized_end=533
-  _globals['_DATAPOINTPAGE']._serialized_start=536
-  _globals['_DATAPOINTPAGE']._serialized_end=716
-  _globals['_DATAPOINT']._serialized_start=718
-  _globals['_DATAPOINT']._serialized_end=819
-  _globals['_COLLECTION']._serialized_start=821
-  _globals['_COLLECTION']._serialized_end=914
-  _globals['_COLLECTIONINFO']._serialized_start=917
-  _globals['_COLLECTIONINFO']._serialized_end=1088
-  _globals['_DATASET']._serialized_start=1091
-  _globals['_DATASET']._serialized_end=1595
-  _globals['_DATASETGROUP']._serialized_start=1598
-  _globals['_DATASETGROUP']._serialized_end=1758
+  _globals['_DATASETPERMISSION']._serialized_start=1153
+  _globals['_DATASETPERMISSION']._serialized_end=1308
+  _globals['_VISIBILITY']._serialized_start=1310
+  _globals['_VISIBILITY']._serialized_end=1428
+  _globals['_ANY']._serialized_start=116
+  _globals['_ANY']._serialized_end=170
+  _globals['_REPEATEDANY']._serialized_start=172
+  _globals['_REPEATEDANY']._serialized_end=234
+  _globals['_COLLECTION']._serialized_start=236
+  _globals['_COLLECTION']._serialized_end=306
+  _globals['_COLLECTIONINFO']._serialized_start=309
+  _globals['_COLLECTIONINFO']._serialized_end=480
+  _globals['_DATASET']._serialized_start=483
+  _globals['_DATASET']._serialized_end=987
+  _globals['_DATASETGROUP']._serialized_start=990
+  _globals['_DATASETGROUP']._serialized_end=1150
 # @@protoc_insertion_point(module_scope)

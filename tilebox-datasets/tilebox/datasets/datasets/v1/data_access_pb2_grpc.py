@@ -16,16 +16,6 @@ class DataAccessServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.GetDatasetForInterval = channel.unary_unary(
-                '/datasets.v1.DataAccessService/GetDatasetForInterval',
-                request_serializer=datasets_dot_v1_dot_data__access__pb2.GetDatasetForIntervalRequest.SerializeToString,
-                response_deserializer=datasets_dot_v1_dot_core__pb2.DatapointPage.FromString,
-                _registered_method=True)
-        self.GetDatapointByID = channel.unary_unary(
-                '/datasets.v1.DataAccessService/GetDatapointByID',
-                request_serializer=datasets_dot_v1_dot_data__access__pb2.GetDatapointByIdRequest.SerializeToString,
-                response_deserializer=datasets_dot_v1_dot_core__pb2.Datapoint.FromString,
-                _registered_method=True)
         self.QueryByID = channel.unary_unary(
                 '/datasets.v1.DataAccessService/QueryByID',
                 request_serializer=datasets_dot_v1_dot_data__access__pb2.QueryByIDRequest.SerializeToString,
@@ -41,20 +31,6 @@ class DataAccessServiceStub(object):
 class DataAccessServiceServicer(object):
     """DataAccessService provides data access and querying capabilities for Tilebox datasets.
     """
-
-    def GetDatasetForInterval(self, request, context):
-        """legacy endpoint, kept around for backwards compatibility with older python clients for now
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetDatapointByID(self, request, context):
-        """legacy endpoint, kept around for backwards compatibility with older python clients for now
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
 
     def QueryByID(self, request, context):
         """QueryByID returns a single data point by its ID.
@@ -73,16 +49,6 @@ class DataAccessServiceServicer(object):
 
 def add_DataAccessServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'GetDatasetForInterval': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetDatasetForInterval,
-                    request_deserializer=datasets_dot_v1_dot_data__access__pb2.GetDatasetForIntervalRequest.FromString,
-                    response_serializer=datasets_dot_v1_dot_core__pb2.DatapointPage.SerializeToString,
-            ),
-            'GetDatapointByID': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetDatapointByID,
-                    request_deserializer=datasets_dot_v1_dot_data__access__pb2.GetDatapointByIdRequest.FromString,
-                    response_serializer=datasets_dot_v1_dot_core__pb2.Datapoint.SerializeToString,
-            ),
             'QueryByID': grpc.unary_unary_rpc_method_handler(
                     servicer.QueryByID,
                     request_deserializer=datasets_dot_v1_dot_data__access__pb2.QueryByIDRequest.FromString,
@@ -104,60 +70,6 @@ def add_DataAccessServiceServicer_to_server(servicer, server):
 class DataAccessService(object):
     """DataAccessService provides data access and querying capabilities for Tilebox datasets.
     """
-
-    @staticmethod
-    def GetDatasetForInterval(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/datasets.v1.DataAccessService/GetDatasetForInterval',
-            datasets_dot_v1_dot_data__access__pb2.GetDatasetForIntervalRequest.SerializeToString,
-            datasets_dot_v1_dot_core__pb2.DatapointPage.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetDatapointByID(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/datasets.v1.DataAccessService/GetDatapointByID',
-            datasets_dot_v1_dot_data__access__pb2.GetDatapointByIdRequest.SerializeToString,
-            datasets_dot_v1_dot_core__pb2.Datapoint.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
 
     @staticmethod
     def QueryByID(request,

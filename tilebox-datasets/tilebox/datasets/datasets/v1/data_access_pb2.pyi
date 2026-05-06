@@ -30,32 +30,6 @@ SPATIAL_COORDINATE_SYSTEM_UNSPECIFIED: SpatialCoordinateSystem
 SPATIAL_COORDINATE_SYSTEM_CARTESIAN: SpatialCoordinateSystem
 SPATIAL_COORDINATE_SYSTEM_SPHERICAL: SpatialCoordinateSystem
 
-class GetDatasetForIntervalRequest(_message.Message):
-    __slots__ = ("collection_id", "time_interval", "datapoint_interval", "page", "skip_data", "skip_meta")
-    COLLECTION_ID_FIELD_NUMBER: _ClassVar[int]
-    TIME_INTERVAL_FIELD_NUMBER: _ClassVar[int]
-    DATAPOINT_INTERVAL_FIELD_NUMBER: _ClassVar[int]
-    PAGE_FIELD_NUMBER: _ClassVar[int]
-    SKIP_DATA_FIELD_NUMBER: _ClassVar[int]
-    SKIP_META_FIELD_NUMBER: _ClassVar[int]
-    collection_id: str
-    time_interval: _query_pb2.TimeInterval
-    datapoint_interval: _query_pb2.IDInterval
-    page: _core_pb2.LegacyPagination
-    skip_data: bool
-    skip_meta: bool
-    def __init__(self, collection_id: _Optional[str] = ..., time_interval: _Optional[_Union[_query_pb2.TimeInterval, _Mapping]] = ..., datapoint_interval: _Optional[_Union[_query_pb2.IDInterval, _Mapping]] = ..., page: _Optional[_Union[_core_pb2.LegacyPagination, _Mapping]] = ..., skip_data: bool = ..., skip_meta: bool = ...) -> None: ...
-
-class GetDatapointByIdRequest(_message.Message):
-    __slots__ = ("collection_id", "id", "skip_data")
-    COLLECTION_ID_FIELD_NUMBER: _ClassVar[int]
-    ID_FIELD_NUMBER: _ClassVar[int]
-    SKIP_DATA_FIELD_NUMBER: _ClassVar[int]
-    collection_id: str
-    id: str
-    skip_data: bool
-    def __init__(self, collection_id: _Optional[str] = ..., id: _Optional[str] = ..., skip_data: bool = ...) -> None: ...
-
 class QueryByIDRequest(_message.Message):
     __slots__ = ("dataset_id", "collection_ids", "id", "skip_data")
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
