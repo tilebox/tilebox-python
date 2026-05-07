@@ -254,6 +254,8 @@ _MESSAGE_NAMES_TO_FIELDS = {
 
 def infer_field_type(field: FieldDescriptor) -> ProtobufFieldType:
     if field.type == FieldDescriptor.TYPE_MESSAGE:
+        if field.message_type is None:
+            raise ValueError("Expected message type for field but got None")
         message_name = field.message_type.full_name
         if message_name not in _MESSAGE_NAMES_TO_FIELDS:
             raise ValueError(f"Unsupported message type {message_name}")
@@ -280,6 +282,9 @@ def enum_mapping_from_field_descriptor(field: FieldDescriptor) -> dict[int, str]
     """
     if field.type != FieldDescriptor.TYPE_ENUM:
         raise ValueError("Expected field to be of type FieldDescriptor.TYPE_ENUM")
+
+    if field.enum_type is None:
+        raise ValueError("Expected enum type for field but got None")
 
     # remove the enum type prefix from the enum values
     # e.g. FLIGHT_DIRECTION_ASCENDING of the FlightDirection enum will result in a value of ASCENDING

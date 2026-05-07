@@ -3,7 +3,7 @@ import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Protocol
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
     DEFAULT_TRACES_EXPORT_PATH,
@@ -17,7 +17,6 @@ from opentelemetry.trace import Span as OTSpan
 from opentelemetry.trace import get_current_span
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-from tilebox.workflows.data import Job
 from tilebox.workflows.observability.logging import _LOGGING_NAMESPACE, _get_default_resource, _parse_duration
 
 _AXIOM_ENDPOINT = "https://api.axiom.co/v1/traces"
@@ -50,27 +49,65 @@ def _set_tilebox_tracer_provider(provider: TracerProvider) -> None:
     _tilebox_tracer_provider = provider
 
     for tracer in _workflow_tracers:
-        tracer._swap_provider(provider)  # noqa: SLF001
+        tracer._configure_provider(provider)  # noqa: SLF001
+
+
+class Job(Protocol):
+    trace_parent: str
 
 
 class WorkflowTracer:
-    def __init__(self) -> None:
-        """Instantiate a tracer from the currently configured global tracer provider."""
-        provider = _get_tilebox_tracer_provider()
-        self._tracer = provider.get_tracer(_INSTRUMENTATION_MODULE_NAME)
+    def __init__(self, service: str | Resource | None, url: str, token: str | None) -> None:
+        """Instantiate a workflow tracer that can be used to create spans and traces for workflow runs and tasks.
+
+        The tracer will be configured with a span processor that exports spans to Tilebox, using the provided
+        authentication information.
+        """
+        self._service = service
+        self._tilebox_span_exporter = _otel_span_exporter(
+            endpoint=url,
+            headers={"Authorization": f"Bearer {token}"} if token is not None else None,
+        )
+        global_provider = _get_tilebox_tracer_provider()
+        self._configure_provider(global_provider)
 
         # keep track of all workflow tracers, to be able to update them in case the
         # global tracer provider is replaced.
         _workflow_tracers.append(self)
 
-    def _swap_provider(self, provider: TracerProvider) -> None:
+    def _configure_provider(self, provider: TracerProvider) -> None:
         """
-        A callback function that get's invoked in case a new tracer provider is configured, to make sure
-        existing workflow tracers are updated to use the new provider.
+        A callback function that get's invoked in case a new global tracer provider is configured, to make sure
+        existing workflow tracers are updated when the user changes global tracing configuration.
         """
+        provider = TracerProvider(
+            resource=_get_default_resource(self._service or provider.resource),
+            active_span_processor=provider._active_span_processor,  # noqa: SLF001
+        )
+        provider.add_span_processor(self._tilebox_span_exporter)
+
         self._tracer = provider.get_tracer(_INSTRUMENTATION_MODULE_NAME)
 
     # functools.wraps is a bit buggy with class methods, so we are not using it here
+    @contextmanager
+    def start_as_current_span(self, name: str, *args: Any, **kwargs: Any) -> Iterator[OTSpan]:
+        with self._tracer.start_as_current_span(name, *args, **kwargs) as span:
+            yield span
+
+    @contextmanager
+    def start_job_span(self, job: Job, span_name: str) -> Iterator[OTSpan]:
+        context = _PROPAGATOR.extract({"traceparent": job.trace_parent})
+        with self._tracer.start_as_current_span(span_name, context=context) as span:
+            yield span
+
+
+class NoopWorkflowTracer(WorkflowTracer):
+    """A workflow tracer for tests that creates spans locally without exporting them."""
+
+    def __init__(self, service: str | Resource | None = None) -> None:
+        provider = TracerProvider(resource=_get_default_resource(service))
+        self._tracer = provider.get_tracer(_INSTRUMENTATION_MODULE_NAME)
+
     @contextmanager
     def start_as_current_span(self, name: str, *args: Any, **kwargs: Any) -> Iterator[OTSpan]:
         with self._tracer.start_as_current_span(name, *args, **kwargs) as span:

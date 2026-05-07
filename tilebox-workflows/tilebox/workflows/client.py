@@ -12,27 +12,30 @@ from tilebox.workflows.data import (
 )
 from tilebox.workflows.jobs.client import JobClient
 from tilebox.workflows.jobs.service import JobService
-from tilebox.workflows.observability.tracing import (
-    WorkflowTracer,
-)
+from tilebox.workflows.observability.tracing import WorkflowTracer
 from tilebox.workflows.runner.task_runner import TaskRunner, _LeaseRenewer
 from tilebox.workflows.runner.task_service import TaskService
 
 
 class Client:
-    def __init__(self, *, url: str = "https://api.tilebox.com", token: str | None = None) -> None:
+    def __init__(
+        self, *, url: str = "https://api.tilebox.com", token: str | None = None, name: str | None = None
+    ) -> None:
         """
         Create a Tilebox workflows client.
 
         Args:
             url: Tilebox API Url. Defaults to "https://api.tilebox.com".
             token: The API Key to authenticate with. If not set the `TILEBOX_API_KEY` environment variable will be used.
+            name: An optional name of the client, used as service.name for telemetry. If not set, defaults to
+                the service name provided by `tilebox.workflows.observability.tracing.configure_otel_tracing`,
+                or "tilebox-python" if no external tracer is configured.
         """
         token = _token_from_env(url, token)
         self._auth: dict[str, str] = {"token": token, "url": url}
         self._channel = open_channel(url, token)
+        self._tracer = WorkflowTracer(service=name, url=url, token=token)
 
-        self._tracer: WorkflowTracer | None = None
         self._logger: logging.Logger | None = None
 
     def configure_tracing(self, tracer: WorkflowTracer) -> None:
@@ -90,8 +93,6 @@ class Client:
         if cache is None:
             cache = NoCache()  # a no-op cache that will raise an error if it's used
 
-        tracer = self._tracer or WorkflowTracer()
-
         found_cluster = self.clusters().find(to_cluster_slug(cluster or ""))
 
         try:
@@ -103,7 +104,7 @@ class Client:
 
         runner_context_type = context or RunnerContext
         runner_context = runner_context_type(
-            tracer._tracer,  # noqa: SLF001
+            self._tracer,
             datasets_client=DatasetsClient(**self._auth),  # ty: ignore[invalid-argument-type]
             storage_locations=storage_locations,
         )
@@ -112,7 +113,7 @@ class Client:
             TaskService(self._channel),
             found_cluster.slug,
             cache,
-            tracer,
+            self._tracer,
             self._logger,
             _LeaseRenewer(**self._auth),
             runner_context,

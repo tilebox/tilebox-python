@@ -10,6 +10,7 @@ from tilebox.workflows import ExecutionContext, Task
 from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.client import Client
 from tilebox.workflows.data import JobState, ProgressIndicator, RunnerContext, TaskState
+from tilebox.workflows.observability.tracing import NoopWorkflowTracer
 from tilebox.workflows.runner.task_runner import TaskRunner
 
 
@@ -206,10 +207,10 @@ def test_runner_disallow_duplicate_task_identifiers() -> None:
         MagicMock(),
         "dummy-cluster",
         InMemoryCache(),
-        None,
+        NoopWorkflowTracer(),
         None,
         MagicMock(),
-        RunnerContext(),
+        RunnerContext(NoopWorkflowTracer()),
     )
 
     runner.register(FlakyTask)

@@ -4,7 +4,7 @@ Functionality for converting protobuf messages to xarray datasets.
 
 import contextlib
 from collections.abc import Sequence
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 import numpy as np
 import xarray as xr
@@ -352,7 +352,7 @@ def _create_field_converters(message: Message, buffer_size: int) -> dict[str, _F
     for field in message.DESCRIPTOR.fields:
         # if we have an unsupported field type we will get a ValueError, so we just skip those fields
         with contextlib.suppress(ValueError):
-            converter = _create_field_converter(field)
+            converter = _create_field_converter(cast(FieldDescriptor, field))
             converters[field.name] = converter
 
     if buffer_size > 0:

@@ -10,6 +10,7 @@ from tilebox.datasets.query.time_interval import datetime_to_timestamp
 from tilebox.workflows.data import Job, JobState, uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.workflows.jobs.client import JobClient
 from tilebox.workflows.jobs.service import JobService
+from tilebox.workflows.observability.tracing import NoopWorkflowTracer
 from tilebox.workflows.task import ExecutionContext, Task
 from tilebox.workflows.workflows.v1.core_pb2 import Job as JobMessage
 from tilebox.workflows.workflows.v1.core_pb2 import JobState as JobStateEnum
@@ -111,7 +112,7 @@ class JobOperations(RuleBasedStateMachine):
         super().__init__()
         service = JobService(MagicMock())
         service.service = MockJobService()  # mock the gRPC service
-        self.job_client = JobClient(service)
+        self.job_client = JobClient(service, NoopWorkflowTracer())
         self.count_total_submitted = 0
 
     queued_jobs: Bundle[Job] = Bundle("queued_jobs")

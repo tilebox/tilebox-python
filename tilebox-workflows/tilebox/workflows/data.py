@@ -30,9 +30,9 @@ try:
     from mypy_boto3_s3.client import S3Client
 except ModuleNotFoundError:
     from typing import Any as S3Client
-from opentelemetry.trace import ProxyTracerProvider, Tracer
 
 from tilebox.datasets.sync.client import Client as DatasetsClient
+from tilebox.workflows.observability.tracing import NoopWorkflowTracer, WorkflowTracer
 from tilebox.workflows.workflows.v1 import automation_pb2 as automation_pb
 from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2
 
@@ -675,14 +675,13 @@ class AutomationPrototype:
 class RunnerContext:
     def __init__(
         self,
-        tracer: Tracer | None = None,
+        tracer: WorkflowTracer | None = None,
         datasets_client: DatasetsClient | None = None,
         storage_locations: list[StorageLocation] | None = None,
     ) -> None:
         if tracer is None:
-            self.tracer = ProxyTracerProvider().get_tracer("tilebox.workflows.RunnerContext")
-        else:
-            self.tracer = tracer
+            tracer = NoopWorkflowTracer()
+        self.tracer = tracer
         self.datasets_client = datasets_client
         self.storage_locations = {
             sl.id: sl._with_runner_context(self)  # noqa: SLF001

@@ -312,7 +312,7 @@ class TaskRunner:
         service: TaskService,
         cluster: str,
         cache: JobCache,
-        tracer: WorkflowTracer | None,
+        tracer: WorkflowTracer,
         logger: logging.Logger | None,
         lease_renewer: _LeaseRenewer,
         context: RunnerContext,
@@ -320,7 +320,7 @@ class TaskRunner:
         self._service = service
         self.tasks_to_run = NextTaskToRun(cluster_slug=cluster, identifiers={})
         self.cache = cache
-        self.tracer = tracer or WorkflowTracer()
+        self.tracer = tracer
         self.logger = logger or get_logger("runner.TaskRunner", level=logging.WARNING)
         self._interceptors: list[Interceptor] = []
         self._lease_renewer = lease_renewer
@@ -472,6 +472,9 @@ class TaskRunner:
                 # now that we've successfully looked up the task class, we can update the span name to replace the
                 # task execution id with the task class name
                 span.update_name(f"task/{task_class.__name__}")
+                span.set_attribute("task_id", str(task.id))
+                span.set_attribute("identifier.name", task.identifier.name)
+                span.set_attribute("identifier.version", task.identifier.version)
 
                 try:
                     task_instance = task_class._deserialize(task.input, self._context)  # ty: ignore[possibly-missing-attribute] # noqa: SLF001
@@ -487,7 +490,7 @@ class TaskRunner:
                         task_input_span_attr = task.input.decode("utf-8")
                     except UnicodeDecodeError:
                         task_input_span_attr = b64encode(task.input).decode("ascii")
-                span.set_attribute("task.input", task_input_span_attr)
+                span.set_attribute("input", task_input_span_attr)
 
                 # if we receive an interrupt exactly when running the user defined execute function, it is quite
                 # likely that we don't finish in time. So we mark the task as failed in that case immediately.

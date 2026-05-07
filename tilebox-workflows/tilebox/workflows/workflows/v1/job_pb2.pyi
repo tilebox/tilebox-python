@@ -1,4 +1,6 @@
 from tilebox.datasets.buf.validate import validate_pb2 as _validate_pb2
+from opentelemetry.proto.logs.v1 import logs_pb2 as _logs_pb2
+from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
 from tilebox.datasets.tilebox.v1 import query_pb2 as _query_pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as _core_pb2

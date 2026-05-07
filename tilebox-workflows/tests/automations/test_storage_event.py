@@ -7,6 +7,7 @@ from tests.tasks_data import storage_locations
 
 from tilebox.workflows.automations import StorageEventTask
 from tilebox.workflows.data import StorageEventType, StorageLocation
+from tilebox.workflows.observability.tracing import NoopWorkflowTracer
 from tilebox.workflows.task import RunnerContext
 
 
@@ -43,7 +44,7 @@ def test_storage_event_task_de_serialization_roundtrip(storage_location: Storage
     triggered_task = task.once(storage_location, "FM171/apid.json", StorageEventType.CREATED)
 
     # serialized task only contains a bucket id, so for deserialization we need to provide a bucket lookup table
-    context = RunnerContext(storage_locations=[storage_location])
+    context = RunnerContext(NoopWorkflowTracer(), storage_locations=[storage_location])
 
     serialized = triggered_task._serialize()
     assert ExampleStorageEventTask._deserialize(serialized, context) == triggered_task
@@ -55,7 +56,7 @@ def test_storage_event_task_de_serialization_roundtrip_protobuf(storage_location
     triggered_task = task.once(storage_location, "FM171/apid.json")
 
     # serialized task only contains a bucket id, so for deserialization we need to provide a bucket lookup table
-    context = RunnerContext(storage_locations=[storage_location])
+    context = RunnerContext(NoopWorkflowTracer(), storage_locations=[storage_location])
 
     serialized = triggered_task._serialize()
     assert ExampleProtoStorageEventTask._deserialize(serialized, context) == triggered_task

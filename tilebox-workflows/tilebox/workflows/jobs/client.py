@@ -34,7 +34,7 @@ JobIDLike: TypeAlias = Job | UUID | str
 
 
 class JobClient:
-    def __init__(self, service: JobService, tracer: WorkflowTracer | None = None) -> None:
+    def __init__(self, service: JobService, tracer: WorkflowTracer) -> None:
         """Create a new job client.
         z
                 Args:
@@ -42,7 +42,7 @@ class JobClient:
                     tracer: The tracer to use for tracing.
         """
         self._service = service
-        self._tracer = tracer or WorkflowTracer()
+        self._tracer = tracer
 
     def submit(
         self,

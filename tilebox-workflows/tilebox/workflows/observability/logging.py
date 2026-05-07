@@ -19,11 +19,22 @@ from opentelemetry.exporter.otlp.proto.http._log_exporter import (
 )
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-from opentelemetry.sdk.resources import SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_VERSION, Resource
+from opentelemetry.sdk.resources import (
+    HOST_ARCH,
+    HOST_NAME,
+    OS_TYPE,
+    PROCESS_PID,
+    SERVICE_INSTANCE_ID,
+    SERVICE_NAME,
+    SERVICE_NAMESPACE,
+    SERVICE_VERSION,
+    Resource,
+)
 from opentelemetry.semconv.attributes import exception_attributes
 from opentelemetry.util.types import _ExtendedAttributes
 
 # prefix for stdlib loggers
+_DEFAULT_SERVICE_NAME = "tilebox-python"
 _LOGGING_NAMESPACE = "tilebox.workflows"
 
 _AXIOM_ENDPOINT = "https://api.axiom.co/v1/logs"
@@ -33,22 +44,35 @@ _AXIOM_API_KEY_ENV_VAR = "AXIOM_API_KEY"
 _OTEL_LOGS_ENDPOINT_ENV_VAR = "OTEL_LOGS_ENDPOINT"
 _OTEL_EXPORT_INTERVAL_ENV_VAR = "OTEL_EXPORT_INTERVAL"
 
+# process-unique identifier to distinguish different instances of the same service running on the same host
+_instance_id = str(uuid4())
+
 
 def _get_default_resource(service: str | Resource | None = None) -> Resource:
-    if isinstance(service, Resource):  # already a resource object, no need to create a default one
-        return service
+    if isinstance(service, Resource):  # already a resource object
+        service_name = service.attributes.get(SERVICE_NAME)
+        if service_name is not None and service_name != "unknown_service":
+            # default value of SERVICE_NAME is "unknown_service", so if we have anything other than that we
+            # know it's already configured
+            return service
 
-    service_name = service if isinstance(service, str) else f"tilebox.workflows-{os.getpid()}"
+    service_name = service if isinstance(service, str) else _DEFAULT_SERVICE_NAME
 
-    instance_id = f"{platform.uname().node}-{os.getpid()}"
     workflows_version = "dev"
     with contextlib.suppress(PackageNotFoundError):
         workflows_version = version("tilebox-workflows")
+
+    uname = platform.uname()
     return Resource.create(
         attributes={
+            SERVICE_NAMESPACE: "tilebox.workflows",
             SERVICE_NAME: service_name,
-            SERVICE_INSTANCE_ID: instance_id,
+            SERVICE_INSTANCE_ID: _instance_id,
             SERVICE_VERSION: workflows_version,
+            PROCESS_PID: os.getpid(),
+            HOST_NAME: uname.node,
+            HOST_ARCH: uname.machine.lower(),
+            OS_TYPE: uname.system.lower(),
         }
     )
 
