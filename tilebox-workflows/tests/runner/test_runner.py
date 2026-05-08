@@ -208,9 +208,10 @@ def test_runner_disallow_duplicate_task_identifiers() -> None:
         "dummy-cluster",
         InMemoryCache(),
         NoopWorkflowTracer(),
-        None,
         MagicMock(),
         RunnerContext(NoopWorkflowTracer()),
+        MagicMock(),
+        MagicMock(),
     )
 
     runner.register(FlakyTask)

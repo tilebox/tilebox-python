@@ -34,9 +34,9 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
     "obstore>=0.8.2",
     "opentelemetry-proto>=1.30.0",
-    "structlog>=25.5.0",
     # grpcio 1.80.0 contains unwanted log message spam: https://github.com/grpc/grpc/issues/42293
     "grpcio<1.80.0",
+    "opentelemetry-instrumentation-logging>=0.62b1",
 ]
 
 [dependency-groups]

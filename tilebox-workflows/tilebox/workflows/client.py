@@ -1,5 +1,7 @@
 import logging
 import os
+import warnings
+from uuid import uuid4
 
 from _tilebox.grpc.channel import open_channel, parse_channel_info
 from tilebox.datasets.sync.client import Client as DatasetsClient
@@ -12,6 +14,12 @@ from tilebox.workflows.data import (
 )
 from tilebox.workflows.jobs.client import JobClient
 from tilebox.workflows.jobs.service import JobService
+from tilebox.workflows.observability.logging import (
+    OTELLoggingHandler,
+    StructuredLogger,
+    _create_tilebox_logger,
+    _create_tilebox_logger_provider,
+)
 from tilebox.workflows.observability.tracing import WorkflowTracer
 from tilebox.workflows.runner.task_runner import TaskRunner, _LeaseRenewer
 from tilebox.workflows.runner.task_service import TaskService
@@ -34,22 +42,27 @@ class Client:
         token = _token_from_env(url, token)
         self._auth: dict[str, str] = {"token": token, "url": url}
         self._channel = open_channel(url, token)
+
+        # configure logging and tracing
+        self._client_id = uuid4()  # a random uuid to scope loggers to this client instance
+        self._logger_provider = _create_tilebox_logger_provider(service=name, url=url, token=token)
+
+        # task logger is the logger available for users to emit logs from within a Task.execute method, via
+        # context.logger
+        self._task_logger = _create_tilebox_logger(self._client_id, scope="tasks")
+        self._task_logger_handler = OTELLoggingHandler(level=logging.INFO, logger_provider=self._logger_provider)
+        self._task_logger.addHandler(self._task_logger_handler)
+
+        # runner logger is the logger used for logging internal events within a task runner, for example when a
+        # Tilebox API call fails, or when unexpected errors occur. This logger is not exposed to users,
+        # and is only used for logging internal events within the client and task runners.
+        self._runner_logger = _create_tilebox_logger(self._client_id, scope="runner")
+        self._runner_logger_handler = OTELLoggingHandler(level=logging.INFO, logger_provider=self._logger_provider)
+        self._runner_logger.addHandler(self._runner_logger_handler)
+
         self._tracer = WorkflowTracer(service=name, url=url, token=token)
 
-        self._logger: logging.Logger | None = None
-
-    def configure_tracing(self, tracer: WorkflowTracer) -> None:
-        """
-        Configure the tracer to use for tracing of tasks and jobs within the workflow clients.
-
-        The tracer will be used by all task runners and job clients created by this client.
-
-        Calling this method multiple times will replace the existing tracing configuration. However, task runners and
-        job clients that have already been created will not be affected by subsequent calls to this method.
-        """
-        self._tracer = tracer
-
-    def configure_logging(self, logger: logging.Logger) -> None:
+    def configure_logging(self, level: int | logging.Logger, runner_level: int | None = None) -> None:
         """
         Configure the logger to use for logging of internal events within workflow clients.
 
@@ -61,7 +74,25 @@ class Client:
         Args:
             logger: The logger to use for logging.
         """
-        self._logger = logger
+        if not isinstance(level, int):
+            warning_message = (
+                "Configuring a logger instance directly on a client is deprecated and will be removed in a future "
+                "version. If you want to export logs to an external system, configure the tilebox root logger "
+                "instance, which you can get with `tilebox.workflows.observability.logging.get_logger()`."
+            )
+            warnings.warn(
+                warning_message,
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # to preserve backwards compatibility with the old API where the first argument was a logger
+            self._runner_logger = level
+        else:
+            # always adjust the level of the handler, not the loggers themselves, to make sure that other logger
+            # handlers still receive the logs (for example, if the user configured the tilebox root logger to export
+            # all logs at DEBUG level to a file)
+            self._task_logger_handler.setLevel(level)
+            self._runner_logger_handler.setLevel(runner_level or level)
 
     def jobs(self) -> JobClient:
         """Get a client for the jobs service.
@@ -114,9 +145,10 @@ class Client:
             found_cluster.slug,
             cache,
             self._tracer,
-            self._logger,
             _LeaseRenewer(**self._auth),
             runner_context,
+            task_logger=StructuredLogger(self._task_logger, {}),
+            runner_logger=StructuredLogger(self._runner_logger, {}),
         )
 
         if tasks is not None:

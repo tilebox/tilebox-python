@@ -3,7 +3,7 @@ import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
     DEFAULT_TRACES_EXPORT_PATH,
@@ -16,8 +16,16 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanProcessor
 from opentelemetry.trace import Span as OTSpan
 from opentelemetry.trace import get_current_span
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from opentelemetry.util.types import Attributes
 
-from tilebox.workflows.observability.logging import _LOGGING_NAMESPACE, _get_default_resource, _parse_duration
+from tilebox.workflows.observability.logging import (
+    _LOGGING_NAMESPACE,
+    _WORKFLOW_LOG_ATTRIBUTES,
+    _current_span_attributes,
+    _get_default_resource,
+    _parse_duration,
+    _sanitize_otel_attributes,
+)
 
 _AXIOM_ENDPOINT = "https://api.axiom.co/v1/traces"
 _AXIOM_TRACES_DATASET_ENV_VAR = "AXIOM_TRACES_DATASET"
@@ -52,6 +60,15 @@ def _set_tilebox_tracer_provider(provider: TracerProvider) -> None:
         tracer._configure_provider(provider)  # noqa: SLF001
 
 
+def _configured_span_processors(provider: TracerProvider) -> tuple[SpanProcessor, ...]:
+    return provider._active_span_processor._span_processors  # noqa: SLF001
+
+
+def _copy_configured_span_processors(source: TracerProvider, destination: TracerProvider) -> None:
+    for span_processor in _configured_span_processors(source):
+        destination.add_span_processor(span_processor)
+
+
 class Job(Protocol):
     trace_parent: str
 
@@ -70,20 +87,19 @@ class WorkflowTracer:
         )
         global_provider = _get_tilebox_tracer_provider()
         self._configure_provider(global_provider)
+        _ensure_span_event_logging_handler()
 
         # keep track of all workflow tracers, to be able to update them in case the
         # global tracer provider is replaced.
         _workflow_tracers.append(self)
 
-    def _configure_provider(self, provider: TracerProvider) -> None:
+    def _configure_provider(self, source_provider: TracerProvider) -> None:
         """
         A callback function that get's invoked in case a new global tracer provider is configured, to make sure
         existing workflow tracers are updated when the user changes global tracing configuration.
         """
-        provider = TracerProvider(
-            resource=_get_default_resource(self._service or provider.resource),
-            active_span_processor=provider._active_span_processor,  # noqa: SLF001
-        )
+        provider = TracerProvider(resource=_get_default_resource(self._service or source_provider.resource))
+        _copy_configured_span_processors(source_provider, provider)
         provider.add_span_processor(self._tilebox_span_exporter)
 
         self._tracer = provider.get_tracer(_INSTRUMENTATION_MODULE_NAME)
@@ -165,18 +181,41 @@ class SpanEventLoggingHandler(logging.Handler):
             return
 
         # support legacy % formatting usage in messages (even though it's discouraged)
-        message = record.msg % record.args if isinstance(record.msg, str) and record.args else record.msg
+        body = record.msg % record.args if isinstance(record.msg, str) and record.args else record.msg
         created_time = datetime.fromtimestamp(record.created, tz=timezone.utc)
 
         # add the log message as a span event
-        span.add_event(
-            "log.message",
-            attributes={
+        workflow_attributes = getattr(record, _WORKFLOW_LOG_ATTRIBUTES, {})
+        if not isinstance(workflow_attributes, dict):
+            workflow_attributes = {}
+        workflow_attributes = _current_span_attributes() | workflow_attributes
+
+        attributes = cast(
+            Attributes,
+            {
                 "time": created_time.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-                "message": message,
+                "body": body,
                 "level": record.levelname,
+                **_sanitize_otel_attributes(workflow_attributes),
             },
         )
+        span.add_event(
+            "log.message",
+            attributes=attributes,
+        )
+
+
+def _ensure_span_event_logging_handler() -> None:
+    root_logger = logging.getLogger(_LOGGING_NAMESPACE)
+
+    has_span_event_handler = False  # in case this is called multiple times, still only one handler
+    for handler in root_logger.handlers:
+        if isinstance(handler, SpanEventLoggingHandler):
+            has_span_event_handler = True
+            break
+
+    if not has_span_event_handler:
+        root_logger.addHandler(SpanEventLoggingHandler())
 
 
 def configure_otel_tracing(
@@ -216,28 +255,18 @@ def configure_otel_tracing(
     if provider.resource.attributes != resource.attributes:
         # It's either the first time we configure tracing, or we are trying to reconfigure it with a different resource.
         # That means we need to create a new provider.
-        provider = TracerProvider(
-            resource=resource,
-            # keep the existing span processor, so that all previously configured exports are still used as well
-            active_span_processor=provider._active_span_processor,  # noqa: SLF001
-        )
-        _set_tilebox_tracer_provider(provider)
+        new_provider = TracerProvider(resource=resource)
+        # keep the existing span processors, so that all previously configured exports are still used as well
+        _copy_configured_span_processors(provider, new_provider)
+        provider = new_provider
 
     exporter = _otel_span_exporter(endpoint, headers, export_interval)
     provider.add_span_processor(exporter)
+    _set_tilebox_tracer_provider(provider)
 
     # if we configure tracing, we also want to add log messages to active spans, which is a mixture of a logging
     # tracing feature. But configure this here, because we anyways don't need to do this if tracing is not configured.
-    root_logger = logging.getLogger(_LOGGING_NAMESPACE)
-
-    has_span_event_handler = False  # in case configure_otel_tracing() is called multiple times, still only one handler
-    for handler in root_logger.handlers:
-        if isinstance(handler, SpanEventLoggingHandler):
-            has_span_event_handler = True
-            break
-
-    if not has_span_event_handler:
-        root_logger.addHandler(SpanEventLoggingHandler())
+    _ensure_span_event_logging_handler()
 
 
 def configure_otel_tracing_axiom(
