@@ -53,7 +53,7 @@ def test_workflow_tracers_do_not_share_client_span_processors(
     tracers = [tracing.WorkflowTracer(service=None, url="https://api.tilebox.com", token=None) for _ in range(3)]
 
     for index, tracer in enumerate(tracers):
-        with tracer.start_as_current_span(f"span-{index}"):
+        with tracer.span(f"span-{index}"):
             pass
 
     assert [processor.span_names for processor in span_processors] == [["span-0"], ["span-1"], ["span-2"]]
@@ -66,7 +66,7 @@ def test_workflow_tracers_copy_configured_span_processors_once(
     tracers = [tracing.WorkflowTracer(service=None, url="https://api.tilebox.com", token=None) for _ in range(2)]
 
     for index, tracer in enumerate(tracers):
-        with tracer.start_as_current_span(f"span-{index}"):
+        with tracer.span(f"span-{index}"):
             pass
 
     assert [processor.span_names for processor in span_processors] == [

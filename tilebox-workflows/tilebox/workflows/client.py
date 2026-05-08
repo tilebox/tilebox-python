@@ -14,6 +14,7 @@ from tilebox.workflows.data import (
 )
 from tilebox.workflows.jobs.client import JobClient
 from tilebox.workflows.jobs.service import JobService
+from tilebox.workflows.jobs.telemetry_service import TelemetryService
 from tilebox.workflows.observability.logging import (
     OTELLoggingHandler,
     StructuredLogger,
@@ -101,7 +102,7 @@ class Client:
             A client for the jobs service.
         """
 
-        return JobClient(JobService(self._channel), self._tracer)
+        return JobClient(JobService(self._channel), TelemetryService(self._channel), self._tracer)
 
     def runner(
         self,

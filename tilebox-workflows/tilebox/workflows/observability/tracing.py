@@ -104,17 +104,13 @@ class WorkflowTracer:
 
         self._tracer = provider.get_tracer(_INSTRUMENTATION_MODULE_NAME)
 
-    # functools.wraps is a bit buggy with class methods, so we are not using it here
     @contextmanager
-    def start_as_current_span(self, name: str, *args: Any, **kwargs: Any) -> Iterator[OTSpan]:
+    def span(self, name: str, *args: Any, **kwargs: Any) -> Iterator[OTSpan]:
         with self._tracer.start_as_current_span(name, *args, **kwargs) as span:
             yield span
 
-    @contextmanager
-    def start_job_span(self, job: Job, span_name: str) -> Iterator[OTSpan]:
-        context = _PROPAGATOR.extract({"traceparent": job.trace_parent})
-        with self._tracer.start_as_current_span(span_name, context=context) as span:
-            yield span
+    def current_span(self) -> OTSpan:
+        return get_current_span()
 
 
 class NoopWorkflowTracer(WorkflowTracer):
@@ -124,16 +120,17 @@ class NoopWorkflowTracer(WorkflowTracer):
         provider = TracerProvider(resource=_get_default_resource(service))
         self._tracer = provider.get_tracer(_INSTRUMENTATION_MODULE_NAME)
 
-    @contextmanager
-    def start_as_current_span(self, name: str, *args: Any, **kwargs: Any) -> Iterator[OTSpan]:
-        with self._tracer.start_as_current_span(name, *args, **kwargs) as span:
-            yield span
+    def _configure_provider(self, source_provider: TracerProvider) -> None:
+        # noop tracer doesn't need to be reconfigured
+        pass
 
-    @contextmanager
-    def start_job_span(self, job: Job, span_name: str) -> Iterator[OTSpan]:
-        context = _PROPAGATOR.extract({"traceparent": job.trace_parent})
-        with self._tracer.start_as_current_span(span_name, context=context) as span:
-            yield span
+
+@contextmanager
+def start_job_span(tracer: WorkflowTracer, job: Job, span_name: str) -> Iterator[OTSpan]:
+    """Start a new span for a workflow job, using the trace parent from the job to continue the trace."""
+    context = _PROPAGATOR.extract({"traceparent": job.trace_parent})
+    with tracer._tracer.start_as_current_span(span_name, context=context) as span:  # noqa: SLF001
+        yield span
 
 
 def get_trace_parent_of_current_span() -> str:

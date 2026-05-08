@@ -35,7 +35,7 @@ from tilebox.workflows.cache import JobCache
 from tilebox.workflows.data import ComputedTask, Idling, NextTaskToRun, ProgressIndicator, Task, TaskLease
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
 from tilebox.workflows.observability.logging import StructuredLogger
-from tilebox.workflows.observability.tracing import NoopWorkflowTracer, WorkflowTracer
+from tilebox.workflows.observability.tracing import WorkflowTracer, start_job_span
 from tilebox.workflows.runner.task_service import TaskService
 from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
 from tilebox.workflows.task import (
@@ -463,7 +463,7 @@ class TaskRunner:
 
         with (
             self._lease_renewer.lease_extension(task.id, task.lease),
-            self.tracer.start_job_span(task.job, f"task/{task.id}") as span,
+            start_job_span(self.tracer, task.job, f"task/{task.id}") as span,
         ):
             self.runner_logger.debug("Executing task", task=task_repr, input=task.input)
             try:
@@ -628,8 +628,6 @@ class ExecutionContext(ExecutionContextBase):
 
     @property
     def tracer(self) -> WorkflowTracer:
-        if self._runner is None:
-            return NoopWorkflowTracer()
         return self._runner.tracer
 
     def _dataset(self, dataset_id: str) -> DatasetClient:

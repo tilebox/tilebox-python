@@ -10,12 +10,17 @@ from tilebox.workflows.clusters.client import ClusterSlugLike, to_cluster_slug
 from tilebox.workflows.data import (
     Job,
     JobState,
+    LogRecord,
     QueryFilters,
+    QueryJobLogsResponse,
+    QueryJobSpansResponse,
     QueryJobsResponse,
+    Span,
     TaskState,
 )
 from tilebox.workflows.jobs.service import JobService
-from tilebox.workflows.observability.tracing import WorkflowTracer, get_trace_parent_of_current_span
+from tilebox.workflows.jobs.telemetry_service import TelemetryService
+from tilebox.workflows.observability.tracing import WorkflowTracer, get_trace_parent_of_current_span, start_job_span
 from tilebox.workflows.task import FutureTask, merge_future_tasks_to_submissions
 from tilebox.workflows.task import Task as TaskInstance
 
@@ -34,14 +39,16 @@ JobIDLike: TypeAlias = Job | UUID | str
 
 
 class JobClient:
-    def __init__(self, service: JobService, tracer: WorkflowTracer) -> None:
+    def __init__(self, service: JobService, telemetry_service: TelemetryService, tracer: WorkflowTracer) -> None:
         """Create a new job client.
         z
                 Args:
                     service: The service to use for job operations.
+                    telemetry_service: The service to use for job telemetry queries.
                     tracer: The tracer to use for tracing.
         """
         self._service = service
+        self._telemetry_service = telemetry_service
         self._tracer = tracer
 
     def submit(
@@ -85,7 +92,7 @@ class JobClient:
         if submissions_merged is None:
             raise ValueError("At least one task must be submitted.")
 
-        with self._tracer.start_as_current_span(f"job/{job_name}"):
+        with self._tracer.span(f"job/{job_name}"):
             trace_parent = get_trace_parent_of_current_span()
             return self._service.submit(job_name, trace_parent, submissions_merged)
 
@@ -101,7 +108,7 @@ class JobClient:
         # in case we only get an ID we fetch the job here, since we need the traceparent in order to start a span
         job = self.find(_to_uuid(job_or_id)) if not isinstance(job_or_id, Job) else job_or_id
 
-        with self._tracer.start_job_span(job, "retry_job") as span:
+        with start_job_span(self._tracer, job, "retry_job") as span:
             num_rescheduled = self._service.retry(job.id)
             span.add_event("retried_succeeded", {"num_tasks_rescheduled": num_rescheduled})
             return num_rescheduled
@@ -115,7 +122,7 @@ class JobClient:
         # in case we only get an ID we fetch the job here, since we need the traceparent in order to start a span
         job = self.find(_to_uuid(job_or_id)) if not isinstance(job_or_id, Job) else job_or_id
 
-        with self._tracer.start_job_span(job, "cancel_job") as cancel_job:
+        with start_job_span(self._tracer, job, "cancel_job") as cancel_job:
             self._service.cancel(job.id)
             cancel_job.add_event("cancel_succeeded")
 
@@ -130,6 +137,48 @@ class JobClient:
             The job details for the given job_id.
         """
         return self._service.get_by_id(_to_uuid(job_id))
+
+    def query_logs(self, job_id: JobIDLike) -> list[LogRecord]:
+        """Query logs emitted while running a job.
+
+        Args:
+            job_id: The job or job id to query logs for.
+
+        Returns:
+            A list of log records for the given job.
+        """
+
+        def request(page: PaginationProtocol) -> QueryJobLogsResponse:
+            query_page = Pagination(page.limit, page.starting_after)
+            return self._telemetry_service.query_job_logs(_to_uuid(job_id), query_page)
+
+        pages = paginated_request(request, Pagination())
+
+        logs = []
+        for page in pages:
+            logs.extend(page.logs)
+        return logs
+
+    def query_spans(self, job_id: JobIDLike) -> list[Span]:
+        """Query spans emitted while running a job.
+
+        Args:
+            job_id: The job or job id to query spans for.
+
+        Returns:
+            A list of spans for the given job.
+        """
+
+        def request(page: PaginationProtocol) -> QueryJobSpansResponse:
+            query_page = Pagination(page.limit, page.starting_after)
+            return self._telemetry_service.query_job_spans(_to_uuid(job_id), query_page)
+
+        pages = paginated_request(request, Pagination())
+
+        spans = []
+        for page in pages:
+            spans.extend(page.spans)
+        return spans
 
     def display(self, job_id: JobIDLike, direction: str = "down", layout: str = "dagre", sketchy: bool = True) -> None:
         """Create a visualization of the job as a diagram and display it in an interactive environment.
