@@ -6,10 +6,23 @@ from hypothesis.stateful import Bundle, RuleBasedStateMachine, consumes, rule
 from tests.tasks_data import jobs
 
 from _tilebox.grpc.error import NotFoundError
+from tilebox.datasets.query.pagination import Pagination
 from tilebox.datasets.query.time_interval import datetime_to_timestamp
-from tilebox.workflows.data import Job, JobState, uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.workflows.data import (
+    Job,
+    JobState,
+    LogRecord,
+    LogRecords,
+    QueryJobLogsResponse,
+    QueryJobSpansResponse,
+    Span,
+    Spans,
+    uuid_message_to_uuid,
+    uuid_to_uuid_message,
+)
 from tilebox.workflows.jobs.client import JobClient
 from tilebox.workflows.jobs.service import JobService
+from tilebox.workflows.observability.tracing import NoopWorkflowTracer
 from tilebox.workflows.task import ExecutionContext, Task
 from tilebox.workflows.workflows.v1.core_pb2 import Job as JobMessage
 from tilebox.workflows.workflows.v1.core_pb2 import JobState as JobStateEnum
@@ -31,6 +44,96 @@ from tilebox.workflows.workflows.v1.job_pb2_grpc import JobServiceStub
 class DummyTask(Task):
     def execute(self, context: ExecutionContext) -> None:
         _ = context
+
+
+def test_query_logs_paginates() -> None:
+    next_page_start = uuid4()
+    log_records = [
+        LogRecord(
+            time=datetime.now(tz=timezone.utc),
+            severity_number=9,
+            severity_text="INFO",
+            body="first",
+            trace_id=None,
+            span_id=None,
+            attributes={},
+            runner_attributes={},
+        ),
+        LogRecord(
+            time=datetime.now(tz=timezone.utc),
+            severity_number=9,
+            severity_text="INFO",
+            body="second",
+            trace_id=None,
+            span_id=None,
+            attributes={},
+            runner_attributes={},
+        ),
+    ]
+    telemetry_service = MagicMock()
+    telemetry_service.query_job_logs.side_effect = [
+        QueryJobLogsResponse(LogRecords([log_records[0]]), Pagination(starting_after=next_page_start)),
+        QueryJobLogsResponse(LogRecords([log_records[1]]), Pagination()),
+    ]
+    job_client = JobClient(MagicMock(), telemetry_service, NoopWorkflowTracer())
+    job_id = uuid4()
+
+    logs = job_client.query_logs(job_id)
+
+    assert logs == log_records
+    assert list(logs.to_pandas()["body"]) == ["first", "second"]
+    assert [call.args[1].starting_after for call in telemetry_service.query_job_logs.call_args_list] == [
+        None,
+        next_page_start,
+    ]
+
+
+def test_query_spans_paginates() -> None:
+    next_page_start = uuid4()
+    spans = [
+        Span(
+            start_time=datetime.now(tz=timezone.utc),
+            end_time=datetime.now(tz=timezone.utc),
+            trace_id="00" * 16,
+            span_id="00" * 8,
+            parent_span_id=None,
+            name="first",
+            status_code="STATUS_CODE_UNSET",
+            status_message="",
+            attributes={},
+            runner_attributes={},
+            events=[],
+        ),
+        Span(
+            start_time=datetime.now(tz=timezone.utc),
+            end_time=datetime.now(tz=timezone.utc),
+            trace_id="00" * 16,
+            span_id="00" * 8,
+            parent_span_id=None,
+            name="second",
+            status_code="STATUS_CODE_UNSET",
+            status_message="",
+            attributes={},
+            runner_attributes={},
+            events=[],
+        ),
+    ]
+    telemetry_service = MagicMock()
+    telemetry_service.query_job_spans.side_effect = [
+        QueryJobSpansResponse(Spans([spans[0]]), Pagination(starting_after=next_page_start)),
+        QueryJobSpansResponse(Spans([spans[1]]), Pagination()),
+    ]
+    job_client = JobClient(MagicMock(), telemetry_service, NoopWorkflowTracer())
+    job_id = uuid4()
+
+    queried_spans = job_client.query_spans(job_id)
+
+    assert queried_spans == spans
+    assert list(queried_spans.to_pandas()["name"]) == ["first", "second"]
+    assert [call.args[1].starting_after for call in telemetry_service.query_job_spans.call_args_list] == [
+        None,
+        next_page_start,
+    ]
 
 
 class MockJobService(JobServiceStub):
@@ -111,7 +214,7 @@ class JobOperations(RuleBasedStateMachine):
         super().__init__()
         service = JobService(MagicMock())
         service.service = MockJobService()  # mock the gRPC service
-        self.job_client = JobClient(service)
+        self.job_client = JobClient(service, MagicMock(), NoopWorkflowTracer())
         self.count_total_submitted = 0
 
     queued_jobs: Bundle[Job] = Bundle("queued_jobs")

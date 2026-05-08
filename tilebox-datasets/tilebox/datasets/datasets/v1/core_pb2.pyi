@@ -1,5 +1,4 @@
 from tilebox.datasets.datasets.v1 import dataset_type_pb2 as _dataset_type_pb2
-from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
 from tilebox.datasets.tilebox.v1 import query_pb2 as _query_pb2
 from google.protobuf.internal import containers as _containers
@@ -33,14 +32,6 @@ VISIBILITY_PRIVATE: Visibility
 VISIBILITY_SHARED_WITH_ME: Visibility
 VISIBILITY_PUBLIC: Visibility
 
-class LegacyPagination(_message.Message):
-    __slots__ = ("limit", "starting_after")
-    LIMIT_FIELD_NUMBER: _ClassVar[int]
-    STARTING_AFTER_FIELD_NUMBER: _ClassVar[int]
-    limit: int
-    starting_after: str
-    def __init__(self, limit: _Optional[int] = ..., starting_after: _Optional[str] = ...) -> None: ...
-
 class Any(_message.Message):
     __slots__ = ("type_url", "value")
     TYPE_URL_FIELD_NUMBER: _ClassVar[int]
@@ -57,43 +48,13 @@ class RepeatedAny(_message.Message):
     value: _containers.RepeatedScalarFieldContainer[bytes]
     def __init__(self, type_url: _Optional[str] = ..., value: _Optional[_Iterable[bytes]] = ...) -> None: ...
 
-class DatapointMetadata(_message.Message):
-    __slots__ = ("event_time", "ingestion_time", "id")
-    EVENT_TIME_FIELD_NUMBER: _ClassVar[int]
-    INGESTION_TIME_FIELD_NUMBER: _ClassVar[int]
-    ID_FIELD_NUMBER: _ClassVar[int]
-    event_time: _timestamp_pb2.Timestamp
-    ingestion_time: _timestamp_pb2.Timestamp
-    id: str
-    def __init__(self, event_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., ingestion_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., id: _Optional[str] = ...) -> None: ...
-
-class DatapointPage(_message.Message):
-    __slots__ = ("meta", "data", "next_page")
-    META_FIELD_NUMBER: _ClassVar[int]
-    DATA_FIELD_NUMBER: _ClassVar[int]
-    NEXT_PAGE_FIELD_NUMBER: _ClassVar[int]
-    meta: _containers.RepeatedCompositeFieldContainer[DatapointMetadata]
-    data: RepeatedAny
-    next_page: LegacyPagination
-    def __init__(self, meta: _Optional[_Iterable[_Union[DatapointMetadata, _Mapping]]] = ..., data: _Optional[_Union[RepeatedAny, _Mapping]] = ..., next_page: _Optional[_Union[LegacyPagination, _Mapping]] = ...) -> None: ...
-
-class Datapoint(_message.Message):
-    __slots__ = ("meta", "data")
-    META_FIELD_NUMBER: _ClassVar[int]
-    DATA_FIELD_NUMBER: _ClassVar[int]
-    meta: DatapointMetadata
-    data: Any
-    def __init__(self, meta: _Optional[_Union[DatapointMetadata, _Mapping]] = ..., data: _Optional[_Union[Any, _Mapping]] = ...) -> None: ...
-
 class Collection(_message.Message):
-    __slots__ = ("legacy_id", "name", "id")
-    LEGACY_ID_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("name", "id")
     NAME_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
-    legacy_id: str
     name: str
     id: _id_pb2.ID
-    def __init__(self, legacy_id: _Optional[str] = ..., name: _Optional[str] = ..., id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
 
 class CollectionInfo(_message.Message):
     __slots__ = ("collection", "availability", "count")

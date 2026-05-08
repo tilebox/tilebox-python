@@ -35,8 +35,8 @@ from tilebox.datasets.sync.dataset import DatasetClient
 from tilebox.workflows.cache import JobCache
 from tilebox.workflows.data import ComputedTask, Idling, NextTaskToRun, ProgressIndicator, Task, TaskLease
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
-from tilebox.workflows.observability.logging import get_logger
-from tilebox.workflows.observability.tracing import WorkflowTracer
+from tilebox.workflows.observability.logging import StructuredLogger
+from tilebox.workflows.observability.tracing import WorkflowTracer, start_job_span
 from tilebox.workflows.runner.task_service import TaskService
 from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
 from tilebox.workflows.task import (
@@ -312,16 +312,18 @@ class TaskRunner:
         service: TaskService,
         cluster: str,
         cache: JobCache,
-        tracer: WorkflowTracer | None,
-        logger: logging.Logger | None,
+        tracer: WorkflowTracer,
         lease_renewer: _LeaseRenewer,
         context: RunnerContext,
+        task_logger: StructuredLogger,
+        runner_logger: StructuredLogger,
     ) -> None:
         self._service = service
         self.tasks_to_run = NextTaskToRun(cluster_slug=cluster, identifiers={})
         self.cache = cache
-        self.tracer = tracer or WorkflowTracer()
-        self.logger = logger or get_logger("runner.TaskRunner", level=logging.WARNING)
+        self.tracer = tracer
+        self.task_logger = task_logger
+        self.runner_logger = runner_logger
         self._interceptors: list[Interceptor] = []
         self._lease_renewer = lease_renewer
         self._lease_renewer.start()  # Start the lease extension process in the background
@@ -389,15 +391,15 @@ class TaskRunner:
                         work = self._service.next_task(task_to_run=self.tasks_to_run, computed_task=None)
                     except InternalServerError as e:
                         # We do not need to retry here, since the task runner will sleep for a while and then anyways request this again.
-                        self.logger.error(f"Failed to get next task with error {e}")
+                        self.runner_logger.error(f"Failed to get next task with error {e}")
 
                 if isinstance(work, Task):  # we received a task to execute
                     task = work
                     if task.retry_count > 0:
-                        self.logger.debug(f"Retrying task {task.id} that failed {task.retry_count} times")
+                        self.runner_logger.debug(f"Retrying task {task.id} that failed {task.retry_count} times")
                     work = self._execute(task, shutdown_context)  # submitting the task gives us the next work item
                 elif isinstance(work, Idling):  # we received an idling response, so let's sleep for a bit
-                    self.logger.debug("No task to run, idling")
+                    self.runner_logger.debug("No task to run, idling")
                     if stop_when_idling:  # if stop_when_idling is set, we can just return
                         return
 
@@ -417,7 +419,7 @@ class TaskRunner:
                     fallback_interval = _FALLBACK_POLL_INTERVAL.total_seconds() + random.uniform(  # noqa: S311
                         0, _FALLBACK_JITTER_INTERVAL.total_seconds()
                     )
-                    self.logger.debug(
+                    self.runner_logger.debug(
                         f"Didn't receive a task to run, nor an idling response, but runner is not shutting down. "
                         f"Falling back to a default idling period of {fallback_interval:.2f}s"
                     )
@@ -438,7 +440,7 @@ class TaskRunner:
             # otherwise, if it's not possible, we just log the task id
             with contextlib.suppress(KeyError):
                 task_repr = self.tasks_to_run.identifiers[task.identifier].__name__
-            self.logger.exception(f"Task {task_repr} failed!")
+            self.runner_logger.exception(f"Task {task_repr} failed!")
 
             task_failed_retry = _retry_backoff(self._service.task_failed, stop=shutdown_context.stop_if_shutting_down())
             was_workflow_error = True
@@ -458,25 +460,32 @@ class TaskRunner:
         if task.lease is None:
             raise ValueError(f"Task {task.id} has no lease associated with it.")
 
+        task_repr = str(task.id)
+
         with (
             self._lease_renewer.lease_extension(task.id, task.lease),
-            self.tracer.start_job_span(task.job, f"task/{task.id}") as span,
+            start_job_span(self.tracer, task.job, f"task/{task.id}") as span,
         ):
+            self.runner_logger.debug("Executing task", task=task_repr, input=task.input)
             try:
                 try:
                     task_class = self.tasks_to_run.identifiers[task.identifier]
+                    task_repr = task_class.__name__
                 except KeyError:
-                    self.logger.error(f"Task {task.id} has unknown task identifier {task.identifier}")
+                    self.runner_logger.error(f"Task {task.id} has unknown task identifier {task.identifier}")
                     raise ValueError(f"Task {task.id} has unknown task identifier {task.identifier}") from None
 
                 # now that we've successfully looked up the task class, we can update the span name to replace the
                 # task execution id with the task class name
-                span.update_name(f"task/{task_class.__name__}")
+                span.update_name(f"task/{task_repr}")
+                span.set_attribute("task_id", str(task.id))
+                span.set_attribute("identifier.name", task.identifier.name)
+                span.set_attribute("identifier.version", task.identifier.version)
 
                 try:
                     task_instance = task_class._deserialize(task.input, self._context)  # ty: ignore[possibly-missing-attribute] # noqa: SLF001
                 except json.JSONDecodeError:
-                    self.logger.exception(f"Failed to deserialize input for task execution {task.id}")
+                    self.runner_logger.exception(f"Failed to deserialize input for task execution {task.id}")
                     raise ValueError(f"Failed to deserialize input for task execution {task.id}") from None
 
                 # record the task input as a span attribute, but for this we need to convert it to a string
@@ -487,7 +496,7 @@ class TaskRunner:
                         task_input_span_attr = task.input.decode("utf-8")
                     except UnicodeDecodeError:
                         task_input_span_attr = b64encode(task.input).decode("ascii")
-                span.set_attribute("task.input", task_input_span_attr)
+                span.set_attribute("input", task_input_span_attr)
 
                 # if we receive an interrupt exactly when running the user defined execute function, it is quite
                 # likely that we don't finish in time. So we mark the task as failed in that case immediately.
@@ -519,6 +528,9 @@ class TaskRunner:
                 # catch all exceptions and re-raise them, since we just want to mark spans as failed
                 span.record_exception(e)
                 span.set_status(StatusCode.ERROR, "Task failed with exception")
+
+                self.runner_logger.exception(f"Task {task_repr} failed!")
+
                 raise e from None  # reraise, since we just wanted to mark it as failed in the span
 
 
@@ -529,6 +541,11 @@ class ExecutionContext(ExecutionContextBase):
         self.job_cache = job_cache
         self._sub_tasks: list[FutureTask] = []
         self._progress_indicators: dict[str | None, ProgressUpdate] = {}
+        if runner is None or task is None:
+            # Some tests instantiate an execution context only to exercise local subtask merging helpers.
+            self._logger = StructuredLogger(logging.getLogger("tilebox.workflows.noop"))
+        else:
+            self._logger = runner.task_logger.bind(task_id=str(task.id))
 
     def submit_subtask(
         self,
@@ -609,6 +626,14 @@ class ExecutionContext(ExecutionContextBase):
     @property
     def runner_context(self) -> RunnerContext:
         return self._runner._context  # noqa: SLF001
+
+    @property
+    def logger(self) -> StructuredLogger:
+        return self._logger
+
+    @property
+    def tracer(self) -> WorkflowTracer:
+        return self._runner.tracer
 
     def _dataset(self, dataset_id: str) -> DatasetClient:
         """Needed by the timeseries integration, to resolve a dataset id to a RemoteTimeseriesDataset."""

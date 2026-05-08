@@ -1,11 +1,12 @@
 from collections import defaultdict
 from collections.abc import Collection, Iterable, Iterator, Mapping
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 import numpy as np
 import pandas as pd
 import xarray as xr
+from google.protobuf.descriptor import Descriptor
 from google.protobuf.message import Message
 
 from tilebox.datasets.protobuf_conversion.field_types import (
@@ -40,7 +41,7 @@ def to_messages(  # noqa: C901, PLR0912
 
     ignore = set(ignore_fields or [])
 
-    field_descriptors_by_name = message_type.DESCRIPTOR.fields_by_name
+    field_descriptors_by_name = cast(Descriptor, message_type.DESCRIPTOR).fields_by_name
 
     # let's validate our fields, to make sure that they are all known fields for the given protobuf message
     # and that they are all lists of the same length

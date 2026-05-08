@@ -17,3 +17,5 @@ coverage.xml
 test-report.xml
 
 *.egg-info/
+
+.amp/

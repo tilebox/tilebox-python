@@ -32,8 +32,6 @@ from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
 from tests.query.pagination import paginations
 from tests.query.time_interval import i64_datetimes
 from tilebox.datasets.data.datapoint import AnyMessage, IngestResponse, QueryResultPage, RepeatedAny
-from tilebox.datasets.datasets.v1 import core_pb2
-from tilebox.datasets.query.time_interval import datetime_to_timestamp
 
 
 @composite
@@ -138,8 +136,7 @@ def example_pandas_datapoints(draw: DrawFn) -> pd.DataFrame:
 @composite
 def anys(draw: DrawFn, generated_fields: bool = False, missing_fields: bool = False) -> AnyMessage:
     """A hypothesis strategy for generating random Any messages"""
-    # we need a random byte string here, but let's actually use a valid protobuf message, in this
-    # case because its easy to generate let's use a DatapointMetadata message
+    # we need a random byte string here, but let's actually use a valid protobuf message
     datapoint = draw(example_datapoints(generated_fields, missing_fields))
     return AnyMessage(example_dataset_type_url(), datapoint.SerializeToString())
 
@@ -156,14 +153,6 @@ def repeated_anys(
     else:
         datapoints = draw(lists(example_datapoints(generated_fields, missing_fields), min_size=1, max_size=5))
     return RepeatedAny(example_dataset_type_url(), [dp.SerializeToString() for dp in datapoints])
-
-
-@composite
-def datapoint_metadata_messages(draw: DrawFn) -> core_pb2.DatapointMetadata:
-    event_time = datetime_to_timestamp(draw(i64_datetimes))
-    ingestion_time = datetime_to_timestamp(draw(i64_datetimes))
-    data_point_id = str(draw(uuids(version=4)))
-    return core_pb2.DatapointMetadata(event_time=event_time, ingestion_time=ingestion_time, id=data_point_id)
 
 
 @composite

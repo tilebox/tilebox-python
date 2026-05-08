@@ -1,8 +1,8 @@
 import re
 import warnings
 from collections.abc import Callable
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
@@ -10,9 +10,14 @@ from typing import Any, cast
 from uuid import UUID
 
 import boto3
+import pandas as pd
 from google.cloud.storage import Client as GoogleStorageClient
 from google.cloud.storage.bucket import Bucket
 from google.protobuf.duration_pb2 import Duration
+from opentelemetry.proto.common.v1 import common_pb2
+from opentelemetry.proto.logs.v1 import logs_pb2
+from opentelemetry.proto.resource.v1 import resource_pb2
+from opentelemetry.proto.trace.v1 import trace_pb2
 
 from tilebox.datasets.query.id_interval import IDInterval
 from tilebox.datasets.query.pagination import Pagination
@@ -30,9 +35,9 @@ try:
     from mypy_boto3_s3.client import S3Client
 except ModuleNotFoundError:
     from typing import Any as S3Client
-from opentelemetry.trace import ProxyTracerProvider, Tracer
 
 from tilebox.datasets.sync.client import Client as DatasetsClient
+from tilebox.workflows.observability.tracing import NoopWorkflowTracer, WorkflowTracer
 from tilebox.workflows.workflows.v1 import automation_pb2 as automation_pb
 from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2
 
@@ -485,6 +490,249 @@ def _parse_version(version: str) -> tuple[int, int]:
     raise ValueError(f"Invalid version string: {version}")
 
 
+@dataclass
+class LogRecord:
+    time: datetime
+    severity_number: int
+    severity_text: str
+    body: str
+    trace_id: str | None
+    span_id: str | None
+    attributes: dict[str, Any]
+    runner_attributes: dict[str, Any]
+
+    @classmethod
+    def from_message(cls, log_record: logs_pb2.ResourceLogs) -> "LogRecord":
+        try:
+            log_record_message = log_record.scope_logs[0].log_records[0]
+        except IndexError:
+            raise ValueError("ResourceLogs does not contain a log record.") from None
+
+        body = _any_value_to_python(log_record_message.body) if log_record_message.HasField("body") else ""
+        return cls(
+            time=_datetime_from_unix_nanos(log_record_message.time_unix_nano),
+            severity_number=int(log_record_message.severity_number),
+            severity_text=log_record_message.severity_text,
+            body=body if isinstance(body, str) else str(body),
+            trace_id=log_record_message.trace_id.hex() or None,
+            span_id=log_record_message.span_id.hex() or None,
+            attributes=_key_values_to_dict(log_record_message.attributes),
+            runner_attributes=_key_values_to_dict(log_record.resource.attributes)
+            if log_record.HasField("resource")
+            else {},
+        )
+
+    def to_message(self) -> logs_pb2.ResourceLogs:
+        return logs_pb2.ResourceLogs(
+            resource=resource_pb2.Resource(attributes=_dict_to_key_values(self.runner_attributes)),
+            scope_logs=[
+                logs_pb2.ScopeLogs(
+                    log_records=[
+                        logs_pb2.LogRecord(
+                            time_unix_nano=_datetime_to_unix_nanos(self.time),
+                            severity_number=cast(logs_pb2.SeverityNumber.ValueType, self.severity_number),
+                            severity_text=self.severity_text,
+                            body=_python_to_any_value(self.body),
+                            attributes=_dict_to_key_values(self.attributes),
+                            trace_id=bytes.fromhex(self.trace_id) if self.trace_id else b"",
+                            span_id=bytes.fromhex(self.span_id) if self.span_id else b"",
+                        )
+                    ]
+                )
+            ],
+        )
+
+
+class LogRecords(list[LogRecord]):
+    def to_pandas(self) -> Any:
+        """Convert log records to a pandas DataFrame."""
+        return pd.DataFrame([asdict(record) for record in self])
+
+
+@dataclass
+class Span:
+    start_time: datetime
+    end_time: datetime
+    trace_id: str
+    span_id: str
+    parent_span_id: str | None
+    name: str
+    status_code: str
+    status_message: str
+    attributes: dict[str, Any]
+    runner_attributes: dict[str, Any]
+    events: list[dict[str, Any]]
+
+    @property
+    def duration(self) -> timedelta:
+        return self.end_time - self.start_time
+
+    @classmethod
+    def from_message(cls, span: trace_pb2.ResourceSpans) -> "Span":
+        try:
+            span_message = span.scope_spans[0].spans[0]
+        except IndexError:
+            raise ValueError("ResourceSpans does not contain a span.") from None
+
+        return cls(
+            start_time=_datetime_from_unix_nanos(span_message.start_time_unix_nano),
+            end_time=_datetime_from_unix_nanos(span_message.end_time_unix_nano),
+            trace_id=span_message.trace_id.hex(),
+            span_id=span_message.span_id.hex(),
+            parent_span_id=span_message.parent_span_id.hex() or None,
+            name=span_message.name,
+            status_code=trace_pb2.Status.StatusCode.Name(span_message.status.code),
+            status_message=span_message.status.message,
+            attributes=_key_values_to_dict(span_message.attributes),
+            runner_attributes=_key_values_to_dict(span.resource.attributes) if span.HasField("resource") else {},
+            events=[
+                {
+                    "time": _datetime_from_unix_nanos(event.time_unix_nano),
+                    "name": event.name,
+                    "attributes": _key_values_to_dict(event.attributes),
+                }
+                for event in span_message.events
+            ],
+        )
+
+    def to_message(self) -> trace_pb2.ResourceSpans:
+        return trace_pb2.ResourceSpans(
+            resource=resource_pb2.Resource(attributes=_dict_to_key_values(self.runner_attributes)),
+            scope_spans=[
+                trace_pb2.ScopeSpans(
+                    spans=[
+                        trace_pb2.Span(
+                            start_time_unix_nano=_datetime_to_unix_nanos(self.start_time),
+                            end_time_unix_nano=_datetime_to_unix_nanos(self.end_time),
+                            trace_id=bytes.fromhex(self.trace_id),
+                            span_id=bytes.fromhex(self.span_id),
+                            parent_span_id=bytes.fromhex(self.parent_span_id) if self.parent_span_id else b"",
+                            name=self.name,
+                            status=trace_pb2.Status(
+                                code=_status_code_from_name(self.status_code),
+                                message=self.status_message,
+                            ),
+                            attributes=_dict_to_key_values(self.attributes),
+                            events=[_span_event_to_message(event) for event in self.events],
+                        )
+                    ]
+                )
+            ],
+        )
+
+
+class Spans(list[Span]):
+    def to_pandas(self) -> Any:
+        """Convert spans to a pandas DataFrame."""
+        rows = []
+        for span in self:
+            row = asdict(span)
+            row["duration"] = span.duration
+            rows.append(row)
+        return pd.DataFrame(rows)
+
+
+def _datetime_from_unix_nanos(unix_nanos: int) -> datetime:
+    return datetime.fromtimestamp(unix_nanos / 1_000_000_000, tz=timezone.utc)
+
+
+def _datetime_to_unix_nanos(value: datetime) -> int:
+    return int(value.timestamp() * 1_000_000_000)
+
+
+def _any_value_to_python(value: common_pb2.AnyValue) -> Any:  # noqa: PLR0911
+    match value.WhichOneof("value"):
+        case "string_value":
+            return value.string_value
+        case "bool_value":
+            return value.bool_value
+        case "int_value":
+            return value.int_value
+        case "double_value":
+            return value.double_value
+        case "bytes_value":
+            return value.bytes_value
+        case "array_value":
+            return [_any_value_to_python(item) for item in value.array_value.values]  # noqa: PD011
+        case "kvlist_value":
+            return _key_values_to_dict(value.kvlist_value.values)
+        case _:
+            return None
+
+
+def _python_to_any_value(value: Any) -> common_pb2.AnyValue:  # noqa: PLR0911
+    if isinstance(value, bool):
+        return common_pb2.AnyValue(bool_value=value)
+    if isinstance(value, str):
+        return common_pb2.AnyValue(string_value=value)
+    if isinstance(value, int):
+        return common_pb2.AnyValue(int_value=value)
+    if isinstance(value, float):
+        return common_pb2.AnyValue(double_value=value)
+    if isinstance(value, bytes):
+        return common_pb2.AnyValue(bytes_value=value)
+    if isinstance(value, list | tuple):
+        return common_pb2.AnyValue(
+            array_value=common_pb2.ArrayValue(values=[_python_to_any_value(item) for item in value])
+        )
+    if isinstance(value, dict):
+        return common_pb2.AnyValue(kvlist_value=common_pb2.KeyValueList(values=_dict_to_key_values(value)))
+    return common_pb2.AnyValue(string_value=str(value))
+
+
+def _key_values_to_dict(key_values: Any) -> dict[str, Any]:
+    return {key_value.key: _any_value_to_python(key_value.value) for key_value in key_values}
+
+
+def _dict_to_key_values(attributes: dict[str, Any]) -> list[common_pb2.KeyValue]:
+    return [common_pb2.KeyValue(key=key, value=_python_to_any_value(value)) for key, value in attributes.items()]
+
+
+def _status_code_from_name(status_code: str) -> trace_pb2.Status.StatusCode.ValueType:
+    try:
+        return trace_pb2.Status.StatusCode.Value(status_code)
+    except ValueError:
+        return trace_pb2.Status.STATUS_CODE_UNSET
+
+
+def _span_event_to_message(event: dict[str, Any]) -> trace_pb2.Span.Event:
+    time = event.get("time")
+    attributes = event.get("attributes", {})
+    if not isinstance(attributes, dict):
+        attributes = {}
+    return trace_pb2.Span.Event(
+        time_unix_nano=_datetime_to_unix_nanos(time) if isinstance(time, datetime) else 0,
+        name=str(event.get("name", "")),
+        attributes=_dict_to_key_values(attributes),
+    )
+
+
+@dataclass(frozen=True)
+class QueryJobLogsResponse:
+    logs: LogRecords
+    next_page: Pagination
+
+    @classmethod
+    def from_message(cls, page: Any) -> "QueryJobLogsResponse":
+        return cls(
+            logs=LogRecords(LogRecord.from_message(log_record) for log_record in page.resource_logs),
+            next_page=Pagination.from_message(page.next_page),
+        )
+
+
+@dataclass(frozen=True)
+class QueryJobSpansResponse:
+    spans: Spans
+    next_page: Pagination
+
+    @classmethod
+    def from_message(cls, page: Any) -> "QueryJobSpansResponse":
+        return cls(
+            spans=Spans(Span.from_message(span) for span in page.resource_spans),
+            next_page=Pagination.from_message(page.next_page),
+        )
+
+
 class StorageType(Enum):
     GCS = automation_pb.STORAGE_TYPE_GCS  # Google Cloud Storage
     S3 = automation_pb.STORAGE_TYPE_S3  # Amazon Web Services S3
@@ -529,19 +777,19 @@ class StorageLocation:
 
         match self.type:
             case StorageType.GCS:
-                with runner_context.tracer.start_as_current_span("gcs.read") as span:
+                with runner_context.tracer.span("gcs.read") as span:
                     span.set_attribute("bucket", self.location)
                     span.set_attribute("path", path)
                     # GCS library has some weird typing issues, so let's ignore them for now
                     blob = runner_context.gcs_client(self.location).blob(path)
                     return blob.download_as_bytes()
             case StorageType.S3:
-                with runner_context.tracer.start_as_current_span("s3.read") as span:
+                with runner_context.tracer.span("s3.read") as span:
                     span.set_attribute("bucket", self.location)
                     span.set_attribute("path", path)
                 return runner_context.s3_client(self.location).get_object(Bucket=self.location, Key=path)["Body"].read()
             case StorageType.FS:
-                with runner_context.tracer.start_as_current_span("fs.read") as span:
+                with runner_context.tracer.span("fs.read") as span:
                     span.set_attribute("root_directory", self.location)
                     span.set_attribute("path", path)
                 return Path(self.location).joinpath(path).read_bytes()
@@ -675,14 +923,13 @@ class AutomationPrototype:
 class RunnerContext:
     def __init__(
         self,
-        tracer: Tracer | None = None,
+        tracer: WorkflowTracer | None = None,
         datasets_client: DatasetsClient | None = None,
         storage_locations: list[StorageLocation] | None = None,
     ) -> None:
         if tracer is None:
-            self.tracer = ProxyTracerProvider().get_tracer("tilebox.workflows.RunnerContext")
-        else:
-            self.tracer = tracer
+            tracer = NoopWorkflowTracer()
+        self.tracer = tracer
         self.datasets_client = datasets_client
         self.storage_locations = {
             sl.id: sl._with_runner_context(self)  # noqa: SLF001

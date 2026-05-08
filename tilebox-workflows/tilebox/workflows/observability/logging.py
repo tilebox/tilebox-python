@@ -6,24 +6,37 @@ import platform
 import re
 import sys
 import traceback
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import lru_cache
 from importlib.metadata import PackageNotFoundError, version
-from typing import ClassVar, TextIO
-from uuid import uuid4
+from typing import Any, ClassVar, TextIO
+from uuid import UUID, uuid4
 
 from opentelemetry.exporter.otlp.proto.http._log_exporter import (
     DEFAULT_LOGS_EXPORT_PATH,
     OTLPLogExporter,
     _append_logs_path,
 )
-from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.instrumentation.logging.handler import LoggingHandler
+from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-from opentelemetry.sdk.resources import SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_VERSION, Resource
+from opentelemetry.sdk.resources import (
+    HOST_ARCH,
+    HOST_NAME,
+    OS_TYPE,
+    PROCESS_PID,
+    SERVICE_INSTANCE_ID,
+    SERVICE_NAME,
+    SERVICE_NAMESPACE,
+    SERVICE_VERSION,
+    Resource,
+)
 from opentelemetry.semconv.attributes import exception_attributes
+from opentelemetry.trace import get_current_span
 from opentelemetry.util.types import _ExtendedAttributes
 
 # prefix for stdlib loggers
+_DEFAULT_SERVICE_NAME = "tilebox-python"
 _LOGGING_NAMESPACE = "tilebox.workflows"
 
 _AXIOM_ENDPOINT = "https://api.axiom.co/v1/logs"
@@ -33,22 +46,37 @@ _AXIOM_API_KEY_ENV_VAR = "AXIOM_API_KEY"
 _OTEL_LOGS_ENDPOINT_ENV_VAR = "OTEL_LOGS_ENDPOINT"
 _OTEL_EXPORT_INTERVAL_ENV_VAR = "OTEL_EXPORT_INTERVAL"
 
+_WORKFLOW_LOG_ATTRIBUTES = "tilebox_structured_log_attributes"
+
+# process-unique identifier to distinguish different instances of the same service running on the same host
+_instance_id = str(uuid4())
+
 
 def _get_default_resource(service: str | Resource | None = None) -> Resource:
-    if isinstance(service, Resource):  # already a resource object, no need to create a default one
-        return service
+    if isinstance(service, Resource):  # already a resource object
+        service_name = service.attributes.get(SERVICE_NAME)
+        if service_name is not None and service_name != "unknown_service":
+            # default value of SERVICE_NAME is "unknown_service", so if we have anything other than that we
+            # know it's already configured
+            return service
 
-    service_name = service if isinstance(service, str) else f"tilebox.workflows-{os.getpid()}"
+    service_name = service if isinstance(service, str) else _DEFAULT_SERVICE_NAME
 
-    instance_id = f"{platform.uname().node}-{os.getpid()}"
     workflows_version = "dev"
     with contextlib.suppress(PackageNotFoundError):
         workflows_version = version("tilebox-workflows")
+
+    uname = platform.uname()
     return Resource.create(
         attributes={
+            SERVICE_NAMESPACE: "tilebox.workflows",
             SERVICE_NAME: service_name,
-            SERVICE_INSTANCE_ID: instance_id,
+            SERVICE_INSTANCE_ID: _instance_id,
             SERVICE_VERSION: workflows_version,
+            PROCESS_PID: os.getpid(),
+            HOST_NAME: uname.node,
+            HOST_ARCH: uname.machine.lower(),
+            OS_TYPE: uname.system.lower(),
         }
     )
 
@@ -63,10 +91,51 @@ def _root_logger() -> logging.Logger:
     return root_logger
 
 
+def _current_span_attributes() -> dict[str, str]:
+    span_context = get_current_span().get_span_context()
+    if not span_context.is_valid:
+        return {}
+
+    return {
+        "trace_id": f"{span_context.trace_id:032x}",
+        "span_id": f"{span_context.span_id:016x}",
+    }
+
+
+def _sanitize_otel_attribute_value(
+    value: Any,
+) -> str | bool | int | float | bytes | list[str | bool | int | float | bytes]:
+    if isinstance(value, str | bool | int | float | bytes):
+        return value
+
+    if isinstance(value, datetime):
+        return value.isoformat()
+
+    if isinstance(value, tuple | list):
+        values = []
+        for item in value:
+            if isinstance(item, str | bool | int | float | bytes):
+                values.append(item)
+            else:
+                values.append(_sanitize_otel_attribute_value(item))
+        return values
+
+    return str(value)
+
+
+def _sanitize_otel_attributes(attributes: dict[str, Any]) -> _ExtendedAttributes:
+    return {str(key): _sanitize_otel_attribute_value(value) for key, value in attributes.items()}
+
+
 class OTELLoggingHandler(LoggingHandler):
-    @staticmethod
-    def _get_attributes(record: logging.LogRecord) -> _ExtendedAttributes:
-        attributes = {}
+    def _get_attributes(self, record: logging.LogRecord) -> _ExtendedAttributes:
+        attributes: dict[str, Any] = {}
+        attributes.update(_current_span_attributes())
+
+        workflow_attributes = getattr(record, _WORKFLOW_LOG_ATTRIBUTES, None)
+        if isinstance(workflow_attributes, dict):
+            attributes.update(workflow_attributes)
+
         # the default implementation returns attributes for the filepath, lineno and function of the log record
         # we don't want that by default, so we override it to return an empty dict
         if record.exc_info:
@@ -80,7 +149,87 @@ class OTELLoggingHandler(LoggingHandler):
                 attributes[exception_attributes.EXCEPTION_STACKTRACE] = "".join(
                     traceback.format_exception(*record.exc_info)
                 )
-        return attributes
+        return _sanitize_otel_attributes(attributes)
+
+
+class StructuredLogger:
+    """A small structured logging wrapper for logs emitted during task execution."""
+
+    def __init__(self, logger: logging.Logger, attributes: dict[str, Any] | None = None) -> None:
+        self._logger = logger
+        self._attributes = attributes or {}
+
+    def bind(self, **attributes: Any) -> "StructuredLogger":
+        """Return a new logger that includes the given attributes in every log record."""
+        return StructuredLogger(self._logger, self._attributes | attributes)
+
+    def log(self, level: int, message: object, /, *args: Any, **attributes: Any) -> None:
+        """Log a message with structured attributes."""
+        self._log(level, message, args, attributes, exc_info=False)
+
+    def debug(self, message: object, /, *args: Any, **attributes: Any) -> None:
+        """Log a debug message with structured attributes."""
+        self._log(logging.DEBUG, message, args, attributes, exc_info=False)
+
+    def info(self, message: object, /, *args: Any, **attributes: Any) -> None:
+        """Log an info message with structured attributes."""
+        self._log(logging.INFO, message, args, attributes, exc_info=False)
+
+    def warning(self, message: object, /, *args: Any, **attributes: Any) -> None:
+        """Log a warning message with structured attributes."""
+        self._log(logging.WARNING, message, args, attributes, exc_info=False)
+
+    def error(self, message: object, /, *args: Any, **attributes: Any) -> None:
+        """Log an error message with structured attributes."""
+        self._log(logging.ERROR, message, args, attributes, exc_info=False)
+
+    def exception(self, message: object, /, *args: Any, **attributes: Any) -> None:
+        """Log an error message with structured attributes and the current exception information."""
+        self._log(logging.ERROR, message, args, attributes, exc_info=True)
+
+    def critical(self, message: object, /, *args: Any, **attributes: Any) -> None:
+        """Log a critical message with structured attributes."""
+        self._log(logging.CRITICAL, message, args, attributes, exc_info=False)
+
+    def _log(
+        self,
+        level: int,
+        message: object,
+        args: tuple[Any, ...],
+        attributes: dict[str, Any],
+        *,
+        exc_info: bool,
+    ) -> None:
+        if not self._logger.isEnabledFor(level):
+            return
+
+        workflow_attributes = self._attributes | attributes | _current_span_attributes()
+        self._logger.log(
+            level,
+            message,
+            *args,
+            exc_info=exc_info,
+            extra={_WORKFLOW_LOG_ATTRIBUTES: workflow_attributes},
+            stacklevel=3,
+        )
+
+
+@lru_cache(maxsize=16)  # reuse logger providers for the same credentials if possible
+def _create_tilebox_logger_provider(service: str | None, url: str, token: str | None) -> LoggerProvider:
+    provider = LoggerProvider(resource=_get_default_resource(service))
+    batch_exporter = _otel_log_exporter(
+        endpoint=url,
+        headers={"Authorization": f"Bearer {token}"} if token is not None else None,
+    )
+    provider.add_log_record_processor(batch_exporter)
+    return provider
+
+
+def _create_tilebox_logger(client_id: UUID, scope: str) -> logging.Logger:
+    logger = logging.getLogger(f"{_LOGGING_NAMESPACE}.clients.{client_id}.{scope}")
+    logger.setLevel(logging.DEBUG)  # always debug, so that other handlers can still filter by that level
+    logger.propagate = True
+    return logger
 
 
 def _otel_log_exporter(

@@ -14,6 +14,8 @@ from typing import Any, Generic, TypeVar, cast, get_args, get_origin
 from typing_extensions import dataclass_transform
 
 from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmissionGroup, TaskSubmissions
+from tilebox.workflows.observability.logging import StructuredLogger
+from tilebox.workflows.observability.tracing import WorkflowTracer
 
 META_ATTR = "__tilebox_task_meta__"  # the name of the attribute we use to store task metadata on the class
 
@@ -401,6 +403,16 @@ class ExecutionContext(ABC):
     @abstractmethod
     def runner_context(self) -> RunnerContext:
         """Get the runner context for the task runner executing the task."""
+
+    @property
+    @abstractmethod
+    def tracer(self) -> WorkflowTracer:
+        """Get the tracer for the task runner executing the task."""
+
+    @property
+    @abstractmethod
+    def logger(self) -> StructuredLogger:
+        """Get the logger for the task runner executing the task."""
 
     @abstractmethod
     def progress(self, label: str | None = None) -> ProgressUpdate:
