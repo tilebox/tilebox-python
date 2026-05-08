@@ -10,12 +10,12 @@ from tilebox.workflows.clusters.client import ClusterSlugLike, to_cluster_slug
 from tilebox.workflows.data import (
     Job,
     JobState,
-    LogRecord,
+    LogRecords,
     QueryFilters,
     QueryJobLogsResponse,
     QueryJobSpansResponse,
     QueryJobsResponse,
-    Span,
+    Spans,
     TaskState,
 )
 from tilebox.workflows.jobs.service import JobService
@@ -138,7 +138,7 @@ class JobClient:
         """
         return self._service.get_by_id(_to_uuid(job_id))
 
-    def query_logs(self, job_id: JobIDLike) -> list[LogRecord]:
+    def query_logs(self, job_id: JobIDLike) -> LogRecords:
         """Query logs emitted while running a job.
 
         Args:
@@ -154,12 +154,12 @@ class JobClient:
 
         pages = paginated_request(request, Pagination())
 
-        logs = []
+        logs = LogRecords()
         for page in pages:
             logs.extend(page.logs)
         return logs
 
-    def query_spans(self, job_id: JobIDLike) -> list[Span]:
+    def query_spans(self, job_id: JobIDLike) -> Spans:
         """Query spans emitted while running a job.
 
         Args:
@@ -175,7 +175,7 @@ class JobClient:
 
         pages = paginated_request(request, Pagination())
 
-        spans = []
+        spans = Spans()
         for page in pages:
             spans.extend(page.spans)
         return spans

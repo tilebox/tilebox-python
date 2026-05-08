@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.52.0]
+
+### Added
+
+- `tilebox-workflows`: Added automatic OpenTelemetry-based logging and tracing instrumentation to a Tilebox
+  observability backend.
+- `tilebox-workflows`: Added `ExecutionContext.logger` and `ExecutionContext.tracer` access for task implementations to
+  emit structured logs and custom spans during task execution.
+- `tilebox-workflows`: Added `JobClient.query_logs()` and `JobClient.query_spans()` to fetch telemetry for a job, with
+  list-like results that can be converted to pandas DataFrames via `to_pandas()`.
+
 ## [0.51.0] - 2026-04-07
 
 ### Changed
@@ -357,7 +368,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.51.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.52.0...HEAD
+[0.52.0]: https://github.com/tilebox/tilebox-python/compare/v0.51.0...v0.52.0
 [0.51.0]: https://github.com/tilebox/tilebox-python/compare/v0.50.1...v0.51.0
 [0.50.1]: https://github.com/tilebox/tilebox-python/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/tilebox/tilebox-python/compare/v0.49.0...v0.50.0

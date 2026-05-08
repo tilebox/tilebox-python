@@ -12,9 +12,11 @@ from tilebox.workflows.data import (
     Job,
     JobState,
     LogRecord,
+    LogRecords,
     QueryJobLogsResponse,
     QueryJobSpansResponse,
     Span,
+    Spans,
     uuid_message_to_uuid,
     uuid_to_uuid_message,
 )
@@ -70,13 +72,16 @@ def test_query_logs_paginates() -> None:
     ]
     telemetry_service = MagicMock()
     telemetry_service.query_job_logs.side_effect = [
-        QueryJobLogsResponse([log_records[0]], Pagination(starting_after=next_page_start)),
-        QueryJobLogsResponse([log_records[1]], Pagination()),
+        QueryJobLogsResponse(LogRecords([log_records[0]]), Pagination(starting_after=next_page_start)),
+        QueryJobLogsResponse(LogRecords([log_records[1]]), Pagination()),
     ]
     job_client = JobClient(MagicMock(), telemetry_service, NoopWorkflowTracer())
     job_id = uuid4()
 
-    assert job_client.query_logs(job_id) == log_records
+    logs = job_client.query_logs(job_id)
+
+    assert logs == log_records
+    assert list(logs.to_pandas()["body"]) == ["first", "second"]
     assert [call.args[1].starting_after for call in telemetry_service.query_job_logs.call_args_list] == [
         None,
         next_page_start,
@@ -115,13 +120,16 @@ def test_query_spans_paginates() -> None:
     ]
     telemetry_service = MagicMock()
     telemetry_service.query_job_spans.side_effect = [
-        QueryJobSpansResponse([spans[0]], Pagination(starting_after=next_page_start)),
-        QueryJobSpansResponse([spans[1]], Pagination()),
+        QueryJobSpansResponse(Spans([spans[0]]), Pagination(starting_after=next_page_start)),
+        QueryJobSpansResponse(Spans([spans[1]]), Pagination()),
     ]
     job_client = JobClient(MagicMock(), telemetry_service, NoopWorkflowTracer())
     job_id = uuid4()
 
-    assert job_client.query_spans(job_id) == spans
+    queried_spans = job_client.query_spans(job_id)
+
+    assert queried_spans == spans
+    assert list(queried_spans.to_pandas()["name"]) == ["first", "second"]
     assert [call.args[1].starting_after for call in telemetry_service.query_job_spans.call_args_list] == [
         None,
         next_page_start,

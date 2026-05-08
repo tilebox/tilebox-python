@@ -1,5 +1,6 @@
 import contextlib
 import json
+import logging
 import random
 import signal
 import threading
@@ -540,7 +541,11 @@ class ExecutionContext(ExecutionContextBase):
         self.job_cache = job_cache
         self._sub_tasks: list[FutureTask] = []
         self._progress_indicators: dict[str | None, ProgressUpdate] = {}
-        self._logger = runner.task_logger.bind(task_id=str(task.id))
+        if runner is None or task is None:
+            # Some tests instantiate an execution context only to exercise local subtask merging helpers.
+            self._logger = StructuredLogger(logging.getLogger("tilebox.workflows.noop"))
+        else:
+            self._logger = runner.task_logger.bind(task_id=str(task.id))
 
     def submit_subtask(
         self,

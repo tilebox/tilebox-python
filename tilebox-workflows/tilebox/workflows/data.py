@@ -1,7 +1,7 @@
 import re
 import warnings
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import lru_cache
@@ -10,6 +10,7 @@ from typing import Any, cast
 from uuid import UUID
 
 import boto3
+import pandas as pd
 from google.cloud.storage import Client as GoogleStorageClient
 from google.cloud.storage.bucket import Bucket
 from google.protobuf.duration_pb2 import Duration
@@ -542,6 +543,12 @@ class LogRecord:
         )
 
 
+class LogRecords(list[LogRecord]):
+    def to_pandas(self) -> Any:
+        """Convert log records to a pandas DataFrame."""
+        return pd.DataFrame([asdict(record) for record in self])
+
+
 @dataclass
 class Span:
     start_time: datetime
@@ -614,6 +621,17 @@ class Span:
         )
 
 
+class Spans(list[Span]):
+    def to_pandas(self) -> Any:
+        """Convert spans to a pandas DataFrame."""
+        rows = []
+        for span in self:
+            row = asdict(span)
+            row["duration"] = span.duration
+            rows.append(row)
+        return pd.DataFrame(rows)
+
+
 def _datetime_from_unix_nanos(unix_nanos: int) -> datetime:
     return datetime.fromtimestamp(unix_nanos / 1_000_000_000, tz=timezone.utc)
 
@@ -635,7 +653,7 @@ def _any_value_to_python(value: common_pb2.AnyValue) -> Any:  # noqa: PLR0911
         case "bytes_value":
             return value.bytes_value
         case "array_value":
-            return [_any_value_to_python(item) for item in value.array_value.values]
+            return [_any_value_to_python(item) for item in value.array_value.values]  # noqa: PD011
         case "kvlist_value":
             return _key_values_to_dict(value.kvlist_value.values)
         case _:
@@ -691,26 +709,26 @@ def _span_event_to_message(event: dict[str, Any]) -> trace_pb2.Span.Event:
 
 @dataclass(frozen=True)
 class QueryJobLogsResponse:
-    logs: list[LogRecord]
+    logs: LogRecords
     next_page: Pagination
 
     @classmethod
     def from_message(cls, page: Any) -> "QueryJobLogsResponse":
         return cls(
-            logs=[LogRecord.from_message(log_record) for log_record in page.resource_logs],
+            logs=LogRecords(LogRecord.from_message(log_record) for log_record in page.resource_logs),
             next_page=Pagination.from_message(page.next_page),
         )
 
 
 @dataclass(frozen=True)
 class QueryJobSpansResponse:
-    spans: list[Span]
+    spans: Spans
     next_page: Pagination
 
     @classmethod
     def from_message(cls, page: Any) -> "QueryJobSpansResponse":
         return cls(
-            spans=[Span.from_message(span) for span in page.resource_spans],
+            spans=Spans(Span.from_message(span) for span in page.resource_spans),
             next_page=Pagination.from_message(page.next_page),
         )
 
