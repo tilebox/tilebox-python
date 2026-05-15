@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import os
 import re
 import signal
 import threading
@@ -23,7 +24,12 @@ from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.data import ExecutionStats, Job, JobState, RunnerContext, TaskIdentifier, TaskState
 from tilebox.workflows.data import Task as WorkflowTask
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
-from tilebox.workflows.observability.logging import StructuredLogger
+from tilebox.workflows.observability.logging import (
+    OTELLoggingHandler,
+    StructuredLogger,
+    _create_tilebox_logger,
+    _create_tilebox_logger_provider,
+)
 from tilebox.workflows.observability.tracing import WorkflowTracer
 from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
 from tilebox.workflows.task import FutureTask, TaskMeta
@@ -32,7 +38,6 @@ from tilebox.workflows.task import Task as TaskInstance
 
 _PHASE1_RUNTIME_KIND = "python_uv"
 _MAX_TASK_PROGRESS_INDICATORS = 1000
-_LOGGER = logging.getLogger(__name__)
 _TRACE_CONTEXT_PROPAGATOR = TraceContextTextMapPropagator()
 _TRACEPARENT_PATTERN = re.compile(r"^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$")
 
@@ -64,7 +69,7 @@ def _duration_from_seconds(seconds: float) -> Duration:
 
 
 @contextmanager
-def _attach_trace_context(trace_context_bytes: bytes) -> Iterator[None]:
+def _attach_trace_context(trace_context_bytes: bytes, logger: StructuredLogger) -> Iterator[None]:
     if not trace_context_bytes:
         yield
         return
@@ -72,7 +77,7 @@ def _attach_trace_context(trace_context_bytes: bytes) -> Iterator[None]:
     try:
         trace_parent = trace_context_bytes.decode("utf-8").strip()
     except UnicodeDecodeError:
-        _LOGGER.debug("Ignoring worker trace context: non-UTF-8 trace_context bytes", exc_info=True)
+        logger.exception("Ignoring worker trace context: non-UTF-8 trace_context bytes")
         yield
         return
 
@@ -82,20 +87,20 @@ def _attach_trace_context(trace_context_bytes: bytes) -> Iterator[None]:
 
     normalized_trace_parent = trace_parent.lower()
     if not _TRACEPARENT_PATTERN.fullmatch(normalized_trace_parent):
-        _LOGGER.debug("Ignoring worker trace context: invalid traceparent")
+        logger.debug("Ignoring worker trace context: invalid traceparent")
         yield
         return
 
     _, trace_id_hex, span_id_hex, _ = normalized_trace_parent.split("-")
     if trace_id_hex == "0" * 32 or span_id_hex == "0" * 16:
-        _LOGGER.debug("Ignoring worker trace context: invalid traceparent")
+        logger.debug("Ignoring worker trace context: invalid traceparent")
         yield
         return
 
     try:
         extracted_context = _TRACE_CONTEXT_PROPAGATOR.extract({"traceparent": normalized_trace_parent})
-    except Exception:  # noqa: BLE001
-        _LOGGER.debug("Ignoring worker trace context: invalid traceparent", exc_info=True)
+    except Exception:
+        logger.exception("Ignoring worker trace context: invalid traceparent")
         yield
         return
 
@@ -265,13 +270,14 @@ class _TrackedProgressUpdate(TaskProgressUpdate):
 
 
 class WorkerExecutionContext(ExecutionContextBase):
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         runner_context: RunnerContext,
         job_cache: JobCache,
         fallback_cluster_slug: str,
         cancellation_event: threading.Event,
         current_task: WorkflowTask,
+        task_logger: StructuredLogger,
     ) -> None:
         self._runner_context = runner_context
         self.job_cache = job_cache
@@ -280,9 +286,9 @@ class WorkerExecutionContext(ExecutionContextBase):
         self._cancellation_event = cancellation_event
         self._sub_tasks: list[FutureTask] = []
         self._progress_indicators: dict[str | None, _TrackedProgressUpdate] = {}
-        self._logger = StructuredLogger(
-            logging.getLogger("tilebox.workflows.runner.worker_rpc"),
-            {"job_id": str(current_task.job.id) if current_task.job else "", "task_id": str(current_task.id)},
+        self._logger = task_logger.bind(
+            job_id=str(current_task.job.id) if current_task.job else "",
+            task_id=str(current_task.id),
         )
 
     def submit_subtask(
@@ -438,7 +444,32 @@ class PythonWorkerShim:
         expected_environment_digest: str | None = None,
         expected_artifact_digest: str | None = None,
         expected_entrypoint: str | None = None,
+        url: str = "https://api.tilebox.com",
+        token: str | None = None,
+        name: str | None = None,
     ) -> None:
+        if token is None:
+            token = os.environ.get("TILEBOX_API_KEY", None)
+
+        # Configure logging and tracing using the same Tilebox observability path as the public workflow client.
+        self._client_id = uuid4()
+        self._logger_provider = _create_tilebox_logger_provider(service=name, url=url, token=token)
+
+        # Task logger is the logger available for users to emit logs from within a Task.execute method, via
+        # context.logger.
+        self._task_logger = _create_tilebox_logger(self._client_id, scope="tasks")
+        self._task_logger_handler = OTELLoggingHandler(level=logging.INFO, logger_provider=self._logger_provider)
+        self._task_logger.addHandler(self._task_logger_handler)
+
+        # Runner logger is used for internal worker/runtime events and is not exposed directly to users.
+        self._runner_logger = _create_tilebox_logger(self._client_id, scope="runner")
+        self._runner_logger_handler = OTELLoggingHandler(level=logging.INFO, logger_provider=self._logger_provider)
+        self._runner_logger.addHandler(self._runner_logger_handler)
+
+        self._tracer = WorkflowTracer(service=name, url=url, token=token)
+        self._task_structured_logger = StructuredLogger(self._task_logger, {})
+        self._runner_structured_logger = StructuredLogger(self._runner_logger, {})
+
         worker_protocol_message = worker_protocol
         if worker_protocol_message is None:
             worker_protocol_message = ProtocolVersion(major=1, minor=0)
@@ -451,7 +482,8 @@ class PythonWorkerShim:
         self._capabilities = tuple(
             sorted(capabilities or {"execute_task", "cancel_task", "progress_updates", "submitted_subtasks"})
         )
-        self._runner_context = runner_context or RunnerContext()
+        self._runner_context = runner_context or RunnerContext(self._tracer)
+        self._runner_context.tracer = self._tracer
         self._cache = cache or InMemoryCache()
         self._default_cluster_slug = default_cluster_slug
         self._expected_environment_digest = expected_environment_digest
@@ -583,6 +615,7 @@ class PythonWorkerShim:
         with self._lock:
             self._workers[worker_instance_id] = _WorkerInstanceState(ready=True)
 
+        self._runner_structured_logger.debug("Worker started", worker_instance_id=worker_instance_id)
         return StartWorkerResponse(worker_instance_id=worker_instance_id, ready=True, message="ready")
 
     def _start_worker_readiness_error(self, request: StartWorkerRequest) -> str | None:
@@ -622,6 +655,7 @@ class PythonWorkerShim:
         if state.cancellation_event is not None:
             state.cancellation_event.set()
 
+        self._runner_structured_logger.debug("Worker stopped", worker_instance_id=request.worker_instance_id)
         return StopWorkerResponse(stopped=True)
 
     def health_check(self, request: HealthCheckRequest) -> HealthCheckResponse:
@@ -643,12 +677,14 @@ class PythonWorkerShim:
             raise ValueError(msg)
         return task_class
 
-    def execute_task(self, request: ExecuteTaskRequest) -> ExecuteTaskResponse:  # noqa: PLR0911
+    def execute_task(self, request: ExecuteTaskRequest) -> ExecuteTaskResponse:  # noqa: C901, PLR0911
         start_time = monotonic()
 
         context: WorkerExecutionContext | None = None
         task_id = request.task_id
         cancellation_event = threading.Event()
+        runner_logger = self._runner_structured_logger.bind(job_id=request.job_id, task_id=request.task_id)
+        execution_error_logged = False
 
         with self._lock:
             if self._shutdown_event.is_set():
@@ -701,17 +737,26 @@ class PythonWorkerShim:
                 fallback_cluster_slug=self._default_cluster_slug,
                 cancellation_event=cancellation_event,
                 current_task=current_task,
+                task_logger=self._task_structured_logger,
             )
             context.raise_if_cancellation_requested()
 
             task_instance = task_class._deserialize(request.task_input, self._runner_context)  # noqa: SLF001
             with (
-                _attach_trace_context(request.trace_context),
+                _attach_trace_context(request.trace_context, runner_logger),
                 _start_task_span(
                     self._runner_context.tracer, request.task_identifier_name, request.job_id, request.task_id
                 ),
             ):
-                _execute_task_with_interceptors(task_instance, context, self._interceptors)
+                runner_logger.debug("Executing task", task_identifier=request.task_identifier_name)
+                try:
+                    _execute_task_with_interceptors(task_instance, context, self._interceptors)
+                except TaskExecutionCanceledError:
+                    raise
+                except Exception:
+                    execution_error_logged = True
+                    runner_logger.exception("Task execution failed")
+                    raise
 
             if context.is_cancellation_requested() or self._shutdown_event.is_set():
                 return ExecuteTaskResponse(
@@ -741,7 +786,9 @@ class PythonWorkerShim:
                 submitted_subtasks=[] if context is None else context.submitted_subtasks(),
                 execution_duration=_duration_from_seconds(monotonic() - start_time),
             )
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
+            if not execution_error_logged:
+                runner_logger.exception("Task execution failed")
             return ExecuteTaskResponse(
                 status=ExecuteTaskStatus.STATUS_FAILED,
                 display=_response_display(context, request.task_display),

@@ -4,11 +4,49 @@ from typing import ClassVar
 from uuid import uuid4
 
 import grpc
+import pytest
+from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry.sdk.trace import ReadableSpan, Span
+from opentelemetry.sdk.trace.export import SpanProcessor
 
 from tilebox.runner.worker.v1 import worker_pb2, worker_pb2_grpc
 from tilebox.workflows import ExecutionContext, Task
+from tilebox.workflows.observability import tracing
+from tilebox.workflows.runner import worker_rpc_v1
 from tilebox.workflows.runner.worker_rpc_server import serve_worker_rpc
 from tilebox.workflows.runner.worker_rpc_v1 import PythonWorkerShim
+
+
+class _NoopSpanProcessor(SpanProcessor):
+    def on_start(self, span: Span, parent_context: object | None = None) -> None:
+        _ = span, parent_context
+
+    def on_end(self, span: ReadableSpan) -> None:
+        _ = span
+
+    def shutdown(self) -> None:
+        pass
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        _ = timeout_millis
+        return True
+
+
+@pytest.fixture(autouse=True)
+def disable_worker_shim_exporters(monkeypatch: pytest.MonkeyPatch) -> None:
+    def noop_span_exporter(*_args: object, **_kwargs: object) -> _NoopSpanProcessor:
+        return _NoopSpanProcessor()
+
+    def noop_logger_provider(service: object, url: str, token: str | None) -> LoggerProvider:
+        _ = service, url, token
+        return LoggerProvider()
+
+    monkeypatch.setattr(tracing, "_otel_span_exporter", noop_span_exporter)
+    monkeypatch.setattr(
+        worker_rpc_v1,
+        "_create_tilebox_logger_provider",
+        noop_logger_provider,
+    )
 
 
 def _free_address() -> str:

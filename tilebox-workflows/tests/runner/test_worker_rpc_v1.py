@@ -4,9 +4,14 @@ from typing import ClassVar
 from uuid import uuid4
 
 import pytest
+from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry.sdk.trace import ReadableSpan, Span
+from opentelemetry.sdk.trace.export import SpanProcessor
 from opentelemetry.trace import get_current_span
 
 from tilebox.workflows import ExecutionContext, Task
+from tilebox.workflows.observability import tracing
+from tilebox.workflows.runner import worker_rpc_v1
 from tilebox.workflows.runner.worker_rpc_v1 import (
     CancelTaskRequest,
     ExecuteTaskRequest,
@@ -17,6 +22,38 @@ from tilebox.workflows.runner.worker_rpc_v1 import (
     PythonWorkerShim,
     StartWorkerRequest,
 )
+
+
+class _NoopSpanProcessor(SpanProcessor):
+    def on_start(self, span: Span, parent_context: object | None = None) -> None:
+        _ = span, parent_context
+
+    def on_end(self, span: ReadableSpan) -> None:
+        _ = span
+
+    def shutdown(self) -> None:
+        pass
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        _ = timeout_millis
+        return True
+
+
+@pytest.fixture(autouse=True)
+def disable_worker_shim_exporters(monkeypatch: pytest.MonkeyPatch) -> None:
+    def noop_span_exporter(*_args: object, **_kwargs: object) -> _NoopSpanProcessor:
+        return _NoopSpanProcessor()
+
+    def noop_logger_provider(service: object, url: str, token: str | None) -> LoggerProvider:
+        _ = service, url, token
+        return LoggerProvider()
+
+    monkeypatch.setattr(tracing, "_otel_span_exporter", noop_span_exporter)
+    monkeypatch.setattr(
+        worker_rpc_v1,
+        "_create_tilebox_logger_provider",
+        noop_logger_provider,
+    )
 
 
 class ChildTask(Task):
@@ -57,6 +94,17 @@ class CaptureExecutionAttributesTask(Task):
     def execute(self, context: ExecutionContext) -> None:
         _ = context
         CaptureExecutionAttributesTask.captured_trace_id = get_current_span().get_span_context().trace_id
+
+
+class CaptureContextObservabilityTask(Task):
+    captured_logger_name: ClassVar[str | None] = None
+    captured_logger_attributes: ClassVar[dict[str, str]] = {}
+    captured_tracer: ClassVar[object | None] = None
+
+    def execute(self, context: ExecutionContext) -> None:
+        CaptureContextObservabilityTask.captured_logger_name = context.logger._logger.name
+        CaptureContextObservabilityTask.captured_logger_attributes = context.logger._attributes.copy()
+        CaptureContextObservabilityTask.captured_tracer = context.tracer
 
 
 class CacheWriteTask(Task):
@@ -224,6 +272,35 @@ def test_execute_task_maps_failures() -> None:
     assert response.status == ExecuteTaskStatus.STATUS_FAILED
     assert response.was_workflow_error is True
     assert "boom" in response.error_message
+
+
+def test_execute_task_uses_shim_observability_logger_and_tracer() -> None:
+    shim = PythonWorkerShim(tasks=[CaptureContextObservabilityTask], token="token")  # noqa: S106
+    worker_instance_id = _started_worker(shim)
+
+    CaptureContextObservabilityTask.captured_logger_name = None
+    CaptureContextObservabilityTask.captured_logger_attributes = {}
+    CaptureContextObservabilityTask.captured_tracer = None
+
+    request = ExecuteTaskRequest(
+        worker_instance_id=worker_instance_id,
+        task_id=str(uuid4()),
+        job_id=str(uuid4()),
+        task_identifier_name="CaptureContextObservabilityTask",
+        task_identifier_version="v0.0",
+        task_input=CaptureContextObservabilityTask()._serialize(),
+        task_display="capture-observability",
+    )
+
+    response = shim.execute_task(request)
+
+    assert response.status == ExecuteTaskStatus.STATUS_COMPUTED
+    assert CaptureContextObservabilityTask.captured_tracer is shim._tracer
+    assert CaptureContextObservabilityTask.captured_logger_name == f"tilebox.workflows.clients.{shim._client_id}.tasks"
+    assert CaptureContextObservabilityTask.captured_logger_attributes == {
+        "job_id": request.job_id,
+        "task_id": request.task_id,
+    }
 
 
 def test_execute_task_accepts_valid_trace_context() -> None:
