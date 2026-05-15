@@ -20,10 +20,11 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 
 from tilebox.runner.worker.v1 import worker_pb2
 from tilebox.workflows.cache import InMemoryCache, JobCache
-from tilebox.workflows.data import ExecutionStats, Job, JobState, RunnerContext, Task as WorkflowTask, TaskIdentifier, TaskState
+from tilebox.workflows.data import ExecutionStats, Job, JobState, RunnerContext, TaskIdentifier, TaskState
+from tilebox.workflows.data import Task as WorkflowTask
 from tilebox.workflows.interceptors import Interceptor, InterceptorType
-from tilebox.workflows.observability.execution_attributes import bind_execution_attributes, set_span_execution_attributes
-from tilebox.workflows.observability.tracing import _get_tilebox_tracer_provider
+from tilebox.workflows.observability.logging import StructuredLogger
+from tilebox.workflows.observability.tracing import WorkflowTracer
 from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
 from tilebox.workflows.task import FutureTask, TaskMeta
 from tilebox.workflows.task import ProgressUpdate as TaskProgressUpdate
@@ -106,11 +107,11 @@ def _attach_trace_context(trace_context_bytes: bytes) -> Iterator[None]:
 
 
 @contextmanager
-def _start_task_span(task_name: str, job_id: str, task_id: str) -> Iterator[None]:
+def _start_task_span(tracer: WorkflowTracer, task_name: str, job_id: str, task_id: str) -> Iterator[None]:
     """Create a span for task execution under the currently propagated trace context."""
-    tracer = _get_tilebox_tracer_provider().get_tracer("tilebox.com/observability")
-    with tracer.start_as_current_span(f"task/{task_name}") as span:
-        set_span_execution_attributes(span, job_id=job_id, task_id=task_id)
+    with tracer.span(f"task/{task_name}") as span:
+        span.set_attribute("job_id", job_id)
+        span.set_attribute("task_id", task_id)
         yield
 
 
@@ -231,7 +232,7 @@ def _task_from_request(request: ExecuteTaskRequest) -> WorkflowTask:
     )
 
 
-def _response_display(context: "WorkerExecutionContext | None", fallback_display: str) -> str:
+def _response_display(context: WorkerExecutionContext | None, fallback_display: str) -> str:
     if context is None:
         return fallback_display
 
@@ -279,6 +280,10 @@ class WorkerExecutionContext(ExecutionContextBase):
         self._cancellation_event = cancellation_event
         self._sub_tasks: list[FutureTask] = []
         self._progress_indicators: dict[str | None, _TrackedProgressUpdate] = {}
+        self._logger = StructuredLogger(
+            logging.getLogger("tilebox.workflows.runner.worker_rpc"),
+            {"job_id": str(current_task.job.id) if current_task.job else "", "task_id": str(current_task.id)},
+        )
 
     def submit_subtask(
         self,
@@ -348,6 +353,14 @@ class WorkerExecutionContext(ExecutionContextBase):
     @property
     def runner_context(self) -> RunnerContext:
         return self._runner_context
+
+    @property
+    def tracer(self) -> WorkflowTracer:
+        return self._runner_context.tracer
+
+    @property
+    def logger(self) -> StructuredLogger:
+        return self._logger
 
     def progress(self, label: str | None = None) -> _TrackedProgressUpdate:
         if label == "":
@@ -512,7 +525,7 @@ class PythonWorkerShim:
             worker_runtime=self._worker_runtime,
         )
 
-    def start_worker(self, request: StartWorkerRequest) -> StartWorkerResponse:
+    def start_worker(self, request: StartWorkerRequest) -> StartWorkerResponse:  # noqa: PLR0911
         if self._shutdown_event.is_set():
             return StartWorkerResponse(worker_instance_id="", ready=False, message="Worker shim is shutting down")
 
@@ -694,8 +707,9 @@ class PythonWorkerShim:
             task_instance = task_class._deserialize(request.task_input, self._runner_context)  # noqa: SLF001
             with (
                 _attach_trace_context(request.trace_context),
-                _start_task_span(request.task_identifier_name, request.job_id, request.task_id),
-                bind_execution_attributes(job_id=request.job_id, task_id=request.task_id),
+                _start_task_span(
+                    self._runner_context.tracer, request.task_identifier_name, request.job_id, request.task_id
+                ),
             ):
                 _execute_task_with_interceptors(task_instance, context, self._interceptors)
 

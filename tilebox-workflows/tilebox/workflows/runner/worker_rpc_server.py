@@ -3,16 +3,12 @@ from __future__ import annotations
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
 from threading import Lock
 from urllib.parse import urlparse
 
 import grpc
 
 from tilebox.runner.worker.v1 import worker_pb2, worker_pb2_grpc
-from tilebox.workflows.observability.logging import _parse_duration, configure_otel_logging
-from tilebox.workflows.observability.metrics import configure_otel_metrics
-from tilebox.workflows.observability.tracing import configure_otel_tracing
 from tilebox.workflows.runner.worker_rpc_v1 import (
     ProtocolVersionMismatchError,
     PythonWorkerShim,
@@ -54,6 +50,7 @@ class _WorkerControlServicer(worker_pb2_grpc.WorkerControlServiceServicer):
             return self._shim.handshake(request)
         except (ProtocolVersionMismatchError, RequiredCapabilitiesMissingError) as error:
             context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(error))
+            raise RuntimeError from error  # unreachable; context.abort raises
 
     def StartWorker(  # noqa: N802
         self,
@@ -108,67 +105,6 @@ class _WorkerExecutionServicer(worker_pb2_grpc.WorkerExecutionServiceServicer):
         self._execution_pool.shutdown(wait=True)
 
 
-def _auto_configure_observability() -> None:
-    """Auto-configure OTEL logging, tracing, and metrics if injected env vars are present."""
-    endpoint = os.getenv("TILEBOX_OTEL_ENDPOINT")
-    authorization = os.getenv("TILEBOX_OTEL_AUTHORIZATION")
-    if not endpoint or not authorization:
-        return
-
-    export_interval_str = os.getenv("TILEBOX_OTEL_EXPORT_INTERVAL")
-    export_interval: timedelta | None = None
-    if export_interval_str:
-        try:
-            export_interval = _parse_duration(export_interval_str)
-        except ValueError:
-            pass
-
-    headers = {"Authorization": authorization}
-
-    configure_otel_logging(endpoint=endpoint, headers=headers, export_interval=export_interval)
-    configure_otel_tracing(endpoint=endpoint, headers=headers, export_interval=export_interval)
-    configure_otel_metrics(endpoint=endpoint, headers=headers, export_interval=export_interval)
-
-
-def _flush_observability() -> None:
-    """Flush any pending OTEL data before the worker process exits."""
-    import logging as _logging
-
-    from opentelemetry import metrics as _metrics
-    from opentelemetry.sdk._logs import LoggerProvider as _LoggerProvider
-    from opentelemetry.sdk.metrics import MeterProvider as _MeterProvider
-
-    from tilebox.workflows.observability.logging import _root_logger
-    from tilebox.workflows.observability.tracing import _get_tilebox_tracer_provider
-
-    # Flush tracer provider
-    tracer_provider = _get_tilebox_tracer_provider()
-    if hasattr(tracer_provider, "force_flush"):
-        try:
-            tracer_provider.force_flush()
-        except Exception:  # noqa: BLE001
-            pass
-
-    # Flush logger providers attached to the root logger
-    root = _root_logger()
-    for handler in root.handlers:
-        if hasattr(handler, "_logger_provider"):
-            provider = handler._logger_provider  # noqa: SLF001
-            if isinstance(provider, _LoggerProvider) and hasattr(provider, "force_flush"):
-                try:
-                    provider.force_flush()
-                except Exception:  # noqa: BLE001
-                    pass
-
-    # Flush meter provider
-    meter_provider = _metrics.get_meter_provider()
-    if isinstance(meter_provider, _MeterProvider) and hasattr(meter_provider, "force_flush"):
-        try:
-            meter_provider.force_flush()
-        except Exception:  # noqa: BLE001
-            pass
-
-
 def _serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
     server = grpc.server(ThreadPoolExecutor(max_workers=_CONTROL_RPC_MAX_WORKERS))
     execution_servicer = _WorkerExecutionServicer(shim)
@@ -188,7 +124,6 @@ def _serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
         finally:
             server.stop(grace=5).wait()
             execution_servicer.shutdown()
-            _flush_observability()
 
 
 def serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
@@ -196,7 +131,6 @@ def serve_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
 
 
 def _run_worker_rpc(shim: PythonWorkerShim, address: str) -> None:
-    _auto_configure_observability()
     _serve_worker_rpc(shim=shim, address=address)
 
 

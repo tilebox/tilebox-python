@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 from obstore.auth.boto3 import Boto3CredentialProvider
 from obstore.store import GCSStore, S3Store
 
-from tilebox.workflows.cache import JobCache
+from tilebox.workflows.cache import JobCache, ObstoreCache
 from tilebox.workflows.runner.worker_rpc_server import _run_worker_rpc
 from tilebox.workflows.runner.worker_rpc_v1 import PythonWorkerShim
 from tilebox.workflows.task import Task as TaskInstance
@@ -66,7 +66,7 @@ def _discovery_tasks_payload() -> list[dict[str, str]]:
 
 
 def _emit_payload(payload: dict[str, object]) -> None:
-    print(json.dumps(payload, separators=(",", ":")), flush=True)
+    print(json.dumps(payload, separators=(",", ":")), flush=True)  # noqa: T201
 
 
 def _run_discovery() -> int:
@@ -107,7 +107,7 @@ def _parse_cache_uri(uri: str) -> tuple[str, str, str | None]:
     return scheme, bucket_or_host, parsed_path or None
 
 
-def _resolve_worker_cache() -> JobCache:
+def _resolve_worker_cache() -> JobCache:  # noqa: C901, PLR0911
     configured_cache = os.getenv("TILEBOX_WORKER_CACHE", "").strip()
     if configured_cache == "" or configured_cache.lower() == "inmemory":
         from tilebox.workflows.cache import InMemoryCache  # noqa: PLC0415
@@ -138,14 +138,20 @@ def _resolve_worker_cache() -> JobCache:
 
         return LocalFileSystemCache(Path(filesystem_root))
 
-    # for buckets, use the obstore cache always
-    from tilebox.workflows.cache import ObstoreCache
+    cache_prefix = parsed_path or "jobs"
+    supported_bucket_schemes = {"gs", "s3", "obs"}
+    if scheme not in supported_bucket_schemes:
+        msg = (
+            f"Invalid TILEBOX_WORKER_CACHE value. Unsupported bucket scheme '{scheme}'. "
+            f"Expected one of: gs, s3, obs, inmemory, none, filesystem, file."
+        )
+        raise ValueError(msg)
 
     if bucket_or_host == "":
         msg = "TILEBOX_WORKER_CACHE must include a bucket name for object storage caches."
         raise ValueError(msg)
 
-    cache_prefix = parsed_path or "jobs"
+    # for buckets, use the obstore cache always
     if scheme == "gs":
         return ObstoreCache(GCSStore(bucket=bucket_or_host, prefix=cache_prefix))
     if scheme == "s3":
@@ -170,22 +176,19 @@ def _resolve_worker_cache() -> JobCache:
             )
         )
 
-    msg = (
-        f"Invalid TILEBOX_WORKER_CACHE value. Unsupported bucket scheme '{scheme}'. "
-        f" Expected one of: gs, s3, obs, inmemory, none, filesystem, file."
-    )
-    raise ValueError(msg)
+    msg = f"Unsupported bucket scheme '{scheme}'."
+    raise AssertionError(msg)
 
 
 def _run_worker() -> int:
     rpc_address = os.getenv("TILEBOX_WORKER_RPC_ADDRESS")
     if not rpc_address:
-        print("TILEBOX_WORKER_RPC_ADDRESS must be set", file=sys.stderr)
+        print("TILEBOX_WORKER_RPC_ADDRESS must be set", file=sys.stderr)  # noqa: T201
         return 1
 
     tasks = list(registered_tasks())
     if len(tasks) == 0:
-        print("No tasks registered; call runner.register(...) before runner.main()", file=sys.stderr)
+        print("No tasks registered; call runner.register(...) before runner.main()", file=sys.stderr)  # noqa: T201
         return 1
 
     shim = PythonWorkerShim(

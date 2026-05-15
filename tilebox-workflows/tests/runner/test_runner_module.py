@@ -3,7 +3,7 @@ import json
 import pytest
 
 from tilebox.workflows import ExecutionContext, Task, runner
-from tilebox.workflows.cache import AmazonS3Cache, GoogleStorageCache, InMemoryCache, LocalFileSystemCache, NoCache
+from tilebox.workflows.cache import InMemoryCache, LocalFileSystemCache, NoCache, ObstoreCache
 
 
 class DiscoveryTaskB(Task):
@@ -63,29 +63,16 @@ def test_resolve_worker_cache_supports_s3_uri(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("TILEBOX_WORKER_CACHE", "s3://aws-cache-bucket/pref")
 
     cache = runner._resolve_worker_cache()
-    assert isinstance(cache, AmazonS3Cache)
-    assert cache.bucket == "aws-cache-bucket"
-    assert str(cache.prefix) == "pref"
+    assert isinstance(cache, ObstoreCache)
+    assert cache.store.prefix == "pref"
 
 
 def test_resolve_worker_cache_supports_gcs_uri(monkeypatch: pytest.MonkeyPatch) -> None:
-    bucket_name = "gcp-cache-bucket"
-    monkeypatch.setenv("TILEBOX_WORKER_CACHE", f"gcs://{bucket_name}/jobs")
-
-    class _FakeStorageClient:
-        def __init__(self, project: str | None) -> None:
-            self.project = project
-
-        def bucket(self, name: str) -> str:
-            return f"bucket:{name}"
-
-    monkeypatch.setattr(
-        runner, "_google_storage_cache", lambda b, p: GoogleStorageCache(_FakeStorageClient(None).bucket(b), p)
-    )
+    monkeypatch.setenv("TILEBOX_WORKER_CACHE", "gs://gcp-cache-bucket/jobs")
 
     cache = runner._resolve_worker_cache()
-    assert isinstance(cache, GoogleStorageCache)
-    assert cache.bucket == f"bucket:{bucket_name}"
+    assert isinstance(cache, ObstoreCache)
+    assert cache.store.prefix == "jobs"
 
 
 def test_resolve_worker_cache_validation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -122,36 +109,22 @@ def test_resolve_worker_cache_auto_detects_file_uri(monkeypatch: pytest.MonkeyPa
 def test_resolve_worker_cache_parses_s3_uri_bucket_and_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TILEBOX_WORKER_CACHE", "s3://my-cache/jobs/prefix")
     cache = runner._resolve_worker_cache()
-    assert isinstance(cache, AmazonS3Cache)
-    assert cache.bucket == "my-cache"
-    assert str(cache.prefix) == "jobs/prefix"
+    assert isinstance(cache, ObstoreCache)
+    assert cache.store.prefix == "jobs/prefix"
 
 
 def test_resolve_worker_cache_rejects_unsupported_uri_scheme(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TILEBOX_WORKER_CACHE", "https://example.com/cache")
-    with pytest.raises(ValueError, match="Use one of: inmemory, none, filesystem"):
+    with pytest.raises(ValueError, match="Expected one of: gs, s3, obs, inmemory, none, filesystem, file"):
         runner._resolve_worker_cache()
 
 
 def test_resolve_worker_cache_auto_detects_gcs_uri(monkeypatch: pytest.MonkeyPatch) -> None:
-    bucket_name = "gcp-cache-bucket"
-    monkeypatch.setenv("TILEBOX_WORKER_CACHE", f"gs://{bucket_name}/jobs")
-
-    class _FakeStorageClient:
-        def __init__(self, project: str | None) -> None:
-            self.project = project
-
-        def bucket(self, name: str) -> str:
-            return f"bucket:{name}"
-
-    monkeypatch.setattr(
-        runner, "_google_storage_cache", lambda b, p: GoogleStorageCache(_FakeStorageClient(None).bucket(b), p)
-    )
+    monkeypatch.setenv("TILEBOX_WORKER_CACHE", "gs://gcp-cache-bucket/jobs")
 
     cache = runner._resolve_worker_cache()
-    assert isinstance(cache, GoogleStorageCache)
-    assert cache.bucket == f"bucket:{bucket_name}"
-    assert str(cache.prefix) == "jobs"
+    assert isinstance(cache, ObstoreCache)
+    assert cache.store.prefix == "jobs"
 
 
 def test_resolve_worker_cache_rejects_file_uri_with_host(monkeypatch: pytest.MonkeyPatch) -> None:
