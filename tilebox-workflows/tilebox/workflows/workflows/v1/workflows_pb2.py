@@ -23,10 +23,13 @@ _sym_db = _symbol_database.Default()
 
 
 from tilebox.datasets.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
+from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
+from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1cworkflows/v1/workflows.proto\x12\x0cworkflows.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x17workflows/v1/core.proto\"3\n\x14\x43reateClusterRequest\x12\x1b\n\x04name\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x04name\"6\n\x11GetClusterRequest\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\"B\n\x14\x44\x65leteClusterRequest\x12*\n\x0c\x63luster_slug\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0b\x63lusterSlug\"\x17\n\x15\x44\x65leteClusterResponse\"\x15\n\x13ListClustersRequest\"I\n\x14ListClustersResponse\x12\x31\n\x08\x63lusters\x18\x01 \x03(\x0b\x32\x15.workflows.v1.ClusterR\x08\x63lusters2\xd5\x02\n\x10WorkflowsService\x12J\n\rCreateCluster\x12\".workflows.v1.CreateClusterRequest\x1a\x15.workflows.v1.Cluster\x12\x44\n\nGetCluster\x12\x1f.workflows.v1.GetClusterRequest\x1a\x15.workflows.v1.Cluster\x12X\n\rDeleteCluster\x12\".workflows.v1.DeleteClusterRequest\x1a#.workflows.v1.DeleteClusterResponse\x12U\n\x0cListClusters\x12!.workflows.v1.ListClustersRequest\x1a\".workflows.v1.ListClustersResponseBx\n\x10\x63om.workflows.v1B\x0eWorkflowsProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1cworkflows/v1/workflows.proto\x12\x0cworkflows.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\x1a\x17workflows/v1/core.proto\"\xa9\x01\n\x07\x43luster\x12\x12\n\x04slug\x18\x02 \x01(\tR\x04slug\x12!\n\x0c\x64isplay_name\x18\x03 \x01(\tR\x0b\x64isplayName\x12\x1c\n\tdeletable\x18\x04 \x01(\x08R\tdeletable\x12\x43\n\x11\x64\x65ployed_releases\x18\x05 \x03(\x0b\x32\x16.workflows.v1.WorkflowR\x10\x64\x65ployedReleasesJ\x04\x08\x01\x10\x02\"3\n\x14\x43reateClusterRequest\x12\x1b\n\x04name\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x04name\"6\n\x11GetClusterRequest\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\"B\n\x14\x44\x65leteClusterRequest\x12*\n\x0c\x63luster_slug\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0b\x63lusterSlug\"\x17\n\x15\x44\x65leteClusterResponse\"\x15\n\x13ListClustersRequest\"I\n\x14ListClustersResponse\x12\x31\n\x08\x63lusters\x18\x01 \x03(\x0b\x32\x15.workflows.v1.ClusterR\x08\x63lusters\"B\n\x12GetWorkflowRequest\x12,\n\rworkflow_slug\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0cworkflowSlug\"\xc6\x01\n\x1dPublishWorkflowReleaseRequest\x12,\n\rworkflow_slug\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0cworkflowSlug\x12\x37\n\x0b\x61rtifact_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\nartifactId\x12>\n\x07\x63ontent\x18\x03 \x01(\x0b\x32\x1c.workflows.v1.ReleaseContentB\x06\xbaH\x03\xc8\x01\x01R\x07\x63ontent\"\x16\n\x14ListWorkflowsRequest\"M\n\x15ListWorkflowsResponse\x12\x34\n\tworkflows\x18\x01 \x03(\x0b\x32\x16.workflows.v1.WorkflowR\tworkflows\"V\n\x15\x43reateWorkflowRequest\x12\x1b\n\x04name\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x04name\x12 \n\x0b\x64\x65scription\x18\x02 \x01(\tR\x0b\x64\x65scription\"\x95\x01\n\x08Workflow\x12\x12\n\x04slug\x18\x02 \x01(\tR\x04slug\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name\x12 \n\x0b\x64\x65scription\x18\x04 \x01(\tR\x0b\x64\x65scription\x12\x39\n\x08releases\x18\x05 \x03(\x0b\x32\x1d.workflows.v1.WorkflowReleaseR\x08releasesJ\x04\x08\x01\x10\x02\"\xd8\x01\n\x0fWorkflowRelease\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x32\n\x08\x61rtifact\x18\x02 \x01(\x0b\x32\x16.workflows.v1.ArtifactR\x08\x61rtifact\x12\x36\n\x07\x63ontent\x18\x03 \x01(\x0b\x32\x1c.workflows.v1.ReleaseContentR\x07\x63ontent\x12\x39\n\ncreated_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\"Y\n\x08\x41rtifact\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12-\n\x06\x64igest\x18\x02 \x01(\tB\x15\xbaH\x12r\x10\x32\x0e^[a-f0-9]{64}$R\x06\x64igest\"\xc9\x01\n\x0eReleaseContent\x12\x37\n\x0b\x66ingerprint\x18\x01 \x01(\tB\x15\xbaH\x12r\x10\x32\x0e^[a-f0-9]{64}$R\x0b\x66ingerprint\x12<\n\x05tasks\x18\x02 \x03(\x0b\x32\x1c.workflows.v1.TaskIdentifierB\x08\xbaH\x05\x92\x01\x02\x08\x01R\x05tasks\x12&\n\x04root\x18\x03 \x01(\x0b\x32\x12.workflows.v1.PathR\x04root\x12\x18\n\x07\x63ommand\x18\x04 \x03(\tR\x07\x63ommand\"h\n\x04Path\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12\x1c\n\tdirectory\x18\x02 \x01(\x08R\tdirectory\x12.\n\x08\x63hildren\x18\x03 \x03(\x0b\x32\x12.workflows.v1.PathR\x08\x63hildren\"\xb0\x01\n\x1c\x44\x65ployWorkflowReleaseRequest\x12,\n\rworkflow_slug\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0cworkflowSlug\x12-\n\nrelease_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\treleaseId\x12\x33\n\rcluster_slugs\x18\x03 \x03(\tB\x0e\xbaH\x0b\x92\x01\x08\x08\x00\"\x04r\x02 \x01R\x0c\x63lusterSlugs\"\x8b\x01\n\x1d\x44\x65ployWorkflowReleaseResponse\x12\x37\n\x07release\x18\x01 \x01(\x0b\x32\x1d.workflows.v1.WorkflowReleaseR\x07release\x12\x31\n\x08\x63lusters\x18\x02 \x03(\x0b\x32\x15.workflows.v1.ClusterR\x08\x63lusters\"\xb2\x01\n\x1eUndeployWorkflowReleaseRequest\x12,\n\rworkflow_slug\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0cworkflowSlug\x12-\n\nrelease_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\treleaseId\x12\x33\n\rcluster_slugs\x18\x03 \x03(\tB\x0e\xbaH\x0b\x92\x01\x08\x08\x01\"\x04r\x02 \x01R\x0c\x63lusterSlugs\"\x8d\x01\n\x1fUndeployWorkflowReleaseResponse\x12\x37\n\x07release\x18\x01 \x01(\x0b\x32\x1d.workflows.v1.WorkflowReleaseR\x07release\x12\x31\n\x08\x63lusters\x18\x02 \x03(\x0b\x32\x15.workflows.v1.ClusterR\x08\x63lusters2\x97\x07\n\x10WorkflowsService\x12J\n\rCreateCluster\x12\".workflows.v1.CreateClusterRequest\x1a\x15.workflows.v1.Cluster\x12\x44\n\nGetCluster\x12\x1f.workflows.v1.GetClusterRequest\x1a\x15.workflows.v1.Cluster\x12X\n\rDeleteCluster\x12\".workflows.v1.DeleteClusterRequest\x1a#.workflows.v1.DeleteClusterResponse\x12U\n\x0cListClusters\x12!.workflows.v1.ListClustersRequest\x1a\".workflows.v1.ListClustersResponse\x12M\n\x0e\x43reateWorkflow\x12#.workflows.v1.CreateWorkflowRequest\x1a\x16.workflows.v1.Workflow\x12X\n\rListWorkflows\x12\".workflows.v1.ListWorkflowsRequest\x1a#.workflows.v1.ListWorkflowsResponse\x12G\n\x0bGetWorkflow\x12 .workflows.v1.GetWorkflowRequest\x1a\x16.workflows.v1.Workflow\x12\x64\n\x16PublishWorkflowRelease\x12+.workflows.v1.PublishWorkflowReleaseRequest\x1a\x1d.workflows.v1.WorkflowRelease\x12p\n\x15\x44\x65ployWorkflowRelease\x12*.workflows.v1.DeployWorkflowReleaseRequest\x1a+.workflows.v1.DeployWorkflowReleaseResponse\x12v\n\x17UndeployWorkflowRelease\x12,.workflows.v1.UndeployWorkflowReleaseRequest\x1a-.workflows.v1.UndeployWorkflowReleaseResponseBx\n\x10\x63om.workflows.v1B\x0eWorkflowsProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -38,18 +41,72 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_CREATECLUSTERREQUEST'].fields_by_name['name']._serialized_options = b'\272H\004r\002\020\001'
   _globals['_DELETECLUSTERREQUEST'].fields_by_name['cluster_slug']._loaded_options = None
   _globals['_DELETECLUSTERREQUEST'].fields_by_name['cluster_slug']._serialized_options = b'\272H\004r\002\020\001'
-  _globals['_CREATECLUSTERREQUEST']._serialized_start=100
-  _globals['_CREATECLUSTERREQUEST']._serialized_end=151
-  _globals['_GETCLUSTERREQUEST']._serialized_start=153
-  _globals['_GETCLUSTERREQUEST']._serialized_end=207
-  _globals['_DELETECLUSTERREQUEST']._serialized_start=209
-  _globals['_DELETECLUSTERREQUEST']._serialized_end=275
-  _globals['_DELETECLUSTERRESPONSE']._serialized_start=277
-  _globals['_DELETECLUSTERRESPONSE']._serialized_end=300
-  _globals['_LISTCLUSTERSREQUEST']._serialized_start=302
-  _globals['_LISTCLUSTERSREQUEST']._serialized_end=323
-  _globals['_LISTCLUSTERSRESPONSE']._serialized_start=325
-  _globals['_LISTCLUSTERSRESPONSE']._serialized_end=398
-  _globals['_WORKFLOWSSERVICE']._serialized_start=401
-  _globals['_WORKFLOWSSERVICE']._serialized_end=742
+  _globals['_GETWORKFLOWREQUEST'].fields_by_name['workflow_slug']._loaded_options = None
+  _globals['_GETWORKFLOWREQUEST'].fields_by_name['workflow_slug']._serialized_options = b'\272H\004r\002\020\001'
+  _globals['_PUBLISHWORKFLOWRELEASEREQUEST'].fields_by_name['workflow_slug']._loaded_options = None
+  _globals['_PUBLISHWORKFLOWRELEASEREQUEST'].fields_by_name['workflow_slug']._serialized_options = b'\272H\004r\002\020\001'
+  _globals['_PUBLISHWORKFLOWRELEASEREQUEST'].fields_by_name['artifact_id']._loaded_options = None
+  _globals['_PUBLISHWORKFLOWRELEASEREQUEST'].fields_by_name['artifact_id']._serialized_options = b'\272H\003\310\001\001'
+  _globals['_PUBLISHWORKFLOWRELEASEREQUEST'].fields_by_name['content']._loaded_options = None
+  _globals['_PUBLISHWORKFLOWRELEASEREQUEST'].fields_by_name['content']._serialized_options = b'\272H\003\310\001\001'
+  _globals['_CREATEWORKFLOWREQUEST'].fields_by_name['name']._loaded_options = None
+  _globals['_CREATEWORKFLOWREQUEST'].fields_by_name['name']._serialized_options = b'\272H\004r\002\020\001'
+  _globals['_ARTIFACT'].fields_by_name['digest']._loaded_options = None
+  _globals['_ARTIFACT'].fields_by_name['digest']._serialized_options = b'\272H\022r\0202\016^[a-f0-9]{64}$'
+  _globals['_RELEASECONTENT'].fields_by_name['fingerprint']._loaded_options = None
+  _globals['_RELEASECONTENT'].fields_by_name['fingerprint']._serialized_options = b'\272H\022r\0202\016^[a-f0-9]{64}$'
+  _globals['_RELEASECONTENT'].fields_by_name['tasks']._loaded_options = None
+  _globals['_RELEASECONTENT'].fields_by_name['tasks']._serialized_options = b'\272H\005\222\001\002\010\001'
+  _globals['_DEPLOYWORKFLOWRELEASEREQUEST'].fields_by_name['workflow_slug']._loaded_options = None
+  _globals['_DEPLOYWORKFLOWRELEASEREQUEST'].fields_by_name['workflow_slug']._serialized_options = b'\272H\004r\002\020\001'
+  _globals['_DEPLOYWORKFLOWRELEASEREQUEST'].fields_by_name['cluster_slugs']._loaded_options = None
+  _globals['_DEPLOYWORKFLOWRELEASEREQUEST'].fields_by_name['cluster_slugs']._serialized_options = b'\272H\013\222\001\010\010\000\"\004r\002 \001'
+  _globals['_UNDEPLOYWORKFLOWRELEASEREQUEST'].fields_by_name['workflow_slug']._loaded_options = None
+  _globals['_UNDEPLOYWORKFLOWRELEASEREQUEST'].fields_by_name['workflow_slug']._serialized_options = b'\272H\004r\002\020\001'
+  _globals['_UNDEPLOYWORKFLOWRELEASEREQUEST'].fields_by_name['cluster_slugs']._loaded_options = None
+  _globals['_UNDEPLOYWORKFLOWRELEASEREQUEST'].fields_by_name['cluster_slugs']._serialized_options = b'\272H\013\222\001\010\010\001\"\004r\002 \001'
+  _globals['_CLUSTER']._serialized_start=184
+  _globals['_CLUSTER']._serialized_end=353
+  _globals['_CREATECLUSTERREQUEST']._serialized_start=355
+  _globals['_CREATECLUSTERREQUEST']._serialized_end=406
+  _globals['_GETCLUSTERREQUEST']._serialized_start=408
+  _globals['_GETCLUSTERREQUEST']._serialized_end=462
+  _globals['_DELETECLUSTERREQUEST']._serialized_start=464
+  _globals['_DELETECLUSTERREQUEST']._serialized_end=530
+  _globals['_DELETECLUSTERRESPONSE']._serialized_start=532
+  _globals['_DELETECLUSTERRESPONSE']._serialized_end=555
+  _globals['_LISTCLUSTERSREQUEST']._serialized_start=557
+  _globals['_LISTCLUSTERSREQUEST']._serialized_end=578
+  _globals['_LISTCLUSTERSRESPONSE']._serialized_start=580
+  _globals['_LISTCLUSTERSRESPONSE']._serialized_end=653
+  _globals['_GETWORKFLOWREQUEST']._serialized_start=655
+  _globals['_GETWORKFLOWREQUEST']._serialized_end=721
+  _globals['_PUBLISHWORKFLOWRELEASEREQUEST']._serialized_start=724
+  _globals['_PUBLISHWORKFLOWRELEASEREQUEST']._serialized_end=922
+  _globals['_LISTWORKFLOWSREQUEST']._serialized_start=924
+  _globals['_LISTWORKFLOWSREQUEST']._serialized_end=946
+  _globals['_LISTWORKFLOWSRESPONSE']._serialized_start=948
+  _globals['_LISTWORKFLOWSRESPONSE']._serialized_end=1025
+  _globals['_CREATEWORKFLOWREQUEST']._serialized_start=1027
+  _globals['_CREATEWORKFLOWREQUEST']._serialized_end=1113
+  _globals['_WORKFLOW']._serialized_start=1116
+  _globals['_WORKFLOW']._serialized_end=1265
+  _globals['_WORKFLOWRELEASE']._serialized_start=1268
+  _globals['_WORKFLOWRELEASE']._serialized_end=1484
+  _globals['_ARTIFACT']._serialized_start=1486
+  _globals['_ARTIFACT']._serialized_end=1575
+  _globals['_RELEASECONTENT']._serialized_start=1578
+  _globals['_RELEASECONTENT']._serialized_end=1779
+  _globals['_PATH']._serialized_start=1781
+  _globals['_PATH']._serialized_end=1885
+  _globals['_DEPLOYWORKFLOWRELEASEREQUEST']._serialized_start=1888
+  _globals['_DEPLOYWORKFLOWRELEASEREQUEST']._serialized_end=2064
+  _globals['_DEPLOYWORKFLOWRELEASERESPONSE']._serialized_start=2067
+  _globals['_DEPLOYWORKFLOWRELEASERESPONSE']._serialized_end=2206
+  _globals['_UNDEPLOYWORKFLOWRELEASEREQUEST']._serialized_start=2209
+  _globals['_UNDEPLOYWORKFLOWRELEASEREQUEST']._serialized_end=2387
+  _globals['_UNDEPLOYWORKFLOWRELEASERESPONSE']._serialized_start=2390
+  _globals['_UNDEPLOYWORKFLOWRELEASERESPONSE']._serialized_end=2531
+  _globals['_WORKFLOWSSERVICE']._serialized_start=2534
+  _globals['_WORKFLOWSSERVICE']._serialized_end=3453
 # @@protoc_insertion_point(module_scope)

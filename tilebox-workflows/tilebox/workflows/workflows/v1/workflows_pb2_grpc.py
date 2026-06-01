@@ -2,7 +2,6 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core__pb2
 from tilebox.workflows.workflows.v1 import workflows_pb2 as workflows_dot_v1_dot_workflows__pb2
 
 
@@ -19,12 +18,12 @@ class WorkflowsServiceStub(object):
         self.CreateCluster = channel.unary_unary(
                 '/workflows.v1.WorkflowsService/CreateCluster',
                 request_serializer=workflows_dot_v1_dot_workflows__pb2.CreateClusterRequest.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_core__pb2.Cluster.FromString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.Cluster.FromString,
                 _registered_method=True)
         self.GetCluster = channel.unary_unary(
                 '/workflows.v1.WorkflowsService/GetCluster',
                 request_serializer=workflows_dot_v1_dot_workflows__pb2.GetClusterRequest.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_core__pb2.Cluster.FromString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.Cluster.FromString,
                 _registered_method=True)
         self.DeleteCluster = channel.unary_unary(
                 '/workflows.v1.WorkflowsService/DeleteCluster',
@@ -35,6 +34,36 @@ class WorkflowsServiceStub(object):
                 '/workflows.v1.WorkflowsService/ListClusters',
                 request_serializer=workflows_dot_v1_dot_workflows__pb2.ListClustersRequest.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_workflows__pb2.ListClustersResponse.FromString,
+                _registered_method=True)
+        self.CreateWorkflow = channel.unary_unary(
+                '/workflows.v1.WorkflowsService/CreateWorkflow',
+                request_serializer=workflows_dot_v1_dot_workflows__pb2.CreateWorkflowRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.Workflow.FromString,
+                _registered_method=True)
+        self.ListWorkflows = channel.unary_unary(
+                '/workflows.v1.WorkflowsService/ListWorkflows',
+                request_serializer=workflows_dot_v1_dot_workflows__pb2.ListWorkflowsRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.ListWorkflowsResponse.FromString,
+                _registered_method=True)
+        self.GetWorkflow = channel.unary_unary(
+                '/workflows.v1.WorkflowsService/GetWorkflow',
+                request_serializer=workflows_dot_v1_dot_workflows__pb2.GetWorkflowRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.Workflow.FromString,
+                _registered_method=True)
+        self.PublishWorkflowRelease = channel.unary_unary(
+                '/workflows.v1.WorkflowsService/PublishWorkflowRelease',
+                request_serializer=workflows_dot_v1_dot_workflows__pb2.PublishWorkflowReleaseRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.WorkflowRelease.FromString,
+                _registered_method=True)
+        self.DeployWorkflowRelease = channel.unary_unary(
+                '/workflows.v1.WorkflowsService/DeployWorkflowRelease',
+                request_serializer=workflows_dot_v1_dot_workflows__pb2.DeployWorkflowReleaseRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.DeployWorkflowReleaseResponse.FromString,
+                _registered_method=True)
+        self.UndeployWorkflowRelease = channel.unary_unary(
+                '/workflows.v1.WorkflowsService/UndeployWorkflowRelease',
+                request_serializer=workflows_dot_v1_dot_workflows__pb2.UndeployWorkflowReleaseRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.UndeployWorkflowReleaseResponse.FromString,
                 _registered_method=True)
 
 
@@ -66,18 +95,54 @@ class WorkflowsServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CreateWorkflow(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListWorkflows(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetWorkflow(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PublishWorkflowRelease(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeployWorkflowRelease(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UndeployWorkflowRelease(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_WorkflowsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'CreateCluster': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateCluster,
                     request_deserializer=workflows_dot_v1_dot_workflows__pb2.CreateClusterRequest.FromString,
-                    response_serializer=workflows_dot_v1_dot_core__pb2.Cluster.SerializeToString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.Cluster.SerializeToString,
             ),
             'GetCluster': grpc.unary_unary_rpc_method_handler(
                     servicer.GetCluster,
                     request_deserializer=workflows_dot_v1_dot_workflows__pb2.GetClusterRequest.FromString,
-                    response_serializer=workflows_dot_v1_dot_core__pb2.Cluster.SerializeToString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.Cluster.SerializeToString,
             ),
             'DeleteCluster': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteCluster,
@@ -88,6 +153,36 @@ def add_WorkflowsServiceServicer_to_server(servicer, server):
                     servicer.ListClusters,
                     request_deserializer=workflows_dot_v1_dot_workflows__pb2.ListClustersRequest.FromString,
                     response_serializer=workflows_dot_v1_dot_workflows__pb2.ListClustersResponse.SerializeToString,
+            ),
+            'CreateWorkflow': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateWorkflow,
+                    request_deserializer=workflows_dot_v1_dot_workflows__pb2.CreateWorkflowRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.Workflow.SerializeToString,
+            ),
+            'ListWorkflows': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListWorkflows,
+                    request_deserializer=workflows_dot_v1_dot_workflows__pb2.ListWorkflowsRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.ListWorkflowsResponse.SerializeToString,
+            ),
+            'GetWorkflow': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetWorkflow,
+                    request_deserializer=workflows_dot_v1_dot_workflows__pb2.GetWorkflowRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.Workflow.SerializeToString,
+            ),
+            'PublishWorkflowRelease': grpc.unary_unary_rpc_method_handler(
+                    servicer.PublishWorkflowRelease,
+                    request_deserializer=workflows_dot_v1_dot_workflows__pb2.PublishWorkflowReleaseRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.WorkflowRelease.SerializeToString,
+            ),
+            'DeployWorkflowRelease': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeployWorkflowRelease,
+                    request_deserializer=workflows_dot_v1_dot_workflows__pb2.DeployWorkflowReleaseRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.DeployWorkflowReleaseResponse.SerializeToString,
+            ),
+            'UndeployWorkflowRelease': grpc.unary_unary_rpc_method_handler(
+                    servicer.UndeployWorkflowRelease,
+                    request_deserializer=workflows_dot_v1_dot_workflows__pb2.UndeployWorkflowReleaseRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.UndeployWorkflowReleaseResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -117,7 +212,7 @@ class WorkflowsService(object):
             target,
             '/workflows.v1.WorkflowsService/CreateCluster',
             workflows_dot_v1_dot_workflows__pb2.CreateClusterRequest.SerializeToString,
-            workflows_dot_v1_dot_core__pb2.Cluster.FromString,
+            workflows_dot_v1_dot_workflows__pb2.Cluster.FromString,
             options,
             channel_credentials,
             insecure,
@@ -144,7 +239,7 @@ class WorkflowsService(object):
             target,
             '/workflows.v1.WorkflowsService/GetCluster',
             workflows_dot_v1_dot_workflows__pb2.GetClusterRequest.SerializeToString,
-            workflows_dot_v1_dot_core__pb2.Cluster.FromString,
+            workflows_dot_v1_dot_workflows__pb2.Cluster.FromString,
             options,
             channel_credentials,
             insecure,
@@ -199,6 +294,168 @@ class WorkflowsService(object):
             '/workflows.v1.WorkflowsService/ListClusters',
             workflows_dot_v1_dot_workflows__pb2.ListClustersRequest.SerializeToString,
             workflows_dot_v1_dot_workflows__pb2.ListClustersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateWorkflow(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.WorkflowsService/CreateWorkflow',
+            workflows_dot_v1_dot_workflows__pb2.CreateWorkflowRequest.SerializeToString,
+            workflows_dot_v1_dot_workflows__pb2.Workflow.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListWorkflows(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.WorkflowsService/ListWorkflows',
+            workflows_dot_v1_dot_workflows__pb2.ListWorkflowsRequest.SerializeToString,
+            workflows_dot_v1_dot_workflows__pb2.ListWorkflowsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetWorkflow(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.WorkflowsService/GetWorkflow',
+            workflows_dot_v1_dot_workflows__pb2.GetWorkflowRequest.SerializeToString,
+            workflows_dot_v1_dot_workflows__pb2.Workflow.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PublishWorkflowRelease(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.WorkflowsService/PublishWorkflowRelease',
+            workflows_dot_v1_dot_workflows__pb2.PublishWorkflowReleaseRequest.SerializeToString,
+            workflows_dot_v1_dot_workflows__pb2.WorkflowRelease.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeployWorkflowRelease(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.WorkflowsService/DeployWorkflowRelease',
+            workflows_dot_v1_dot_workflows__pb2.DeployWorkflowReleaseRequest.SerializeToString,
+            workflows_dot_v1_dot_workflows__pb2.DeployWorkflowReleaseResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UndeployWorkflowRelease(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.WorkflowsService/UndeployWorkflowRelease',
+            workflows_dot_v1_dot_workflows__pb2.UndeployWorkflowReleaseRequest.SerializeToString,
+            workflows_dot_v1_dot_workflows__pb2.UndeployWorkflowReleaseResponse.FromString,
             options,
             channel_credentials,
             insecure,

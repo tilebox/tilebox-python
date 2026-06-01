@@ -39,7 +39,7 @@ except ModuleNotFoundError:
 from tilebox.datasets.sync.client import Client as DatasetsClient
 from tilebox.workflows.observability.tracing import NoopWorkflowTracer, WorkflowTracer
 from tilebox.workflows.workflows.v1 import automation_pb2 as automation_pb
-from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2
+from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2, workflows_pb2
 
 _VERSION_PATTERN = re.compile(r"^v(\d+)\.(\d+)$")  # matches a version string in the format "v3.2"
 
@@ -323,13 +323,13 @@ class Cluster:
     deletable: bool
 
     @classmethod  # lets use typing.Self once we require python >= 3.11
-    def from_message(cls, cluster: core_pb2.Cluster) -> "Cluster":
+    def from_message(cls, cluster: workflows_pb2.Cluster) -> "Cluster":
         """Convert a Cluster protobuf message to a Cluster object."""
         return cls(slug=cluster.slug, display_name=cluster.display_name, deletable=cluster.deletable)
 
-    def to_message(self) -> core_pb2.Cluster:
+    def to_message(self) -> workflows_pb2.Cluster:
         """Convert a Cluster object to a Cluster protobuf message."""
-        return core_pb2.Cluster(slug=self.slug, display_name=self.display_name, deletable=self.deletable)
+        return workflows_pb2.Cluster(slug=self.slug, display_name=self.display_name, deletable=self.deletable)
 
 
 @dataclass
