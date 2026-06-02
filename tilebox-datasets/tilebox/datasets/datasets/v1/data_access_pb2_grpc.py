@@ -6,7 +6,7 @@ from tilebox.datasets.datasets.v1 import core_pb2 as datasets_dot_v1_dot_core__p
 from tilebox.datasets.datasets.v1 import data_access_pb2 as datasets_dot_v1_dot_data__access__pb2
 
 
-class DataAccessServiceStub(object):
+class DataAccessServiceStub:
     """DataAccessService provides data access and querying capabilities for Tilebox datasets.
     """
 
@@ -28,7 +28,7 @@ class DataAccessServiceStub(object):
                 _registered_method=True)
 
 
-class DataAccessServiceServicer(object):
+class DataAccessServiceServicer:
     """DataAccessService provides data access and querying capabilities for Tilebox datasets.
     """
 
@@ -67,7 +67,7 @@ def add_DataAccessServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class DataAccessService(object):
+class DataAccessService:
     """DataAccessService provides data access and querying capabilities for Tilebox datasets.
     """
 

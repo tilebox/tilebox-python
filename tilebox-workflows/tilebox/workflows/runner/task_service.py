@@ -6,6 +6,7 @@ from grpc import Channel
 from _tilebox.grpc.error import with_pythonic_errors
 from tilebox.workflows.data import (
     ComputedTask,
+    FailedTask,
     Idling,
     NextTaskToRun,
     ProgressIndicator,
@@ -17,7 +18,6 @@ from tilebox.workflows.workflows.v1.core_pb2 import TaskLease as TaskLeaseMessag
 from tilebox.workflows.workflows.v1.task_pb2 import (
     NextTaskRequest,
     NextTaskResponse,
-    TaskFailedRequest,
     TaskLeaseRequest,
 )
 from tilebox.workflows.workflows.v1.task_pb2_grpc import TaskServiceStub
@@ -49,18 +49,18 @@ class TaskService:
         return None
 
     def task_failed(
-        self, task: Task, error: Exception, was_workflow_error: bool, progress_updates: list[ProgressIndicator]
+        self,
+        task: Task | FailedTask,
+        error: Exception | None = None,
+        was_workflow_error: bool | None = None,
+        progress_updates: list[ProgressIndicator] | None = None,
     ) -> None:
-        # job ouptut is limited to 1KB, so truncate the error message if necessary
-        error_message = repr(error)[: (1024 - len(task.display or "None") - 1)]
-        display = f"{task.display}" if error_message == "" else f"{task.display}\n{error_message}"
-
-        request = TaskFailedRequest(
-            task_id=uuid_to_uuid_message(task.id),
-            was_workflow_error=was_workflow_error,
-            display=display,
-            progress_updates=[progress.to_message() for progress in progress_updates],
-        )
+        if isinstance(task, FailedTask):
+            request = task.to_message()
+        else:
+            if error is None or was_workflow_error is None or progress_updates is None:
+                raise ValueError("error, was_workflow_error, and progress_updates are required when passing a Task")
+            request = FailedTask.from_task_error(task, error, was_workflow_error, progress_updates).to_message()
         self.service.TaskFailed(request)
 
     def extend_task_lease(self, task_id: UUID, requested_lease: int) -> TaskLease:

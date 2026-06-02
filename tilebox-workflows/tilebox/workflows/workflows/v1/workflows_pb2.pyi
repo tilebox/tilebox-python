@@ -122,16 +122,18 @@ class Artifact(_message.Message):
     def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., digest: _Optional[str] = ...) -> None: ...
 
 class ReleaseContent(_message.Message):
-    __slots__ = ("fingerprint", "tasks", "root", "command")
+    __slots__ = ("fingerprint", "tasks", "files", "runner_object_path", "command_override")
     FINGERPRINT_FIELD_NUMBER: _ClassVar[int]
     TASKS_FIELD_NUMBER: _ClassVar[int]
-    ROOT_FIELD_NUMBER: _ClassVar[int]
-    COMMAND_FIELD_NUMBER: _ClassVar[int]
+    FILES_FIELD_NUMBER: _ClassVar[int]
+    RUNNER_OBJECT_PATH_FIELD_NUMBER: _ClassVar[int]
+    COMMAND_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     fingerprint: str
     tasks: _containers.RepeatedCompositeFieldContainer[_core_pb2.TaskIdentifier]
-    root: Path
-    command: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, fingerprint: _Optional[str] = ..., tasks: _Optional[_Iterable[_Union[_core_pb2.TaskIdentifier, _Mapping]]] = ..., root: _Optional[_Union[Path, _Mapping]] = ..., command: _Optional[_Iterable[str]] = ...) -> None: ...
+    files: _containers.RepeatedCompositeFieldContainer[Path]
+    runner_object_path: str
+    command_override: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, fingerprint: _Optional[str] = ..., tasks: _Optional[_Iterable[_Union[_core_pb2.TaskIdentifier, _Mapping]]] = ..., files: _Optional[_Iterable[_Union[Path, _Mapping]]] = ..., runner_object_path: _Optional[str] = ..., command_override: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class Path(_message.Message):
     __slots__ = ("path", "directory", "children")

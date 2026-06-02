@@ -7,7 +7,7 @@ from tilebox.workflows.workflows.v1 import diagram_pb2 as workflows_dot_v1_dot_d
 from tilebox.workflows.workflows.v1 import job_pb2 as workflows_dot_v1_dot_job__pb2
 
 
-class JobServiceStub(object):
+class JobServiceStub:
     """A service for interacting with jobs.
     """
 
@@ -64,7 +64,7 @@ class JobServiceStub(object):
                 _registered_method=True)
 
 
-class JobServiceServicer(object):
+class JobServiceServicer:
     """A service for interacting with jobs.
     """
 
@@ -178,7 +178,7 @@ def add_JobServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class JobService(object):
+class JobService:
     """A service for interacting with jobs.
     """
 

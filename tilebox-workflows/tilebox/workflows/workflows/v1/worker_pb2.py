@@ -24,11 +24,14 @@ _sym_db = _symbol_database.Default()
 
 from tilebox.datasets.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
+from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
+from tilebox.workflows.workflows.v1 import automation_pb2 as workflows_dot_v1_dot_automation__pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core__pb2
 from tilebox.workflows.workflows.v1 import task_pb2 as workflows_dot_v1_dot_task__pb2
+from tilebox.workflows.workflows.v1 import workflows_pb2 as workflows_dot_v1_dot_workflows__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19workflows/v1/worker.proto\x12\x0cworkflows.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x17workflows/v1/core.proto\x1a\x17workflows/v1/task.proto\"\x12\n\x10HandshakeRequest\"]\n\x11HandshakeResponse\x12H\n\x10task_identifiers\x18\x01 \x01(\x0b\x32\x1d.workflows.v1.TaskIdentifiersR\x0ftaskIdentifiers\"\xbb\x01\n\x13\x45xecuteTaskResponse\x12?\n\rcomputed_task\x18\x01 \x01(\x0b\x32\x1a.workflows.v1.ComputedTaskR\x0c\x63omputedTask\x12@\n\x0b\x66\x61iled_task\x18\x02 \x01(\x0b\x32\x1f.workflows.v1.TaskFailedRequestR\nfailedTask:!\xbaH\x1e\"\x1c\n\rcomputed_task\n\x0b\x66\x61iled_task2\xe5\x01\n\rWorkerService\x12N\n\tHandshake\x12\x1e.workflows.v1.HandshakeRequest\x1a\x1f.workflows.v1.HandshakeResponse\"\x00\x12\x46\n\x0b\x45xecuteTask\x12\x12.workflows.v1.Task\x1a!.workflows.v1.ExecuteTaskResponse\"\x00\x12<\n\x08Shutdown\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\"\x00\x42p\n\x10\x63om.workflows.v1B\x0bWorkerProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1b\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19workflows/v1/worker.proto\x12\x0cworkflows.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x13tilebox/v1/id.proto\x1a\x1dworkflows/v1/automation.proto\x1a\x17workflows/v1/core.proto\x1a\x17workflows/v1/task.proto\x1a\x1cworkflows/v1/workflows.proto\"\x8b\x02\n\x17InitializeRunnerRequest\x12+\n\trunner_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x08runnerId\x12!\n\x0ctrace_parent\x18\x02 \x01(\tR\x0btraceParent\x12/\n\x07\x63luster\x18\x03 \x01(\x0b\x32\x15.workflows.v1.ClusterR\x07\x63luster\x12\x32\n\x08workflow\x18\x04 \x01(\x0b\x32\x16.workflows.v1.WorkflowR\x08workflow\x12;\n\tlocations\x18\x05 \x03(\x0b\x32\x1d.workflows.v1.StorageLocationR\tlocations\"\x1a\n\x18InitializeRunnerResponse\"\xbb\x01\n\x13\x45xecuteTaskResponse\x12?\n\rcomputed_task\x18\x01 \x01(\x0b\x32\x1a.workflows.v1.ComputedTaskR\x0c\x63omputedTask\x12@\n\x0b\x66\x61iled_task\x18\x02 \x01(\x0b\x32\x1f.workflows.v1.TaskFailedRequestR\nfailedTask:!\xbaH\x1e\"\x1c\n\rcomputed_task\n\x0b\x66\x61iled_task2\xce\x02\n\rWorkerService\x12L\n\x13ListRegisteredTasks\x12\x16.google.protobuf.Empty\x1a\x1d.workflows.v1.TaskIdentifiers\x12\x63\n\x10InitializeWorker\x12%.workflows.v1.InitializeRunnerRequest\x1a&.workflows.v1.InitializeRunnerResponse\"\x00\x12\x46\n\x0b\x45xecuteTask\x12\x12.workflows.v1.Task\x1a!.workflows.v1.ExecuteTaskResponse\"\x00\x12\x42\n\x0eShutdownWorker\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\"\x00\x42p\n\x10\x63om.workflows.v1B\x0bWorkerProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1b\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -38,12 +41,12 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._serialized_options = b'\n\020com.workflows.v1B\013WorkerProtoP\001\242\002\003WXX\252\002\014Workflows.V1\312\002\014Workflows\\V1\342\002\030Workflows\\V1\\GPBMetadata\352\002\rWorkflows::V1'
   _globals['_EXECUTETASKRESPONSE']._loaded_options = None
   _globals['_EXECUTETASKRESPONSE']._serialized_options = b'\272H\036\"\034\n\rcomputed_task\n\013failed_task'
-  _globals['_HANDSHAKEREQUEST']._serialized_start=151
-  _globals['_HANDSHAKEREQUEST']._serialized_end=169
-  _globals['_HANDSHAKERESPONSE']._serialized_start=171
-  _globals['_HANDSHAKERESPONSE']._serialized_end=264
-  _globals['_EXECUTETASKRESPONSE']._serialized_start=267
-  _globals['_EXECUTETASKRESPONSE']._serialized_end=454
-  _globals['_WORKERSERVICE']._serialized_start=457
-  _globals['_WORKERSERVICE']._serialized_end=686
+  _globals['_INITIALIZERUNNERREQUEST']._serialized_start=234
+  _globals['_INITIALIZERUNNERREQUEST']._serialized_end=501
+  _globals['_INITIALIZERUNNERRESPONSE']._serialized_start=503
+  _globals['_INITIALIZERUNNERRESPONSE']._serialized_end=529
+  _globals['_EXECUTETASKRESPONSE']._serialized_start=532
+  _globals['_EXECUTETASKRESPONSE']._serialized_end=719
+  _globals['_WORKERSERVICE']._serialized_start=722
+  _globals['_WORKERSERVICE']._serialized_end=1056
 # @@protoc_insertion_point(module_scope)

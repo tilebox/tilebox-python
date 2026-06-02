@@ -5,7 +5,7 @@ import grpc
 from tilebox.workflows.workflows.v1 import workflows_pb2 as workflows_dot_v1_dot_workflows__pb2
 
 
-class WorkflowsServiceStub(object):
+class WorkflowsServiceStub:
     """A service for managing workflows.
     """
 
@@ -67,7 +67,7 @@ class WorkflowsServiceStub(object):
                 _registered_method=True)
 
 
-class WorkflowsServiceServicer(object):
+class WorkflowsServiceServicer:
     """A service for managing workflows.
     """
 
@@ -192,7 +192,7 @@ def add_WorkflowsServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class WorkflowsService(object):
+class WorkflowsService:
     """A service for managing workflows.
     """
 

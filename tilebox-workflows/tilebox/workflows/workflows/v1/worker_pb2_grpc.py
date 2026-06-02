@@ -7,7 +7,7 @@ from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core
 from tilebox.workflows.workflows.v1 import worker_pb2 as workflows_dot_v1_dot_worker__pb2
 
 
-class WorkerServiceStub(object):
+class WorkerServiceStub:
     """WorkerService defines the RPC interface between a runner and a a worker runtime that can execute workflow tasks.
     """
 
@@ -17,41 +17,61 @@ class WorkerServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.Handshake = channel.unary_unary(
-                '/workflows.v1.WorkerService/Handshake',
-                request_serializer=workflows_dot_v1_dot_worker__pb2.HandshakeRequest.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_worker__pb2.HandshakeResponse.FromString,
+        self.ListRegisteredTasks = channel.unary_unary(
+                '/workflows.v1.WorkerService/ListRegisteredTasks',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_core__pb2.TaskIdentifiers.FromString,
+                _registered_method=True)
+        self.InitializeWorker = channel.unary_unary(
+                '/workflows.v1.WorkerService/InitializeWorker',
+                request_serializer=workflows_dot_v1_dot_worker__pb2.InitializeRunnerRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_worker__pb2.InitializeRunnerResponse.FromString,
                 _registered_method=True)
         self.ExecuteTask = channel.unary_unary(
                 '/workflows.v1.WorkerService/ExecuteTask',
                 request_serializer=workflows_dot_v1_dot_core__pb2.Task.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_worker__pb2.ExecuteTaskResponse.FromString,
                 _registered_method=True)
-        self.Shutdown = channel.unary_unary(
-                '/workflows.v1.WorkerService/Shutdown',
+        self.ShutdownWorker = channel.unary_unary(
+                '/workflows.v1.WorkerService/ShutdownWorker',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
 
 
-class WorkerServiceServicer(object):
+class WorkerServiceServicer:
     """WorkerService defines the RPC interface between a runner and a a worker runtime that can execute workflow tasks.
     """
 
-    def Handshake(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+    def ListRegisteredTasks(self, request, context):
+        """ListRegisteredTasks is called by the runner to discover the task identifiers that a worker runtime can execute.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def InitializeWorker(self, request, context):
+        """InitializeWorker is called by the runner to initialize a worker runtime with some known metadata about the
+        runner. This allows us to add those metadata to any logs and traces emitted by the worker.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ExecuteTask(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """ExecuteTask is called by the runner to execute a task on the worker runtime. The worker runtime will execute the
+        task, and then respond with the result of the task execution, which can either be a computed task, or a failed
+        task. If the worker runtime crashes or becomes unreachable during task execution, the runner will treat the task
+        as failed with an unknown error.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def Shutdown(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+    def ShutdownWorker(self, request, context):
+        """Gracefully shuts down the worker runtime. After receiving this request, the worker runtime will
+        cleanly shut down.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -59,18 +79,23 @@ class WorkerServiceServicer(object):
 
 def add_WorkerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Handshake': grpc.unary_unary_rpc_method_handler(
-                    servicer.Handshake,
-                    request_deserializer=workflows_dot_v1_dot_worker__pb2.HandshakeRequest.FromString,
-                    response_serializer=workflows_dot_v1_dot_worker__pb2.HandshakeResponse.SerializeToString,
+            'ListRegisteredTasks': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListRegisteredTasks,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=workflows_dot_v1_dot_core__pb2.TaskIdentifiers.SerializeToString,
+            ),
+            'InitializeWorker': grpc.unary_unary_rpc_method_handler(
+                    servicer.InitializeWorker,
+                    request_deserializer=workflows_dot_v1_dot_worker__pb2.InitializeRunnerRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_worker__pb2.InitializeRunnerResponse.SerializeToString,
             ),
             'ExecuteTask': grpc.unary_unary_rpc_method_handler(
                     servicer.ExecuteTask,
                     request_deserializer=workflows_dot_v1_dot_core__pb2.Task.FromString,
                     response_serializer=workflows_dot_v1_dot_worker__pb2.ExecuteTaskResponse.SerializeToString,
             ),
-            'Shutdown': grpc.unary_unary_rpc_method_handler(
-                    servicer.Shutdown,
+            'ShutdownWorker': grpc.unary_unary_rpc_method_handler(
+                    servicer.ShutdownWorker,
                     request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
@@ -82,12 +107,12 @@ def add_WorkerServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class WorkerService(object):
+class WorkerService:
     """WorkerService defines the RPC interface between a runner and a a worker runtime that can execute workflow tasks.
     """
 
     @staticmethod
-    def Handshake(request,
+    def ListRegisteredTasks(request,
             target,
             options=(),
             channel_credentials=None,
@@ -100,9 +125,36 @@ class WorkerService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/workflows.v1.WorkerService/Handshake',
-            workflows_dot_v1_dot_worker__pb2.HandshakeRequest.SerializeToString,
-            workflows_dot_v1_dot_worker__pb2.HandshakeResponse.FromString,
+            '/workflows.v1.WorkerService/ListRegisteredTasks',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            workflows_dot_v1_dot_core__pb2.TaskIdentifiers.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def InitializeWorker(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.WorkerService/InitializeWorker',
+            workflows_dot_v1_dot_worker__pb2.InitializeRunnerRequest.SerializeToString,
+            workflows_dot_v1_dot_worker__pb2.InitializeRunnerResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -141,7 +193,7 @@ class WorkerService(object):
             _registered_method=True)
 
     @staticmethod
-    def Shutdown(request,
+    def ShutdownWorker(request,
             target,
             options=(),
             channel_credentials=None,
@@ -154,7 +206,7 @@ class WorkerService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/workflows.v1.WorkerService/Shutdown',
+            '/workflows.v1.WorkerService/ShutdownWorker',
             google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,

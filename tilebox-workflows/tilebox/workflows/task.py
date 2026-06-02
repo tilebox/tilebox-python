@@ -1,4 +1,3 @@
-import contextlib
 import inspect
 import json
 import typing
@@ -6,7 +5,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from base64 import b64decode, b64encode
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass, field, fields, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass
 from types import NoneType, UnionType
 from typing import Any, Generic, TypeVar, cast, get_args, get_origin
 
@@ -75,12 +74,7 @@ class _Taskify(type):
             # raise as TypeError instead of a ValueError, because this runs at class creation time
             raise TypeError(str(err)) from None
 
-        interceptors = []
-        with contextlib.suppress(TypeError):
-            # if possible we copy the already existing interceptors from the base class
-            interceptors = list(_task_meta(bases[-1]).interceptors)
-
-        setattr(task_class, META_ATTR, TaskMeta(identifier, is_executable, interceptors))
+        setattr(task_class, META_ATTR, TaskMeta(identifier, is_executable))
         return task_class
 
 
@@ -152,7 +146,6 @@ def _validate_execute_method(
 class TaskMeta:
     identifier: TaskIdentifier
     executable: bool
-    interceptors: list[Any] = field(default_factory=list)
 
     @staticmethod
     def for_task(task: type | Task) -> "TaskMeta":

@@ -5,7 +5,7 @@ import grpc
 from tilebox.workflows.workflows.v1 import diagram_pb2 as workflows_dot_v1_dot_diagram__pb2
 
 
-class DiagramServiceStub(object):
+class DiagramServiceStub:
     """The diagram service
     """
 
@@ -22,7 +22,7 @@ class DiagramServiceStub(object):
                 _registered_method=True)
 
 
-class DiagramServiceServicer(object):
+class DiagramServiceServicer:
     """The diagram service
     """
 
@@ -48,7 +48,7 @@ def add_DiagramServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class DiagramService(object):
+class DiagramService:
     """The diagram service
     """
 

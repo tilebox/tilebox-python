@@ -1,14 +1,10 @@
 import contextlib
-import json
-import logging
 import random
 import signal
 import threading
-from base64 import b64encode
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import timedelta
-from functools import partial
 from multiprocessing import get_context
 from multiprocessing.context import SpawnProcess
 from queue import Empty, Queue
@@ -17,7 +13,6 @@ from time import sleep
 from types import FrameType, TracebackType
 from typing import Any, TypeAlias, TypeVar
 from uuid import UUID
-from warnings import warn
 
 try:
     from typing import Self  # ty: ignore[unresolved-import]
@@ -25,27 +20,25 @@ except ImportError:  # Self is only available in Python 3.11+
     from typing_extensions import Self
 
 from loguru import logger
-from opentelemetry.trace.status import StatusCode
 from tenacity import retry, retry_if_exception_type, stop_when_event_set, wait_random_exponential
 from tenacity.stop import stop_base
 
 from _tilebox.grpc.channel import open_channel
 from _tilebox.grpc.error import InternalServerError
-from tilebox.datasets.sync.dataset import DatasetClient
 from tilebox.workflows.cache import JobCache
-from tilebox.workflows.data import ComputedTask, Idling, NextTaskToRun, ProgressIndicator, Task, TaskLease
-from tilebox.workflows.interceptors import Interceptor, InterceptorType
+from tilebox.workflows.data import ComputedTask, FailedTask, Idling, NextTaskToRun, Task, TaskLease
 from tilebox.workflows.observability.logging import StructuredLogger
-from tilebox.workflows.observability.tracing import WorkflowTracer, start_job_span
-from tilebox.workflows.runner.task_service import TaskService
-from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
-from tilebox.workflows.task import (
-    FutureTask,
-    ProgressUpdate,
-    RunnerContext,
-    TaskMeta,
-    merge_future_tasks_to_submissions,
+from tilebox.workflows.observability.tracing import WorkflowTracer
+from tilebox.workflows.runner.executor import (
+    ApiLeaseManager,
+    ExecutionContext,
+    TaskExecutor,
+    _finalize_mutable_progress_trackers,
 )
+from tilebox.workflows.runner.runner import Runner
+from tilebox.workflows.runner.runtime import RunnerRuntime
+from tilebox.workflows.runner.task_service import TaskService
+from tilebox.workflows.task import RunnerContext
 from tilebox.workflows.task import Task as TaskInstance
 
 # The time we give a task to finish it's execution when a runner shutdown is requested before we forcefully stop it
@@ -319,47 +312,30 @@ class TaskRunner:
         runner_logger: StructuredLogger,
     ) -> None:
         self._service = service
-        self.tasks_to_run = NextTaskToRun(cluster_slug=cluster, identifiers={})
         self.cache = cache
         self.tracer = tracer
         self.task_logger = task_logger
         self.runner_logger = runner_logger
-        self._interceptors: list[Interceptor] = []
+        self._context = context
+        self._runner = Runner(cache=cache)
+        self.tasks_to_run = NextTaskToRun(cluster_slug=cluster, identifiers=self._runner.tasks_by_identifier)
         self._lease_renewer = lease_renewer
         self._lease_renewer.start()  # Start the lease extension process in the background
-        self._context = context
+        self._runtime = RunnerRuntime(cache, tracer, task_logger, context)
+        self._executor = TaskExecutor(
+            self._runner,
+            self._runtime,
+            fallback_cluster=cluster,
+            lease_manager=ApiLeaseManager(lease_renewer),
+        )
 
-    def register(self, task: type) -> None:
+    def register(self, task: type[TaskInstance]) -> None:
         """Register a task that can be executed by the task runner.
 
         Args:
             task: The task to register.
         """
-        meta = TaskMeta.for_task(task)  # ensures that this is a valid task
-        if not meta.executable:
-            task_repr = task.__name__
-            if meta.identifier.name != task.__name__:
-                task_repr += f" ({meta.identifier.name})"
-            raise ValueError(
-                f"Task {task_repr} is not executable. It must have an execute method in order to "
-                f"register it with a task runner."
-            )
-        if meta.identifier in self.tasks_to_run.identifiers:
-            raise ValueError(
-                f"Duplicate task identifier: A task '{meta.identifier.name}' with version '{meta.identifier.version}' "
-                f"is already registered."
-            )
-        self.tasks_to_run.identifiers[meta.identifier] = task
-
-    def add_interceptor(self, interceptor: InterceptorType) -> None:
-        """Add an interceptor to the task runner.
-
-        Args:
-            interceptor: The interceptor to add.
-        """
-        if not hasattr(interceptor, "__original_interceptor_func__"):
-            raise ValueError("Interceptor must be created with @execution_interceptor decorator.")
-        self._interceptors.append(interceptor.__original_interceptor_func__)
+        self._runner.register(task)
 
     def run_forever(self) -> None:
         """
@@ -430,232 +406,22 @@ class TaskRunner:
         if task.job is None:
             raise ValueError(f"Task {task.id} has no job associated with it.")
 
-        context = ExecutionContext(self, task, self.cache.group(str(task.job.id)))
-
-        try:
-            return self._try_execute(task, context, shutdown_context)
-        except Exception as e:
-            task_repr = str(task.id)
-            # let's try to get the name of the task class for a better error message:
-            # otherwise, if it's not possible, we just log the task id
-            with contextlib.suppress(KeyError):
-                task_repr = self.tasks_to_run.identifiers[task.identifier].__name__
-            self.runner_logger.exception(f"Task {task_repr} failed!")
-
-            task_failed_retry = _retry_backoff(self._service.task_failed, stop=shutdown_context.stop_if_shutting_down())
-            was_workflow_error = True
-            progress_updates: list[ProgressIndicator] = _finalize_mutable_progress_trackers(
-                context._progress_indicators  # noqa: SLF001
-            )
-            task_failed_retry(task, e, was_workflow_error, progress_updates)
-
-        return None
-
-    def _try_execute(
-        self, task: Task, context: "ExecutionContext", shutdown_context: _GracefulShutdown
-    ) -> Task | Idling | None:
-        if task.job is None:
-            raise ValueError(f"Task {task.id} has no job associated with it.")
-
-        if task.lease is None:
-            raise ValueError(f"Task {task.id} has no lease associated with it.")
-
         task_repr = str(task.id)
+        self.runner_logger.debug("Executing task", task=task_repr, input=task.input)
+        result = self._executor.execute(task, shutdown_context.mark_task_as_failed_on_interrupt)
+        with contextlib.suppress(KeyError):
+            task_repr = self.tasks_to_run.identifiers[task.identifier].__name__
 
-        with (
-            self._lease_renewer.lease_extension(task.id, task.lease),
-            start_job_span(self.tracer, task.job, f"task/{task.id}") as span,
-        ):
-            self.runner_logger.debug("Executing task", task=task_repr, input=task.input)
-            try:
-                try:
-                    task_class = self.tasks_to_run.identifiers[task.identifier]
-                    task_repr = task_class.__name__
-                except KeyError:
-                    self.runner_logger.error(f"Task {task.id} has unknown task identifier {task.identifier}")
-                    raise ValueError(f"Task {task.id} has unknown task identifier {task.identifier}") from None
+        if isinstance(result, ComputedTask):
+            request_new_task = not shutdown_context.is_shutting_down()
+            task_to_run = self.tasks_to_run if request_new_task else None
+            next_task_retry = _retry_backoff(self._service.next_task, stop=shutdown_context.stop_if_shutting_down())
+            return next_task_retry(task_to_run=task_to_run, computed_task=result)
 
-                # now that we've successfully looked up the task class, we can update the span name to replace the
-                # task execution id with the task class name
-                span.update_name(f"task/{task_repr}")
-                span.set_attribute("task_id", str(task.id))
-                span.set_attribute("identifier.name", task.identifier.name)
-                span.set_attribute("identifier.version", task.identifier.version)
+        if isinstance(result, FailedTask):
+            self.runner_logger.error(f"Task {task_repr} failed!", display=result.display)
+            task_failed_retry = _retry_backoff(self._service.task_failed, stop=shutdown_context.stop_if_shutting_down())
+            task_failed_retry(result)
+            return None
 
-                try:
-                    task_instance = task_class._deserialize(task.input, self._context)  # ty: ignore[possibly-missing-attribute] # noqa: SLF001
-                except json.JSONDecodeError:
-                    self.runner_logger.exception(f"Failed to deserialize input for task execution {task.id}")
-                    raise ValueError(f"Failed to deserialize input for task execution {task.id}") from None
-
-                # record the task input as a span attribute, but for this we need to convert it to a string
-                # in case of binary data, we base64 encode it (e.g. protobuf message content)
-                task_input_span_attr = ""
-                if task.input is not None:
-                    try:
-                        task_input_span_attr = task.input.decode("utf-8")
-                    except UnicodeDecodeError:
-                        task_input_span_attr = b64encode(task.input).decode("ascii")
-                span.set_attribute("input", task_input_span_attr)
-
-                # if we receive an interrupt exactly when running the user defined execute function, it is quite
-                # likely that we don't finish in time. So we mark the task as failed in that case immediately.
-                # If for some reason it does finish in time, the failed status will be overwritten by the computed
-                # status done later on in this function.
-                with shutdown_context.mark_task_as_failed_on_interrupt(task, context):
-                    _execute(task_instance, context, self._interceptors)
-
-                # if we received a stop signal, we should not request a next task
-                request_new_task = not shutdown_context.is_shutting_down()
-                task_to_run = self.tasks_to_run if request_new_task else None
-                computed_task = ComputedTask(
-                    id=task.id,
-                    display=task.display,
-                    sub_tasks=merge_future_tasks_to_submissions(
-                        context._sub_tasks,  # noqa: SLF001
-                        # if not otherwise specified, we use the cluster of the runner for all subtasks, which is also
-                        # the cluster of the parent task
-                        self.tasks_to_run.cluster_slug,
-                    ),
-                    progress_updates=_finalize_mutable_progress_trackers(context._progress_indicators),  # noqa: SLF001
-                )
-
-                next_task_retry = _retry_backoff(self._service.next_task, stop=shutdown_context.stop_if_shutting_down())
-                # mark the task as computed and get the next one
-                return next_task_retry(task_to_run=task_to_run, computed_task=computed_task)
-
-            except Exception as e:
-                # catch all exceptions and re-raise them, since we just want to mark spans as failed
-                span.record_exception(e)
-                span.set_status(StatusCode.ERROR, "Task failed with exception")
-
-                self.runner_logger.exception(f"Task {task_repr} failed!")
-
-                raise e from None  # reraise, since we just wanted to mark it as failed in the span
-
-
-class ExecutionContext(ExecutionContextBase):
-    def __init__(self, runner: TaskRunner, task: Task, job_cache: JobCache) -> None:
-        self._runner = runner
-        self.current_task = task
-        self.job_cache = job_cache
-        self._sub_tasks: list[FutureTask] = []
-        self._progress_indicators: dict[str | None, ProgressUpdate] = {}
-        if runner is None or task is None:
-            # Some tests instantiate an execution context only to exercise local subtask merging helpers.
-            self._logger = StructuredLogger(logging.getLogger("tilebox.workflows.noop"))
-        else:
-            self._logger = runner.task_logger.bind(task_id=str(task.id))
-
-    def submit_subtask(
-        self,
-        task: TaskInstance,
-        depends_on: FutureTask | list[FutureTask] | None = None,
-        cluster: str | None = None,
-        max_retries: int = 0,
-        optional: bool = False,
-    ) -> FutureTask:
-        dependencies: list[int] = []
-
-        if depends_on is None:
-            depends_on = []
-        elif isinstance(depends_on, FutureTask):
-            depends_on = [depends_on]
-        elif not isinstance(depends_on, list):
-            raise TypeError(f"Invalid dependency. Expected FutureTask or list[FutureTask], got {type(depends_on)}")
-
-        for dep in depends_on:
-            if not isinstance(dep, FutureTask):
-                raise TypeError(f"Invalid dependency. Expected FutureTask, got {type(dep)}")
-            if dep.index >= len(self._sub_tasks):
-                raise ValueError(f"Dependent task {dep.index} does not exist")
-            dependencies.append(dep.index)
-        subtask = FutureTask(
-            index=len(self._sub_tasks),
-            task=task,
-            # cyclic dependencies are not allowed, they are detected by the server and will result in an error
-            depends_on=dependencies,
-            cluster=cluster,
-            max_retries=max_retries,
-            optional=optional,
-        )
-        self._sub_tasks.append(subtask)
-        return subtask
-
-    def submit_subtasks(
-        self,
-        tasks: Sequence[TaskInstance],
-        depends_on: FutureTask | list[FutureTask] | None = None,
-        cluster: str | None = None,
-        max_retries: int = 0,
-        optional: bool = False,
-    ) -> list[FutureTask]:
-        return [
-            self.submit_subtask(
-                task, cluster=cluster, max_retries=max_retries, depends_on=depends_on, optional=optional
-            )
-            for task in tasks
-        ]
-
-    def submit_batch(
-        self, tasks: Sequence[TaskInstance], cluster: str | None = None, max_retries: int = 0
-    ) -> list[FutureTask]:
-        warn(
-            "submit_batch is deprecated, use submit_subtasks instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.submit_subtasks(tasks, cluster=cluster, max_retries=max_retries)
-
-    def progress(self, label: str | None = None) -> ProgressUpdate:
-        if label == "":
-            label = None
-
-        if label in self._progress_indicators:
-            return self._progress_indicators[label]
-
-        # this is our server side limit to prevent mistakes / abuse, so let's not allow to go beyond that already
-        # client side
-        if len(self._progress_indicators) > _MAX_TASK_PROGRESS_INDICATORS:
-            raise ValueError(f"Cannot create more than {_MAX_TASK_PROGRESS_INDICATORS} progress indicators per task.")
-
-        progress_bar = ProgressUpdate(label)
-        self._progress_indicators[label] = progress_bar
-        return progress_bar
-
-    @property
-    def runner_context(self) -> RunnerContext:
-        return self._runner._context  # noqa: SLF001
-
-    @property
-    def logger(self) -> StructuredLogger:
-        return self._logger
-
-    @property
-    def tracer(self) -> WorkflowTracer:
-        return self._runner.tracer
-
-    def _dataset(self, dataset_id: str) -> DatasetClient:
-        """Needed by the timeseries integration, to resolve a dataset id to a RemoteTimeseriesDataset."""
-        client = self._runner._context.datasets_client  # noqa: SLF001
-        if client is None:
-            raise ValueError("No datasets client configured.")
-
-        return client.dataset(dataset_id)
-
-
-def _finalize_mutable_progress_trackers(
-    progress_bars: dict[str | None, ProgressUpdate],
-) -> list[ProgressIndicator]:
-    return [ProgressIndicator(label, bar._total, bar._done) for label, bar in progress_bars.items()]  # noqa: SLF001
-
-
-def _execute(task: TaskInstance, context: ExecutionContext, additional_interceptors: list[Interceptor]) -> None:
-    interceptors: list[Interceptor] = additional_interceptors + TaskMeta.for_task(task).interceptors
-
-    # chain interceptors in reverse order before eventually calling the actual task.execute function:
-    next_func = task.execute
-    for interceptor in interceptors[::-1]:
-        next_func = partial(interceptor, task, next_func)
-
-    return next_func(context)  # call the first func in the chain, it will call the next one and so on
+        raise TypeError(f"Unexpected task execution result: {type(result)}")

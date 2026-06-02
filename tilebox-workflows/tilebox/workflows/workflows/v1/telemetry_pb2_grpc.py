@@ -5,7 +5,7 @@ import grpc
 from tilebox.workflows.workflows.v1 import telemetry_pb2 as workflows_dot_v1_dot_telemetry__pb2
 
 
-class TelemetryQueryServiceStub(object):
+class TelemetryQueryServiceStub:
     """TelemetryQueryService is the service definition for querying telemetry data about workflows such as logs, traces
     and metrics.
     """
@@ -33,7 +33,7 @@ class TelemetryQueryServiceStub(object):
                 _registered_method=True)
 
 
-class TelemetryQueryServiceServicer(object):
+class TelemetryQueryServiceServicer:
     """TelemetryQueryService is the service definition for querying telemetry data about workflows such as logs, traces
     and metrics.
     """
@@ -82,7 +82,7 @@ def add_TelemetryQueryServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class TelemetryQueryService(object):
+class TelemetryQueryService:
     """TelemetryQueryService is the service definition for querying telemetry data about workflows such as logs, traces
     and metrics.
     """

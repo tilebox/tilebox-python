@@ -5,7 +5,7 @@ import grpc
 from tilebox.datasets.datasets.v1 import data_ingestion_pb2 as datasets_dot_v1_dot_data__ingestion__pb2
 
 
-class DataIngestionServiceStub(object):
+class DataIngestionServiceStub:
     """DataIngestionService provides data ingestion and deletion capabilities for Tilebox datasets.
     """
 
@@ -27,7 +27,7 @@ class DataIngestionServiceStub(object):
                 _registered_method=True)
 
 
-class DataIngestionServiceServicer(object):
+class DataIngestionServiceServicer:
     """DataIngestionService provides data ingestion and deletion capabilities for Tilebox datasets.
     """
 
@@ -64,7 +64,7 @@ def add_DataIngestionServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class DataIngestionService(object):
+class DataIngestionService:
     """DataIngestionService provides data ingestion and deletion capabilities for Tilebox datasets.
     """
 
