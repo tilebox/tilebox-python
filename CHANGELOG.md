@@ -7,12 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-06-05
+
 ### Added
 
 - `tilebox-workflows`: Added worker runtime mode for executing registered tasks over the worker RPC service, backed by a
   shared task executor facade used by both worker and polling runners.
 
-## [0.52.0]
+## [0.52.0] - 2026-05-08
 
 ### Added
 
@@ -373,7 +375,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.52.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.53.0...HEAD
+[0.53.0]: https://github.com/tilebox/tilebox-python/compare/v0.52.0...v0.53.0
 [0.52.0]: https://github.com/tilebox/tilebox-python/compare/v0.51.0...v0.52.0
 [0.51.0]: https://github.com/tilebox/tilebox-python/compare/v0.50.1...v0.51.0
 [0.50.1]: https://github.com/tilebox/tilebox-python/compare/v0.50.0...v0.50.1
