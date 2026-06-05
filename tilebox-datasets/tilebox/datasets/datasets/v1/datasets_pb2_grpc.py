@@ -6,7 +6,7 @@ from tilebox.datasets.datasets.v1 import core_pb2 as datasets_dot_v1_dot_core__p
 from tilebox.datasets.datasets.v1 import datasets_pb2 as datasets_dot_v1_dot_datasets__pb2
 
 
-class DatasetServiceStub(object):
+class DatasetServiceStub:
     """DatasetsService is the CRUD service for Tilebox datasets.
     """
 
@@ -43,7 +43,7 @@ class DatasetServiceStub(object):
                 _registered_method=True)
 
 
-class DatasetServiceServicer(object):
+class DatasetServiceServicer:
     """DatasetsService is the CRUD service for Tilebox datasets.
     """
 
@@ -113,7 +113,7 @@ def add_DatasetServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class DatasetService(object):
+class DatasetService:
     """DatasetsService is the CRUD service for Tilebox datasets.
     """
 

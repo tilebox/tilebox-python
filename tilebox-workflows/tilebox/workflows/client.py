@@ -1,10 +1,9 @@
 import logging
 import os
 import warnings
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from _tilebox.grpc.channel import open_channel, parse_channel_info
-from tilebox.datasets.sync.client import Client as DatasetsClient
 from tilebox.workflows.automations.client import AutomationClient, AutomationService
 from tilebox.workflows.cache import JobCache, NoCache
 from tilebox.workflows.clusters.client import ClusterClient, ClusterSlugLike, to_cluster_slug
@@ -22,13 +21,21 @@ from tilebox.workflows.observability.logging import (
     _create_tilebox_logger_provider,
 )
 from tilebox.workflows.observability.tracing import WorkflowTracer
+from tilebox.workflows.runner.executor import LazyStorageLocations
+from tilebox.workflows.runner.runner import Runner
 from tilebox.workflows.runner.task_runner import TaskRunner, _LeaseRenewer
 from tilebox.workflows.runner.task_service import TaskService
+from tilebox.workflows.task import Task
 
 
 class Client:
     def __init__(
-        self, *, url: str = "https://api.tilebox.com", token: str | None = None, name: str | None = None
+        self,
+        *,
+        url: str = "https://api.tilebox.com",
+        token: str | None = None,
+        name: str | None = None,
+        client_id: UUID | None = None,
     ) -> None:
         """
         Create a Tilebox workflows client.
@@ -39,13 +46,14 @@ class Client:
             name: An optional name of the client, used as service.name for telemetry. If not set, defaults to
                 the service name provided by `tilebox.workflows.observability.tracing.configure_otel_tracing`,
                 or "tilebox-python" if no external tracer is configured.
+            client_id: An optional stable id used to scope internal loggers. Defaults to a random id.
         """
         token = _token_from_env(url, token)
         self._auth: dict[str, str] = {"token": token, "url": url}
         self._channel = open_channel(url, token)
 
         # configure logging and tracing
-        self._client_id = uuid4()  # a random uuid to scope loggers to this client instance
+        self._client_id = client_id or uuid4()  # a random uuid to scope loggers to this client instance
         self._logger_provider = _create_tilebox_logger_provider(service=name, url=url, token=token)
 
         # task logger is the logger available for users to emit logs from within a Task.execute method, via
@@ -107,9 +115,10 @@ class Client:
     def runner(
         self,
         cluster: ClusterSlugLike | None = None,
-        tasks: list[type] | None = None,
+        tasks: list[type[Task]] | None = None,
         cache: JobCache | None = None,
         context: type[RunnerContext] | None = None,
+        runner: Runner | None = None,
     ) -> TaskRunner:
         """Initialize a task runner.
 
@@ -118,30 +127,25 @@ class Client:
             tasks: A list of task the runner is able to execute.
             cache: The cache to share between tasks.
             context: The type of the runner context to use. Defaults to RunnerContext.
+            runner: A runner definition containing tasks, cache and context configuration.
 
         Returns:
             A task runner.
         """
+        if runner is not None and (tasks is not None or cache is not None or context is not None):
+            raise ValueError("Pass either runner or tasks/cache/context, not both.")
+
+        runner_definition = runner or Runner(tasks=tasks, cache=cache, context=context)
         if cache is None:
-            cache = NoCache()  # a no-op cache that will raise an error if it's used
+            cache = runner_definition.cache or NoCache()  # a no-op cache that will raise an error if it's used
 
         found_cluster = self.clusters().find(to_cluster_slug(cluster or ""))
 
-        try:
-            storage_locations = self.automations().storage_locations()
-        except:  # noqa: E722
-            # if fetching storage locations fails, we just disable this feature, and don't crash all runners
-            # lets refactor this to a lazy loading mechanism in the future
-            storage_locations = []
+        runner_context_type = runner_definition.context or RunnerContext
+        runner_context = runner_context_type(self._tracer)
+        runner_context.storage_locations = LazyStorageLocations(self, runner_context)
 
-        runner_context_type = context or RunnerContext
-        runner_context = runner_context_type(
-            self._tracer,
-            datasets_client=DatasetsClient(**self._auth),  # ty: ignore[invalid-argument-type]
-            storage_locations=storage_locations,
-        )
-
-        runner = TaskRunner(
+        task_runner = TaskRunner(
             TaskService(self._channel),
             found_cluster.slug,
             cache,
@@ -152,11 +156,10 @@ class Client:
             runner_logger=StructuredLogger(self._runner_logger, {}),
         )
 
-        if tasks is not None:
-            for task in tasks:
-                runner.register(task)
+        for task in runner_definition.tasks_by_identifier.values():
+            task_runner.register(task)
 
-        return runner
+        return task_runner
 
     def clusters(self) -> ClusterClient:
         """

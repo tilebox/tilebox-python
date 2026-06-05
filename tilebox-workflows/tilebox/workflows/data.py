@@ -36,10 +36,9 @@ try:
 except ModuleNotFoundError:
     from typing import Any as S3Client
 
-from tilebox.datasets.sync.client import Client as DatasetsClient
 from tilebox.workflows.observability.tracing import NoopWorkflowTracer, WorkflowTracer
 from tilebox.workflows.workflows.v1 import automation_pb2 as automation_pb
-from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2
+from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2, workflows_pb2
 
 _VERSION_PATTERN = re.compile(r"^v(\d+)\.(\d+)$")  # matches a version string in the format "v3.2"
 
@@ -323,19 +322,35 @@ class Cluster:
     deletable: bool
 
     @classmethod  # lets use typing.Self once we require python >= 3.11
-    def from_message(cls, cluster: core_pb2.Cluster) -> "Cluster":
+    def from_message(cls, cluster: workflows_pb2.Cluster) -> "Cluster":
         """Convert a Cluster protobuf message to a Cluster object."""
         return cls(slug=cluster.slug, display_name=cluster.display_name, deletable=cluster.deletable)
 
-    def to_message(self) -> core_pb2.Cluster:
+    def to_message(self) -> workflows_pb2.Cluster:
         """Convert a Cluster object to a Cluster protobuf message."""
-        return core_pb2.Cluster(slug=self.slug, display_name=self.display_name, deletable=self.deletable)
+        return workflows_pb2.Cluster(slug=self.slug, display_name=self.display_name, deletable=self.deletable)
+
+
+@dataclass(order=True, frozen=True)
+class Workflow:
+    slug: str
+    name: str
+    description: str
+
+    @classmethod
+    def from_message(cls, workflow: workflows_pb2.Workflow) -> "Workflow":
+        """Convert a Workflow protobuf message to a Workflow object."""
+        return cls(slug=workflow.slug, name=workflow.name, description=workflow.description)
+
+    def to_message(self) -> workflows_pb2.Workflow:
+        """Convert a Workflow object to a Workflow protobuf message."""
+        return workflows_pb2.Workflow(slug=self.slug, name=self.name, description=self.description)
 
 
 @dataclass
 class NextTaskToRun:
     cluster_slug: str
-    identifiers: dict[TaskIdentifier, type]
+    identifiers: dict[TaskIdentifier, type[Any]]
 
     # from message not needed, as we never return this from the server
 
@@ -470,6 +485,51 @@ class ComputedTask:
             id=uuid_to_uuid_message(self.id),
             display=self.display,
             sub_tasks=self.sub_tasks.to_message() if self.sub_tasks else None,
+            progress_updates=[progress.to_message() for progress in self.progress_updates],
+        )
+
+
+@dataclass
+class FailedTask:
+    task_id: UUID
+    display: str | None
+    was_workflow_error: bool
+    progress_updates: list[ProgressIndicator]
+
+    @classmethod
+    def from_message(cls, failed_task: task_pb2.TaskFailedRequest) -> "FailedTask":
+        """Convert a TaskFailedRequest protobuf message to a FailedTask object."""
+        return cls(
+            task_id=uuid_message_to_uuid(failed_task.task_id),
+            display=failed_task.display,
+            was_workflow_error=failed_task.was_workflow_error,
+            progress_updates=[ProgressIndicator.from_message(progress) for progress in failed_task.progress_updates],
+        )
+
+    @classmethod
+    def from_task_error(
+        cls,
+        task: Task,
+        error: Exception,
+        was_workflow_error: bool,
+        progress_updates: list[ProgressIndicator],
+    ) -> "FailedTask":
+        # job output is limited to 1KB, so truncate the error message if necessary
+        error_message = repr(error)[: (1024 - len(task.display or "None") - 1)]
+        display = f"{task.display}" if error_message == "" else f"{task.display}\n{error_message}"
+        return cls(
+            task_id=task.id,
+            display=display,
+            was_workflow_error=was_workflow_error,
+            progress_updates=progress_updates,
+        )
+
+    def to_message(self) -> task_pb2.TaskFailedRequest:
+        """Convert a FailedTask object to a TaskFailedRequest protobuf message."""
+        return task_pb2.TaskFailedRequest(
+            task_id=uuid_to_uuid_message(self.task_id),
+            display=self.display,
+            was_workflow_error=self.was_workflow_error,
             progress_updates=[progress.to_message() for progress in self.progress_updates],
         )
 
@@ -924,13 +984,11 @@ class RunnerContext:
     def __init__(
         self,
         tracer: WorkflowTracer | None = None,
-        datasets_client: DatasetsClient | None = None,
         storage_locations: list[StorageLocation] | None = None,
     ) -> None:
         if tracer is None:
             tracer = NoopWorkflowTracer()
         self.tracer = tracer
-        self.datasets_client = datasets_client
         self.storage_locations = {
             sl.id: sl._with_runner_context(self)  # noqa: SLF001
             for sl in storage_locations or []

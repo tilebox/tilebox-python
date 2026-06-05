@@ -104,12 +104,14 @@ class QueryFilters(_message.Message):
     def __init__(self, time_interval: _Optional[_Union[_query_pb2.TimeInterval, _Mapping]] = ..., id_interval: _Optional[_Union[_query_pb2.IDInterval, _Mapping]] = ..., automation_ids: _Optional[_Iterable[_Union[_id_pb2.ID, _Mapping]]] = ..., states: _Optional[_Iterable[_Union[_core_pb2.JobState, str]]] = ..., name: _Optional[str] = ..., task_states: _Optional[_Iterable[_Union[_core_pb2.TaskState, str]]] = ...) -> None: ...
 
 class QueryJobsRequest(_message.Message):
-    __slots__ = ("filters", "page")
+    __slots__ = ("filters", "page", "sort_direction")
     FILTERS_FIELD_NUMBER: _ClassVar[int]
     PAGE_FIELD_NUMBER: _ClassVar[int]
+    SORT_DIRECTION_FIELD_NUMBER: _ClassVar[int]
     filters: QueryFilters
     page: _query_pb2.Pagination
-    def __init__(self, filters: _Optional[_Union[QueryFilters, _Mapping]] = ..., page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ...) -> None: ...
+    sort_direction: _query_pb2.SortDirection
+    def __init__(self, filters: _Optional[_Union[QueryFilters, _Mapping]] = ..., page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ..., sort_direction: _Optional[_Union[_query_pb2.SortDirection, str]] = ...) -> None: ...
 
 class QueryJobsResponse(_message.Message):
     __slots__ = ("jobs", "next_page")

@@ -5,9 +5,10 @@ from loguru import logger
 
 from tilebox.workflows.client import Client
 from tilebox.workflows.data import Job
+from tilebox.workflows.runner.runner import Runner
 from tilebox.workflows.task import ExecutionContext, Task
 
-__all__ = ["Client", "ExecutionContext", "Job", "Task"]
+__all__ = ["Client", "ExecutionContext", "Job", "Runner", "Task"]
 
 
 def _init_logging(level: str = "INFO") -> None:

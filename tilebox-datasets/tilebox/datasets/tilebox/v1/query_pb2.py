@@ -27,7 +27,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16tilebox/v1/query.proto\x12\ntilebox.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\"\xce\x01\n\x0cTimeInterval\x12\x39\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartTime\x12\x35\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65ndTime\x12\'\n\x0fstart_exclusive\x18\x03 \x01(\x08R\x0estartExclusive\x12#\n\rend_inclusive\x18\x04 \x01(\x08R\x0c\x65ndInclusive\"\xac\x01\n\nIDInterval\x12)\n\x08start_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x07startId\x12%\n\x06\x65nd_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05\x65ndId\x12\'\n\x0fstart_exclusive\x18\x03 \x01(\x08R\x0estartExclusive\x12#\n\rend_inclusive\x18\x04 \x01(\x08R\x0c\x65ndInclusive\"n\n\nPagination\x12\"\n\x05limit\x18\x01 \x01(\x03\x42\x0c\xaa\x01\x02\x08\x01\xbaH\x04\"\x02(\x01R\x05limit\x12<\n\x0estarting_after\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x05\xaa\x01\x02\x08\x01R\rstartingAfterBj\n\x0e\x63om.tilebox.v1B\nQueryProtoP\x01\xa2\x02\x03TXX\xaa\x02\nTilebox.V1\xca\x02\nTilebox\\V1\xe2\x02\x16Tilebox\\V1\\GPBMetadata\xea\x02\x0bTilebox::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16tilebox/v1/query.proto\x12\ntilebox.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\"\xce\x01\n\x0cTimeInterval\x12\x39\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartTime\x12\x35\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65ndTime\x12\'\n\x0fstart_exclusive\x18\x03 \x01(\x08R\x0estartExclusive\x12#\n\rend_inclusive\x18\x04 \x01(\x08R\x0c\x65ndInclusive\"\xac\x01\n\nIDInterval\x12)\n\x08start_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x07startId\x12%\n\x06\x65nd_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05\x65ndId\x12\'\n\x0fstart_exclusive\x18\x03 \x01(\x08R\x0estartExclusive\x12#\n\rend_inclusive\x18\x04 \x01(\x08R\x0c\x65ndInclusive\"n\n\nPagination\x12\"\n\x05limit\x18\x01 \x01(\x03\x42\x0c\xaa\x01\x02\x08\x01\xbaH\x04\"\x02(\x01R\x05limit\x12<\n\x0estarting_after\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x05\xaa\x01\x02\x08\x01R\rstartingAfter*l\n\rSortDirection\x12\x1e\n\x1aSORT_DIRECTION_UNSPECIFIED\x10\x00\x12\x1c\n\x18SORT_DIRECTION_ASCENDING\x10\x01\x12\x1d\n\x19SORT_DIRECTION_DESCENDING\x10\x02\x42j\n\x0e\x63om.tilebox.v1B\nQueryProtoP\x01\xa2\x02\x03TXX\xaa\x02\nTilebox.V1\xca\x02\nTilebox\\V1\xe2\x02\x16Tilebox\\V1\\GPBMetadata\xea\x02\x0bTilebox::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,6 +39,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_PAGINATION'].fields_by_name['limit']._serialized_options = b'\252\001\002\010\001\272H\004\"\002(\001'
   _globals['_PAGINATION'].fields_by_name['starting_after']._loaded_options = None
   _globals['_PAGINATION'].fields_by_name['starting_after']._serialized_options = b'\252\001\002\010\001'
+  _globals['_SORTDIRECTION']._serialized_start=617
+  _globals['_SORTDIRECTION']._serialized_end=725
   _globals['_TIMEINTERVAL']._serialized_start=122
   _globals['_TIMEINTERVAL']._serialized_end=328
   _globals['_IDINTERVAL']._serialized_start=331

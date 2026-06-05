@@ -10,7 +10,9 @@ from tilebox.workflows.clusters.service import ClusterService
 from tilebox.workflows.data import (
     Cluster,
 )
-from tilebox.workflows.workflows.v1.core_pb2 import Cluster as ClusterMessage
+from tilebox.workflows.workflows.v1.workflows_pb2 import (
+    Cluster as ClusterMessage,
+)
 from tilebox.workflows.workflows.v1.workflows_pb2 import (
     CreateClusterRequest,
     DeleteClusterRequest,

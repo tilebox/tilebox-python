@@ -6,7 +6,7 @@ from tilebox.datasets.datasets.v1 import collections_pb2 as datasets_dot_v1_dot_
 from tilebox.datasets.datasets.v1 import core_pb2 as datasets_dot_v1_dot_core__pb2
 
 
-class CollectionServiceStub(object):
+class CollectionServiceStub:
     """CollectionService is the service definition for the Tilebox datasets service, which provides access to datasets
     """
 
@@ -38,7 +38,7 @@ class CollectionServiceStub(object):
                 _registered_method=True)
 
 
-class CollectionServiceServicer(object):
+class CollectionServiceServicer:
     """CollectionService is the service definition for the Tilebox datasets service, which provides access to datasets
     """
 
@@ -97,7 +97,7 @@ def add_CollectionServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class CollectionService(object):
+class CollectionService:
     """CollectionService is the service definition for the Tilebox datasets service, which provides access to datasets
     """
 

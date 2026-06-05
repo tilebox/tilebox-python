@@ -7,7 +7,7 @@ from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 from tilebox.workflows.workflows.v1 import automation_pb2 as workflows_dot_v1_dot_automation__pb2
 
 
-class AutomationServiceStub(object):
+class AutomationServiceStub:
     """AutomationService is a service for managing automations. Currently, we support two types of triggers for automations:
     - Bucket triggers, which triggers tasks when an object is uploaded to a storage bucket that matches a glob pattern
     - Cron triggers, which triggers tasks on a schedule
@@ -66,7 +66,7 @@ class AutomationServiceStub(object):
                 _registered_method=True)
 
 
-class AutomationServiceServicer(object):
+class AutomationServiceServicer:
     """AutomationService is a service for managing automations. Currently, we support two types of triggers for automations:
     - Bucket triggers, which triggers tasks when an object is uploaded to a storage bucket that matches a glob pattern
     - Cron triggers, which triggers tasks on a schedule
@@ -191,7 +191,7 @@ def add_AutomationServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class AutomationService(object):
+class AutomationService:
     """AutomationService is a service for managing automations. Currently, we support two types of triggers for automations:
     - Bucket triggers, which triggers tasks when an object is uploaded to a storage bucket that matches a glob pattern
     - Cron triggers, which triggers tasks on a schedule

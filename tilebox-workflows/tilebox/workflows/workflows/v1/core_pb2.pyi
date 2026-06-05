@@ -56,16 +56,6 @@ TASK_STATE_FAILED: TaskState
 TASK_STATE_SKIPPED: TaskState
 TASK_STATE_FAILED_OPTIONAL: TaskState
 
-class Cluster(_message.Message):
-    __slots__ = ("slug", "display_name", "deletable")
-    SLUG_FIELD_NUMBER: _ClassVar[int]
-    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
-    DELETABLE_FIELD_NUMBER: _ClassVar[int]
-    slug: str
-    display_name: str
-    deletable: bool
-    def __init__(self, slug: _Optional[str] = ..., display_name: _Optional[str] = ..., deletable: bool = ...) -> None: ...
-
 class Job(_message.Message):
     __slots__ = ("id", "name", "trace_parent", "canceled", "legacy_state", "submitted_at", "started_at", "task_summaries", "automation_id", "progress", "state", "execution_stats")
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -177,6 +167,12 @@ class TaskIdentifier(_message.Message):
     name: str
     version: str
     def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
+
+class TaskIdentifiers(_message.Message):
+    __slots__ = ("identifiers",)
+    IDENTIFIERS_FIELD_NUMBER: _ClassVar[int]
+    identifiers: _containers.RepeatedCompositeFieldContainer[TaskIdentifier]
+    def __init__(self, identifiers: _Optional[_Iterable[_Union[TaskIdentifier, _Mapping]]] = ...) -> None: ...
 
 class Tasks(_message.Message):
     __slots__ = ("tasks",)

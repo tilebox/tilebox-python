@@ -6,7 +6,7 @@ from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core
 from tilebox.workflows.workflows.v1 import task_pb2 as workflows_dot_v1_dot_task__pb2
 
 
-class TaskServiceStub(object):
+class TaskServiceStub:
     """A service for task runners to communicate with the workflows service.
     """
 
@@ -33,7 +33,7 @@ class TaskServiceStub(object):
                 _registered_method=True)
 
 
-class TaskServiceServicer(object):
+class TaskServiceServicer:
     """A service for task runners to communicate with the workflows service.
     """
 
@@ -95,7 +95,7 @@ def add_TaskServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class TaskService(object):
+class TaskService:
     """A service for task runners to communicate with the workflows service.
     """
 
