@@ -1,4 +1,3 @@
-import logging
 import os
 import threading
 from concurrent import futures
@@ -6,10 +5,7 @@ from pathlib import Path
 
 import grpc
 
-from tilebox.workflows.observability.logging import StructuredLogger
-from tilebox.workflows.runner.executor import NoopLeaseManager, TaskExecutor
 from tilebox.workflows.runner.runner import Runner
-from tilebox.workflows.runner.runtime import create_runner_runtime
 from tilebox.workflows.runner.worker_service import WorkerServiceServicer
 from tilebox.workflows.workflows.v1 import worker_pb2_grpc
 
@@ -27,25 +23,15 @@ def serve_runner(runner: Runner, address: str | None = None) -> None:
     bind_address = _normalize_grpc_address(address)
     _unlink_stale_unix_socket(bind_address)
 
-    runtime = create_runner_runtime(
-        runner,
-        task_logger=StructuredLogger(logging.getLogger("tilebox.workflows.tasks")),
-    )
-    executor = TaskExecutor(
-        runner,
-        runtime,
-        fallback_cluster=None,
-        lease_manager=NoopLeaseManager(),
-    )
-
     server = grpc.server(futures.ThreadPoolExecutor())
 
     def shutdown() -> None:
-        threading.Thread(target=server.stop, args=(0,), daemon=True).start()
+        # server.stop() is blocking, so we run it in a separate thread
+        # server.stop(5) means we stop accepting new requests immediately, but we give existing requests up to 5
+        # seconds to finish before we forcefully terminate them
+        threading.Thread(target=server.stop, args=(5,), daemon=True).start()
 
-    worker_pb2_grpc.add_WorkerServiceServicer_to_server(
-        WorkerServiceServicer(runner, runtime, executor, shutdown), server
-    )
+    worker_pb2_grpc.add_WorkerServiceServicer_to_server(WorkerServiceServicer(runner, shutdown), server)
     port = server.add_insecure_port(bind_address)
     if port == 0:
         raise RuntimeError(f"Failed to bind worker server to {address!r}")

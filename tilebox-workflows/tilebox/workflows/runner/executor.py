@@ -1,145 +1,144 @@
+from __future__ import annotations
+
 import json
 import logging
 from base64 import b64encode
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, MutableMapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
-from typing import Protocol
+from typing import TYPE_CHECKING
+from uuid import UUID
 from warnings import warn
 
 from opentelemetry.trace.status import StatusCode
 
 from tilebox.workflows.cache import JobCache
-from tilebox.workflows.data import ComputedTask, FailedTask, ProgressIndicator, Task
+from tilebox.workflows.data import (
+    ComputedTask,
+    FailedTask,
+    ProgressIndicator,
+    StorageLocation,
+    Task,
+)
 from tilebox.workflows.observability.logging import StructuredLogger
 from tilebox.workflows.observability.tracing import NoopWorkflowTracer, WorkflowTracer, start_job_span
 from tilebox.workflows.runner.runner import Runner
-from tilebox.workflows.runner.runtime import RunnerRuntime
 from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
 from tilebox.workflows.task import FutureTask, ProgressUpdate, RunnerContext, merge_future_tasks_to_submissions
 from tilebox.workflows.task import Task as TaskInstance
 
+if TYPE_CHECKING:
+    from tilebox.workflows.client import Client
+
 _MAX_TASK_PROGRESS_INDICATORS = 1000
 
 
-class LeaseManager(Protocol):
-    @contextmanager
-    def lease_extension(self, task: Task) -> Iterator[None]: ...
-
-
-class NoopLeaseManager:
-    @contextmanager
-    def lease_extension(self, task: Task) -> Iterator[None]:  # noqa: ARG002
-        yield
-
-
-class ApiLeaseManager:
-    def __init__(self, lease_renewer: object) -> None:
-        self._lease_renewer = lease_renewer
-
-    @contextmanager
-    def lease_extension(self, task: Task) -> Iterator[None]:
-        if task.lease is None:
-            raise ValueError(f"Task {task.id} has no lease associated with it.")
-
-        with self._lease_renewer.lease_extension(task.id, task.lease):  # ty: ignore[unresolved-attribute]
-            yield
-
-
 class TaskExecutor:
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         runner: Runner,
-        runtime: RunnerRuntime,
-        *,
-        fallback_cluster: str | None,
-        lease_manager: LeaseManager,
+        cache: JobCache,
+        tracer: WorkflowTracer,
+        task_logger: StructuredLogger,
+        runner_context: RunnerContext,
+        fallback_cluster: str,
     ) -> None:
         self.runner = runner
-        self.runtime = runtime
+        self.cache = cache
+        self.tracer = tracer
+        self.task_logger = task_logger
         self.fallback_cluster = fallback_cluster
-        self.lease_manager = lease_manager
+        self.runner_context = runner_context
 
-    def execute(
+    def execute_task(
         self,
         task: Task,
-        task_execution_context: Callable[[Task, "ExecutionContext"], AbstractContextManager[None]] | None = None,
+        wrap_execute_context_manager: Callable[[Task, ExecutionContext], AbstractContextManager[None]] | None = None,
     ) -> ComputedTask | FailedTask:
-        if task.job is None:
-            raise ValueError(f"Task {task.id} has no job associated with it.")
+        context: ExecutionContext | None = None
+        try:
+            if task.job is None:
+                self.task_logger.error(f"Task {task.id} has no job associated with it.", task_id=str(task.id))
+                return FailedTask(task.id, task.display, was_workflow_error=False, progress_updates=[])
 
-        context = ExecutionContext(self.runtime, task, self.runtime.cache.group(str(task.job.id)))
-        task_repr = str(task.id)
-        if task_execution_context is None:
-            task_execution_context = _null_task_execution_context
-
-        with (
-            self.lease_manager.lease_extension(task),
-            start_job_span(self.runtime.tracer, task.job, f"task/{task.id}") as span,
-        ):
             try:
-                try:
-                    task_class = self.runner.tasks_by_identifier[task.identifier]
-                    task_repr = task_class.__name__
-                except KeyError:
-                    raise ValueError(f"Task {task.id} has unknown task identifier {task.identifier}") from None
+                task_class = self.runner.tasks_by_identifier[task.identifier]
+            except KeyError:
+                self.task_logger.error(
+                    f"Task {task.id} has unknown identifier {task.identifier}.",
+                    task_id=str(task.id),
+                    identifier=str(task.identifier),
+                )
+                return FailedTask(task.id, task.display, was_workflow_error=False, progress_updates=[])
 
+            context = ExecutionContext(self, task, self.cache.group(str(task.job.id)))
+            if wrap_execute_context_manager is None:
+                wrap_execute_context_manager = _noop_context_manager
+
+            with start_job_span(self.tracer, task.job, f"task/{task.id}") as span:
+                task_repr = task_class.__name__
                 span.update_name(f"task/{task_repr}")
                 span.set_attribute("task_id", str(task.id))
                 span.set_attribute("identifier.name", task.identifier.name)
                 span.set_attribute("identifier.version", task.identifier.version)
 
                 try:
-                    task_instance = task_class._deserialize(task.input, self.runtime.context)  # noqa: SLF001
+                    task_instance = task_class._deserialize(task.input, self.runner_context)  # noqa: SLF001
+                    _set_task_input_span_attribute(span, task.input)
+                    with wrap_execute_context_manager(task, context):
+                        _execute(task_instance, context)
+
+                    return ComputedTask(
+                        id=task.id,
+                        display=task.display,
+                        sub_tasks=merge_future_tasks_to_submissions(
+                            context._sub_tasks,  # noqa: SLF001
+                            self.fallback_cluster,
+                        ),
+                        progress_updates=_finalize_mutable_progress_trackers(context._progress_indicators),  # noqa: SLF001
+                    )
                 except json.JSONDecodeError:
-                    raise ValueError(f"Failed to deserialize input for task execution {task.id}") from None
-
-                task_input_span_attr = ""
-                if task.input is not None:
-                    try:
-                        task_input_span_attr = task.input.decode("utf-8")
-                    except UnicodeDecodeError:
-                        task_input_span_attr = b64encode(task.input).decode("ascii")
-                span.set_attribute("input", task_input_span_attr)
-
-                with task_execution_context(task, context):
-                    _execute(task_instance, context)
-
-                fallback_cluster = self.fallback_cluster
-                if fallback_cluster is None and self.runtime.cluster is not None:
-                    fallback_cluster = self.runtime.cluster.slug
-                fallback_cluster = fallback_cluster or ""
-                return ComputedTask(
-                    id=task.id,
-                    display=task.display,
-                    sub_tasks=merge_future_tasks_to_submissions(
-                        context._sub_tasks,  # noqa: SLF001
-                        fallback_cluster,
-                    ),
-                    progress_updates=_finalize_mutable_progress_trackers(context._progress_indicators),  # noqa: SLF001
-                )
-            except Exception as error:  # noqa: BLE001
-                span.record_exception(error)
-                span.set_status(StatusCode.ERROR, "Task failed with exception")
-                return FailedTask.from_task_error(
-                    task,
-                    error,
-                    was_workflow_error=True,
-                    progress_updates=_finalize_mutable_progress_trackers(context._progress_indicators),  # noqa: SLF001
-                )
+                    workflow_error = ValueError(f"Failed to deserialize input for task execution {task.id}")
+                    span.record_exception(workflow_error)
+                    span.set_status(StatusCode.ERROR, "Task failed with exception")
+                    return FailedTask.from_task_error(
+                        task,
+                        workflow_error,
+                        was_workflow_error=True,
+                        progress_updates=_finalize_mutable_progress_trackers(context._progress_indicators),  # noqa: SLF001
+                    )
+                except Exception as error:  # noqa: BLE001
+                    span.record_exception(error)
+                    span.set_status(StatusCode.ERROR, "Task failed with exception")
+                    return FailedTask.from_task_error(
+                        task,
+                        error,
+                        was_workflow_error=True,
+                        progress_updates=_finalize_mutable_progress_trackers(context._progress_indicators),  # noqa: SLF001
+                    )
+        except Exception as error:  # noqa: BLE001
+            progress_updates = []
+            if context is not None:
+                progress_updates = _finalize_mutable_progress_trackers(context._progress_indicators)  # noqa: SLF001
+            return FailedTask.from_task_error(
+                task,
+                error,
+                was_workflow_error=False,
+                progress_updates=progress_updates,
+            )
 
 
 class ExecutionContext(ExecutionContextBase):
-    def __init__(self, runtime: RunnerRuntime, task: Task, job_cache: JobCache) -> None:
-        self._runner = runtime
+    def __init__(self, executor: TaskExecutor, task: Task, job_cache: JobCache) -> None:
+        self._executor = executor
         self.current_task = task
         self.job_cache = job_cache
         self._sub_tasks: list[FutureTask] = []
         self._progress_indicators: dict[str | None, ProgressUpdate] = {}
-        if runtime is None or task is None:
+        if executor is None or task is None:
             # Some tests instantiate an execution context only to exercise local subtask merging helpers.
             self._logger = StructuredLogger(logging.getLogger("tilebox.workflows.noop"))
         else:
-            self._logger = runtime.task_logger.bind(task_id=str(task.id))
+            self._logger = executor.task_logger.bind(task_id=str(task.id))
 
     def submit_subtask(
         self,
@@ -219,9 +218,9 @@ class ExecutionContext(ExecutionContextBase):
 
     @property
     def runner_context(self) -> RunnerContext:
-        if self._runner is None:
+        if self._executor is None:
             return RunnerContext()
-        return self._runner.context
+        return self._executor.runner_context
 
     @property
     def logger(self) -> StructuredLogger:
@@ -229,9 +228,46 @@ class ExecutionContext(ExecutionContextBase):
 
     @property
     def tracer(self) -> WorkflowTracer:
-        if self._runner is None:
+        if self._executor is None:
             return NoopWorkflowTracer()
-        return self._runner.tracer
+        return self._executor.tracer
+
+
+class LazyStorageLocations(MutableMapping[UUID, StorageLocation]):
+    def __init__(self, client: Client, runner_context: RunnerContext) -> None:
+        self._client = client
+        self._runner_context = runner_context
+        self._locations: dict[UUID, StorageLocation] = {}
+        self._loaded = False
+
+    def _load(self) -> None:
+        if self._loaded:
+            return
+        self._locations = {
+            location.id: location._with_runner_context(self._runner_context)  # noqa: SLF001
+            for location in self._client.automations().storage_locations()
+        }
+        self._loaded = True
+
+    def __getitem__(self, key: UUID) -> StorageLocation:
+        self._load()
+        return self._locations[key]
+
+    def __setitem__(self, key: UUID, value: StorageLocation) -> None:
+        self._load()
+        self._locations[key] = value
+
+    def __delitem__(self, key: UUID) -> None:
+        self._load()
+        del self._locations[key]
+
+    def __iter__(self) -> Iterator[UUID]:
+        self._load()
+        return iter(self._locations)
+
+    def __len__(self) -> int:
+        self._load()
+        return len(self._locations)
 
 
 def _finalize_mutable_progress_trackers(
@@ -240,10 +276,20 @@ def _finalize_mutable_progress_trackers(
     return [ProgressIndicator(label, bar._total, bar._done) for label, bar in progress_bars.items()]  # noqa: SLF001
 
 
+def _set_task_input_span_attribute(span: object, task_input: bytes | None) -> None:
+    task_input_span_attr = ""
+    if task_input is not None:
+        try:
+            task_input_span_attr = task_input.decode("utf-8")
+        except UnicodeDecodeError:
+            task_input_span_attr = b64encode(task_input).decode("ascii")
+    span.set_attribute("input", task_input_span_attr)  # ty: ignore[unresolved-attribute]
+
+
 def _execute(task: TaskInstance, context: ExecutionContext) -> None:
     return task.execute(context)
 
 
 @contextmanager
-def _null_task_execution_context(task: Task, context: ExecutionContext) -> Iterator[None]:  # noqa: ARG001
+def _noop_context_manager(task: Task, context: ExecutionContext) -> Iterator[None]:  # noqa: ARG001
     yield

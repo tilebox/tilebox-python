@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-workflows`: Added worker runtime mode for executing registered tasks over the worker RPC service, backed by a
+  shared task executor facade used by both worker and polling runners.
+
 ## [0.52.0]
 
 ### Added

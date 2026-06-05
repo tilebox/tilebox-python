@@ -1,4 +1,3 @@
-import contextlib
 import random
 import signal
 import threading
@@ -29,17 +28,13 @@ from tilebox.workflows.cache import JobCache
 from tilebox.workflows.data import ComputedTask, FailedTask, Idling, NextTaskToRun, Task, TaskLease
 from tilebox.workflows.observability.logging import StructuredLogger
 from tilebox.workflows.observability.tracing import WorkflowTracer
-from tilebox.workflows.runner.executor import (
-    ApiLeaseManager,
-    ExecutionContext,
-    TaskExecutor,
-    _finalize_mutable_progress_trackers,
-)
+from tilebox.workflows.runner.executor import ExecutionContext, TaskExecutor
 from tilebox.workflows.runner.runner import Runner
-from tilebox.workflows.runner.runtime import RunnerRuntime
 from tilebox.workflows.runner.task_service import TaskService
 from tilebox.workflows.task import RunnerContext
 from tilebox.workflows.task import Task as TaskInstance
+
+__all__ = ["ExecutionContext", "PollingTaskRunner", "TaskRunner"]
 
 # The time we give a task to finish it's execution when a runner shutdown is requested before we forcefully stop it
 _SHUTDOWN_GRACE_PERIOD = timedelta(seconds=2)
@@ -183,51 +178,25 @@ class RunnerShutdown(Exception):  # noqa: N818
 
 
 class _GracefulShutdown:
-    def __init__(self, grace_period: timedelta, service: TaskService) -> None:
+    def __init__(self, grace_period: timedelta, polling_runner: "PollingTaskRunner") -> None:
         """
-        Graceful shutdown is a context manager that can be used to delay SIGTERM and SIGINT signals for a grace period.
-        That way work can finish cleanly before the process is terminated.
+        Graceful shutdown policy owned by the user-facing task runner facade.
 
-        Workers can check if they should shut down by calling the is_shutting_down method.
-
-        After the grace period has passed, the same signal will be re-raised.
-
-        It has special support for marking a task as failed immediately on interrupt, which is done if we are
-        currently executing a tasks execute function, since this is user code and we have no control over how long it
-        takes to execute.
-
-        Args:
-            grace_period: Timedelta to delay the signal by in order to enable a graceful shutdown.
-            service: A reference to the task service, so that we can mark a task as failed on interrupt if necessary.
+        The polling runner owns task claiming, lease management, and failure reporting. This context manager only
+        translates process interrupts into polling-runner lifecycle calls.
         """
 
         self._interrupted = Event()
         self._grace_period = grace_period
-        self._service = service
+        self._polling_runner = polling_runner
 
         self._original_sigterm: _HANDLER = None
         self._original_sigint: _HANDLER = None
 
-        # special handling for marking a task as failed on interrupt
-        self._task_mutex = threading.Lock()
-        self._task: Task | None = None
-        self._context: ExecutionContext | None = None
-
     def _external_interrupt_handler(self, signum: int, frame: FrameType | None) -> None:
         """Signal handler for SIGTERM and SIGINT."""
         self._interrupted.set()
-
-        with self._task_mutex:
-            if self._task is not None:
-                progress = []
-                if self._context is not None:
-                    progress = _finalize_mutable_progress_trackers(self._context._progress_indicators)  # noqa: SLF001
-                self._service.task_failed(
-                    self._task,
-                    RunnerShutdown("Task was interrupted"),
-                    was_workflow_error=False,
-                    progress_updates=progress,
-                )
+        self._polling_runner.stop_requesting_new_tasks()
 
         # fetch the handler we want to call after the grace period
         original_handler = self._original_sigterm if signum == signal.SIGTERM else self._original_sigint
@@ -238,10 +207,9 @@ class _GracefulShutdown:
         if not callable(original_handler):
             original_handler = signal.default_int_handler
 
-        with self._task_mutex:
-            if self._task is not None:
-                # if a task is currently running let's delay for the grace period, and then call the original handler
-                sleep(self._grace_period.total_seconds())
+        if self._polling_runner.active_task is not None:
+            sleep(self._grace_period.total_seconds())
+            self._polling_runner.interrupt_active_task()
 
         # this will stop the process:
         original_handler(signum, frame)
@@ -280,127 +248,115 @@ class _GracefulShutdown:
         self._original_sigint = None
         self._original_sigterm = None
 
-    @contextmanager
-    def mark_task_as_failed_on_interrupt(self, task: Task, context: "ExecutionContext") -> Iterator[None]:
-        """
-        A context manager to enable marking a task as failed immediately on interrupt.
 
-        Only while the context manager is active the task will be marked as failed on interrupt. This is useful to
-        wrap the execution of a task, since we have no way of knowing how long it will take to execute, its user code.
-        """
-        with self._task_mutex:
-            self._task = task
-            self._context = context
-        try:
-            yield
-        finally:
-            with self._task_mutex:
-                self._task = None
-                self._context = None
-
-
-class TaskRunner:
-    def __init__(  # noqa: PLR0913
+class PollingTaskRunner:
+    def __init__(
         self,
         service: TaskService,
         cluster: str,
-        cache: JobCache,
-        tracer: WorkflowTracer,
+        executor: TaskExecutor,
         lease_renewer: _LeaseRenewer,
-        context: RunnerContext,
-        task_logger: StructuredLogger,
         runner_logger: StructuredLogger,
     ) -> None:
         self._service = service
-        self.cache = cache
-        self.tracer = tracer
-        self.task_logger = task_logger
         self.runner_logger = runner_logger
-        self._context = context
-        self._runner = Runner(cache=cache)
-        self.tasks_to_run = NextTaskToRun(cluster_slug=cluster, identifiers=self._runner.tasks_by_identifier)
+        self._cluster = cluster
+        self._executor = executor
         self._lease_renewer = lease_renewer
         self._lease_renewer.start()  # Start the lease extension process in the background
-        self._runtime = RunnerRuntime(cache, tracer, task_logger, context)
-        self._executor = TaskExecutor(
-            self._runner,
-            self._runtime,
-            fallback_cluster=cluster,
-            lease_manager=ApiLeaseManager(lease_renewer),
+        self._request_new_tasks = True
+        self._active_mutex = threading.Lock()
+        self._active_task: Task | None = None
+
+    @property
+    def active_task(self) -> Task | None:
+        with self._active_mutex:
+            return self._active_task
+
+    @property
+    def tasks_to_run(self) -> NextTaskToRun:
+        return NextTaskToRun(cluster_slug=self._cluster, identifiers=self._executor.runner.tasks_by_identifier)
+
+    def stop_requesting_new_tasks(self) -> None:
+        self._request_new_tasks = False
+
+    def is_requesting_tasks(self) -> bool:
+        return self._request_new_tasks
+
+    def interrupt_active_task(self) -> None:
+        task = self.active_task
+        if task is None:
+            return
+        self._service.task_failed(
+            task,
+            RunnerShutdown("Task was interrupted"),
+            was_workflow_error=False,
+            progress_updates=[],
         )
 
-    def register(self, task: type[TaskInstance]) -> None:
-        """Register a task that can be executed by the task runner.
-
-        Args:
-            task: The task to register.
+    def run_forever(self, shutdown_context: _GracefulShutdown) -> None:
         """
-        self._runner.register(task)
-
-    def run_forever(self) -> None:
-        """
-        Run the task runner forever. This will poll for new tasks and execute them as they come in.
+        Run the polling runner forever. This will poll for new tasks and execute them as they come in.
         If no tasks are available, it will sleep for a short time and then try again.
         """
-        self._run(stop_when_idling=False)
+        self._run(shutdown_context, stop_when_idling=False)
 
-    def run_all(self) -> None:
+    def run_all(self, shutdown_context: _GracefulShutdown) -> None:
         """
-        Run the task runner and execute all tasks, until there are no more tasks available.
+        Run the polling runner and execute all tasks, until there are no more tasks available.
         """
-        self._run(stop_when_idling=True)
+        self._run(shutdown_context, stop_when_idling=True)
 
-    def _run(self, stop_when_idling: bool = True) -> None:  # noqa: C901
+    def _run(self, shutdown_context: _GracefulShutdown, stop_when_idling: bool = True) -> None:  # noqa: C901
         """
-        Run the task runner forever. This will poll for new tasks and execute them as they come in.
+        Run the polling runner forever. This will poll for new tasks and execute them as they come in.
         If no tasks are available, it will sleep for a short time and then try again.
         """
         work: Task | Idling | None = None
 
-        # capture interrupt signals and delay them by a grace period in order to shut down gracefully
-        with _GracefulShutdown(_SHUTDOWN_GRACE_PERIOD, self._service) as shutdown_context:
-            while True:
-                if not isinstance(work, Task):  # if we don't have a task right now, let's try to work-steal one
-                    if shutdown_context.is_shutting_down():  # unless we received an interrupt, then we shut down
-                        return
-                    try:
-                        work = self._service.next_task(task_to_run=self.tasks_to_run, computed_task=None)
-                    except InternalServerError as e:
-                        # We do not need to retry here, since the task runner will sleep for a while and then anyways request this again.
-                        self.runner_logger.error(f"Failed to get next task with error {e}")
+        while True:
+            if not isinstance(work, Task):  # if we don't have a task right now, let's try to work-steal one
+                if shutdown_context.is_shutting_down():  # unless we received an interrupt, then we shut down
+                    return
+                try:
+                    task_to_run = self.tasks_to_run if self._request_new_tasks else None
+                    work = self._service.next_task(task_to_run=task_to_run, computed_task=None)
+                except InternalServerError as e:
+                    # We do not need to retry here, since the task runner will sleep for a while and then anyways request this again.
+                    self.runner_logger.error(f"Failed to get next task with error {e}")
 
-                if isinstance(work, Task):  # we received a task to execute
-                    task = work
-                    if task.retry_count > 0:
-                        self.runner_logger.debug(f"Retrying task {task.id} that failed {task.retry_count} times")
-                    work = self._execute(task, shutdown_context)  # submitting the task gives us the next work item
-                elif isinstance(work, Idling):  # we received an idling response, so let's sleep for a bit
-                    self.runner_logger.debug("No task to run, idling")
-                    if stop_when_idling:  # if stop_when_idling is set, we can just return
-                        return
+            if isinstance(work, Task):  # we received a task to execute
+                task = work
+                if task.retry_count > 0:
+                    self.runner_logger.debug(f"Retrying task {task.id} that failed {task.retry_count} times")
+                work = self._execute(task, shutdown_context)  # submitting the task gives us the next work item
+            elif isinstance(work, Idling):  # we received an idling response, so let's sleep for a bit
+                self.runner_logger.debug("No task to run, idling")
+                if stop_when_idling:  # if stop_when_idling is set, we can just return
+                    return
 
-                    # now sleep for a bit and then try again, unless we receive an interrupt
-                    idling_duration = work.suggested_idling_duration
-                    idling_duration = min(idling_duration, _MAX_IDLING_DURATION)
-                    idling_duration = max(idling_duration, _MIN_IDLING_DURATION)
-                    shutdown_context.sleep(idling_duration.total_seconds())
-                    if shutdown_context.is_shutting_down():
-                        return
-                else:  # work is None
-                    # we didn't receive an idling response, but also not a task. This only happens if we didn't request
-                    # a task to run, indicating that we are shutting down.
-                    if shutdown_context.is_shutting_down():
-                        return
+                # now sleep for a bit and then try again, unless we receive an interrupt
+                idling_duration = work.suggested_idling_duration
+                idling_duration = min(idling_duration, _MAX_IDLING_DURATION)
+                idling_duration = max(idling_duration, _MIN_IDLING_DURATION)
+                shutdown_context.sleep(idling_duration.total_seconds())
+                if shutdown_context.is_shutting_down():
+                    return
+            else:  # work is None
+                # we didn't receive an idling response, but also not a task. This only happens if we didn't request
+                # a task to run, indicating that we are shutting down.
+                if shutdown_context.is_shutting_down():
+                    return
 
-                    fallback_interval = _FALLBACK_POLL_INTERVAL.total_seconds() + random.uniform(  # noqa: S311
-                        0, _FALLBACK_JITTER_INTERVAL.total_seconds()
-                    )
-                    self.runner_logger.debug(
-                        f"Didn't receive a task to run, nor an idling response, but runner is not shutting down. "
-                        f"Falling back to a default idling period of {fallback_interval:.2f}s"
-                    )
+                fallback_interval = _FALLBACK_POLL_INTERVAL.total_seconds() + random.uniform(  # noqa: S311
+                    0, _FALLBACK_JITTER_INTERVAL.total_seconds()
+                )
+                self.runner_logger.debug(
+                    f"Didn't receive a task to run, nor an idling response, but runner is not shutting down. "
+                    f"Falling back to a default idling period of {fallback_interval:.2f}s"
+                )
 
-                    shutdown_context.sleep(fallback_interval)
+                shutdown_context.sleep(fallback_interval)
 
     def _execute(self, task: Task, shutdown_context: _GracefulShutdown) -> Task | Idling | None:
         if task.job is None:
@@ -408,9 +364,18 @@ class TaskRunner:
 
         task_repr = str(task.id)
         self.runner_logger.debug("Executing task", task=task_repr, input=task.input)
-        result = self._executor.execute(task, shutdown_context.mark_task_as_failed_on_interrupt)
-        with contextlib.suppress(KeyError):
-            task_repr = self.tasks_to_run.identifiers[task.identifier].__name__
+        with self._active(task):
+            try:
+                if task.lease is None:
+                    raise ValueError(f"Task {task.id} has no lease associated with it.")  # noqa: TRY301
+                with self._lease_renewer.lease_extension(task.id, task.lease):
+                    result = self._executor.execute_task(task)
+            except Exception as error:  # noqa: BLE001
+                result = FailedTask.from_task_error(task, error, was_workflow_error=False, progress_updates=[])
+
+        task_class = self.tasks_to_run.identifiers.get(task.identifier)
+        if task_class is not None:
+            task_repr = task_class.__name__
 
         if isinstance(result, ComputedTask):
             request_new_task = not shutdown_context.is_shutting_down()
@@ -425,3 +390,70 @@ class TaskRunner:
             return None
 
         raise TypeError(f"Unexpected task execution result: {type(result)}")
+
+    @contextmanager
+    def _active(self, task: Task) -> Iterator[None]:
+        with self._active_mutex:
+            self._active_task = task
+        try:
+            yield
+        finally:
+            with self._active_mutex:
+                self._active_task = None
+
+
+class TaskRunner:
+    def __init__(  # noqa: PLR0913
+        self,
+        service: TaskService,
+        cluster: str,
+        cache: JobCache,
+        tracer: WorkflowTracer,
+        lease_renewer: _LeaseRenewer,
+        context: RunnerContext,
+        task_logger: StructuredLogger,
+        runner_logger: StructuredLogger,
+    ) -> None:
+        self._runner = Runner(cache=cache)
+        self._executor = TaskExecutor(
+            self._runner,
+            cache,
+            tracer,
+            task_logger,
+            context,
+            cluster,
+        )
+        self._polling_runner = PollingTaskRunner(
+            service,
+            cluster,
+            self._executor,
+            lease_renewer,
+            runner_logger,
+        )
+
+    @property
+    def tasks_to_run(self) -> NextTaskToRun:
+        return self._polling_runner.tasks_to_run
+
+    def register(self, task: type[TaskInstance]) -> None:
+        """Register a task that can be executed by the task runner.
+
+        Args:
+            task: The task to register.
+        """
+        self._runner.register(task)
+
+    def run_forever(self) -> None:
+        """
+        Run the task runner forever. This will poll for new tasks and execute them as they come in.
+        If no tasks are available, it will sleep for a short time and then try again.
+        """
+        with _GracefulShutdown(_SHUTDOWN_GRACE_PERIOD, self._polling_runner) as shutdown_context:
+            self._polling_runner.run_forever(shutdown_context)
+
+    def run_all(self) -> None:
+        """
+        Run the task runner and execute all tasks, until there are no more tasks available.
+        """
+        with _GracefulShutdown(_SHUTDOWN_GRACE_PERIOD, self._polling_runner) as shutdown_context:
+            self._polling_runner.run_all(shutdown_context)
