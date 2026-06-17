@@ -26,6 +26,8 @@ dependencies = [
     # grpcio 1.66 also has this bug on MacOS still: https://github.com/grpc/grpc/issues/37642
     "grpcio>=1.70",
     "grpcio-status>=1.70",
+    "connectrpc>=0.10.1",
+    "pyqwest>=0.6.2",
     "protobuf>=6",
     # for the libraries below we specify a minimum, tested to be working version
     "lz4>=4",

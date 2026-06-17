@@ -1,10 +1,11 @@
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import TypeVar
+from typing import Literal, TypeVar
 
+from _tilebox.grpc.error import async_wrap_connect_rpc, wrap_connect_rpc
 from grpc import (
     Channel,
     Compression,
@@ -17,6 +18,8 @@ from grpc import (
 from grpc.aio import (
     ClientCallDetails,  # import from aio, since grpc.ClientCallDetails is an empty base class
 )
+
+Transport = Literal["grpc", "http1"]
 
 # We don't specify the service field, so the config applies to all services
 # See https://github.com/grpc/grpc-proto/blob/master/grpc/service_config/service_config.proto#L50-L52
@@ -145,8 +148,115 @@ def parse_channel_info(url: str) -> ChannelInfo:
     return ChannelInfo(netloc, port_number, protocol)
 
 
+def connect_address(url: str, rpc_method_prefix: str | None = None) -> str:
+    """Return a Connect base URL matching the same URL handling as gRPC channels."""
+    channel_info = parse_channel_info(url)
+    match channel_info.protocol:
+        case ChannelProtocol.HTTPS:
+            scheme = "https"
+            port = "" if channel_info.port == 443 else f":{channel_info.port}"
+        case ChannelProtocol.HTTP:
+            scheme = "http"
+            port = f":{channel_info.port}"
+        case ChannelProtocol.UNIX:
+            raise ValueError("Connect HTTP/1 transport does not support unix socket URLs")
+        case _:
+            raise ValueError(f"Unsupported channel protocol: {channel_info.protocol}")
+
+    address = f"{scheme}://{channel_info.address}{port}"
+    normalized_prefix = "" if rpc_method_prefix is None else rpc_method_prefix.strip("/")
+    if normalized_prefix == "":
+        return address
+    return f"{address}/{normalized_prefix}"
+
+
 RequestType = TypeVar("RequestType")
 ResponseType = TypeVar("ResponseType")
+
+
+class ConnectStubAdapter:
+    def __init__(
+        self,
+        client: object,
+        headers: Mapping[str, str] | None = None,
+        rpc_method_prefix: str | None = None,
+    ) -> None:
+        """Adapt a generated Connect client to the method names exposed by grpcio stubs."""
+        method_path_prefix = _rpc_method_prefix_path(rpc_method_prefix)
+        service_name = _connect_service_name(client)
+        self._client = client
+        self._headers = headers
+
+        for connect_name in _connect_client_methods(client):
+            grpc_name = _snake_to_pascal_case(connect_name)
+            rpc = getattr(client, connect_name)
+            method_name = f"{method_path_prefix}/{service_name}/{grpc_name}"
+            setattr(self, grpc_name, wrap_connect_rpc(self._call(rpc), method_name))
+
+    def _call(self, rpc: Callable[..., ResponseType]) -> Callable[[RequestType], ResponseType]:
+        def call(request: RequestType) -> ResponseType:
+            return rpc(request, headers=self._headers)
+
+        return call
+
+
+class AsyncConnectStubAdapter:
+    def __init__(
+        self,
+        client: object,
+        headers: Mapping[str, str] | None = None,
+        rpc_method_prefix: str | None = None,
+    ) -> None:
+        """Adapt a generated async Connect client to the method names exposed by grpcio stubs."""
+        method_path_prefix = _rpc_method_prefix_path(rpc_method_prefix)
+        service_name = _connect_service_name(client)
+        self._client = client
+        self._headers = headers
+
+        for connect_name in _connect_client_methods(client):
+            grpc_name = _snake_to_pascal_case(connect_name)
+            rpc = getattr(client, connect_name)
+            method_name = f"{method_path_prefix}/{service_name}/{grpc_name}"
+            setattr(self, grpc_name, async_wrap_connect_rpc(self._call(rpc), method_name))
+
+    def _call(self, rpc: Callable[..., Awaitable[ResponseType]]) -> Callable[[RequestType], Awaitable[ResponseType]]:
+        async def call(request: RequestType) -> ResponseType:
+            return await rpc(request, headers=self._headers)
+
+        return call
+
+
+def _connect_client_methods(client: object) -> dict[str, Callable[..., object]]:
+    return {
+        name: getattr(client, name)
+        for name, value in type(client).__dict__.items()
+        if not name.startswith("_") and callable(value)
+    }
+
+
+def _snake_to_pascal_case(name: str) -> str:
+    return "".join(part.upper() if len(part) == 1 else part.title() for part in name.split("_"))
+
+
+def _rpc_method_prefix_path(rpc_method_prefix: str | None) -> str:
+    if rpc_method_prefix is None:
+        return ""
+    normalized_prefix = rpc_method_prefix.strip("/")
+    if normalized_prefix == "":
+        return ""
+    return f"/{normalized_prefix}"
+
+
+def _connect_service_name(client: object) -> str:
+    client_type = type(client)
+    service_name = client_type.__name__.removesuffix("ClientSync").removesuffix("Client")
+    module_parts = client_type.__module__.split(".")
+    package_parts = module_parts[:-1]
+
+    if package_parts[:2] in (["tilebox", "datasets"], ["tilebox", "workflows"]):
+        package_parts = package_parts[2:]
+
+    return ".".join([*package_parts, service_name])
 
 
 class _AuthMetadataInterceptor(UnaryUnaryClientInterceptor):

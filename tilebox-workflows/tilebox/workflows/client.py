@@ -3,7 +3,7 @@ import os
 import warnings
 from uuid import UUID, uuid4
 
-from _tilebox.grpc.channel import open_channel, parse_channel_info
+from _tilebox.grpc.channel import ConnectStubAdapter, Transport, connect_address, open_channel, parse_channel_info
 from tilebox.workflows.automations.client import AutomationClient, AutomationService
 from tilebox.workflows.cache import JobCache, NoCache
 from tilebox.workflows.clusters.client import ClusterClient, ClusterSlugLike, to_cluster_slug
@@ -22,7 +22,6 @@ from tilebox.workflows.observability.logging import (
 )
 from tilebox.workflows.observability.tracing import WorkflowTracer
 from tilebox.workflows.runner.executor import LazyStorageLocations
-from tilebox.workflows.runner.runner import Runner
 from tilebox.workflows.runner.task_runner import TaskRunner, _LeaseRenewer
 from tilebox.workflows.runner.task_service import TaskService
 from tilebox.workflows.task import Task
@@ -36,6 +35,7 @@ class Client:
         token: str | None = None,
         name: str | None = None,
         client_id: UUID | None = None,
+        transport: Transport = "grpc",
     ) -> None:
         """
         Create a Tilebox workflows client.
@@ -47,10 +47,49 @@ class Client:
                 the service name provided by `tilebox.workflows.observability.tracing.configure_otel_tracing`,
                 or "tilebox-python" if no external tracer is configured.
             client_id: An optional stable id used to scope internal loggers. Defaults to a random id.
+            transport: Network transport to use for API requests. Defaults to "grpc". Use "http1" to force
+                the Connect protocol over HTTP/1.1 for networks that do not support gRPC over HTTP/2 correctly.
         """
         token = _token_from_env(url, token)
         self._auth: dict[str, str] = {"token": token, "url": url}
-        self._channel = open_channel(url, token)
+        match transport:
+            case "grpc":
+                self._job_service = open_channel(url, token)
+                self._telemetry_service = self._job_service
+                self._cluster_service = self._job_service
+                self._automation_service = self._job_service
+                self._task_service = self._job_service
+            case "http1":
+                from pyqwest import HTTPVersion, SyncClient, SyncHTTPTransport  # noqa: PLC0415
+
+                from tilebox.workflows.workflows.v1.automation_connect import (  # noqa: PLC0415
+                    AutomationServiceClientSync,
+                )
+                from tilebox.workflows.workflows.v1.job_connect import JobServiceClientSync  # noqa: PLC0415
+                from tilebox.workflows.workflows.v1.task_connect import TaskServiceClientSync  # noqa: PLC0415
+                from tilebox.workflows.workflows.v1.telemetry_connect import (  # noqa: PLC0415
+                    TelemetryQueryServiceClientSync,
+                )
+                from tilebox.workflows.workflows.v1.workflows_connect import WorkflowsServiceClientSync  # noqa: PLC0415
+
+                address = connect_address(url)
+                http_client = SyncClient(SyncHTTPTransport(http_version=HTTPVersion.HTTP1))
+                headers = None if token is None else {"authorization": f"Bearer {token}"}
+                self._job_service = ConnectStubAdapter(JobServiceClientSync(address, http_client=http_client), headers)
+                self._telemetry_service = ConnectStubAdapter(
+                    TelemetryQueryServiceClientSync(address, http_client=http_client), headers
+                )
+                self._cluster_service = ConnectStubAdapter(
+                    WorkflowsServiceClientSync(address, http_client=http_client), headers
+                )
+                self._automation_service = ConnectStubAdapter(
+                    AutomationServiceClientSync(address, http_client=http_client), headers
+                )
+                self._task_service = ConnectStubAdapter(
+                    TaskServiceClientSync(address, http_client=http_client), headers
+                )
+            case _:
+                raise ValueError(f"Unsupported transport: {transport}")
 
         # configure logging and tracing
         self._client_id = client_id or uuid4()  # a random uuid to scope loggers to this client instance
@@ -110,7 +149,7 @@ class Client:
             A client for the jobs service.
         """
 
-        return JobClient(JobService(self._channel), TelemetryService(self._channel), self._tracer)
+        return JobClient(JobService(self._job_service), TelemetryService(self._telemetry_service), self._tracer)
 
     def runner(
         self,
@@ -118,7 +157,6 @@ class Client:
         tasks: list[type[Task]] | None = None,
         cache: JobCache | None = None,
         context: type[RunnerContext] | None = None,
-        runner: Runner | None = None,
     ) -> TaskRunner:
         """Initialize a task runner.
 
@@ -127,26 +165,21 @@ class Client:
             tasks: A list of task the runner is able to execute.
             cache: The cache to share between tasks.
             context: The type of the runner context to use. Defaults to RunnerContext.
-            runner: A runner definition containing tasks, cache and context configuration.
 
         Returns:
             A task runner.
         """
-        if runner is not None and (tasks is not None or cache is not None or context is not None):
-            raise ValueError("Pass either runner or tasks/cache/context, not both.")
-
-        runner_definition = runner or Runner(tasks=tasks, cache=cache, context=context)
         if cache is None:
-            cache = runner_definition.cache or NoCache()  # a no-op cache that will raise an error if it's used
+            cache = NoCache()  # a no-op cache that will raise an error if it's used
 
         found_cluster = self.clusters().find(to_cluster_slug(cluster or ""))
 
-        runner_context_type = runner_definition.context or RunnerContext
+        runner_context_type = context or RunnerContext
         runner_context = runner_context_type(self._tracer)
         runner_context.storage_locations = LazyStorageLocations(self, runner_context)
 
         task_runner = TaskRunner(
-            TaskService(self._channel),
+            TaskService(self._task_service),
             found_cluster.slug,
             cache,
             self._tracer,
@@ -156,7 +189,7 @@ class Client:
             runner_logger=StructuredLogger(self._runner_logger, {}),
         )
 
-        for task in runner_definition.tasks_by_identifier.values():
+        for task in tasks or []:
             task_runner.register(task)
 
         return task_runner
@@ -168,7 +201,7 @@ class Client:
         Returns:
             A client for the clusters service.
         """
-        return ClusterClient(ClusterService(self._channel))
+        return ClusterClient(ClusterService(self._cluster_service))
 
     def automations(self) -> AutomationClient:
         """
@@ -177,7 +210,7 @@ class Client:
         Returns:
             A client for the automations service.
         """
-        return AutomationClient(AutomationService(self._channel))
+        return AutomationClient(AutomationService(self._automation_service))
 
 
 def _token_from_env(url: str, token: str | None) -> str | None:

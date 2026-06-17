@@ -15,6 +15,10 @@ from tilebox.datasets.query.time_interval import (
 
 _TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
+# first time we use pandas takes sometimes a while to import and compile the code, causing hypothesis timeout issues
+# so we warm up the function like this before
+_ = _convert_to_datetime("2026-01-01")
+
 
 @given(
     # we specify the min_value of the datetime to be min value + _SMALLEST_POSSIBLE_TIMEDELTA, so that we can

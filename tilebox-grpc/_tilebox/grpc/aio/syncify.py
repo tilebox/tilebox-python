@@ -11,7 +11,7 @@ library
 import asyncio
 import functools
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from typing import Any, TypeVar
 
 import nest_asyncio
@@ -19,7 +19,6 @@ import nest_asyncio
 # this is a patch to enable syncify functionality also inside a running event loop, which is e.g. the case when
 # running in a Jupyter notebook or in a pytest session. In that case we need to use nest_asyncio to allow
 # running nested event loops.
-nest_asyncio.apply()
 
 
 class Syncifiable:
@@ -67,7 +66,7 @@ def _syncify_coroutine(coroutine: Callable[..., Any]) -> Callable[..., Any]:
 
     @functools.wraps(coroutine)  # preserve name, docstring, signature etc. of the original function
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        return asyncio.run(coroutine(*args, **kwargs))
+        return _run_blocking(coroutine(*args, **kwargs))
 
     return wrapper
 
@@ -100,9 +99,19 @@ def _syncify_async_generator(async_generator: Callable[..., Any]) -> Callable[..
             return False, obj
 
         while True:
-            done, obj = asyncio.run(_next())
+            done, obj = _run_blocking(_next())
             if done:
                 break
             yield obj
 
     return wrapper
+
+
+def _run_blocking(awaitable: Coroutine[Any, Any, Any]) -> Any:
+    try:
+        running_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(awaitable)
+
+    nest_asyncio.apply(running_loop)
+    return running_loop.run_until_complete(awaitable)

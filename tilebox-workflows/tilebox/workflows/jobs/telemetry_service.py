@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from grpc import Channel
@@ -19,7 +20,7 @@ from tilebox.workflows.workflows.v1.telemetry_pb2_grpc import TelemetryQueryServ
 
 
 class TelemetryService:
-    def __init__(self, channel: Channel) -> None:
+    def __init__(self, channel: Channel | Any) -> None:
         """
         A wrapper around the TelemetryQueryServiceStub that provides a more pythonic interface and converts the
         protobuf messages to and from the data classes used in the rest of the tilebox-workflows codebase.
@@ -27,7 +28,9 @@ class TelemetryService:
         Args:
             channel: The gRPC channel to use for the service.
         """
-        self.service = with_pythonic_errors(TelemetryQueryServiceStub(channel))
+        self.service = (
+            with_pythonic_errors(TelemetryQueryServiceStub(channel)) if hasattr(channel, "unary_unary") else channel
+        )
 
     def query_job_logs(self, job_id: UUID, page: Pagination | None = None) -> QueryJobLogsResponse:
         request = QueryJobLogsRequest(

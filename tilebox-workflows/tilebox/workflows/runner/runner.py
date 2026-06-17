@@ -1,6 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from tilebox.workflows.cache import JobCache
 from tilebox.workflows.data import TaskIdentifier
 from tilebox.workflows.task import RunnerContext, Task, TaskMeta
+
+if TYPE_CHECKING:
+    from tilebox.workflows.client import Client
+    from tilebox.workflows.clusters.client import ClusterSlugLike
+    from tilebox.workflows.runner.task_runner import TaskRunner
 
 
 class Runner:
@@ -43,3 +52,20 @@ class Runner:
     @property
     def tasks_by_identifier(self) -> dict[TaskIdentifier, type[Task]]:
         return self._tasks_by_identifier
+
+    def connect_to(self, client: Client, cluster: ClusterSlugLike | None = None) -> TaskRunner:
+        """Create a task runner connected to a Tilebox workflows client.
+
+        Args:
+            client: The Tilebox workflows client to connect to.
+            cluster: The cluster to run tasks on. If not provided, the default cluster will be used.
+
+        Returns:
+            A task runner connected to the client's API services.
+        """
+        return client.runner(
+            cluster=cluster,
+            tasks=list(self._tasks_by_identifier.values()),
+            cache=self.cache,
+            context=self.context,
+        )

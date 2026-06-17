@@ -3,7 +3,12 @@ from uuid import UUID
 
 from loguru import logger
 
-from _tilebox.grpc.channel import open_channel
+from _tilebox.grpc.channel import (
+    ConnectStubAdapter,
+    Transport,
+    connect_address,
+    open_channel,
+)
 from _tilebox.grpc.error import NotFoundError, with_pythonic_errors
 from _tilebox.grpc.public import _PUBLIC_RPC_METHOD_PREFIX
 from tilebox.datasets.client import _TILEBOX_API_KEY_ENV_VAR, _TILEBOX_API_URL, _TILEBOX_DEV_API_URL
@@ -20,7 +25,12 @@ from tilebox.datasets.sync.dataset import DatasetClient
 
 class Client:
     def __init__(
-        self, *, url: str = _TILEBOX_API_URL, token: str | None = None, warn_if_unauthenticated: bool = True
+        self,
+        *,
+        url: str = _TILEBOX_API_URL,
+        token: str | None = None,
+        warn_if_unauthenticated: bool = True,
+        transport: Transport = "grpc",
     ) -> None:
         """
         Create a Tilebox datasets client.
@@ -31,6 +41,8 @@ class Client:
                 If no token is provided or found, anonymous open data access will be used.
             warn_if_unauthenticated: Whether to warn if no API key is provided and the client is used with the default
                 Tilebox API URL. Defaults to True.
+            transport: Network transport to use for API requests. Defaults to "grpc". Use "http1" to force
+                the Connect protocol over HTTP/1.1 for networks that do not support gRPC over HTTP/2 correctly.
         """
         url = url.removesuffix("/")
 
@@ -46,15 +58,53 @@ class Client:
                 "</yellow>"
             )
 
-        channel = open_channel(
-            url,
-            token,
-            rpc_method_prefix=_PUBLIC_RPC_METHOD_PREFIX if (is_tilebox_deployment and token is None) else None,
-        )
-        dataset_service_stub = with_pythonic_errors(DatasetServiceStub(channel))
-        collection_service_stub = with_pythonic_errors(CollectionServiceStub(channel))
-        data_access_service_stub = with_pythonic_errors(DataAccessServiceStub(channel))
-        data_ingestion_service_stub = with_pythonic_errors(DataIngestionServiceStub(channel))
+        rpc_method_prefix = _PUBLIC_RPC_METHOD_PREFIX if (is_tilebox_deployment and token is None) else None
+        match transport:
+            case "grpc":
+                channel = open_channel(url, token, rpc_method_prefix=rpc_method_prefix)
+                dataset_service_stub = with_pythonic_errors(DatasetServiceStub(channel))
+                collection_service_stub = with_pythonic_errors(CollectionServiceStub(channel))
+                data_access_service_stub = with_pythonic_errors(DataAccessServiceStub(channel))
+                data_ingestion_service_stub = with_pythonic_errors(DataIngestionServiceStub(channel))
+            case "http1":
+                from pyqwest import HTTPVersion, SyncClient, SyncHTTPTransport  # noqa: PLC0415
+
+                from tilebox.datasets.datasets.v1.collections_connect import (  # noqa: PLC0415
+                    CollectionServiceClientSync,
+                )
+                from tilebox.datasets.datasets.v1.data_access_connect import (  # noqa: PLC0415
+                    DataAccessServiceClientSync,
+                )
+                from tilebox.datasets.datasets.v1.data_ingestion_connect import (  # noqa: PLC0415
+                    DataIngestionServiceClientSync,
+                )
+                from tilebox.datasets.datasets.v1.datasets_connect import DatasetServiceClientSync  # noqa: PLC0415
+
+                address = connect_address(url, rpc_method_prefix)
+                http_client = SyncClient(SyncHTTPTransport(http_version=HTTPVersion.HTTP1))
+                headers = None if token is None else {"authorization": f"Bearer {token}"}
+                dataset_service_stub = ConnectStubAdapter(
+                    DatasetServiceClientSync(address, http_client=http_client),
+                    headers,
+                    rpc_method_prefix,
+                )
+                collection_service_stub = ConnectStubAdapter(
+                    CollectionServiceClientSync(address, http_client=http_client),
+                    headers,
+                    rpc_method_prefix,
+                )
+                data_access_service_stub = ConnectStubAdapter(
+                    DataAccessServiceClientSync(address, http_client=http_client),
+                    headers,
+                    rpc_method_prefix,
+                )
+                data_ingestion_service_stub = ConnectStubAdapter(
+                    DataIngestionServiceClientSync(address, http_client=http_client),
+                    headers,
+                    rpc_method_prefix,
+                )
+            case _:
+                raise ValueError(f"Unsupported transport: {transport}")
         service = TileboxDatasetService(
             dataset_service_stub, collection_service_stub, data_access_service_stub, data_ingestion_service_stub
         )

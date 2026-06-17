@@ -1,3 +1,5 @@
+from typing import Any
+
 from grpc import Channel
 
 from _tilebox.grpc.error import with_pythonic_errors
@@ -15,7 +17,7 @@ from tilebox.workflows.workflows.v1.workflows_pb2_grpc import WorkflowsServiceSt
 
 
 class ClusterService:
-    def __init__(self, channel: Channel) -> None:
+    def __init__(self, channel: Channel | Any) -> None:
         """
         A wrapper around the WorkflowsServiceStub that provides a more pythonic interface and converts the protobuf
         messages to and from the data classes used in the rest of the tilebox-workflows codebase.
@@ -23,7 +25,9 @@ class ClusterService:
         Args:
             channel: The gRPC channel to use for the service.
         """
-        self.service = with_pythonic_errors(WorkflowsServiceStub(channel))
+        self.service = (
+            with_pythonic_errors(WorkflowsServiceStub(channel)) if hasattr(channel, "unary_unary") else channel
+        )
 
     def create(self, cluster_name: str) -> Cluster:
         request = CreateClusterRequest(name=cluster_name)

@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from google.protobuf.duration_pb2 import Duration
@@ -24,7 +25,7 @@ from tilebox.workflows.workflows.v1.task_pb2_grpc import TaskServiceStub
 
 
 class TaskService:
-    def __init__(self, channel: Channel) -> None:
+    def __init__(self, channel: Channel | Any) -> None:
         """
         A wrapper around the TaskServiceStub that provides a more pythonic interface and converts the protobuf messages
         to and from the data classes used in the rest of the tilebox-workflows codebase.
@@ -32,7 +33,7 @@ class TaskService:
         Args:
             channel: The gRPC channel to use for the service.
         """
-        self.service = with_pythonic_errors(TaskServiceStub(channel))
+        self.service = with_pythonic_errors(TaskServiceStub(channel)) if hasattr(channel, "unary_unary") else channel
 
     def next_task(self, task_to_run: NextTaskToRun | None, computed_task: ComputedTask | None) -> Task | Idling | None:
         computed_task_message = None if computed_task is None else computed_task.to_message()

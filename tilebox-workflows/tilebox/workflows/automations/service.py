@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from google.protobuf.empty_pb2 import Empty
@@ -15,7 +16,7 @@ from tilebox.workflows.workflows.v1.automation_pb2_grpc import AutomationService
 
 
 class AutomationService:
-    def __init__(self, channel: Channel) -> None:
+    def __init__(self, channel: Channel | Any) -> None:
         """
         A wrapper around the AutomationServiceStub that provides a more pythonic interface and converts the protobuf
         messages to and from the data classes used in the rest of the tilebox-workflows codebase.
@@ -23,7 +24,9 @@ class AutomationService:
         Args:
             channel: The gRPC channel to use for the service.
         """
-        self.service = with_pythonic_errors(AutomationServiceStub(channel))
+        self.service = (
+            with_pythonic_errors(AutomationServiceStub(channel)) if hasattr(channel, "unary_unary") else channel
+        )
 
     def list_storage_locations(self) -> list[StorageLocation]:
         response: StorageLocations = self.service.ListStorageLocations(Empty())

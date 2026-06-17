@@ -7,6 +7,7 @@ from _tilebox.grpc.channel import (
     ChannelProtocol,
     ClientCallDetails,
     _RpcMethodPrefixInterceptor,
+    connect_address,
     open_channel,
     parse_channel_info,
 )
@@ -122,3 +123,28 @@ def test_parse_channel_invalid() -> None:
 def test_parse_channel_port_required_for_http() -> None:
     with pytest.raises(ValueError, match=r"Explicit port required"):
         parse_channel_info("http://0.0.0.0")
+
+
+@pytest.mark.parametrize(
+    ("url", "expected_address"),
+    [
+        ("https://api.tilebox.com", "https://api.tilebox.com"),
+        ("api.tilebox.com", "https://api.tilebox.com"),
+        ("https://api.tilebox.com:443", "https://api.tilebox.com"),
+        ("https://api.tilebox.com/", "https://api.tilebox.com"),
+        ("https://api.tilebox.com:8443", "https://api.tilebox.com:8443"),
+        ("localhost:8083", "http://localhost:8083"),
+        ("http://localhost:8083/", "http://localhost:8083"),
+    ],
+)
+def test_connect_address(url: str, expected_address: str) -> None:
+    assert connect_address(url) == expected_address
+
+
+def test_connect_address_with_rpc_method_prefix() -> None:
+    assert connect_address("api.tilebox.com/", "/public/") == "https://api.tilebox.com/public"
+
+
+def test_connect_address_unix_unsupported() -> None:
+    with pytest.raises(ValueError, match=r"does not support unix socket"):
+        connect_address("unix:path/to/s.sock")
