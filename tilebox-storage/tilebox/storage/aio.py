@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import hashlib
 import os
 import shutil
@@ -56,8 +57,21 @@ class _HttpClient(Syncifiable):
         self._auth = auth
 
     def __del__(self) -> None:
-        for client in self._clients.values():
-            asyncio.run(client.close())
+        if not self._clients:
+            return
+
+        with contextlib.suppress(Exception):
+            asyncio.get_running_loop().create_task(self.close())
+            return
+
+        with contextlib.suppress(Exception):
+            asyncio.run(self.close())
+
+    async def close(self) -> None:
+        clients = list(self._clients.values())
+        self._clients.clear()
+        for client in clients:
+            await client.close()
 
     async def download_quicklook(
         self, datapoint: xr.Dataset | ASFStorageGranule, output_dir: Path | None = None
