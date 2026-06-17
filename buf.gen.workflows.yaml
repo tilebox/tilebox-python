@@ -6,6 +6,8 @@ managed:
 plugins:
   - remote: buf.build/grpc/python
     out: tilebox-workflows/tilebox/workflows
+  - remote: buf.build/connectrpc/python:v0.10.0
+    out: tilebox-workflows/tilebox/workflows
   - remote: buf.build/protocolbuffers/python:v30.0 # use the minimum version that supports protobuf 6
     out: tilebox-workflows/tilebox/workflows
   - remote: buf.build/protocolbuffers/pyi:v30.0 # use the minimum version that supports protobuf 6

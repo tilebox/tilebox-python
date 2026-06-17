@@ -24,16 +24,19 @@ dependencies = [
     "tilebox-datasets",
     "tilebox-grpc>=0.28.0",
     "google-cloud-storage>=2.10",
-    "opentelemetry-api>=1.28",
-    "opentelemetry-exporter-otlp-proto-http>=1.28",
-    "opentelemetry-sdk>=1.28",
+    # Pin below 1.42 until this Python 3.11 import-time warning fix is released on PyPI:
+    # https://github.com/open-telemetry/opentelemetry-python/pull/5250
+    "opentelemetry-api>=1.28,<1.42",
+    "opentelemetry-exporter-otlp-proto-http>=1.28,<1.42",
+    "opentelemetry-sdk>=1.28,<1.42",
     "tenacity>=8",
     "boto3>=1.33",
     "boto3-stubs[essential]>=1.33",
     "ipywidgets>=8.1.7",
     "python-dateutil>=2.9.0.post0",
     "obstore>=0.8.2",
-    "opentelemetry-proto>=1.30.0",
+    # Keep in sync with the OpenTelemetry runtime pins above.
+    "opentelemetry-proto>=1.30.0,<1.42",
     # grpcio 1.80.0 contains unwanted log message spam: https://github.com/grpc/grpc/issues/42293
     "grpcio<1.80.0",
     "opentelemetry-instrumentation-logging>=0.62b1",

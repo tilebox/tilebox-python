@@ -1,6 +1,7 @@
 import os
 import sys
 from importlib.metadata import distributions
+from typing import Any
 from uuid import UUID
 
 from google.protobuf import timestamp_pb2
@@ -26,11 +27,8 @@ from tilebox.datasets.datasets.v1.collections_pb2 import (
     GetCollectionByNameRequest,
     ListCollectionsRequest,
 )
-from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceStub
 from tilebox.datasets.datasets.v1.data_access_pb2 import QueryByIDRequest, QueryRequest
-from tilebox.datasets.datasets.v1.data_access_pb2_grpc import DataAccessServiceStub
 from tilebox.datasets.datasets.v1.data_ingestion_pb2 import DeleteRequest, IngestRequest
-from tilebox.datasets.datasets.v1.data_ingestion_pb2_grpc import DataIngestionServiceStub
 from tilebox.datasets.datasets.v1.datasets_pb2 import (
     ClientInfo,
     CreateDatasetRequest,
@@ -39,7 +37,6 @@ from tilebox.datasets.datasets.v1.datasets_pb2 import (
     Package,
     UpdateDatasetRequest,
 )
-from tilebox.datasets.datasets.v1.datasets_pb2_grpc import DatasetServiceStub
 from tilebox.datasets.query.pagination import Pagination
 from tilebox.datasets.tilebox.v1 import id_pb2
 from tilebox.datasets.uuid import must_uuid_to_uuid_message, uuid_to_uuid_message
@@ -48,10 +45,10 @@ from tilebox.datasets.uuid import must_uuid_to_uuid_message, uuid_to_uuid_messag
 class TileboxDatasetService:
     def __init__(
         self,
-        dataset_service_stub: DatasetServiceStub,
-        collection_service_stub: CollectionServiceStub,
-        data_access_service_stub: DataAccessServiceStub,
-        data_ingestion_service_stub: DataIngestionServiceStub,
+        dataset_service_stub: Any,
+        collection_service_stub: Any,
+        data_access_service_stub: Any,
+        data_ingestion_service_stub: Any,
     ) -> None:
         """
         Typed access to the gRPC endpoints of a timeseries dataset.

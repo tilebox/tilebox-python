@@ -2,7 +2,7 @@
 This module contains error classes for translating various gRPC server response codes into more pythonic exceptions
 """
 
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any, Protocol, TypeVar, cast
 
 from _tilebox.grpc.public import _PUBLIC_RPC_METHOD_PREFIX
@@ -152,6 +152,70 @@ def translate_rpc_error(err: AnyRpcError) -> BaseException:  # noqa: PLR0911, PL
     return InternalServerError(f"Oops, something went wrong: {err.details()}")
 
 
+def translate_connect_error(err: Any, method_name: str = "") -> BaseException:  # noqa: PLR0911, PLR0912, C901
+    # translate specific connect error codes to more pythonic errors
+    from connectrpc.code import Code  # noqa: PLC0415
+
+    match err.code:
+        case Code.NOT_FOUND:
+            return NotFoundError(err.message)
+        case Code.INVALID_ARGUMENT:
+            return ArgumentError(err.message)
+        case Code.UNAUTHENTICATED:
+            return AuthenticationError(f"Unauthenticated: {err.message}")
+        case Code.PERMISSION_DENIED:
+            return AuthenticationError(f"Unauthorized: {err.message}")
+        case Code.RESOURCE_EXHAUSTED:
+            is_public = _is_public_method_name(method_name)
+            if _is_too_many_requests_message(err.message):
+                if is_public:
+                    return TooManyRequestsError(
+                        "Too many requests, try again later. To increase your request quota create a free account at "
+                        "https://console.tilebox.com and authenticate with an API Key."
+                    )
+                return TooManyRequestsError("Too many requests, try again later.")
+            return SubscriptionLimitExceededError(err.message)
+        case Code.DEADLINE_EXCEEDED:
+            return NetworkTimeoutError(f"Request timed out: {err.message}")
+        case Code.UNAVAILABLE:
+            if _is_too_many_requests_message(err.message):
+                if _is_public_method_name(method_name):
+                    return TooManyRequestsError(
+                        "Too many requests, try again later. To increase your request quota create a free account at "
+                        "https://console.tilebox.com and authenticate with an API Key."
+                    )
+                return TooManyRequestsError("Too many requests, try again later.")
+
+            if method_name != "":
+                return NetworkError(f"network error when requesting {method_name}: {err.message}")
+            return NetworkError(err.message)
+        case Code.ABORTED:
+            return NetworkError(f"Request aborted: {err.message}")
+        case Code.UNKNOWN:
+            return InternalServerError(f"Oops, something went wrong: {err.message}")
+        case Code.INTERNAL:
+            return InternalServerError(f"Oops, something went wrong: {err.message}")
+        case Code.CANCELED:
+            return KeyboardInterrupt(f"Request canceled by user: {err.message}")
+        case Code.UNIMPLEMENTED:
+            is_public = _is_public_method_name(method_name)
+            if is_public:
+                action = method_name.rsplit("/", maxsplit=1)[-1]
+                return AuthenticationError(
+                    f"{action} is only available for authenticated users. Please provide a valid API Key "
+                    f"token in your Client. Create a free account at https://console.tilebox.com"
+                )
+
+            if method_name != "":
+                return InvalidRequestError(
+                    f"Requested URL {method_name} not found. Update your Tilebox Python Clients to the latest version."
+                )
+
+            return InvalidRequestError(err.message)
+
+    return InternalServerError(f"Oops, something went wrong: {err.message}")
+
+
 def _is_public_method(err: AnyRpcError) -> tuple[bool, str]:
     """
     _is_public_method checks whether the error was the result of calling an RPC with the /public prefix
@@ -170,6 +234,47 @@ def _is_public_method(err: AnyRpcError) -> tuple[bool, str]:
         return False, method
 
     return False, ""
+
+
+def _is_public_method_name(method_name: str) -> bool:
+    return method_name.startswith(_PUBLIC_RPC_METHOD_PREFIX)
+
+
+def _is_too_many_requests_message(message: str) -> bool:
+    normalized_message = message.lower()
+    return "status: 429" in normalized_message or "too many requests" in normalized_message or "429" in message
+
+
+def wrap_connect_rpc(rpc: Callable[[Any], Any], method_name: str = "") -> Callable[[Any], Any]:
+    def call(*args: Any, **kwargs: Any) -> Any:
+        from connectrpc.errors import ConnectError  # noqa: PLC0415
+
+        try:
+            return rpc(*args, **kwargs)
+        except ConnectError as err:
+            error = translate_connect_error(err, method_name)
+
+            # raise the appropriate exception for the error code we received
+            raise error from None
+
+    return call
+
+
+def async_wrap_connect_rpc(
+    rpc: Callable[[Any], Awaitable[Any]], method_name: str = ""
+) -> Callable[[Any], Coroutine[Any, Any, Any]]:
+    async def call(*args: Any, **kwargs: Any) -> Any:
+        from connectrpc.errors import ConnectError  # noqa: PLC0415
+
+        try:
+            return await rpc(*args, **kwargs)
+        except ConnectError as err:
+            error = translate_connect_error(err, method_name)
+
+            # raise the appropriate exception for the error code we received
+            raise error from None
+
+    return call
 
 
 def _wrap_rpc(rpc: Callable[[Any], Any]) -> Callable[[Any], Any]:

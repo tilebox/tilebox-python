@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from grpc import Channel
@@ -29,7 +30,7 @@ from tilebox.workflows.workflows.v1.job_pb2_grpc import JobServiceStub
 
 
 class JobService:
-    def __init__(self, channel: Channel) -> None:
+    def __init__(self, channel: Channel | Any) -> None:
         """
         A wrapper around the JobServiceStub that provides a more pythonic interface and converts the protobuf messages
         to and from the data classes used in the rest of the tilebox-workflows codebase.
@@ -37,7 +38,7 @@ class JobService:
         Args:
             channel: The gRPC channel to use for the service.
         """
-        self.service = with_pythonic_errors(JobServiceStub(channel))
+        self.service = with_pythonic_errors(JobServiceStub(channel)) if hasattr(channel, "unary_unary") else channel
 
     def submit(self, job_name: str, trace_parent: str, tasks: TaskSubmissions) -> Job:
         request = SubmitJobRequest(

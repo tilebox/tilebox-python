@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
-from tilebox.workflows import ExecutionContext, Task
+from tilebox.workflows import ExecutionContext, Runner, Task
 from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.client import Client
 from tilebox.workflows.data import JobState, ProgressIndicator, RunnerContext, TaskState
@@ -65,7 +65,7 @@ def test_runner_with_fibonacci_workflow() -> None:
         job = client.jobs().submit("fibonacci", FibonacciTask(n))
 
     cache = InMemoryCache()
-    runner = client.runner(tasks=[FibonacciTask, SumResultTask], cache=cache)
+    runner = Runner(tasks=[FibonacciTask, SumResultTask], cache=cache).connect_to(client)
     runner.run_all()
 
     job_cache = cache.group(str(job.id))
@@ -93,7 +93,7 @@ def test_runner_with_flaky_task() -> None:
         job = client.jobs().submit("flaky-task", FlakyTask())
 
     cache = InMemoryCache()
-    runner = client.runner(tasks=[FlakyTask], cache=cache)
+    runner = Runner(tasks=[FlakyTask], cache=cache).connect_to(client)
 
     runner.run_all()  # task will fail
     job = job_client.find(job)  # load current job state
@@ -143,7 +143,7 @@ def test_runner_with_workflow_tracking_progress() -> None:
         job = client.jobs().submit("progress-task", ProgressTask(4))
 
     cache = InMemoryCache()
-    runner = client.runner(tasks=[ProgressTask, ProgressLeafTask], cache=cache)
+    runner = Runner(tasks=[ProgressTask, ProgressLeafTask], cache=cache).connect_to(client)
 
     runner.run_all()
     job = job_client.find(job)  # load current job state
@@ -285,7 +285,9 @@ def test_runner_optional_subbranch() -> None:
         job = client.jobs().submit("optional-subbranch-test", OptionalSubbranch())
 
     cache = InMemoryCache()
-    runner = client.runner(tasks=[OptionalSubbranch, OptionalSubtasks, FailingTask, SucceedingTask], cache=cache)
+    runner = Runner(tasks=[OptionalSubbranch, OptionalSubtasks, FailingTask, SucceedingTask], cache=cache).connect_to(
+        client
+    )
 
     runner.run_all()
     job = job_client.find(job)  # load current job state
@@ -310,7 +312,7 @@ def test_runner_optional_subtask() -> None:
         job = client.jobs().submit("optional-subtasks-test", OptionalSubtasks(True))
 
     cache = InMemoryCache()
-    runner = client.runner(tasks=[OptionalSubtasks, FailingTask, SucceedingTask], cache=cache)
+    runner = Runner(tasks=[OptionalSubtasks, FailingTask, SucceedingTask], cache=cache).connect_to(client)
 
     runner.run_all()
     job = job_client.find(job)  # load current job state

@@ -29,9 +29,13 @@ def main() -> None:
 
     package_mapping = {
         "from datasets.v1 import": "from tilebox.datasets.datasets.v1 import",
+        "import datasets.v1.": "import tilebox.datasets.datasets.v1.",
         "from tilebox.v1 import": "from tilebox.datasets.tilebox.v1 import",
+        "import tilebox.v1.": "import tilebox.datasets.tilebox.v1.",
         "from buf.validate import": "from tilebox.datasets.buf.validate import",
+        "import buf.validate.": "import tilebox.datasets.buf.validate.",
         "from workflows.v1 import": "from tilebox.workflows.workflows.v1 import",
+        "import workflows.v1.": "import tilebox.workflows.workflows.v1.",
     }
 
     folders = (

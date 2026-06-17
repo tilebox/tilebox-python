@@ -10,6 +10,8 @@ from _tilebox.grpc.error import (
     AuthenticationError,
     InternalServerError,
     NotFoundError,
+    TooManyRequestsError,
+    translate_connect_error,
     with_pythonic_errors,
 )
 
@@ -40,3 +42,16 @@ def test_with_pythonic_errors(grpc_status: StatusCode, exception_type: type[E]) 
     stub = with_pythonic_errors(Stub())
     with pytest.raises(exception_type, match=r".*"):
         stub.some_rpc()
+
+
+@pytest.mark.parametrize("message", ["status: 429", "HTTP 429", "Too Many Requests"])
+def test_translate_connect_unavailable_429(message: str) -> None:
+    from connectrpc.code import Code  # noqa: PLC0415
+
+    class Error:
+        code = Code.UNAVAILABLE
+
+        def __init__(self, message: str) -> None:
+            self.message = message
+
+    assert isinstance(translate_connect_error(Error(message)), TooManyRequestsError)
