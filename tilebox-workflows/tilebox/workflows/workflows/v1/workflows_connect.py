@@ -24,6 +24,9 @@ class WorkflowsService(Protocol):
     async def get_cluster(self, request: workflows_dot_v1_dot_workflows__pb2.GetClusterRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.Cluster:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
+    async def update_cluster(self, request: workflows_dot_v1_dot_workflows__pb2.UpdateClusterRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.Cluster:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+
     async def delete_cluster(self, request: workflows_dot_v1_dot_workflows__pb2.DeleteClusterRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.DeleteClusterResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
@@ -39,7 +42,16 @@ class WorkflowsService(Protocol):
     async def get_workflow(self, request: workflows_dot_v1_dot_workflows__pb2.GetWorkflowRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.Workflow:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
+    async def update_workflow(self, request: workflows_dot_v1_dot_workflows__pb2.UpdateWorkflowRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.Workflow:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+
+    async def delete_workflow(self, request: workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowResponse:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+
     async def publish_workflow_release(self, request: workflows_dot_v1_dot_workflows__pb2.PublishWorkflowReleaseRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.WorkflowRelease:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+
+    async def unpublish_workflow_release(self, request: workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
     async def deploy_workflow_release(self, request: workflows_dot_v1_dot_workflows__pb2.DeployWorkflowReleaseRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.DeployWorkflowReleaseResponse:
@@ -73,6 +85,16 @@ class WorkflowsServiceASGIApplication(ConnectASGIApplication[WorkflowsService]):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=svc.get_cluster,
+                ),
+                "/workflows.v1.WorkflowsService/UpdateCluster": Endpoint.unary(
+                    method=MethodInfo(
+                        name="UpdateCluster",
+                        service_name="workflows.v1.WorkflowsService",
+                        input=workflows_dot_v1_dot_workflows__pb2.UpdateClusterRequest,
+                        output=workflows_dot_v1_dot_workflows__pb2.Cluster,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.update_cluster,
                 ),
                 "/workflows.v1.WorkflowsService/DeleteCluster": Endpoint.unary(
                     method=MethodInfo(
@@ -124,6 +146,26 @@ class WorkflowsServiceASGIApplication(ConnectASGIApplication[WorkflowsService]):
                     ),
                     function=svc.get_workflow,
                 ),
+                "/workflows.v1.WorkflowsService/UpdateWorkflow": Endpoint.unary(
+                    method=MethodInfo(
+                        name="UpdateWorkflow",
+                        service_name="workflows.v1.WorkflowsService",
+                        input=workflows_dot_v1_dot_workflows__pb2.UpdateWorkflowRequest,
+                        output=workflows_dot_v1_dot_workflows__pb2.Workflow,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.update_workflow,
+                ),
+                "/workflows.v1.WorkflowsService/DeleteWorkflow": Endpoint.unary(
+                    method=MethodInfo(
+                        name="DeleteWorkflow",
+                        service_name="workflows.v1.WorkflowsService",
+                        input=workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowRequest,
+                        output=workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.delete_workflow,
+                ),
                 "/workflows.v1.WorkflowsService/PublishWorkflowRelease": Endpoint.unary(
                     method=MethodInfo(
                         name="PublishWorkflowRelease",
@@ -133,6 +175,16 @@ class WorkflowsServiceASGIApplication(ConnectASGIApplication[WorkflowsService]):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=svc.publish_workflow_release,
+                ),
+                "/workflows.v1.WorkflowsService/UnpublishWorkflowRelease": Endpoint.unary(
+                    method=MethodInfo(
+                        name="UnpublishWorkflowRelease",
+                        service_name="workflows.v1.WorkflowsService",
+                        input=workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseRequest,
+                        output=workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.unpublish_workflow_release,
                 ),
                 "/workflows.v1.WorkflowsService/DeployWorkflowRelease": Endpoint.unary(
                     method=MethodInfo(
@@ -201,6 +253,26 @@ class WorkflowsServiceClient(ConnectClient):
                 name="GetCluster",
                 service_name="workflows.v1.WorkflowsService",
                 input=workflows_dot_v1_dot_workflows__pb2.GetClusterRequest,
+                output=workflows_dot_v1_dot_workflows__pb2.Cluster,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    async def update_cluster(
+        self,
+        request: workflows_dot_v1_dot_workflows__pb2.UpdateClusterRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_workflows__pb2.Cluster:
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="UpdateCluster",
+                service_name="workflows.v1.WorkflowsService",
+                input=workflows_dot_v1_dot_workflows__pb2.UpdateClusterRequest,
                 output=workflows_dot_v1_dot_workflows__pb2.Cluster,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
@@ -308,6 +380,46 @@ class WorkflowsServiceClient(ConnectClient):
             timeout_ms=timeout_ms,
         )
 
+    async def update_workflow(
+        self,
+        request: workflows_dot_v1_dot_workflows__pb2.UpdateWorkflowRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_workflows__pb2.Workflow:
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="UpdateWorkflow",
+                service_name="workflows.v1.WorkflowsService",
+                input=workflows_dot_v1_dot_workflows__pb2.UpdateWorkflowRequest,
+                output=workflows_dot_v1_dot_workflows__pb2.Workflow,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    async def delete_workflow(
+        self,
+        request: workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowResponse:
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="DeleteWorkflow",
+                service_name="workflows.v1.WorkflowsService",
+                input=workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowRequest,
+                output=workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
     async def publish_workflow_release(
         self,
         request: workflows_dot_v1_dot_workflows__pb2.PublishWorkflowReleaseRequest,
@@ -322,6 +434,26 @@ class WorkflowsServiceClient(ConnectClient):
                 service_name="workflows.v1.WorkflowsService",
                 input=workflows_dot_v1_dot_workflows__pb2.PublishWorkflowReleaseRequest,
                 output=workflows_dot_v1_dot_workflows__pb2.WorkflowRelease,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    async def unpublish_workflow_release(
+        self,
+        request: workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseResponse:
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="UnpublishWorkflowRelease",
+                service_name="workflows.v1.WorkflowsService",
+                input=workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseRequest,
+                output=workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseResponse,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,
@@ -377,6 +509,8 @@ class WorkflowsServiceSync(Protocol):
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def get_cluster(self, request: workflows_dot_v1_dot_workflows__pb2.GetClusterRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.Cluster:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+    def update_cluster(self, request: workflows_dot_v1_dot_workflows__pb2.UpdateClusterRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.Cluster:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def delete_cluster(self, request: workflows_dot_v1_dot_workflows__pb2.DeleteClusterRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.DeleteClusterResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def list_clusters(self, request: workflows_dot_v1_dot_workflows__pb2.ListClustersRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.ListClustersResponse:
@@ -387,7 +521,13 @@ class WorkflowsServiceSync(Protocol):
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def get_workflow(self, request: workflows_dot_v1_dot_workflows__pb2.GetWorkflowRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.Workflow:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+    def update_workflow(self, request: workflows_dot_v1_dot_workflows__pb2.UpdateWorkflowRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.Workflow:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+    def delete_workflow(self, request: workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowResponse:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def publish_workflow_release(self, request: workflows_dot_v1_dot_workflows__pb2.PublishWorkflowReleaseRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.WorkflowRelease:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+    def unpublish_workflow_release(self, request: workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def deploy_workflow_release(self, request: workflows_dot_v1_dot_workflows__pb2.DeployWorkflowReleaseRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.DeployWorkflowReleaseResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
@@ -418,6 +558,16 @@ class WorkflowsServiceWSGIApplication(ConnectWSGIApplication):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=service.get_cluster,
+                ),
+                "/workflows.v1.WorkflowsService/UpdateCluster": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="UpdateCluster",
+                        service_name="workflows.v1.WorkflowsService",
+                        input=workflows_dot_v1_dot_workflows__pb2.UpdateClusterRequest,
+                        output=workflows_dot_v1_dot_workflows__pb2.Cluster,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.update_cluster,
                 ),
                 "/workflows.v1.WorkflowsService/DeleteCluster": EndpointSync.unary(
                     method=MethodInfo(
@@ -469,6 +619,26 @@ class WorkflowsServiceWSGIApplication(ConnectWSGIApplication):
                     ),
                     function=service.get_workflow,
                 ),
+                "/workflows.v1.WorkflowsService/UpdateWorkflow": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="UpdateWorkflow",
+                        service_name="workflows.v1.WorkflowsService",
+                        input=workflows_dot_v1_dot_workflows__pb2.UpdateWorkflowRequest,
+                        output=workflows_dot_v1_dot_workflows__pb2.Workflow,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.update_workflow,
+                ),
+                "/workflows.v1.WorkflowsService/DeleteWorkflow": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="DeleteWorkflow",
+                        service_name="workflows.v1.WorkflowsService",
+                        input=workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowRequest,
+                        output=workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.delete_workflow,
+                ),
                 "/workflows.v1.WorkflowsService/PublishWorkflowRelease": EndpointSync.unary(
                     method=MethodInfo(
                         name="PublishWorkflowRelease",
@@ -478,6 +648,16 @@ class WorkflowsServiceWSGIApplication(ConnectWSGIApplication):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=service.publish_workflow_release,
+                ),
+                "/workflows.v1.WorkflowsService/UnpublishWorkflowRelease": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="UnpublishWorkflowRelease",
+                        service_name="workflows.v1.WorkflowsService",
+                        input=workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseRequest,
+                        output=workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.unpublish_workflow_release,
                 ),
                 "/workflows.v1.WorkflowsService/DeployWorkflowRelease": EndpointSync.unary(
                     method=MethodInfo(
@@ -546,6 +726,26 @@ class WorkflowsServiceClientSync(ConnectClientSync):
                 name="GetCluster",
                 service_name="workflows.v1.WorkflowsService",
                 input=workflows_dot_v1_dot_workflows__pb2.GetClusterRequest,
+                output=workflows_dot_v1_dot_workflows__pb2.Cluster,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    def update_cluster(
+        self,
+        request: workflows_dot_v1_dot_workflows__pb2.UpdateClusterRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_workflows__pb2.Cluster:
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="UpdateCluster",
+                service_name="workflows.v1.WorkflowsService",
+                input=workflows_dot_v1_dot_workflows__pb2.UpdateClusterRequest,
                 output=workflows_dot_v1_dot_workflows__pb2.Cluster,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
@@ -653,6 +853,46 @@ class WorkflowsServiceClientSync(ConnectClientSync):
             timeout_ms=timeout_ms,
         )
 
+    def update_workflow(
+        self,
+        request: workflows_dot_v1_dot_workflows__pb2.UpdateWorkflowRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_workflows__pb2.Workflow:
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="UpdateWorkflow",
+                service_name="workflows.v1.WorkflowsService",
+                input=workflows_dot_v1_dot_workflows__pb2.UpdateWorkflowRequest,
+                output=workflows_dot_v1_dot_workflows__pb2.Workflow,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    def delete_workflow(
+        self,
+        request: workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowResponse:
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="DeleteWorkflow",
+                service_name="workflows.v1.WorkflowsService",
+                input=workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowRequest,
+                output=workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
     def publish_workflow_release(
         self,
         request: workflows_dot_v1_dot_workflows__pb2.PublishWorkflowReleaseRequest,
@@ -667,6 +907,26 @@ class WorkflowsServiceClientSync(ConnectClientSync):
                 service_name="workflows.v1.WorkflowsService",
                 input=workflows_dot_v1_dot_workflows__pb2.PublishWorkflowReleaseRequest,
                 output=workflows_dot_v1_dot_workflows__pb2.WorkflowRelease,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    def unpublish_workflow_release(
+        self,
+        request: workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseResponse:
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="UnpublishWorkflowRelease",
+                service_name="workflows.v1.WorkflowsService",
+                input=workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseRequest,
+                output=workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseResponse,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,

@@ -1,6 +1,7 @@
 from hypothesis import given
 
 from tests.tasks_data import (
+    artifacts,
     automations,
     clusters,
     computed_tasks,
@@ -9,6 +10,8 @@ from tests.tasks_data import (
     jobs,
     progress_indicators,
     query_filters,
+    release_contents,
+    release_filesystem_nodes,
     single_task_submissions,
     storage_locations,
     task_identifiers,
@@ -16,16 +19,21 @@ from tests.tasks_data import (
     task_submission_groups,
     task_submissions,
     tasks,
+    workflow_releases,
+    workflows,
 )
 from tilebox.workflows.data import (
+    Artifact,
     AutomationPrototype,
     Cluster,
     ComputedTask,
     ExecutionStats,
+    FilesystemNode,
     Idling,
     Job,
     ProgressIndicator,
     QueryFilters,
+    ReleaseContent,
     SingleTaskSubmission,
     StorageLocation,
     Task,
@@ -33,6 +41,8 @@ from tilebox.workflows.data import (
     TaskLease,
     TaskSubmissionGroup,
     TaskSubmissions,
+    Workflow,
+    WorkflowRelease,
 )
 
 
@@ -75,6 +85,31 @@ def test_cluster_repr(cluster: Cluster) -> None:
 @given(clusters())
 def test_clusters_to_message_and_back(cluster: Cluster) -> None:
     assert Cluster.from_message(cluster.to_message()) == cluster
+
+
+@given(artifacts())
+def test_artifacts_to_message_and_back(artifact: Artifact) -> None:
+    assert Artifact.from_message(artifact.to_message()) == artifact
+
+
+@given(release_filesystem_nodes())
+def test_release_filesystem_nodes_to_message_and_back(node: FilesystemNode) -> None:
+    assert FilesystemNode.from_message(node.to_message()) == node
+
+
+@given(release_contents())
+def test_release_contents_to_message_and_back(content: ReleaseContent) -> None:
+    assert ReleaseContent.from_message(content.to_message()) == content
+
+
+@given(workflow_releases())
+def test_workflow_releases_to_message_and_back(release: WorkflowRelease) -> None:
+    assert WorkflowRelease.from_message(release.to_message()) == release
+
+
+@given(workflows())
+def test_workflows_to_message_and_back(workflow: Workflow) -> None:
+    assert Workflow.from_message(workflow.to_message()) == workflow
 
 
 @given(task_submissions())

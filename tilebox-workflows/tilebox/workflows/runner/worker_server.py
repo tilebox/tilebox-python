@@ -4,6 +4,7 @@ from concurrent import futures
 from pathlib import Path
 
 import grpc
+from loguru import logger
 
 from tilebox.workflows.runner.runner import Runner
 from tilebox.workflows.runner.worker_service import WorkerServiceServicer
@@ -21,23 +22,31 @@ def serve_runner(runner: Runner, address: str | None = None) -> None:
         )
 
     bind_address = _normalize_grpc_address(address)
+    logger.debug(f"Starting worker server for address {bind_address!r}")
     _unlink_stale_unix_socket(bind_address)
 
+    logger.debug("Creating worker gRPC server")
     server = grpc.server(futures.ThreadPoolExecutor())
 
     def shutdown() -> None:
+        logger.debug("Worker server shutdown requested")
         # server.stop() is blocking, so we run it in a separate thread
         # server.stop(5) means we stop accepting new requests immediately, but we give existing requests up to 5
         # seconds to finish before we forcefully terminate them
         threading.Thread(target=server.stop, args=(5,), daemon=True).start()
 
+    logger.debug("Registering worker service")
     worker_pb2_grpc.add_WorkerServiceServicer_to_server(WorkerServiceServicer(runner, shutdown), server)
+    logger.debug(f"Binding worker server to {bind_address!r}")
     port = server.add_insecure_port(bind_address)
     if port == 0:
         raise RuntimeError(f"Failed to bind worker server to {address!r}")
 
+    logger.debug("Starting worker gRPC server")
     server.start()
+    logger.debug("Worker gRPC server started; taking requests and waiting for termination")
     server.wait_for_termination()
+    logger.debug("Worker gRPC server terminated")
 
 
 def _normalize_grpc_address(address: str) -> str:
@@ -54,4 +63,5 @@ def _unlink_stale_unix_socket(address: str) -> None:
         return
     socket_path = Path(path)
     if socket_path.exists():
+        logger.debug(f"Removing stale worker Unix socket {socket_path}")
         socket_path.unlink()

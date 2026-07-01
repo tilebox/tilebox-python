@@ -28,16 +28,19 @@ from hypothesis.strategies import (
 from tilebox.datasets.query.id_interval import IDInterval
 from tilebox.datasets.query.time_interval import TimeInterval
 from tilebox.workflows.data import (
+    Artifact,
     AutomationPrototype,
     Cluster,
     ComputedTask,
     CronTrigger,
     ExecutionStats,
+    FilesystemNode,
     Idling,
     Job,
     JobState,
     ProgressIndicator,
     QueryFilters,
+    ReleaseContent,
     SingleTaskSubmission,
     StorageEventTrigger,
     StorageLocation,
@@ -48,6 +51,8 @@ from tilebox.workflows.data import (
     TaskState,
     TaskSubmissionGroup,
     TaskSubmissions,
+    Workflow,
+    WorkflowRelease,
 )
 
 
@@ -63,7 +68,65 @@ def clusters(draw: DrawFn) -> Cluster:
     slug = draw(alphanumerical_text(min_size=4, max_size=20))
     display_name = draw(alphanumerical_text())
     deletable = draw(booleans())
-    return Cluster(slug, display_name, deletable)
+    description = draw(alphanumerical_text() | none())
+    return Cluster(slug, display_name, deletable, description)
+
+
+@composite
+def artifacts(draw: DrawFn) -> Artifact:
+    """A hypothesis strategy for generating random workflow release artifacts"""
+    artifact_id = draw(uuids(version=4))
+    digest = draw(text(alphabet="abcdef0123456789", min_size=64, max_size=64))
+    return Artifact(artifact_id, digest)
+
+
+@composite
+def release_filesystem_nodes(draw: DrawFn) -> FilesystemNode:
+    """A hypothesis strategy for generating random workflow release filesystem nodes"""
+    path = draw(alphanumerical_text())
+    directory = draw(booleans())
+    children = []
+    if directory:
+        children = [
+            FilesystemNode(draw(alphanumerical_text())) for _ in range(draw(integers(min_value=0, max_value=3)))
+        ]
+    return FilesystemNode(path, directory, children)
+
+
+@composite
+def release_contents(draw: DrawFn) -> ReleaseContent:
+    """A hypothesis strategy for generating random workflow release contents"""
+    fingerprint = draw(text(alphabet="abcdef0123456789", min_size=64, max_size=64))
+    return ReleaseContent(
+        fingerprint=fingerprint,
+        tasks=draw(lists(task_identifiers(), min_size=1, max_size=3)),
+        files=draw(lists(release_filesystem_nodes(), min_size=0, max_size=3)),
+        runner_object_path=draw(alphanumerical_text()),
+        command_override=draw(lists(alphanumerical_text(), min_size=0, max_size=3)),
+    )
+
+
+@composite
+def workflow_releases(draw: DrawFn) -> WorkflowRelease:
+    """A hypothesis strategy for generating random workflow releases"""
+    return WorkflowRelease(
+        id=draw(uuids(version=4)),
+        artifact=draw(artifacts() | none()),
+        content=draw(release_contents() | none()),
+        created_at=draw(datetimes(timezones=just(timezone.utc)) | none()),
+        clusters=draw(lists(clusters(), min_size=0, max_size=3)),
+    )
+
+
+@composite
+def workflows(draw: DrawFn) -> Workflow:
+    """A hypothesis strategy for generating random workflows"""
+    return Workflow(
+        slug=draw(alphanumerical_text(min_size=4, max_size=20)),
+        name=draw(alphanumerical_text()),
+        description=draw(alphanumerical_text() | none()) or "",
+        releases=draw(lists(workflow_releases(), min_size=0, max_size=3)),
+    )
 
 
 @composite
@@ -354,4 +417,6 @@ def query_filters(draw: DrawFn) -> QueryFilters:
     if task_states is not None:
         task_states = list(set(task_states))  # de-duplicate
 
-    return QueryFilters(time_interval, id_interval, automation_ids, job_states, name, task_states)
+    cluster_slugs = draw(lists(alphanumerical_text(min_size=4, max_size=20), min_size=0, max_size=3, unique=True))
+
+    return QueryFilters(time_interval, id_interval, automation_ids, job_states, name, task_states, cluster_slugs)

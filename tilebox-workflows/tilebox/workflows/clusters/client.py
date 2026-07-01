@@ -15,18 +15,38 @@ class ClusterClient:
         """
         self._service = service
 
-    def create(self, name: str) -> Cluster:
+    def create(self, name: str, description: str | None = None, slug: str | None = None) -> Cluster:
         """Create a new cluster with the given name.
 
-        A unique cluster slug will be generated for the cluster.
+        If no slug is provided, a unique cluster slug will be generated for the cluster.
 
         Args:
             name: The  name of the cluster to create.
+            description: The description of the cluster to create.
+            slug: The slug to use for the cluster.
 
         Returns:
             Cluster: The created cluster.
         """
-        return self._service.create(name)
+        return self._service.create(name, description, slug)
+
+    def update(
+        self,
+        cluster_or_slug: ClusterSlugLike,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> Cluster:
+        """Update a cluster by slug.
+
+        Args:
+            cluster_or_slug: The cluster or slug of the cluster to update.
+            name: The new display name for the cluster. If not provided, the name is left unchanged.
+            description: The new description for the cluster. If not provided, the description is left unchanged.
+
+        Returns:
+            The updated cluster.
+        """
+        return self._service.update(to_cluster_slug(cluster_or_slug), name, description)
 
     def all(self) -> list[Cluster]:
         """List all available clusters.

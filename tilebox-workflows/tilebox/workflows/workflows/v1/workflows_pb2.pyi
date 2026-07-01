@@ -12,28 +12,44 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Cluster(_message.Message):
-    __slots__ = ("slug", "display_name", "deletable", "deployed_releases")
+    __slots__ = ("slug", "display_name", "description", "deletable", "deployed_releases")
     SLUG_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     DELETABLE_FIELD_NUMBER: _ClassVar[int]
     DEPLOYED_RELEASES_FIELD_NUMBER: _ClassVar[int]
     slug: str
     display_name: str
+    description: str
     deletable: bool
     deployed_releases: _containers.RepeatedCompositeFieldContainer[Workflow]
-    def __init__(self, slug: _Optional[str] = ..., display_name: _Optional[str] = ..., deletable: bool = ..., deployed_releases: _Optional[_Iterable[_Union[Workflow, _Mapping]]] = ...) -> None: ...
+    def __init__(self, slug: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., deletable: bool = ..., deployed_releases: _Optional[_Iterable[_Union[Workflow, _Mapping]]] = ...) -> None: ...
 
 class CreateClusterRequest(_message.Message):
-    __slots__ = ("name",)
+    __slots__ = ("name", "description", "slug")
     NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    SLUG_FIELD_NUMBER: _ClassVar[int]
     name: str
-    def __init__(self, name: _Optional[str] = ...) -> None: ...
+    description: str
+    slug: str
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., slug: _Optional[str] = ...) -> None: ...
 
 class GetClusterRequest(_message.Message):
     __slots__ = ("cluster_slug",)
     CLUSTER_SLUG_FIELD_NUMBER: _ClassVar[int]
     cluster_slug: str
     def __init__(self, cluster_slug: _Optional[str] = ...) -> None: ...
+
+class UpdateClusterRequest(_message.Message):
+    __slots__ = ("cluster_slug", "name", "description")
+    CLUSTER_SLUG_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    cluster_slug: str
+    name: str
+    description: str
+    def __init__(self, cluster_slug: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
 
 class DeleteClusterRequest(_message.Message):
     __slots__ = ("cluster_slug",)
@@ -61,6 +77,26 @@ class GetWorkflowRequest(_message.Message):
     workflow_slug: str
     def __init__(self, workflow_slug: _Optional[str] = ...) -> None: ...
 
+class UpdateWorkflowRequest(_message.Message):
+    __slots__ = ("workflow_slug", "name", "description")
+    WORKFLOW_SLUG_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    workflow_slug: str
+    name: str
+    description: str
+    def __init__(self, workflow_slug: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+
+class DeleteWorkflowRequest(_message.Message):
+    __slots__ = ("workflow_slug",)
+    WORKFLOW_SLUG_FIELD_NUMBER: _ClassVar[int]
+    workflow_slug: str
+    def __init__(self, workflow_slug: _Optional[str] = ...) -> None: ...
+
+class DeleteWorkflowResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class PublishWorkflowReleaseRequest(_message.Message):
     __slots__ = ("workflow_slug", "artifact_id", "content")
     WORKFLOW_SLUG_FIELD_NUMBER: _ClassVar[int]
@@ -70,6 +106,18 @@ class PublishWorkflowReleaseRequest(_message.Message):
     artifact_id: _id_pb2.ID
     content: ReleaseContent
     def __init__(self, workflow_slug: _Optional[str] = ..., artifact_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., content: _Optional[_Union[ReleaseContent, _Mapping]] = ...) -> None: ...
+
+class UnpublishWorkflowReleaseRequest(_message.Message):
+    __slots__ = ("workflow_slug", "release_id")
+    WORKFLOW_SLUG_FIELD_NUMBER: _ClassVar[int]
+    RELEASE_ID_FIELD_NUMBER: _ClassVar[int]
+    workflow_slug: str
+    release_id: _id_pb2.ID
+    def __init__(self, workflow_slug: _Optional[str] = ..., release_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
+
+class UnpublishWorkflowReleaseResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class ListWorkflowsRequest(_message.Message):
     __slots__ = ()
@@ -102,16 +150,18 @@ class Workflow(_message.Message):
     def __init__(self, slug: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., releases: _Optional[_Iterable[_Union[WorkflowRelease, _Mapping]]] = ...) -> None: ...
 
 class WorkflowRelease(_message.Message):
-    __slots__ = ("id", "artifact", "content", "created_at")
+    __slots__ = ("id", "artifact", "content", "created_at", "clusters")
     ID_FIELD_NUMBER: _ClassVar[int]
     ARTIFACT_FIELD_NUMBER: _ClassVar[int]
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CLUSTERS_FIELD_NUMBER: _ClassVar[int]
     id: _id_pb2.ID
     artifact: Artifact
     content: ReleaseContent
     created_at: _timestamp_pb2.Timestamp
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., artifact: _Optional[_Union[Artifact, _Mapping]] = ..., content: _Optional[_Union[ReleaseContent, _Mapping]] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    clusters: _containers.RepeatedCompositeFieldContainer[Cluster]
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., artifact: _Optional[_Union[Artifact, _Mapping]] = ..., content: _Optional[_Union[ReleaseContent, _Mapping]] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., clusters: _Optional[_Iterable[_Union[Cluster, _Mapping]]] = ...) -> None: ...
 
 class Artifact(_message.Message):
     __slots__ = ("id", "digest")

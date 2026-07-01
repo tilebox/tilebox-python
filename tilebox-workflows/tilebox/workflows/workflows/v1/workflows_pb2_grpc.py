@@ -25,6 +25,11 @@ class WorkflowsServiceStub:
                 request_serializer=workflows_dot_v1_dot_workflows__pb2.GetClusterRequest.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_workflows__pb2.Cluster.FromString,
                 _registered_method=True)
+        self.UpdateCluster = channel.unary_unary(
+                '/workflows.v1.WorkflowsService/UpdateCluster',
+                request_serializer=workflows_dot_v1_dot_workflows__pb2.UpdateClusterRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.Cluster.FromString,
+                _registered_method=True)
         self.DeleteCluster = channel.unary_unary(
                 '/workflows.v1.WorkflowsService/DeleteCluster',
                 request_serializer=workflows_dot_v1_dot_workflows__pb2.DeleteClusterRequest.SerializeToString,
@@ -50,10 +55,25 @@ class WorkflowsServiceStub:
                 request_serializer=workflows_dot_v1_dot_workflows__pb2.GetWorkflowRequest.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_workflows__pb2.Workflow.FromString,
                 _registered_method=True)
+        self.UpdateWorkflow = channel.unary_unary(
+                '/workflows.v1.WorkflowsService/UpdateWorkflow',
+                request_serializer=workflows_dot_v1_dot_workflows__pb2.UpdateWorkflowRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.Workflow.FromString,
+                _registered_method=True)
+        self.DeleteWorkflow = channel.unary_unary(
+                '/workflows.v1.WorkflowsService/DeleteWorkflow',
+                request_serializer=workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowResponse.FromString,
+                _registered_method=True)
         self.PublishWorkflowRelease = channel.unary_unary(
                 '/workflows.v1.WorkflowsService/PublishWorkflowRelease',
                 request_serializer=workflows_dot_v1_dot_workflows__pb2.PublishWorkflowReleaseRequest.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_workflows__pb2.WorkflowRelease.FromString,
+                _registered_method=True)
+        self.UnpublishWorkflowRelease = channel.unary_unary(
+                '/workflows.v1.WorkflowsService/UnpublishWorkflowRelease',
+                request_serializer=workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseResponse.FromString,
                 _registered_method=True)
         self.DeployWorkflowRelease = channel.unary_unary(
                 '/workflows.v1.WorkflowsService/DeployWorkflowRelease',
@@ -78,6 +98,12 @@ class WorkflowsServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def GetCluster(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateCluster(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -113,7 +139,25 @@ class WorkflowsServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def UpdateWorkflow(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteWorkflow(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def PublishWorkflowRelease(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UnpublishWorkflowRelease(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -144,6 +188,11 @@ def add_WorkflowsServiceServicer_to_server(servicer, server):
                     request_deserializer=workflows_dot_v1_dot_workflows__pb2.GetClusterRequest.FromString,
                     response_serializer=workflows_dot_v1_dot_workflows__pb2.Cluster.SerializeToString,
             ),
+            'UpdateCluster': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateCluster,
+                    request_deserializer=workflows_dot_v1_dot_workflows__pb2.UpdateClusterRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.Cluster.SerializeToString,
+            ),
             'DeleteCluster': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteCluster,
                     request_deserializer=workflows_dot_v1_dot_workflows__pb2.DeleteClusterRequest.FromString,
@@ -169,10 +218,25 @@ def add_WorkflowsServiceServicer_to_server(servicer, server):
                     request_deserializer=workflows_dot_v1_dot_workflows__pb2.GetWorkflowRequest.FromString,
                     response_serializer=workflows_dot_v1_dot_workflows__pb2.Workflow.SerializeToString,
             ),
+            'UpdateWorkflow': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateWorkflow,
+                    request_deserializer=workflows_dot_v1_dot_workflows__pb2.UpdateWorkflowRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.Workflow.SerializeToString,
+            ),
+            'DeleteWorkflow': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteWorkflow,
+                    request_deserializer=workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowResponse.SerializeToString,
+            ),
             'PublishWorkflowRelease': grpc.unary_unary_rpc_method_handler(
                     servicer.PublishWorkflowRelease,
                     request_deserializer=workflows_dot_v1_dot_workflows__pb2.PublishWorkflowReleaseRequest.FromString,
                     response_serializer=workflows_dot_v1_dot_workflows__pb2.WorkflowRelease.SerializeToString,
+            ),
+            'UnpublishWorkflowRelease': grpc.unary_unary_rpc_method_handler(
+                    servicer.UnpublishWorkflowRelease,
+                    request_deserializer=workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseResponse.SerializeToString,
             ),
             'DeployWorkflowRelease': grpc.unary_unary_rpc_method_handler(
                     servicer.DeployWorkflowRelease,
@@ -239,6 +303,33 @@ class WorkflowsService:
             target,
             '/workflows.v1.WorkflowsService/GetCluster',
             workflows_dot_v1_dot_workflows__pb2.GetClusterRequest.SerializeToString,
+            workflows_dot_v1_dot_workflows__pb2.Cluster.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateCluster(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.WorkflowsService/UpdateCluster',
+            workflows_dot_v1_dot_workflows__pb2.UpdateClusterRequest.SerializeToString,
             workflows_dot_v1_dot_workflows__pb2.Cluster.FromString,
             options,
             channel_credentials,
@@ -386,6 +477,60 @@ class WorkflowsService:
             _registered_method=True)
 
     @staticmethod
+    def UpdateWorkflow(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.WorkflowsService/UpdateWorkflow',
+            workflows_dot_v1_dot_workflows__pb2.UpdateWorkflowRequest.SerializeToString,
+            workflows_dot_v1_dot_workflows__pb2.Workflow.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteWorkflow(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.WorkflowsService/DeleteWorkflow',
+            workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowRequest.SerializeToString,
+            workflows_dot_v1_dot_workflows__pb2.DeleteWorkflowResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def PublishWorkflowRelease(request,
             target,
             options=(),
@@ -402,6 +547,33 @@ class WorkflowsService:
             '/workflows.v1.WorkflowsService/PublishWorkflowRelease',
             workflows_dot_v1_dot_workflows__pb2.PublishWorkflowReleaseRequest.SerializeToString,
             workflows_dot_v1_dot_workflows__pb2.WorkflowRelease.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UnpublishWorkflowRelease(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.WorkflowsService/UnpublishWorkflowRelease',
+            workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseRequest.SerializeToString,
+            workflows_dot_v1_dot_workflows__pb2.UnpublishWorkflowReleaseResponse.FromString,
             options,
             channel_credentials,
             insecure,

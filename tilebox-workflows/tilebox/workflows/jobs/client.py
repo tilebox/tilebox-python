@@ -209,13 +209,14 @@ class JobClient:
         """
         return self._service.visualize(_to_uuid(job), direction, layout, sketchy)
 
-    def query(
+    def query(  # noqa: PLR0913
         self,
         temporal_extent: "TimeIntervalLike | IDIntervalLike",
         automation_ids: UUID | list[UUID] | None = None,
         job_states: JobState | list[JobState] | None = None,
         name: str | None = None,
         task_states: TaskState | list[TaskState] | None = None,
+        clusters: ClusterSlugLike | list[ClusterSlugLike] | None = None,
     ) -> list[Job]:
         """List jobs in the given temporal extent.
 
@@ -240,6 +241,8 @@ class JobClient:
                 case-insensitive and uses a fuzzy matching scheme.
             task_states: A task state or list of task states to filter jobs by. If specified, only jobs that have at
                 least one task in any of the selected states are returned.
+            clusters: A cluster or list of clusters to filter jobs by. If specified, only jobs submitted to one of the
+                selected clusters are returned.
 
         Returns:
             A list of jobs matching the given filters.
@@ -287,6 +290,8 @@ class JobClient:
         if not isinstance(task_states, list):
             task_states = [task_states]
 
+        cluster_slugs = _to_cluster_filter_slugs(clusters)
+
         filters = QueryFilters(
             time_interval=time_interval,
             id_interval=id_interval,
@@ -294,6 +299,7 @@ class JobClient:
             job_states=job_states,
             name=name,
             task_states=task_states,
+            cluster_slugs=cluster_slugs,
         )
 
         def request(page: PaginationProtocol) -> QueryJobsResponse:
@@ -315,3 +321,15 @@ def _to_uuid(job_or_id: Job | UUID | str) -> UUID:
     if isinstance(job_or_id, str):
         return UUID(job_or_id)
     return job_or_id
+
+
+def _to_cluster_filter_slugs(clusters: ClusterSlugLike | list[ClusterSlugLike] | None) -> list[str]:
+    if clusters is None:
+        return []
+    if isinstance(clusters, ClusterSlugLike):
+        cluster_slugs = [to_cluster_slug(clusters)]
+    else:
+        cluster_slugs = [to_cluster_slug(cluster) for cluster in clusters]
+    if any(cluster_slug == "" for cluster_slug in cluster_slugs):
+        raise ValueError("Cluster filters must use explicit cluster slugs")
+    return cluster_slugs

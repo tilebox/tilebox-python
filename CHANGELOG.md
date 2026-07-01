@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.55.0] - 2026-07-01
+
+### Added
+
+- `tilebox-workflows`: Added workflow management client methods for creating, listing, finding, updating, and deleting
+  workflows.
+- `tilebox-workflows`: Added workflow release deployment client methods for unpublishing, deploying, and undeploying
+  releases.
+- `tilebox-workflows`: Added `ClusterClient.update()` and optional cluster slugs for `ClusterClient.create()`
+- `tilebox-workflows`: Cluster slug filters for `JobClient.query()`.
+
 ## [0.54.0] - 2026-06-17
 
 ### Added
@@ -383,7 +394,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.54.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.55.0...HEAD
+[0.55.0]: https://github.com/tilebox/tilebox-python/compare/v0.54.0...v0.55.0
 [0.54.0]: https://github.com/tilebox/tilebox-python/compare/v0.53.0...v0.54.0
 [0.53.0]: https://github.com/tilebox/tilebox-python/compare/v0.52.0...v0.53.0
 [0.52.0]: https://github.com/tilebox/tilebox-python/compare/v0.51.0...v0.52.0

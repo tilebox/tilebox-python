@@ -12,6 +12,7 @@ from tilebox.workflows.workflows.v1.workflows_pb2 import (
     GetClusterRequest,
     ListClustersRequest,
     ListClustersResponse,
+    UpdateClusterRequest,
 )
 from tilebox.workflows.workflows.v1.workflows_pb2_grpc import WorkflowsServiceStub
 
@@ -29,9 +30,13 @@ class ClusterService:
             with_pythonic_errors(WorkflowsServiceStub(channel)) if hasattr(channel, "unary_unary") else channel
         )
 
-    def create(self, cluster_name: str) -> Cluster:
-        request = CreateClusterRequest(name=cluster_name)
+    def create(self, cluster_name: str, description: str | None = None, slug: str | None = None) -> Cluster:
+        request = CreateClusterRequest(name=cluster_name, description=description, slug=slug or "")
         return Cluster.from_message(self.service.CreateCluster(request))
+
+    def update(self, cluster_slug: str, name: str | None = None, description: str | None = None) -> Cluster:
+        request = UpdateClusterRequest(cluster_slug=cluster_slug, name=name, description=description)
+        return Cluster.from_message(self.service.UpdateCluster(request))
 
     def get_by_slug(self, cluster_slug: str) -> Cluster:
         request = GetClusterRequest(cluster_slug=cluster_slug)
