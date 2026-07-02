@@ -19,6 +19,7 @@ from tilebox.workflows.workflows.v1.workflows_pb2 import (
     GetClusterRequest,
     ListClustersRequest,
     ListClustersResponse,
+    UpdateClusterRequest,
 )
 from tilebox.workflows.workflows.v1.workflows_pb2_grpc import WorkflowsServiceStub
 
@@ -30,7 +31,19 @@ class MockClusterService(WorkflowsServiceStub):
         self.clusters: dict[str, ClusterMessage] = {}
 
     def CreateCluster(self, req: CreateClusterRequest) -> ClusterMessage:  # noqa: N802
-        cluster = ClusterMessage(slug=str(uuid4()), display_name=req.name)
+        cluster = ClusterMessage(slug=req.slug or str(uuid4()), display_name=req.name, description=req.description)
+        self.clusters[cluster.slug] = cluster
+        return cluster
+
+    def UpdateCluster(self, req: UpdateClusterRequest) -> ClusterMessage:  # noqa: N802
+        if req.cluster_slug not in self.clusters:
+            raise NotFoundError(f"Cluster {req.cluster_slug} not found")
+
+        cluster = ClusterMessage.FromString(self.clusters[req.cluster_slug].SerializeToString())
+        if req.HasField("name"):
+            cluster.display_name = req.name
+        if req.HasField("description"):
+            cluster.description = req.description
         self.clusters[cluster.slug] = cluster
         return cluster
 
@@ -48,6 +61,18 @@ class MockClusterService(WorkflowsServiceStub):
     def ListClusters(self, req: ListClustersRequest) -> ListClustersResponse:  # noqa: N802
         _ = req
         return ListClustersResponse(clusters=list(self.clusters.values()))
+
+
+def test_create_cluster_can_use_custom_slug() -> None:
+    service = ClusterService(MagicMock())
+    service.service = MockClusterService()
+    cluster_client = ClusterClient(service)
+
+    cluster = cluster_client.create("Test Cluster", description="Test description", slug="test-cluster")
+
+    assert cluster.slug == "test-cluster"
+    assert cluster.display_name == "Test Cluster"
+    assert cluster.description == "Test description"
 
 
 class ClusterCRUDOperations(RuleBasedStateMachine):
@@ -75,7 +100,17 @@ class ClusterCRUDOperations(RuleBasedStateMachine):
     @rule(target=inserted_clusters, cluster=clusters())
     def create_cluster(self, cluster: Cluster) -> Cluster:
         self.count_clusters += 1
-        return self.cluster_client.create(cluster.display_name)
+        created = self.cluster_client.create(cluster.display_name, cluster.description)
+        assert created.description == cluster.description
+        return created
+
+    @rule(target=inserted_clusters, cluster=consumes(inserted_clusters), updated=clusters())
+    def update_cluster(self, cluster: Cluster, updated: Cluster) -> Cluster:
+        got = self.cluster_client.update(cluster.slug, name=updated.display_name, description=updated.description)
+        assert got.slug == cluster.slug
+        assert got.display_name == updated.display_name
+        assert got.description == (updated.description if updated.description is not None else cluster.description)
+        return got
 
     @rule(cluster=inserted_clusters)
     def get_cluster(self, cluster: Cluster) -> None:

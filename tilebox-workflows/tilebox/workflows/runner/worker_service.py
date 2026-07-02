@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 import grpc
 from google.protobuf.empty_pb2 import Empty
+from loguru import logger
 
 from tilebox.datasets.uuid import uuid_message_to_uuid
 from tilebox.workflows.cache import NoCache
@@ -25,15 +26,17 @@ class WorkerServiceServicer(worker_pb2_grpc.WorkerServiceServicer):
         self._executor: TaskExecutor | None = None
 
     def ListRegisteredTasks(self, request: Empty, context: grpc.ServicerContext) -> core_pb2.TaskIdentifiers:  # noqa: ARG002, N802
-        return core_pb2.TaskIdentifiers(
-            identifiers=[identifier.to_message() for identifier in self._runner.task_identifiers]
-        )
+        logger.debug("ListRegisteredTasks RPC called")
+        identifiers = [identifier.to_message() for identifier in self._runner.task_identifiers]
+        logger.debug(f"ListRegisteredTasks RPC returning {len(identifiers)} task identifier(s)")
+        return core_pb2.TaskIdentifiers(identifiers=identifiers)
 
     def InitializeWorker(  # noqa: N802
         self,
         request: worker_pb2.InitializeRunnerRequest,
         context: grpc.ServicerContext,  # noqa: ARG002
     ) -> worker_pb2.InitializeRunnerResponse:
+        logger.debug("InitializeWorker RPC called")
         runner_id = uuid_message_to_uuid(request.runner_id)
         cluster = Cluster.from_message(request.cluster) if request.HasField("cluster") else None
 
@@ -57,6 +60,9 @@ class WorkerServiceServicer(worker_pb2_grpc.WorkerServiceServicer):
             runner_context,
             cluster.slug if cluster is not None else "",
         )
+        logger.debug(
+            f"InitializeWorker RPC returning for runner_id={runner_id}, cluster={cluster.slug if cluster is not None else None!r}"
+        )
         return worker_pb2.InitializeRunnerResponse()
 
     def ExecuteTask(  # noqa: N802
@@ -64,6 +70,7 @@ class WorkerServiceServicer(worker_pb2_grpc.WorkerServiceServicer):
         request: core_pb2.Task,
         context: grpc.ServicerContext,  # noqa: ARG002
     ) -> worker_pb2.ExecuteTaskResponse:
+        logger.debug("ExecuteTask RPC called")
         task = Task.from_message(request)
         if self._executor is None:
             failed_task = FailedTask.from_task_error(
@@ -72,15 +79,20 @@ class WorkerServiceServicer(worker_pb2_grpc.WorkerServiceServicer):
                 was_workflow_error=False,
                 progress_updates=[],
             )
+            logger.debug(f"ExecuteTask RPC returning failed task for uninitialized worker, task_id={task.id}")
             return worker_pb2.ExecuteTaskResponse(failed_task=failed_task.to_message())
 
         result = self._executor.execute_task(task)
         if isinstance(result, ComputedTask):
+            logger.debug(f"ExecuteTask RPC returning computed task, task_id={task.id}")
             return worker_pb2.ExecuteTaskResponse(computed_task=result.to_message())
         if isinstance(result, FailedTask):
+            logger.debug(f"ExecuteTask RPC returning failed task, task_id={task.id}")
             return worker_pb2.ExecuteTaskResponse(failed_task=result.to_message())
         raise TypeError(f"Unexpected task execution result: {type(result)}")
 
     def ShutdownWorker(self, request: Empty, context: grpc.ServicerContext) -> Empty:  # noqa: ARG002, N802
+        logger.debug("ShutdownWorker RPC called")
         self._shutdown()
+        logger.debug("ShutdownWorker RPC returning")
         return Empty()

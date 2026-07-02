@@ -25,6 +25,8 @@ from tilebox.workflows.runner.executor import LazyStorageLocations
 from tilebox.workflows.runner.task_runner import TaskRunner, _LeaseRenewer
 from tilebox.workflows.runner.task_service import TaskService
 from tilebox.workflows.task import Task
+from tilebox.workflows.workflows.client import WorkflowClient
+from tilebox.workflows.workflows.service import WorkflowService
 
 
 class Client:
@@ -57,6 +59,7 @@ class Client:
                 self._job_service = open_channel(url, token)
                 self._telemetry_service = self._job_service
                 self._cluster_service = self._job_service
+                self._workflow_service = self._job_service
                 self._automation_service = self._job_service
                 self._task_service = self._job_service
             case "http1":
@@ -82,6 +85,7 @@ class Client:
                 self._cluster_service = ConnectStubAdapter(
                     WorkflowsServiceClientSync(address, http_client=http_client), headers
                 )
+                self._workflow_service = self._cluster_service
                 self._automation_service = ConnectStubAdapter(
                     AutomationServiceClientSync(address, http_client=http_client), headers
                 )
@@ -202,6 +206,15 @@ class Client:
             A client for the clusters service.
         """
         return ClusterClient(ClusterService(self._cluster_service))
+
+    def workflows(self) -> WorkflowClient:
+        """
+        Get a client for the workflows service.
+
+        Returns:
+            A client for the workflows service.
+        """
+        return WorkflowClient(WorkflowService(self._workflow_service))
 
     def automations(self) -> AutomationClient:
         """

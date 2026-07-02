@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
+import pytest
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, consumes, rule
 from tests.tasks_data import jobs
 
@@ -141,6 +142,7 @@ class MockJobService(JobServiceStub):
 
     def __init__(self) -> None:
         self.jobs: dict[UUID, JobMessage] = {}
+        self.query_requests: list[QueryJobsRequest] = []
 
     def SubmitJob(self, req: SubmitJobRequest) -> JobMessage:  # noqa: N802
         job_id = uuid4()
@@ -193,8 +195,39 @@ class MockJobService(JobServiceStub):
         return Diagram(svg=b"<svg><text>Job queued</text></svg>")
 
     def QueryJobs(self, req: QueryJobsRequest) -> QueryJobsResponse:  # noqa: N802
-        _ = req
+        self.query_requests.append(req)
         return QueryJobsResponse(jobs=list(self.jobs.values()))
+
+
+def test_query_filters_by_clusters() -> None:
+    service = JobService(MagicMock())
+    mock_service = MockJobService()
+    service.service = mock_service
+    job_client = JobClient(service, MagicMock(), NoopWorkflowTracer())
+
+    job_client.query((uuid4(), uuid4()), clusters=["cluster-a", "cluster-b"])
+
+    assert list(mock_service.query_requests[-1].filters.cluster_slugs) == ["cluster-a", "cluster-b"]
+
+
+def test_query_empty_cluster_list_applies_no_cluster_filter() -> None:
+    service = JobService(MagicMock())
+    mock_service = MockJobService()
+    service.service = mock_service
+    job_client = JobClient(service, MagicMock(), NoopWorkflowTracer())
+
+    job_client.query((uuid4(), uuid4()), clusters=[])
+
+    assert list(mock_service.query_requests[-1].filters.cluster_slugs) == []
+
+
+def test_query_rejects_empty_cluster_slug() -> None:
+    service = JobService(MagicMock())
+    service.service = MockJobService()
+    job_client = JobClient(service, MagicMock(), NoopWorkflowTracer())
+
+    with pytest.raises(ValueError, match="explicit cluster slugs"):
+        job_client.query((uuid4(), uuid4()), clusters="")
 
 
 class JobOperations(RuleBasedStateMachine):

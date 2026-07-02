@@ -320,15 +320,100 @@ class Cluster:
     slug: str
     display_name: str
     deletable: bool
+    description: str | None = None
+    deployed_workflows: list["Workflow"] = field(default_factory=list)
 
     @classmethod  # lets use typing.Self once we require python >= 3.11
-    def from_message(cls, cluster: workflows_pb2.Cluster) -> "Cluster":
+    def from_message(cls, cluster: workflows_pb2.Cluster, *, include_deployed_workflows: bool = True) -> "Cluster":
         """Convert a Cluster protobuf message to a Cluster object."""
-        return cls(slug=cluster.slug, display_name=cluster.display_name, deletable=cluster.deletable)
+        return cls(
+            slug=cluster.slug,
+            display_name=cluster.display_name,
+            deletable=cluster.deletable,
+            description=cluster.description or None,
+            deployed_workflows=[Workflow.from_message(workflow) for workflow in cluster.deployed_releases]
+            if include_deployed_workflows
+            else [],
+        )
 
     def to_message(self) -> workflows_pb2.Cluster:
         """Convert a Cluster object to a Cluster protobuf message."""
-        return workflows_pb2.Cluster(slug=self.slug, display_name=self.display_name, deletable=self.deletable)
+        return workflows_pb2.Cluster(
+            slug=self.slug,
+            display_name=self.display_name,
+            deletable=self.deletable,
+            description=self.description,
+            deployed_releases=[workflow.to_message() for workflow in self.deployed_workflows],
+        )
+
+
+@dataclass(order=True, frozen=True)
+class Artifact:
+    id: UUID
+    digest: str
+
+    @classmethod
+    def from_message(cls, artifact: workflows_pb2.Artifact) -> "Artifact":
+        """Convert an Artifact protobuf message to an Artifact object."""
+        return cls(id=uuid_message_to_uuid(artifact.id), digest=artifact.digest)
+
+    def to_message(self) -> workflows_pb2.Artifact:
+        """Convert an Artifact object to an Artifact protobuf message."""
+        return workflows_pb2.Artifact(id=uuid_to_uuid_message(self.id), digest=self.digest)
+
+
+@dataclass(order=True, frozen=True)
+class FilesystemNode:
+    path: str
+    directory: bool = False
+    children: list["FilesystemNode"] = field(default_factory=list)
+
+    @classmethod
+    def from_message(cls, path: workflows_pb2.Path) -> "FilesystemNode":
+        """Convert a Path protobuf message to a FilesystemNode object."""
+        return cls(
+            path=path.path,
+            directory=path.directory,
+            children=[cls.from_message(child) for child in path.children],
+        )
+
+    def to_message(self) -> workflows_pb2.Path:
+        """Convert a FilesystemNode object to a Path protobuf message."""
+        return workflows_pb2.Path(
+            path=self.path,
+            directory=self.directory,
+            children=[child.to_message() for child in self.children],
+        )
+
+
+@dataclass(order=True, frozen=True)
+class ReleaseContent:
+    fingerprint: str
+    tasks: list[TaskIdentifier]
+    files: list[FilesystemNode] = field(default_factory=list)
+    runner_object_path: str = ""
+    command_override: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_message(cls, content: workflows_pb2.ReleaseContent) -> "ReleaseContent":
+        """Convert a ReleaseContent protobuf message to a ReleaseContent object."""
+        return cls(
+            fingerprint=content.fingerprint,
+            tasks=[TaskIdentifier.from_message(task) for task in content.tasks],
+            files=[FilesystemNode.from_message(path) for path in content.files],
+            runner_object_path=content.runner_object_path,
+            command_override=list(content.command_override),
+        )
+
+    def to_message(self) -> workflows_pb2.ReleaseContent:
+        """Convert a ReleaseContent object to a ReleaseContent protobuf message."""
+        return workflows_pb2.ReleaseContent(
+            fingerprint=self.fingerprint,
+            tasks=[task.to_message() for task in self.tasks],
+            files=[path.to_message() for path in self.files],
+            runner_object_path=self.runner_object_path,
+            command_override=self.command_override,
+        )
 
 
 @dataclass(order=True, frozen=True)
@@ -336,15 +421,82 @@ class Workflow:
     slug: str
     name: str
     description: str
+    releases: list["WorkflowRelease"] = field(default_factory=list)
 
     @classmethod
     def from_message(cls, workflow: workflows_pb2.Workflow) -> "Workflow":
         """Convert a Workflow protobuf message to a Workflow object."""
-        return cls(slug=workflow.slug, name=workflow.name, description=workflow.description)
+        return cls(
+            slug=workflow.slug,
+            name=workflow.name,
+            description=workflow.description,
+            releases=[WorkflowRelease.from_message(release) for release in workflow.releases],
+        )
 
     def to_message(self) -> workflows_pb2.Workflow:
         """Convert a Workflow object to a Workflow protobuf message."""
-        return workflows_pb2.Workflow(slug=self.slug, name=self.name, description=self.description)
+        return workflows_pb2.Workflow(
+            slug=self.slug,
+            name=self.name,
+            description=self.description,
+            releases=[release.to_message() for release in self.releases],
+        )
+
+
+@dataclass(order=True, frozen=True)
+class WorkflowRelease:
+    id: UUID
+    artifact: Artifact | None
+    content: ReleaseContent | None
+    created_at: datetime | None
+    clusters: list[Cluster] = field(default_factory=list)
+
+    @classmethod
+    def from_message(cls, release: workflows_pb2.WorkflowRelease) -> "WorkflowRelease":
+        """Convert a WorkflowRelease protobuf message to a WorkflowRelease object."""
+        return cls(
+            id=uuid_message_to_uuid(release.id),
+            artifact=Artifact.from_message(release.artifact) if release.HasField("artifact") else None,
+            content=ReleaseContent.from_message(release.content) if release.HasField("content") else None,
+            created_at=timestamp_to_datetime(release.created_at) if release.HasField("created_at") else None,
+            clusters=[Cluster.from_message(cluster, include_deployed_workflows=False) for cluster in release.clusters],
+        )
+
+    def to_message(self) -> workflows_pb2.WorkflowRelease:
+        """Convert a WorkflowRelease object to a WorkflowRelease protobuf message."""
+        return workflows_pb2.WorkflowRelease(
+            id=uuid_to_uuid_message(self.id),
+            artifact=self.artifact.to_message() if self.artifact is not None else None,
+            content=self.content.to_message() if self.content is not None else None,
+            created_at=datetime_to_timestamp(self.created_at) if self.created_at is not None else None,
+            clusters=[cluster.to_message() for cluster in self.clusters],
+        )
+
+
+@dataclass(order=True, frozen=True)
+class WorkflowReleaseDeployment:
+    release: WorkflowRelease
+    clusters: list[Cluster]
+
+    @classmethod
+    def from_deploy_message(
+        cls, deployment: workflows_pb2.DeployWorkflowReleaseResponse
+    ) -> "WorkflowReleaseDeployment":
+        """Convert a DeployWorkflowReleaseResponse protobuf message to a WorkflowReleaseDeployment object."""
+        return cls(
+            release=WorkflowRelease.from_message(deployment.release),
+            clusters=[Cluster.from_message(cluster) for cluster in deployment.clusters],
+        )
+
+    @classmethod
+    def from_undeploy_message(
+        cls, deployment: workflows_pb2.UndeployWorkflowReleaseResponse
+    ) -> "WorkflowReleaseDeployment":
+        """Convert an UndeployWorkflowReleaseResponse protobuf message to a WorkflowReleaseDeployment object."""
+        return cls(
+            release=WorkflowRelease.from_message(deployment.release),
+            clusters=[Cluster.from_message(cluster) for cluster in deployment.clusters],
+        )
 
 
 @dataclass
@@ -1045,6 +1197,7 @@ class QueryFilters:
     job_states: list[JobState]
     name: str | None
     task_states: list[TaskState]
+    cluster_slugs: list[str] = field(default_factory=list)
 
     @classmethod
     def from_message(cls, filters: job_pb2.QueryFilters) -> "QueryFilters":
@@ -1057,6 +1210,7 @@ class QueryFilters:
             job_states=[_JOB_STATES[state] for state in filters.states],
             name=filters.name or None,
             task_states=[_TASK_STATES[state] for state in filters.task_states],
+            cluster_slugs=list(filters.cluster_slugs),
         )
 
     def to_message(self) -> job_pb2.QueryFilters:
@@ -1071,4 +1225,5 @@ class QueryFilters:
             task_states=[cast(core_pb2.TaskState, state.value) for state in self.task_states]
             if self.task_states
             else None,
+            cluster_slugs=self.cluster_slugs or None,
         )
