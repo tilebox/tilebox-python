@@ -39,8 +39,8 @@ _FILL_VALUES_BY_DTYPE: dict[type[np.dtype[Any]], Any] = {
     npdtypes.BoolDType: False,
     npdtypes.StrDType: "",
     npdtypes.ObjectDType: None,
-    npdtypes.DateTime64DType: np.datetime64("NaT"),
-    npdtypes.TimeDelta64DType: np.timedelta64("NaT"),
+    npdtypes.DateTime64DType: np.datetime64("NaT", "ns"),
+    npdtypes.TimeDelta64DType: np.timedelta64("NaT", "ns"),
 }
 
 
