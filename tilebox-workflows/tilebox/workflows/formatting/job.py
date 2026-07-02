@@ -1,18 +1,20 @@
 """HTML formatting and ipywidgets for interactive display of Tilebox Workflow jobs."""
 
+from __future__ import annotations
+
 # some CSS helpers for our Jupyter HTML snippets - inspired by xarray's interactive display
 import random
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from threading import Event, Thread
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from dateutil.tz import tzlocal
-from ipywidgets import HTML, HBox, IntProgress, VBox
-
 from tilebox.workflows.data import Job, JobState
+
+if TYPE_CHECKING:
+    from ipywidgets import HBox, VBox
 
 
 class JobWidget:
@@ -32,6 +34,8 @@ class JobWidget:
             return None
 
         if self.layout is None:  # initialize the widget the first time we want to interactively display it
+            from ipywidgets import HTML, VBox  # noqa: PLC0415
+
             self.widgets.append(HTML(_render_job_details_html(self.job)))
             self.widgets.append(HTML(_render_job_progress(self.job, False)))
             self.widgets.extend(
@@ -59,12 +63,16 @@ class JobWidget:
             progress = self.refresh_callback(self.job.id)
             updated = False
             if last_progress is None:  # first time, don't add the refresh time
+                from ipywidgets import HTML  # noqa: PLC0415
+
                 self.widgets[1] = HTML(_render_job_progress(progress, False))
                 updated = True
             elif (
                 progress.state != last_progress.state
                 or progress.execution_stats.first_task_started_at != last_progress.execution_stats.first_task_started_at
             ):
+                from ipywidgets import HTML  # noqa: PLC0415
+
                 self.widgets[1] = HTML(_render_job_progress(progress, True))
                 updated = True
 
@@ -282,6 +290,8 @@ def _render_job_details_html(job: Job) -> str:
 
 
 def _render_datetime(dt: datetime) -> str:
+    from dateutil.tz import tzlocal  # noqa: PLC0415
+
     local = dt.astimezone(tzlocal())
     time_part = local.strftime("%Y-%m-%d %H:%M:%S")
     tz_part = local.strftime("%z")
@@ -292,6 +302,8 @@ def _render_datetime(dt: datetime) -> str:
 def _render_job_progress(job: Job, include_refresh_time: bool) -> str:
     refresh = ""
     if include_refresh_time:
+        from dateutil.tz import tzlocal  # noqa: PLC0415
+
         current_time = datetime.now(tzlocal())
         refresh = f" <span class='tbx-detail-value-muted'>(refreshed at {current_time.strftime('%H:%M:%S')})</span> {_info_icon}"
 
@@ -324,6 +336,8 @@ _BAR_COLORS = {
 
 
 def _progress_indicator_bar(label: str, done: int, total: int, state: JobState) -> HBox:
+    from ipywidgets import HTML, HBox, IntProgress  # noqa: PLC0415
+
     percentage = done / total if total > 0 else 0 if done <= total else 1
     non_completed_color = (
         _BAR_COLORS["failed"] if state in (JobState.FAILED, JobState.CANCELED) else _BAR_COLORS["running"]

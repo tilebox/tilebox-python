@@ -69,6 +69,14 @@ Pre-commit hooks include YAML checks, EOF fixer, `sync-with-uv`, Ruff, and `ty`.
 - Logging uses `loguru` in several packages; workflows also supports explicit logger/tracer configuration.
 - Tests use `pytest`, with async coverage (`pytest-asyncio`) and property-based testing (`hypothesis`) in multiple packages.
 
+### Import-Time Discipline
+
+- Keep `tilebox.workflows` task-authoring imports light. Release runners create fresh virtual environments, so avoid
+  importing heavy optional/runtime dependencies (`pandas`, `numpy`, `xarray`, cloud SDKs, `ipywidgets`, OpenTelemetry
+  SDK/exporters, cache backends) from package `__init__` modules or core `Runner`/`Task` import paths.
+- Prefer lazy imports inside the methods that actually need those dependencies. Module-level `__getattr__` aliases are
+  acceptable for public package aliases and are supported by Python 3.7+.
+
 ## Protobuf And Generated Code
 
 Generated files live under paths such as:

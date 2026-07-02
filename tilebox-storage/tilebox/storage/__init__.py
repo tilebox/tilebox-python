@@ -1,80 +1,34 @@
-from pathlib import Path
+from importlib import import_module
+from typing import TYPE_CHECKING, Any
 
-from tilebox.storage.aio import ASFStorageClient as _ASFStorageClient
-from tilebox.storage.aio import CopernicusStorageClient as _CopernicusStorageClient
-from tilebox.storage.aio import LocalFileSystemStorageClient as _LocalFileSystemStorageClient
-from tilebox.storage.aio import UmbraStorageClient as _UmbraStorageClient
-from tilebox.storage.aio import USGSLandsatStorageClient as _USGSLandsatStorageClient
+if TYPE_CHECKING:
+    from tilebox.storage._sync import (
+        ASFStorageClient,
+        CopernicusStorageClient,
+        LocalFileSystemStorageClient,
+        UmbraStorageClient,
+        USGSLandsatStorageClient,
+    )
 
-
-class ASFStorageClient(_ASFStorageClient):
-    def __init__(self, user: str, password: str, cache_directory: Path = Path.home() / ".cache" / "tilebox") -> None:
-        """A tilebox storage client that downloads data from the Alaska Satellite Facility.
-
-        Args:
-            user: The username to use for authentication.
-            password: The password to use for authentication.
-            cache_directory: The directory to store downloaded data in. Defaults to ~/.cache/tilebox. If set to None
-               no cache is used and the `output_dir` parameter will need be set when downloading data.
-        """
-        super().__init__(user, password, cache_directory)
-        self._syncify()
+__all__ = [
+    "ASFStorageClient",
+    "CopernicusStorageClient",
+    "LocalFileSystemStorageClient",
+    "USGSLandsatStorageClient",
+    "UmbraStorageClient",
+]
 
 
-class UmbraStorageClient(_UmbraStorageClient):
-    def __init__(self, cache_directory: Path | None = Path.home() / ".cache" / "tilebox") -> None:
-        """A tilebox storage client that downloads data from the Umbra Open Data Catalog.
+def __getattr__(name: str) -> Any:
+    if name not in __all__:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
 
-        Args:
-            cache_directory: The directory to store downloaded data in. Defaults to ~/.cache/tilebox. If set to None
-               no cache is used and the `output_dir` parameter will need be set when downloading data.
-        """
-        super().__init__(cache_directory)
-        self._syncify()
+    storage_client = getattr(import_module("tilebox.storage._sync"), name)
+    # Cache the resolved export so subsequent access uses normal module lookup instead of calling __getattr__ again.
+    globals()[name] = storage_client
+    return storage_client
 
 
-class CopernicusStorageClient(_CopernicusStorageClient):
-    def __init__(
-        self,
-        access_key: str | None = None,
-        secret_access_key: str | None = None,
-        cache_directory: Path | None = Path.home() / ".cache" / "tilebox",
-    ) -> None:
-        """A tilebox storage client that downloads data from the Copernicus EO data.
-
-        Args:
-            access_key: The S3 Copernicus access key. If not provided, the AWS_ACCESS_KEY_ID environment
-                variable will be used.
-            secret_access_key: The S3 Copernicus secret access key. If not provided, the AWS_SECRET_ACCESS_KEY
-                environment variable will be used.
-            cache_directory: The directory to store downloaded data in. Defaults to ~/.cache/tilebox. If set to None
-               no cache is used and the `output_dir` parameter will need be set when downloading data.
-        """
-        super().__init__(access_key, secret_access_key, cache_directory)
-        self._syncify()
-
-
-class USGSLandsatStorageClient(_USGSLandsatStorageClient):
-    def __init__(self, cache_directory: Path | None = Path.home() / ".cache" / "tilebox") -> None:
-        """A tilebox storage client that downloads data from the USGS Landsat S3 bucket.
-
-        This client handles the requester-pays nature of the bucket and provides methods for listing and downloading
-        data.
-
-        Args:
-            cache_directory: The directory to store downloaded data in. Defaults to ~/.cache/tilebox. If set to None
-               no cache is used and the `output_dir` parameter will need be set when downloading data.
-        """
-        super().__init__(cache_directory)
-        self._syncify()
-
-
-class LocalFileSystemStorageClient(_LocalFileSystemStorageClient):
-    def __init__(self, root: Path) -> None:
-        """A tilebox storage client for accessing data on a local file system, or a mounted network file system.
-
-        Args:
-            root: The root directory of the file system to access.
-        """
-        super().__init__(root)
-        self._syncify()
+def __dir__() -> list[str]:
+    # Include public lazy exports in dir(module) before they have been loaded.
+    return sorted(set(globals()) | set(__all__))

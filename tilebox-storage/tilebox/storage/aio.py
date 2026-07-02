@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import hashlib
@@ -9,16 +11,10 @@ from asyncio import Queue, QueueEmpty
 from collections.abc import AsyncIterator
 from pathlib import Path
 from pathlib import PurePosixPath as ObjectPath
-from typing import Any, TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 import anyio
-import niquests
-import obstore as obs
-import xarray as xr
 from aiofile import async_open
-from obstore.auth.boto3 import Boto3CredentialProvider
-from obstore.store import GCSStore, LocalStore, S3Store
-from tqdm.auto import tqdm
 
 from _tilebox.grpc.aio.producer_consumer import async_producer_consumer
 from _tilebox.grpc.aio.syncify import Syncifiable
@@ -30,24 +26,52 @@ from tilebox.storage.granule import (
     USGSLandsatStorageGranule,
     _is_copernicus_odata_url,
 )
-from tilebox.storage.providers import login
 
-try:
-    from IPython.display import HTML, Image, display
-except ImportError:
-    # IPython is not available, so we can't display the quicklook image
-    # but let's define stubs for the type checker
-    class Image:
-        def __init__(*_args: Any, **_kwargs: Any) -> None: ...
+if TYPE_CHECKING:
+    import niquests
+    import xarray as xr
+    from obstore.store import GCSStore, LocalStore, S3Store
 
-    class HTML:
-        def __init__(*_args: Any, **_kwargs: Any) -> None: ...
-
-    def display(*_args: Any, **_kwargs: Any) -> None:
-        raise RuntimeError("IPython is not available. Diagram can only be displayed in a notebook.")
+    ObjectStore: TypeAlias = S3Store | LocalStore | GCSStore
 
 
-ObjectStore: TypeAlias = S3Store | LocalStore | GCSStore
+def __getattr__(name: str) -> Any:
+    match name:
+        case "S3Store":
+            from obstore.store import S3Store  # noqa: PLC0415
+
+            value = S3Store
+        case "Boto3CredentialProvider":
+            from obstore.auth.boto3 import Boto3CredentialProvider  # noqa: PLC0415
+
+            value = Boto3CredentialProvider
+        case "Image" | "HTML" | "display":
+            value = _lazy_load_ipython()[name]
+        case _:
+            raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    globals()[name] = value
+    return value
+
+
+def _lazy_load_ipython() -> dict[str, Any]:
+    try:
+        from IPython.display import HTML, Image, display  # noqa: PLC0415
+    except ImportError:
+        raise ImportError("IPython is not available, please use download_quicklook instead.") from None
+    return {"HTML": HTML, "Image": Image, "display": display}
+
+
+def _s3_store_class() -> type[Any]:
+    from obstore.store import S3Store  # noqa: PLC0415
+
+    return S3Store
+
+
+def _boto3_credential_provider_class() -> type[Any]:
+    from obstore.auth.boto3 import Boto3CredentialProvider  # noqa: PLC0415
+
+    return Boto3CredentialProvider
 
 
 class _HttpClient(Syncifiable):
@@ -210,6 +234,8 @@ class _HttpClient(Syncifiable):
         md5 = hashlib.md5() if verify else None  # noqa: S324
         progress = None
         if show_progress:
+            from tqdm.auto import tqdm  # noqa: PLC0415
+
             progress = tqdm(total=granule.file_size, unit="B", unit_scale=True, unit_divisor=1024)
 
         async def writer(chunk: bytes) -> None:
@@ -249,12 +275,18 @@ class _HttpClient(Syncifiable):
             raise ValueError(f"Missing credentials for storage provider '{storage_provider}'")
 
         auth = self._auth[storage_provider]
+        from tilebox.storage.providers import login  # noqa: PLC0415
+
         client = await login(storage_provider, auth)
         self._clients[storage_provider] = client
         return client
 
 
 def _display_quicklook(image_data: bytes | Path, width: int, height: int, image_caption: str | None = None) -> None:
+    display_attrs = _lazy_load_ipython()
+    Image = display_attrs["Image"]  # noqa: N806
+    HTML = display_attrs["HTML"]  # noqa: N806
+    display = display_attrs["display"]
     display(Image(image_data, width=width, height=height))
     if image_caption is not None:
         display(HTML(image_caption))
@@ -283,6 +315,8 @@ class CachingStorageClient(StorageClient):
 
 
 async def list_object_paths(store: ObjectStore, prefix: str) -> list[str]:
+    import obstore as obs  # noqa: PLC0415
+
     objects = await obs.list(store, prefix).collect_async()
     prefix_path = ObjectPath(prefix)
     return sorted(str(ObjectPath(obj["path"]).relative_to(prefix_path)) for obj in objects)
@@ -324,6 +358,8 @@ async def _download_worker(
 async def _download_object(
     store: ObjectStore, prefix: str, obj: str, output_dir: Path, show_progress: bool = True
 ) -> Path:
+    import obstore as obs  # noqa: PLC0415
+
     key = str(ObjectPath(prefix) / obj)
     output_path = output_dir / obj
     if output_path.exists():  # already cached
@@ -335,6 +371,8 @@ async def _download_object(
     file_size = response.meta["size"]
     with download_path.open("wb") as f:
         if show_progress:
+            from tqdm.auto import tqdm  # noqa: PLC0415
+
             with tqdm(desc=obj, total=file_size, unit="B", unit_scale=True, unit_divisor=1024) as progress:
                 async for bytes_chunk in response:
                     f.write(bytes_chunk)
@@ -438,8 +476,6 @@ class ASFStorageClient(CachingStorageClient):
             Image: The quicklook image.
         """
         granule = ASFStorageGranule.from_data(datapoint)
-        if Image is None:
-            raise ImportError("IPython is not available, please use download_quicklook instead.")
         quicklook = await self._download_quicklook(datapoint)
         _display_quicklook(quicklook, width, height, f"<code>Image {quicklook.name} © ASF {granule.time.year}</code>")
 
@@ -477,7 +513,8 @@ class UmbraStorageClient(CachingStorageClient):
         """
         super().__init__(cache_directory)
 
-        self._store: ObjectStore = S3Store(self._BUCKET, region=self._REGION, skip_signature=True)
+        s3_store = _s3_store_class()
+        self._store: ObjectStore = s3_store(self._BUCKET, region=self._REGION, skip_signature=True)
 
     async def list_objects(self, datapoint: xr.Dataset | UmbraStorageGranule) -> list[str]:
         """List all available objects for a given datapoint.
@@ -605,7 +642,8 @@ class CopernicusStorageClient(CachingStorageClient):
                 f"To get access to the Copernicus data, please visit: https://documentation.dataspace.copernicus.eu/APIs/S3.html"
             )
 
-        self._store = S3Store(
+        s3_store = _s3_store_class()
+        self._store = s3_store(
             bucket=self._BUCKET,
             endpoint=self._ENDPOINT_URL,
             access_key_id=access_key,
@@ -747,8 +785,6 @@ class CopernicusStorageClient(CachingStorageClient):
             ImportError: In case IPython is not available.
             ValueError: If no quicklook is available for the given datapoint.
         """
-        if Image is None:
-            raise ImportError("IPython is not available, please use download_quicklook instead.")
         granule = CopernicusStorageGranule.from_data(datapoint)
         quicklook = await self._download_quicklook(granule)
         _display_quicklook(quicklook, width, height, f"<code>{granule.granule_name} © ESA {granule.time.year}</code>")
@@ -768,6 +804,8 @@ class CopernicusStorageClient(CachingStorageClient):
         if _is_copernicus_odata_url(granule.thumbnail):
             # the thumbnail is not stored in the S3 bucket, but is accessible via a public URL. So download it
             # directly.
+            import niquests  # noqa: PLC0415
+
             response = await niquests.aget(
                 granule.thumbnail, allow_redirects=True
             )  # to check if the thumbnail is accessible, raises if not
@@ -810,8 +848,10 @@ class USGSLandsatStorageClient(CachingStorageClient):
         """
         super().__init__(cache_directory)
 
-        self._store = S3Store(
-            self._BUCKET, region=self._REGION, request_payer=True, credential_provider=Boto3CredentialProvider()
+        boto3_credential_provider = _boto3_credential_provider_class()
+        s3_store = _s3_store_class()
+        self._store = s3_store(
+            self._BUCKET, region=self._REGION, request_payer=True, credential_provider=boto3_credential_provider()
         )
 
     async def list_objects(self, datapoint: xr.Dataset | USGSLandsatStorageGranule) -> list[str]:
@@ -922,8 +962,6 @@ class USGSLandsatStorageClient(CachingStorageClient):
             ImportError: In case IPython is not available.
             ValueError: If no quicklook is available for the given datapoint.
         """
-        if Image is None:
-            raise ImportError("IPython is not available, please use download_quicklook instead.")
         quicklook = await self._download_quicklook(datapoint)
         _display_quicklook(quicklook, width, height, f"<code>Image {quicklook.name} © USGS</code>")
 
@@ -1012,6 +1050,4 @@ class LocalFileSystemStorageClient(StorageClient):
             height: Display height of the image in pixels. Defaults to 600.
         """
         quicklook_path = await self._download_quicklook(datapoint)
-        if Image is None:
-            raise ImportError("IPython is not available, please use download_quicklook instead.")
         _display_quicklook(quicklook_path, width, height, None)

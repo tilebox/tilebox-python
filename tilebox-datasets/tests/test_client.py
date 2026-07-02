@@ -1,4 +1,6 @@
 import os
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -13,6 +15,24 @@ from tilebox.datasets import Client, DatasetClient
 from tilebox.datasets.client import _TILEBOX_API_URL, _TILEBOX_DEV_API_URL
 from tilebox.datasets.data.datapoint import QueryResultPage
 from tilebox.datasets.query.time_interval import us_to_datetime
+
+
+def test_heavy_imports_are_lazy() -> None:
+    code = (
+        "import sys\n"
+        "import tilebox.datasets as datasets\n"
+        "assert not {'pandas', 'xarray'} & sys.modules.keys()\n"
+        "assert set(datasets.__all__) <= set(dir(datasets))\n"
+        "from tilebox.datasets.query.time_interval import TimeInterval\n"
+        "assert not {'pandas', 'xarray'} & sys.modules.keys()\n"
+        "TimeInterval.parse('2026-01-01')\n"
+        "assert 'pandas' in sys.modules\n"
+        "assert 'xarray' not in sys.modules\n"
+        "client = datasets.Client\n"
+        "assert datasets.Client is client\n"
+        "assert 'Client' in vars(datasets)\n"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603
 
 
 @pytest.mark.parametrize("url", [_TILEBOX_API_URL, _TILEBOX_DEV_API_URL, f"{_TILEBOX_API_URL}/"])

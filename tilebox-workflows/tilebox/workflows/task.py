@@ -7,14 +7,19 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, fields, is_dataclass
 from types import NoneType, UnionType
-from typing import Any, Generic, TypeVar, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, get_args, get_origin
 
 # from python 3.11 onwards this is available as typing.dataclass_transform:
 from typing_extensions import dataclass_transform
 
 from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmissionGroup, TaskSubmissions
-from tilebox.workflows.observability.logging import StructuredLogger
-from tilebox.workflows.observability.tracing import WorkflowTracer
+
+if TYPE_CHECKING:
+    from tilebox.workflows.observability.logging import StructuredLogger
+    from tilebox.workflows.observability.tracing import WorkflowTracer
+else:
+    StructuredLogger = Any
+    WorkflowTracer = Any
 
 META_ATTR = "__tilebox_task_meta__"  # the name of the attribute we use to store task metadata on the class
 

@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath as ObjectPath
-
-import xarray as xr
+from typing import TYPE_CHECKING
 
 from tilebox.storage.providers import StorageURLs
+
+if TYPE_CHECKING:
+    import xarray as xr
 
 
 @dataclass
@@ -16,7 +20,7 @@ class ASFStorageGranule:
     urls: StorageURLs
 
     @classmethod
-    def from_data(cls, dataset: "xr.Dataset | ASFStorageGranule") -> "ASFStorageGranule":
+    def from_data(cls, dataset: xr.Dataset | ASFStorageGranule) -> ASFStorageGranule:
         """Extract the granule information from a datapoint given as xarray dataset."""
         if isinstance(dataset, ASFStorageGranule):
             return dataset
@@ -68,7 +72,7 @@ class UmbraStorageGranule:
     location: str
 
     @classmethod
-    def from_data(cls, dataset: "xr.Dataset | UmbraStorageGranule") -> "UmbraStorageGranule":
+    def from_data(cls, dataset: xr.Dataset | UmbraStorageGranule) -> UmbraStorageGranule:
         """Extract the granule information from a datapoint given as xarray dataset."""
         if isinstance(dataset, UmbraStorageGranule):
             return dataset
@@ -137,7 +141,7 @@ class CopernicusStorageGranule:
     thumbnail: str | None = None
 
     @classmethod
-    def from_data(cls, dataset: "xr.Dataset | CopernicusStorageGranule") -> "CopernicusStorageGranule":
+    def from_data(cls, dataset: xr.Dataset | CopernicusStorageGranule) -> CopernicusStorageGranule:
         """Extract the granule information from a datapoint given as xarray dataset."""
         if isinstance(dataset, CopernicusStorageGranule):
             return dataset
@@ -176,7 +180,7 @@ class USGSLandsatStorageGranule:
     thumbnail: str | None = None
 
     @classmethod
-    def from_data(cls, dataset: "xr.Dataset | USGSLandsatStorageGranule") -> "USGSLandsatStorageGranule":
+    def from_data(cls, dataset: xr.Dataset | USGSLandsatStorageGranule) -> USGSLandsatStorageGranule:
         """Extract the granule information from a datapoint given as xarray dataset."""
         if isinstance(dataset, USGSLandsatStorageGranule):
             return dataset
@@ -212,7 +216,7 @@ class LocationStorageGranule:
     thumbnail: str | None = None
 
     @classmethod
-    def from_data(cls, dataset: "xr.Dataset | LocationStorageGranule") -> "LocationStorageGranule":
+    def from_data(cls, dataset: xr.Dataset | LocationStorageGranule) -> LocationStorageGranule:
         """Extract the granule information from a datapoint given as xarray dataset."""
         if isinstance(dataset, LocationStorageGranule):
             return dataset
