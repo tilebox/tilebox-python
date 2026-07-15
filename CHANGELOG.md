@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `tilebox-workflows`: Allow task `execute()` methods to use a `-> None` return annotation when postponed annotation
+  evaluation is enabled.
+
 ## [0.55.0] - 2026-07-01
 
 ### Added

@@ -136,7 +136,8 @@ def _validate_execute_method(
             f"but got {class_name}.execute{signature}!"
         )
 
-    if signature.return_annotation is not None and signature.return_annotation != inspect._empty:  # noqa: SLF001
+    # `from __future__ import annotations` stores `-> None` as the string "None".
+    if signature.return_annotation not in (None, "None", inspect.Signature.empty):
         raise TypeError(f"Expected {class_name}.execute{signature} to not have a return value!")
 
     return True

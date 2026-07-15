@@ -1,3 +1,5 @@
+import __future__
+
 import json
 from dataclasses import dataclass
 from typing import Annotated
@@ -44,6 +46,35 @@ def test_task_validation_simple_task_executable() -> None:
             pass
 
     assert TaskMeta.for_task(SimpleTask).executable is True
+
+
+def _compile_task_with_postponed_return_annotation(return_annotation: str) -> type:
+    source = f"""
+class PostponedAnnotationsTask(Task):
+    def execute(self, context: ExecutionContext) -> {return_annotation}:
+        pass
+"""
+    namespace: dict[str, type] = {"Task": Task, "ExecutionContext": ExecutionContext}
+    code = compile(
+        source,
+        filename="<postponed-annotations-test>",
+        mode="exec",
+        flags=__future__.annotations.compiler_flag,
+        dont_inherit=True,
+    )
+    exec(code, namespace)  # noqa: S102
+    return namespace["PostponedAnnotationsTask"]
+
+
+def test_task_validation_execute_none_return_type_with_postponed_annotations() -> None:
+    task_class = _compile_task_with_postponed_return_annotation("None")
+
+    assert TaskMeta.for_task(task_class).executable is True
+
+
+def test_task_validation_execute_invalid_return_type_with_postponed_annotations() -> None:
+    with pytest.raises(TypeError, match="to not have a return value"):
+        _compile_task_with_postponed_return_annotation("int")
 
 
 def test_task_validation_execute_invalid_signature_no_params() -> None:
