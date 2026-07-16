@@ -31,6 +31,7 @@ from tilebox.datasets.data.datasets import (
     Field,
     FieldAnnotation,
     FieldDict,
+    FieldRole,
     ListDatasetsResponse,
 )
 from tilebox.datasets.message_pool import register_once
@@ -41,7 +42,11 @@ def field_annotations(draw: DrawFn) -> FieldAnnotation:
     """A hypothesis strategy for generating random field annotations"""
     description = draw(text(alphabet=string.ascii_letters, min_size=3, max_size=25))
     example_value = draw(text(alphabet=string.ascii_letters + string.digits + "-_", min_size=1, max_size=10))
-    return FieldAnnotation(description, example_value)
+    source_json_pointer = draw(text(alphabet=string.ascii_letters + string.digits + "/_-", max_size=25) | none())
+    queryable = draw(booleans())
+    json_schema_ref = draw(text(alphabet=string.ascii_letters + string.digits + "#/_-", max_size=25) | none())
+    roles = draw(lists(sampled_from(FieldRole), unique=True))
+    return FieldAnnotation(description, example_value, source_json_pointer, queryable, json_schema_ref, roles)
 
 
 @composite
@@ -73,12 +78,22 @@ def field_dicts(draw: DrawFn) -> FieldDict:
         )
     )
     annotation = draw(field_annotations())
+    roles = draw(
+        one_of(
+            lists(sampled_from(FieldRole), unique=True),
+            lists(just("primary_title"), unique=True),
+        )
+    )
 
     return {
         "name": name,
         "type": field_type,
         "description": annotation.description,
         "example_value": annotation.example_value,
+        "source_json_pointer": annotation.source_json_pointer,
+        "queryable": annotation.queryable,
+        "json_schema_ref": annotation.json_schema_ref,
+        "roles": roles,
     }
 
 
@@ -104,8 +119,7 @@ def fields(draw: DrawFn) -> Field:
     descriptor = FieldDescriptorProto(name=name, type=field_type, type_name=type_name, label=label)
 
     annotation = draw(field_annotations())
-    queryable = draw(booleans())
-    return Field(descriptor, annotation, queryable)
+    return Field(descriptor, annotation)
 
 
 @composite

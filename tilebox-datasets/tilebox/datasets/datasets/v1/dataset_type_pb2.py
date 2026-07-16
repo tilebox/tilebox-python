@@ -28,7 +28,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1e\x64\x61tasets/v1/dataset_type.proto\x12\x0b\x64\x61tasets.v1\x1a\"datasets/v1/well_known_types.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\"\x9d\x01\n\x05\x46ield\x12\x45\n\ndescriptor\x18\x01 \x01(\x0b\x32%.google.protobuf.FieldDescriptorProtoR\ndescriptor\x12<\n\nannotation\x18\x02 \x01(\x0b\x32\x1c.datasets.v1.FieldAnnotationR\nannotationJ\x04\x08\x03\x10\x04R\tqueryable\"\x9d\x02\n\x0f\x46ieldAnnotation\x12 \n\x0b\x64\x65scription\x18\x01 \x01(\tR\x0b\x64\x65scription\x12#\n\rexample_value\x18\x02 \x01(\tR\x0c\x65xampleValue\x12\x35\n\x13source_json_pointer\x18\x03 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x11sourceJsonPointer\x12\x1c\n\tqueryable\x18\x04 \x01(\x08R\tqueryable\x12@\n\x19queryable_json_schema_ref\x18\x05 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x16queryableJsonSchemaRef\x12,\n\x05roles\x18\x06 \x03(\x0e\x32\x16.datasets.v1.FieldRoleR\x05roles\"g\n\x0b\x44\x61tasetType\x12,\n\x04kind\x18\x01 \x01(\x0e\x32\x18.datasets.v1.DatasetKindR\x04kind\x12*\n\x06\x66ields\x18\x02 \x03(\x0b\x32\x12.datasets.v1.FieldR\x06\x66ields\"\xf4\x01\n\rAnnotatedType\x12I\n\x0e\x64\x65scriptor_set\x18\x01 \x01(\x0b\x32\".google.protobuf.FileDescriptorSetR\rdescriptorSet\x12\x19\n\x08type_url\x18\x02 \x01(\tR\x07typeUrl\x12I\n\x11\x66ield_annotations\x18\x04 \x03(\x0b\x32\x1c.datasets.v1.FieldAnnotationR\x10\x66ieldAnnotations\x12,\n\x04kind\x18\x05 \x01(\x0e\x32\x18.datasets.v1.DatasetKindR\x04kindJ\x04\x08\x03\x10\x04\"\xa6\x01\n\x11TemporalDatapoint\x12.\n\x04time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x04time\x12\x1e\n\x02id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x41\n\x0eingestion_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ringestionTime\"\xdf\x01\n\x17SpatioTemporalDatapoint\x12.\n\x04time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x04time\x12\x1e\n\x02id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x41\n\x0eingestion_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ringestionTime\x12\x31\n\x08geometry\x18\x04 \x01(\x0b\x32\x15.datasets.v1.GeometryR\x08geometry*g\n\x0b\x44\x61tasetKind\x12\x1c\n\x18\x44\x41TASET_KIND_UNSPECIFIED\x10\x00\x12\x19\n\x15\x44\x41TASET_KIND_TEMPORAL\x10\x01\x12\x1f\n\x1b\x44\x41TASET_KIND_SPATIOTEMPORAL\x10\x02*E\n\tFieldRole\x12\x1a\n\x16\x46IELD_ROLE_UNSPECIFIED\x10\x00\x12\x1c\n\x18\x46IELD_ROLE_PRIMARY_TITLE\x10\x01\x42u\n\x0f\x63om.datasets.v1B\x10\x44\x61tasetTypeProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1e\x64\x61tasets/v1/dataset_type.proto\x12\x0b\x64\x61tasets.v1\x1a\"datasets/v1/well_known_types.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\"\x8c\x01\n\x05\x46ield\x12\x45\n\ndescriptor\x18\x01 \x01(\x0b\x32%.google.protobuf.FieldDescriptorProtoR\ndescriptor\x12<\n\nannotation\x18\x02 \x01(\x0b\x32\x1c.datasets.v1.FieldAnnotationR\nannotation\"\x8a\x02\n\x0f\x46ieldAnnotation\x12 \n\x0b\x64\x65scription\x18\x01 \x01(\tR\x0b\x64\x65scription\x12#\n\rexample_value\x18\x02 \x01(\tR\x0c\x65xampleValue\x12\x35\n\x13source_json_pointer\x18\x03 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x11sourceJsonPointer\x12\x1c\n\tqueryable\x18\x04 \x01(\x08R\tqueryable\x12-\n\x0fjson_schema_ref\x18\x05 \x01(\tB\x05\xaa\x01\x02\x08\x01R\rjsonSchemaRef\x12,\n\x05roles\x18\x06 \x03(\x0e\x32\x16.datasets.v1.FieldRoleR\x05roles\"g\n\x0b\x44\x61tasetType\x12,\n\x04kind\x18\x01 \x01(\x0e\x32\x18.datasets.v1.DatasetKindR\x04kind\x12*\n\x06\x66ields\x18\x02 \x03(\x0b\x32\x12.datasets.v1.FieldR\x06\x66ields\"\xf4\x01\n\rAnnotatedType\x12I\n\x0e\x64\x65scriptor_set\x18\x01 \x01(\x0b\x32\".google.protobuf.FileDescriptorSetR\rdescriptorSet\x12\x19\n\x08type_url\x18\x02 \x01(\tR\x07typeUrl\x12I\n\x11\x66ield_annotations\x18\x04 \x03(\x0b\x32\x1c.datasets.v1.FieldAnnotationR\x10\x66ieldAnnotations\x12,\n\x04kind\x18\x05 \x01(\x0e\x32\x18.datasets.v1.DatasetKindR\x04kindJ\x04\x08\x03\x10\x04\"\xa6\x01\n\x11TemporalDatapoint\x12.\n\x04time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x04time\x12\x1e\n\x02id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x41\n\x0eingestion_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ringestionTime\"\xdf\x01\n\x17SpatioTemporalDatapoint\x12.\n\x04time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x04time\x12\x1e\n\x02id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x41\n\x0eingestion_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ringestionTime\x12\x31\n\x08geometry\x18\x04 \x01(\x0b\x32\x15.datasets.v1.GeometryR\x08geometry*g\n\x0b\x44\x61tasetKind\x12\x1c\n\x18\x44\x41TASET_KIND_UNSPECIFIED\x10\x00\x12\x19\n\x15\x44\x41TASET_KIND_TEMPORAL\x10\x01\x12\x1f\n\x1b\x44\x41TASET_KIND_SPATIOTEMPORAL\x10\x02*E\n\tFieldRole\x12\x1a\n\x16\x46IELD_ROLE_UNSPECIFIED\x10\x00\x12\x1c\n\x18\x46IELD_ROLE_PRIMARY_TITLE\x10\x01\x42u\n\x0f\x63om.datasets.v1B\x10\x44\x61tasetTypeProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -38,22 +38,22 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._serialized_options = b'\n\017com.datasets.v1B\020DatasetTypeProtoP\001\242\002\003DXX\252\002\013Datasets.V1\312\002\013Datasets\\V1\342\002\027Datasets\\V1\\GPBMetadata\352\002\014Datasets::V1\222\003\002\010\002'
   _globals['_FIELDANNOTATION'].fields_by_name['source_json_pointer']._loaded_options = None
   _globals['_FIELDANNOTATION'].fields_by_name['source_json_pointer']._serialized_options = b'\252\001\002\010\001'
-  _globals['_FIELDANNOTATION'].fields_by_name['queryable_json_schema_ref']._loaded_options = None
-  _globals['_FIELDANNOTATION'].fields_by_name['queryable_json_schema_ref']._serialized_options = b'\252\001\002\010\001'
-  _globals['_DATASETKIND']._serialized_start=1366
-  _globals['_DATASETKIND']._serialized_end=1469
-  _globals['_FIELDROLE']._serialized_start=1471
-  _globals['_FIELDROLE']._serialized_end=1540
+  _globals['_FIELDANNOTATION'].fields_by_name['json_schema_ref']._loaded_options = None
+  _globals['_FIELDANNOTATION'].fields_by_name['json_schema_ref']._serialized_options = b'\252\001\002\010\001'
+  _globals['_DATASETKIND']._serialized_start=1330
+  _globals['_DATASETKIND']._serialized_end=1433
+  _globals['_FIELDROLE']._serialized_start=1435
+  _globals['_FIELDROLE']._serialized_end=1504
   _globals['_FIELD']._serialized_start=172
-  _globals['_FIELD']._serialized_end=329
-  _globals['_FIELDANNOTATION']._serialized_start=332
-  _globals['_FIELDANNOTATION']._serialized_end=617
-  _globals['_DATASETTYPE']._serialized_start=619
-  _globals['_DATASETTYPE']._serialized_end=722
-  _globals['_ANNOTATEDTYPE']._serialized_start=725
-  _globals['_ANNOTATEDTYPE']._serialized_end=969
-  _globals['_TEMPORALDATAPOINT']._serialized_start=972
-  _globals['_TEMPORALDATAPOINT']._serialized_end=1138
-  _globals['_SPATIOTEMPORALDATAPOINT']._serialized_start=1141
-  _globals['_SPATIOTEMPORALDATAPOINT']._serialized_end=1364
+  _globals['_FIELD']._serialized_end=312
+  _globals['_FIELDANNOTATION']._serialized_start=315
+  _globals['_FIELDANNOTATION']._serialized_end=581
+  _globals['_DATASETTYPE']._serialized_start=583
+  _globals['_DATASETTYPE']._serialized_end=686
+  _globals['_ANNOTATEDTYPE']._serialized_start=689
+  _globals['_ANNOTATEDTYPE']._serialized_end=933
+  _globals['_TEMPORALDATAPOINT']._serialized_start=936
+  _globals['_TEMPORALDATAPOINT']._serialized_end=1102
+  _globals['_SPATIOTEMPORALDATAPOINT']._serialized_start=1105
+  _globals['_SPATIOTEMPORALDATAPOINT']._serialized_end=1328
 # @@protoc_insertion_point(module_scope)

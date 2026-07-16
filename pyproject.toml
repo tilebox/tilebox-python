@@ -69,9 +69,9 @@ exclude = [
     "*/.venv/*",
     # it's auto generated, don't lint it
     "*/datasets/v1/*",
+    "*/datasets/stac/v1/*",
     "*/workflows/v1/*",
     "*/tilebox/v1/*",
-    "*/buf/validate/*",
 ]
 
 [tool.ruff.lint]
@@ -85,7 +85,7 @@ ignore = [
     "DTZ", # flake8-datetimez: utc datetimes are useful
     "DJ",  # flake8-django: not needed
     "EM",  # flake8-errmsg: str directly in Exception constructor is accetable
-    "TCH", # flake8-type-checking: type checking blocks are weird
+    "TC",  # flake8-type-checking: type checking blocks are weird
     # specific rules
     "ANN401",  # any-type: allow Any in *args and **kwargs
     "S101",    # assert: allow usage of assert
