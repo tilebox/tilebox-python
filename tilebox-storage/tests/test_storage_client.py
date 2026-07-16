@@ -1,4 +1,6 @@
 import re
+import subprocess
+import sys
 from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -9,6 +11,7 @@ import responses
 from hypothesis import HealthCheck, given, settings
 from obstore.store import LocalStore
 
+import tilebox.storage.aio as storage_aio
 from tests.storage_data import ers_granules, landsat_granules, s5p_granules, umbra_granules
 from tilebox.storage.aio import (
     ASFStorageClient,
@@ -25,9 +28,42 @@ from tilebox.storage.granule import (
     USGSLandsatStorageGranule,
 )
 
+# Warm lazy storage attributes used in Hypothesis-timed tests. Otherwise the first generated example pays the one-time
+# import cost and Hypothesis can report flaky deadline failures when replayed examples are much faster.
+_ = storage_aio.Boto3CredentialProvider
+_ = storage_aio.S3Store
+
 pytestmark = pytest.mark.usefixtures("responses_mock")
 
 ASF_LOGIN_URL = "https://urs.earthdata.nasa.gov/oauth/authorize"
+
+
+def test_heavy_imports_are_lazy() -> None:
+    code = (
+        "import inspect\n"
+        "import pickle\n"
+        "import sys\n"
+        "import tilebox.storage as storage\n"
+        "heavy = {'tilebox.storage.aio', 'xarray', 'obstore', 'niquests', 'IPython'}\n"
+        "assert not heavy & sys.modules.keys()\n"
+        "assert set(storage.__all__) <= set(dir(storage))\n"
+        "client = storage.LocalFileSystemStorageClient\n"
+        "assert storage.LocalFileSystemStorageClient is client\n"
+        "assert inspect.isclass(client)\n"
+        "assert client.__module__ == 'tilebox.storage'\n"
+        "assert client.__init__.__qualname__ == 'LocalFileSystemStorageClient.__init__'\n"
+        "assert pickle.loads(pickle.dumps(client)) is client\n"
+        "assert 'tilebox.storage.aio' in sys.modules\n"
+        "assert not {'xarray', 'obstore', 'niquests', 'IPython'} & sys.modules.keys()\n"
+        "try:\n"
+        "    from tilebox.storage.aio import Image\n"
+        "except ImportError:\n"
+        "    pass\n"
+        "else:\n"
+        "    assert inspect.isclass(Image)\n"
+        "    assert 'IPython' in sys.modules\n"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603
 
 
 def _mock_asf_login(*, status: int = 200) -> None:
@@ -101,7 +137,7 @@ async def test_quicklook(
     responses.add(responses.GET, granule.urls.quicklook, body=b"my-quicklook-image")
 
     client = _HttpClient(auth={"ASF": ("username", "password")})
-    with patch("tilebox.storage.aio.Image"), patch("tilebox.storage.aio._display_quicklook") as display_mock:
+    with patch("tilebox.storage.aio._display_quicklook") as display_mock:
         await client.quicklook(granule)
         display_mock.assert_called_once()
         assert display_mock.call_args[0][0] == b"my-quicklook-image"
@@ -220,7 +256,7 @@ async def test_umbra_storage_client_download(granule: UmbraStorageGranule) -> No
         await store.put_async(f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif", b"content1")
         await store.put_async(f"sar-data/tasks/{granule.location}/{granule.granule_name}_CPHD.cphd", b"content2")
 
-        with patch("tilebox.storage.aio.S3Store") as store_mock:
+        with patch("obstore.store.S3Store") as store_mock:
             store_mock.return_value = store
             umbra = UmbraStorageClient(Path(tmp_path) / "cache")
 
@@ -246,7 +282,7 @@ async def test_umbra_storage_client_list_objects(granule: UmbraStorageGranule) -
             f"sar-data/tasks/another_{granule.location}/another_{granule.granule_name}_CPHD.cphd", b"content2"
         )
 
-        with patch("tilebox.storage.aio.S3Store") as store_mock:
+        with patch("obstore.store.S3Store") as store_mock:
             store_mock.return_value = store
             umbra = UmbraStorageClient(Path(tmp_path) / "cache")
 
@@ -266,7 +302,7 @@ async def test_umbra_storage_client_download_objects(granule: UmbraStorageGranul
         await store.put_async(f"sar-data/tasks/{granule.location}/{granule.granule_name}_GEC.tif", b"content1")
         await store.put_async(f"sar-data/tasks/{granule.location}/{granule.granule_name}_CPHD.cphd", b"content2")
 
-        with patch("tilebox.storage.aio.S3Store") as store_mock:
+        with patch("obstore.store.S3Store") as store_mock:
             store_mock.return_value = store
             umbra = UmbraStorageClient(Path(tmp_path) / "cache")
 
@@ -285,7 +321,7 @@ async def test_copernicus_storage_client_download(granule: CopernicusStorageGran
         store = LocalStore(store_path)
 
         await store.put_async(f"{granule.location.removeprefix('/eodata/')}/{granule.granule_name}", b"content1")
-        with patch("tilebox.storage.aio.S3Store") as store_mock:
+        with patch("obstore.store.S3Store") as store_mock:
             store_mock.return_value = store
             copernicus = CopernicusStorageClient(
                 access_key="testing",
@@ -311,7 +347,7 @@ async def test_copernicus_storage_client_list_objects(granule: CopernicusStorage
         await store.put_async(
             f"{granule.location.removeprefix('/eodata/')}_other_granule/{granule.granule_name}", b"content2"
         )
-        with patch("tilebox.storage.aio.S3Store") as store_mock:
+        with patch("obstore.store.S3Store") as store_mock:
             store_mock.return_value = store
             copernicus = CopernicusStorageClient(
                 access_key="testing",
@@ -337,7 +373,7 @@ async def test_copernicus_storage_client_download_objects(granule: CopernicusSto
         await store.put_async(
             f"{granule.location.removeprefix('/eodata/')}/other_product_{granule.granule_name}", b"content2"
         )
-        with patch("tilebox.storage.aio.S3Store") as store_mock:
+        with patch("obstore.store.S3Store") as store_mock:
             store_mock.return_value = store
             copernicus = CopernicusStorageClient(
                 access_key="testing",
@@ -362,7 +398,7 @@ async def test_landsat_storage_client_download(granule: USGSLandsatStorageGranul
         await store.put_async(
             f"{granule.location.removeprefix('s3://usgs-landsat/')}/{granule.granule_name}", b"content1"
         )
-        with patch("tilebox.storage.aio.S3Store") as store_mock, patch("tilebox.storage.aio.Boto3CredentialProvider"):
+        with patch("obstore.store.S3Store") as store_mock, patch("obstore.auth.boto3.Boto3CredentialProvider"):
             store_mock.return_value = store
             landsat = USGSLandsatStorageClient(cache_directory=Path(tmp_path))
 
@@ -387,7 +423,7 @@ async def test_landsat_storage_client_list_objects(granule: USGSLandsatStorageGr
             f"{granule.location.removeprefix('s3://usgs-landsat/')}/{granule.granule_name}_thumb_small.jpeg",
             b"content2",
         )
-        with patch("tilebox.storage.aio.S3Store") as store_mock, patch("tilebox.storage.aio.Boto3CredentialProvider"):
+        with patch("obstore.store.S3Store") as store_mock, patch("obstore.auth.boto3.Boto3CredentialProvider"):
             store_mock.return_value = store
             landsat = USGSLandsatStorageClient(cache_directory=Path(tmp_path))
 
@@ -411,7 +447,7 @@ async def test_landsat_storage_client_download_objects(granule: USGSLandsatStora
         await store.put_async(
             f"{granule.location.removeprefix('s3://usgs-landsat/')}/other_product_{granule.granule_name}", b"content2"
         )
-        with patch("tilebox.storage.aio.S3Store") as store_mock, patch("tilebox.storage.aio.Boto3CredentialProvider"):
+        with patch("obstore.store.S3Store") as store_mock, patch("obstore.auth.boto3.Boto3CredentialProvider"):
             store_mock.return_value = store
             landsat = USGSLandsatStorageClient(cache_directory=Path(tmp_path))
 

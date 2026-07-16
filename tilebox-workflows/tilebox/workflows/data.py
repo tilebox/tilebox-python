@@ -6,13 +6,9 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
-import boto3
-import pandas as pd
-from google.cloud.storage import Client as GoogleStorageClient
-from google.cloud.storage.bucket import Bucket
 from google.protobuf.duration_pb2 import Duration
 from opentelemetry.proto.common.v1 import common_pb2
 from opentelemetry.proto.logs.v1 import logs_pb2
@@ -30,13 +26,16 @@ from tilebox.datasets.query.time_interval import (
 )
 from tilebox.datasets.uuid import must_uuid_to_uuid_message, uuid_message_to_uuid, uuid_to_uuid_message
 
-try:
-    # let's not make this a hard dependency, but if it's installed we can use its types
+if TYPE_CHECKING:
+    from google.cloud.storage.bucket import Bucket
     from mypy_boto3_s3.client import S3Client
-except ModuleNotFoundError:
-    from typing import Any as S3Client
 
-from tilebox.workflows.observability.tracing import NoopWorkflowTracer, WorkflowTracer
+    from tilebox.workflows.observability.tracing import WorkflowTracer
+else:
+    Bucket = Any
+    S3Client = Any
+    WorkflowTracer = Any
+
 from tilebox.workflows.workflows.v1 import automation_pb2 as automation_pb
 from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2, workflows_pb2
 
@@ -758,6 +757,8 @@ class LogRecord:
 class LogRecords(list[LogRecord]):
     def to_pandas(self) -> Any:
         """Convert log records to a pandas DataFrame."""
+        import pandas as pd  # noqa: PLC0415
+
         return pd.DataFrame([asdict(record) for record in self])
 
 
@@ -836,6 +837,8 @@ class Span:
 class Spans(list[Span]):
     def to_pandas(self) -> Any:
         """Convert spans to a pandas DataFrame."""
+        import pandas as pd  # noqa: PLC0415
+
         rows = []
         for span in self:
             row = asdict(span)
@@ -1139,6 +1142,8 @@ class RunnerContext:
         storage_locations: list[StorageLocation] | None = None,
     ) -> None:
         if tracer is None:
+            from tilebox.workflows.observability.tracing import NoopWorkflowTracer  # noqa: PLC0415
+
             tracer = NoopWorkflowTracer()
         self.tracer = tracer
         self.storage_locations = {
@@ -1150,6 +1155,8 @@ class RunnerContext:
         return _default_google_storage_client(location)
 
     def s3_client(self, location: str) -> S3Client:
+        import boto3  # noqa: PLC0415
+
         _ = location  # we always use the default s3 client, regardless of the location
         with warnings.catch_warnings():
             # https://github.com/boto/boto3/issues/3889
@@ -1162,6 +1169,8 @@ class RunnerContext:
 
 @lru_cache
 def _default_google_storage_client(location: str) -> Bucket:
+    from google.cloud.storage import Client as GoogleStorageClient  # noqa: PLC0415
+
     project, bucket = location.split(":")
     return GoogleStorageClient(project=project).bucket(bucket)
 

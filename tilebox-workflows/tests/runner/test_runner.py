@@ -1,5 +1,7 @@
 import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -12,6 +14,21 @@ from tilebox.workflows.client import Client
 from tilebox.workflows.data import JobState, ProgressIndicator, RunnerContext, TaskState
 from tilebox.workflows.observability.tracing import NoopWorkflowTracer
 from tilebox.workflows.runner.task_runner import TaskRunner
+
+
+def test_task_authoring_imports_are_lazy() -> None:
+    code = (
+        "import sys\n"
+        "import tilebox.workflows as workflows\n"
+        "heavy = {'pandas', 'xarray', 'boto3', 'google.cloud.storage', 'ipywidgets', 'opentelemetry.sdk'}\n"
+        "assert not heavy & sys.modules.keys()\n"
+        "assert set(workflows.__all__) <= set(dir(workflows))\n"
+        "task = workflows.Task\n"
+        "assert not heavy & sys.modules.keys()\n"
+        "assert workflows.Task is task\n"
+        "assert 'Task' in vars(workflows)\n"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603
 
 
 def int_to_bytes(n: int) -> bytes:

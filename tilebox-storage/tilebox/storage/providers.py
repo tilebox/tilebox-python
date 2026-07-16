@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from platform import python_version
+from typing import TYPE_CHECKING
 
-from niquests import AsyncSession
+if TYPE_CHECKING:
+    from niquests import AsyncSession
 
 
 @dataclass
@@ -49,6 +53,8 @@ async def _asf_login(auth: tuple[str, str]) -> AsyncSession:
         "User-Agent": user_agent,
         "Client-Id": client_id,
     }
+
+    from niquests import AsyncSession  # noqa: PLC0415
 
     client = AsyncSession(auth=auth, headers=headers)
     response = await client.get(

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-07-16
+
+### Changed
+
+- `tilebox-workflows`: Reduced import-time overhead for release runners by lazily loading optional heavy dependencies
+  such as datasets, pandas, cloud SDKs, notebook widgets, and runtime/observability modules until they are needed.
+- `tilebox-datasets`: Reduced import-time overhead by lazily exporting the root and async client APIs and deferring
+  pandas/xarray imports in time interval parsing until parsing requires them.
+- `tilebox-storage`: Reduced startup overhead by lazily exporting sync storage clients and deferring geospatial,
+  notebook, object-store, cloud SDK, HTTP, and progress-display dependencies until storage operations require them.
+
 ### Fixed
 
 - `tilebox-workflows`: Allow task `execute()` methods to use a `-> None` return annotation when postponed annotation
@@ -401,7 +412,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.55.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.55.1...HEAD
+[0.55.1]: https://github.com/tilebox/tilebox-python/compare/v0.55.0...v0.55.1
 [0.55.0]: https://github.com/tilebox/tilebox-python/compare/v0.54.0...v0.55.0
 [0.54.0]: https://github.com/tilebox/tilebox-python/compare/v0.53.0...v0.54.0
 [0.53.0]: https://github.com/tilebox/tilebox-python/compare/v0.52.0...v0.53.0

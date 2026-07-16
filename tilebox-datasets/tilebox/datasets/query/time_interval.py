@@ -1,21 +1,22 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias
 
-import numpy as np
-import xarray as xr
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
-from pandas.core.tools.datetimes import DatetimeScalar, to_datetime
 
 from tilebox.datasets.tilebox.v1 import query_pb2
+
+if TYPE_CHECKING:
+    from pandas.core.tools.datetimes import DatetimeScalar
+    from xarray import DataArray, Dataset
 
 _SMALLEST_POSSIBLE_TIMEDELTA = timedelta(microseconds=1)
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 # A type alias for the different types that can be used to specify a time interval
 TimeIntervalLike: TypeAlias = (
-    "DatetimeScalar | tuple[DatetimeScalar, DatetimeScalar] | xr.DataArray | xr.Dataset | TimeInterval"
+    "DatetimeScalar | tuple[DatetimeScalar, DatetimeScalar] | list[DatetimeScalar] | DataArray | Dataset | TimeInterval"
 )
 # once we require python >= 3.12 we can replace this with a type statement, which doesn't require a string at all
 # type TimeIntervalLike = DatetimeScalar | tuple[DatetimeScalar ...  | TimeInterval
@@ -133,30 +134,34 @@ class TimeInterval:
             TimeInterval: The parsed time interval
         """
 
-        match arg:
-            case TimeInterval(_, _, _, _):
-                return arg
-            case (start, end):
-                return TimeInterval(start=_convert_to_datetime(start), end=_convert_to_datetime(end))
-            case point_in_time if isinstance(point_in_time, DatetimeScalar | int):
-                dt = _convert_to_datetime(point_in_time)
-                return TimeInterval(start=dt, end=dt, start_exclusive=False, end_inclusive=True)
-            case arr if (
-                isinstance(arr, xr.DataArray)
-                and arr.ndim == 1
-                and arr.size > 0
-                and arr.dtype == np.dtype("datetime64[ns]")
-            ):
-                start = arr.data[0]
-                end = arr.data[-1]
-                return TimeInterval(
-                    start=_convert_to_datetime(start),
-                    end=_convert_to_datetime(end),
-                    start_exclusive=False,
-                    end_inclusive=True,
-                )
-            case ds if isinstance(ds, xr.Dataset) and "time" in ds.coords:
-                return cls.parse(ds.time)
+        if isinstance(arg, TimeInterval):
+            return arg
+
+        if isinstance(arg, list | tuple) and len(arg) == 2:
+            start, end = arg
+            return TimeInterval(start=_convert_to_datetime(start), end=_convert_to_datetime(end))
+
+        from pandas.core.tools.datetimes import DatetimeScalar  # noqa: PLC0415
+
+        if isinstance(arg, DatetimeScalar | int):
+            dt = _convert_to_datetime(arg)
+            return TimeInterval(start=dt, end=dt, start_exclusive=False, end_inclusive=True)
+
+        import numpy as np  # noqa: PLC0415
+        import xarray as xr  # noqa: PLC0415
+
+        if isinstance(arg, xr.DataArray) and arg.ndim == 1 and arg.size > 0 and arg.dtype == np.dtype("datetime64[ns]"):
+            start = arg.data[0]
+            end = arg.data[-1]
+            return TimeInterval(
+                start=_convert_to_datetime(start),
+                end=_convert_to_datetime(end),
+                start_exclusive=False,
+                end_inclusive=True,
+            )
+
+        if isinstance(arg, xr.Dataset) and "time" in arg.coords:
+            return cls.parse(arg.time)
 
         raise ValueError(f"Failed to convert {arg} ({type(arg)}) to TimeInterval)")
 
@@ -192,8 +197,10 @@ class TimeInterval:
 _EMPTY_TIME_INTERVAL = TimeInterval(_EPOCH, _EPOCH, start_exclusive=True, end_inclusive=False)
 
 
-def _convert_to_datetime(arg: DatetimeScalar) -> datetime:
+def _convert_to_datetime(arg: Any) -> datetime:
     """Convert the given datetime scalar to a datetime object in the UTC timezone"""
+    from pandas.core.tools.datetimes import to_datetime  # noqa: PLC0415
+
     dt: datetime = to_datetime(arg, utc=True).to_pydatetime()
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)

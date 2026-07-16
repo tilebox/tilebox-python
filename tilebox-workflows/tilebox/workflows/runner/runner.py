@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from tilebox.workflows.cache import JobCache
-from tilebox.workflows.data import TaskIdentifier
-from tilebox.workflows.task import RunnerContext, Task, TaskMeta
+from tilebox.workflows.data import RunnerContext, TaskIdentifier
+from tilebox.workflows.task import Task, TaskMeta
 
 if TYPE_CHECKING:
     from tilebox.workflows.client import Client
