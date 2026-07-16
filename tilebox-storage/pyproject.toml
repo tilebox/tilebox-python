@@ -21,7 +21,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "tilebox-datasets",
+    "tilebox-datasets>=0.56.0",
     "niquests>=3.18",
     "aiofile>=3.8",
     "folium>=0.15",

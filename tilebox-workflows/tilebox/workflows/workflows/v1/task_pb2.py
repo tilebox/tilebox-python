@@ -22,13 +22,12 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from tilebox.datasets.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17workflows/v1/task.proto\x12\x0cworkflows.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x13tilebox/v1/id.proto\x1a\x17workflows/v1/core.proto\"\xa6\x01\n\x0fNextTaskRequest\x12\x46\n\rcomputed_task\x18\x01 \x01(\x0b\x32\x1a.workflows.v1.ComputedTaskB\x05\xaa\x01\x02\x08\x01R\x0c\x63omputedTask\x12K\n\x10next_task_to_run\x18\x02 \x01(\x0b\x32\x1b.workflows.v1.NextTaskToRunB\x05\xaa\x01\x02\x08\x01R\rnextTaskToRun\"{\n\rNextTaskToRun\x12*\n\x0c\x63luster_slug\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0b\x63lusterSlug\x12>\n\x0bidentifiers\x18\x02 \x03(\x0b\x32\x1c.workflows.v1.TaskIdentifierR\x0bidentifiers\"\xaa\x02\n\x0c\x43omputedTask\x12&\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x02id\x12\x18\n\x07\x64isplay\x18\x02 \x01(\tR\x07\x64isplay\x12:\n\tsub_tasks\x18\x05 \x01(\x0b\x32\x1d.workflows.v1.TaskSubmissionsR\x08subTasks\x12\x41\n\x10progress_updates\x18\x04 \x03(\x0b\x32\x16.workflows.v1.ProgressR\x0fprogressUpdates\x12Y\n\x10legacy_sub_tasks\x18\x03 \x03(\x0b\x32\".workflows.v1.SingleTaskSubmissionB\x0b\x18\x01\xbaH\x06\x92\x01\x03\x10\xe8\x07R\x0elegacySubTasks\"g\n\x0eIdlingResponse\x12U\n\x19suggested_idling_duration\x18\x01 \x01(\x0b\x32\x19.google.protobuf.DurationR\x17suggestedIdlingDuration\"\x93\x01\n\x10NextTaskResponse\x12/\n\tnext_task\x18\x01 \x01(\x0b\x32\x12.workflows.v1.TaskR\x08nextTask\x12\x34\n\x06idling\x18\x02 \x01(\x0b\x32\x1c.workflows.v1.IdlingResponseR\x06idling:\x18\xbaH\x15\"\x13\n\tnext_task\n\x06idling\"\xcf\x01\n\x11TaskFailedRequest\x12/\n\x07task_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x06taskId\x12\x18\n\x07\x64isplay\x18\x02 \x01(\tR\x07\x64isplay\x12,\n\x12was_workflow_error\x18\x03 \x01(\x08R\x10wasWorkflowError\x12\x41\n\x10progress_updates\x18\x04 \x03(\x0b\x32\x16.workflows.v1.ProgressR\x0fprogressUpdates\"B\n\x11TaskStateResponse\x12-\n\x05state\x18\x01 \x01(\x0e\x32\x17.workflows.v1.TaskStateR\x05state\"\x87\x01\n\x10TaskLeaseRequest\x12/\n\x07task_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x06taskId\x12\x42\n\x0frequested_lease\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationR\x0erequestedLease2\xf4\x01\n\x0bTaskService\x12I\n\x08NextTask\x12\x1d.workflows.v1.NextTaskRequest\x1a\x1e.workflows.v1.NextTaskResponse\x12N\n\nTaskFailed\x12\x1f.workflows.v1.TaskFailedRequest\x1a\x1f.workflows.v1.TaskStateResponse\x12J\n\x0f\x45xtendTaskLease\x12\x1e.workflows.v1.TaskLeaseRequest\x1a\x17.workflows.v1.TaskLeaseBs\n\x10\x63om.workflows.v1B\tTaskProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17workflows/v1/task.proto\x12\x0cworkflows.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x13tilebox/v1/id.proto\x1a\x17workflows/v1/core.proto\"\xa6\x01\n\x0fNextTaskRequest\x12\x46\n\rcomputed_task\x18\x01 \x01(\x0b\x32\x1a.workflows.v1.ComputedTaskB\x05\xaa\x01\x02\x08\x01R\x0c\x63omputedTask\x12K\n\x10next_task_to_run\x18\x02 \x01(\x0b\x32\x1b.workflows.v1.NextTaskToRunB\x05\xaa\x01\x02\x08\x01R\rnextTaskToRun\"r\n\rNextTaskToRun\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\x12>\n\x0bidentifiers\x18\x02 \x03(\x0b\x32\x1c.workflows.v1.TaskIdentifierR\x0bidentifiers\"\x99\x02\n\x0c\x43omputedTask\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x18\n\x07\x64isplay\x18\x02 \x01(\tR\x07\x64isplay\x12:\n\tsub_tasks\x18\x05 \x01(\x0b\x32\x1d.workflows.v1.TaskSubmissionsR\x08subTasks\x12\x41\n\x10progress_updates\x18\x04 \x03(\x0b\x32\x16.workflows.v1.ProgressR\x0fprogressUpdates\x12P\n\x10legacy_sub_tasks\x18\x03 \x03(\x0b\x32\".workflows.v1.SingleTaskSubmissionB\x02\x18\x01R\x0elegacySubTasks\"g\n\x0eIdlingResponse\x12U\n\x19suggested_idling_duration\x18\x01 \x01(\x0b\x32\x19.google.protobuf.DurationR\x17suggestedIdlingDuration\"y\n\x10NextTaskResponse\x12/\n\tnext_task\x18\x01 \x01(\x0b\x32\x12.workflows.v1.TaskR\x08nextTask\x12\x34\n\x06idling\x18\x02 \x01(\x0b\x32\x1c.workflows.v1.IdlingResponseR\x06idling\"\xc7\x01\n\x11TaskFailedRequest\x12\'\n\x07task_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x06taskId\x12\x18\n\x07\x64isplay\x18\x02 \x01(\tR\x07\x64isplay\x12,\n\x12was_workflow_error\x18\x03 \x01(\x08R\x10wasWorkflowError\x12\x41\n\x10progress_updates\x18\x04 \x03(\x0b\x32\x16.workflows.v1.ProgressR\x0fprogressUpdates\"B\n\x11TaskStateResponse\x12-\n\x05state\x18\x01 \x01(\x0e\x32\x17.workflows.v1.TaskStateR\x05state\"\x7f\n\x10TaskLeaseRequest\x12\'\n\x07task_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x06taskId\x12\x42\n\x0frequested_lease\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationR\x0erequestedLease2\xf4\x01\n\x0bTaskService\x12I\n\x08NextTask\x12\x1d.workflows.v1.NextTaskRequest\x1a\x1e.workflows.v1.NextTaskResponse\x12N\n\nTaskFailed\x12\x1f.workflows.v1.TaskFailedRequest\x1a\x1f.workflows.v1.TaskStateResponse\x12J\n\x0f\x45xtendTaskLease\x12\x1e.workflows.v1.TaskLeaseRequest\x1a\x17.workflows.v1.TaskLeaseBs\n\x10\x63om.workflows.v1B\tTaskProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -40,34 +39,24 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_NEXTTASKREQUEST'].fields_by_name['computed_task']._serialized_options = b'\252\001\002\010\001'
   _globals['_NEXTTASKREQUEST'].fields_by_name['next_task_to_run']._loaded_options = None
   _globals['_NEXTTASKREQUEST'].fields_by_name['next_task_to_run']._serialized_options = b'\252\001\002\010\001'
-  _globals['_NEXTTASKTORUN'].fields_by_name['cluster_slug']._loaded_options = None
-  _globals['_NEXTTASKTORUN'].fields_by_name['cluster_slug']._serialized_options = b'\272H\004r\002\020\001'
-  _globals['_COMPUTEDTASK'].fields_by_name['id']._loaded_options = None
-  _globals['_COMPUTEDTASK'].fields_by_name['id']._serialized_options = b'\272H\003\310\001\001'
   _globals['_COMPUTEDTASK'].fields_by_name['legacy_sub_tasks']._loaded_options = None
-  _globals['_COMPUTEDTASK'].fields_by_name['legacy_sub_tasks']._serialized_options = b'\030\001\272H\006\222\001\003\020\350\007'
-  _globals['_NEXTTASKRESPONSE']._loaded_options = None
-  _globals['_NEXTTASKRESPONSE']._serialized_options = b'\272H\025\"\023\n\tnext_task\n\006idling'
-  _globals['_TASKFAILEDREQUEST'].fields_by_name['task_id']._loaded_options = None
-  _globals['_TASKFAILEDREQUEST'].fields_by_name['task_id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_TASKLEASEREQUEST'].fields_by_name['task_id']._loaded_options = None
-  _globals['_TASKLEASEREQUEST'].fields_by_name['task_id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_NEXTTASKREQUEST']._serialized_start=149
-  _globals['_NEXTTASKREQUEST']._serialized_end=315
-  _globals['_NEXTTASKTORUN']._serialized_start=317
-  _globals['_NEXTTASKTORUN']._serialized_end=440
-  _globals['_COMPUTEDTASK']._serialized_start=443
-  _globals['_COMPUTEDTASK']._serialized_end=741
-  _globals['_IDLINGRESPONSE']._serialized_start=743
-  _globals['_IDLINGRESPONSE']._serialized_end=846
-  _globals['_NEXTTASKRESPONSE']._serialized_start=849
-  _globals['_NEXTTASKRESPONSE']._serialized_end=996
-  _globals['_TASKFAILEDREQUEST']._serialized_start=999
-  _globals['_TASKFAILEDREQUEST']._serialized_end=1206
-  _globals['_TASKSTATERESPONSE']._serialized_start=1208
-  _globals['_TASKSTATERESPONSE']._serialized_end=1274
-  _globals['_TASKLEASEREQUEST']._serialized_start=1277
-  _globals['_TASKLEASEREQUEST']._serialized_end=1412
-  _globals['_TASKSERVICE']._serialized_start=1415
-  _globals['_TASKSERVICE']._serialized_end=1659
+  _globals['_COMPUTEDTASK'].fields_by_name['legacy_sub_tasks']._serialized_options = b'\030\001'
+  _globals['_NEXTTASKREQUEST']._serialized_start=120
+  _globals['_NEXTTASKREQUEST']._serialized_end=286
+  _globals['_NEXTTASKTORUN']._serialized_start=288
+  _globals['_NEXTTASKTORUN']._serialized_end=402
+  _globals['_COMPUTEDTASK']._serialized_start=405
+  _globals['_COMPUTEDTASK']._serialized_end=686
+  _globals['_IDLINGRESPONSE']._serialized_start=688
+  _globals['_IDLINGRESPONSE']._serialized_end=791
+  _globals['_NEXTTASKRESPONSE']._serialized_start=793
+  _globals['_NEXTTASKRESPONSE']._serialized_end=914
+  _globals['_TASKFAILEDREQUEST']._serialized_start=917
+  _globals['_TASKFAILEDREQUEST']._serialized_end=1116
+  _globals['_TASKSTATERESPONSE']._serialized_start=1118
+  _globals['_TASKSTATERESPONSE']._serialized_end=1184
+  _globals['_TASKLEASEREQUEST']._serialized_start=1186
+  _globals['_TASKLEASEREQUEST']._serialized_end=1313
+  _globals['_TASKSERVICE']._serialized_start=1316
+  _globals['_TASKSERVICE']._serialized_end=1560
 # @@protoc_insertion_point(module_scope)

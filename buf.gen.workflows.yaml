@@ -18,3 +18,7 @@ inputs:
   - module: buf.build/tilebox/api
     paths:
       - "workflows"
+    # Deliberately generate validation-blind client messages: the SDK does not validate
+    # client-side, and omitting buf.validate avoids conflicts in protobuf's global descriptor pool.
+    exclude_types:
+      - "buf.validate.**"

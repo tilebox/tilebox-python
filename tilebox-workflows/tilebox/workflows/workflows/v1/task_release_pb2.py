@@ -22,13 +22,12 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from tilebox.datasets.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1fworkflows/v1/task_release.proto\x12\x0cworkflows.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\x1a\x17workflows/v1/core.proto\"\xed\x02\n\x15PublishReleaseRequest\x12<\n\x05tasks\x18\x01 \x03(\x0b\x32\x1c.workflows.v1.TaskIdentifierB\x08\xbaH\x05\x92\x01\x02\x08\x01R\x05tasks\x12*\n\x0c\x61rtifact_uri\x18\x02 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0b\x61rtifactUri\x12\x45\n\x0f\x61rtifact_digest\x18\x03 \x01(\tB\x1c\xbaH\x19r\x17\x32\x15^sha256:[a-f0-9]{64}$R\x0e\x61rtifactDigest\x12*\n\x0cruntime_kind\x18\x04 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0bruntimeKind\x12K\n\x12\x65nvironment_digest\x18\x05 \x01(\tB\x1c\xbaH\x19r\x17\x32\x15^sha256:[a-f0-9]{64}$R\x11\x65nvironmentDigest\x12*\n\rmetadata_json\x18\x06 \x01(\x0c\x42\x05\xaa\x01\x02\x08\x01R\x0cmetadataJson\"\xb2\x01\n\x16PublishReleaseResponse\x12-\n\nrelease_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\treleaseId\x12\x18\n\x07\x63reated\x18\x02 \x01(\x08R\x07\x63reated\x12=\n\x07\x63hanges\x18\x04 \x01(\x0b\x32#.workflows.v1.PublishReleaseChangesR\x07\x63hangesJ\x04\x08\x03\x10\x04R\nidempotent\"k\n\x15PublishReleaseChanges\x12\x14\n\x05tasks\x18\x01 \x01(\x08R\x05tasks\x12\x1a\n\x08\x61rtifact\x18\x02 \x01(\x08R\x08\x61rtifact\x12 \n\x0b\x65nvironment\x18\x03 \x01(\x08R\x0b\x65nvironment\"y\n\x14\x44\x65ployReleaseRequest\x12*\n\x0c\x63luster_slug\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0b\x63lusterSlug\x12\x35\n\nrelease_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\treleaseId\"\xb0\x01\n\x15\x44\x65ployReleaseResponse\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\x12-\n\nrelease_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\treleaseId\x12+\n\x11manifest_revision\x18\x03 \x01(\x04R\x10manifestRevision\x12\x18\n\x07\x63hanged\x18\x04 \x01(\x08R\x07\x63hanged\"x\n#GetClusterDeploymentManifestRequest\x12*\n\x0c\x63luster_slug\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0b\x63lusterSlug\x12%\n\x0esince_revision\x18\x02 \x01(\x04R\rsinceRevision\"\xa4\x03\n\x0f\x44\x65ployedRelease\x12-\n\nrelease_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\treleaseId\x12!\n\x0c\x61rtifact_uri\x18\x02 \x01(\tR\x0b\x61rtifactUri\x12\'\n\x0f\x61rtifact_digest\x18\x03 \x01(\tR\x0e\x61rtifactDigest\x12!\n\x0cruntime_kind\x18\x04 \x01(\tR\x0bruntimeKind\x12-\n\x12\x65nvironment_digest\x18\x05 \x01(\tR\x11\x65nvironmentDigest\x12*\n\rmetadata_json\x18\x06 \x01(\x0c\x42\x05\xaa\x01\x02\x08\x01R\x0cmetadataJson\x12\'\n\x0f\x63hange_revision\x18\x07 \x01(\x04R\x0e\x63hangeRevision\x12\x32\n\x05tasks\x18\x08 \x03(\x0b\x32\x1c.workflows.v1.TaskIdentifierR\x05tasks\x12;\n\x0b\x64\x65ployed_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ndeployedAt\"\xaf\x01\n$GetClusterDeploymentManifestResponse\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\x12+\n\x11manifest_revision\x18\x02 \x01(\x04R\x10manifestRevision\x12\x37\n\x07release\x18\x03 \x01(\x0b\x32\x1d.workflows.v1.DeployedReleaseR\x07release2\xd3\x02\n\x12TaskReleaseService\x12[\n\x0ePublishRelease\x12#.workflows.v1.PublishReleaseRequest\x1a$.workflows.v1.PublishReleaseResponse\x12X\n\rDeployRelease\x12\".workflows.v1.DeployReleaseRequest\x1a#.workflows.v1.DeployReleaseResponse\x12\x85\x01\n\x1cGetClusterDeploymentManifest\x12\x31.workflows.v1.GetClusterDeploymentManifestRequest\x1a\x32.workflows.v1.GetClusterDeploymentManifestResponseBz\n\x10\x63om.workflows.v1B\x10TaskReleaseProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1fworkflows/v1/task_release.proto\x12\x0cworkflows.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\x1a\x17workflows/v1/core.proto\"\x95\x02\n\x15PublishReleaseRequest\x12\x32\n\x05tasks\x18\x01 \x03(\x0b\x32\x1c.workflows.v1.TaskIdentifierR\x05tasks\x12!\n\x0c\x61rtifact_uri\x18\x02 \x01(\tR\x0b\x61rtifactUri\x12\'\n\x0f\x61rtifact_digest\x18\x03 \x01(\tR\x0e\x61rtifactDigest\x12!\n\x0cruntime_kind\x18\x04 \x01(\tR\x0bruntimeKind\x12-\n\x12\x65nvironment_digest\x18\x05 \x01(\tR\x11\x65nvironmentDigest\x12*\n\rmetadata_json\x18\x06 \x01(\x0c\x42\x05\xaa\x01\x02\x08\x01R\x0cmetadataJson\"\xb2\x01\n\x16PublishReleaseResponse\x12-\n\nrelease_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\treleaseId\x12\x18\n\x07\x63reated\x18\x02 \x01(\x08R\x07\x63reated\x12=\n\x07\x63hanges\x18\x04 \x01(\x0b\x32#.workflows.v1.PublishReleaseChangesR\x07\x63hangesJ\x04\x08\x03\x10\x04R\nidempotent\"k\n\x15PublishReleaseChanges\x12\x14\n\x05tasks\x18\x01 \x01(\x08R\x05tasks\x12\x1a\n\x08\x61rtifact\x18\x02 \x01(\x08R\x08\x61rtifact\x12 \n\x0b\x65nvironment\x18\x03 \x01(\x08R\x0b\x65nvironment\"h\n\x14\x44\x65ployReleaseRequest\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\x12-\n\nrelease_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\treleaseId\"\xb0\x01\n\x15\x44\x65ployReleaseResponse\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\x12-\n\nrelease_id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\treleaseId\x12+\n\x11manifest_revision\x18\x03 \x01(\x04R\x10manifestRevision\x12\x18\n\x07\x63hanged\x18\x04 \x01(\x08R\x07\x63hanged\"o\n#GetClusterDeploymentManifestRequest\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\x12%\n\x0esince_revision\x18\x02 \x01(\x04R\rsinceRevision\"\xa4\x03\n\x0f\x44\x65ployedRelease\x12-\n\nrelease_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\treleaseId\x12!\n\x0c\x61rtifact_uri\x18\x02 \x01(\tR\x0b\x61rtifactUri\x12\'\n\x0f\x61rtifact_digest\x18\x03 \x01(\tR\x0e\x61rtifactDigest\x12!\n\x0cruntime_kind\x18\x04 \x01(\tR\x0bruntimeKind\x12-\n\x12\x65nvironment_digest\x18\x05 \x01(\tR\x11\x65nvironmentDigest\x12*\n\rmetadata_json\x18\x06 \x01(\x0c\x42\x05\xaa\x01\x02\x08\x01R\x0cmetadataJson\x12\'\n\x0f\x63hange_revision\x18\x07 \x01(\x04R\x0e\x63hangeRevision\x12\x32\n\x05tasks\x18\x08 \x03(\x0b\x32\x1c.workflows.v1.TaskIdentifierR\x05tasks\x12;\n\x0b\x64\x65ployed_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ndeployedAt\"\xaf\x01\n$GetClusterDeploymentManifestResponse\x12!\n\x0c\x63luster_slug\x18\x01 \x01(\tR\x0b\x63lusterSlug\x12+\n\x11manifest_revision\x18\x02 \x01(\x04R\x10manifestRevision\x12\x37\n\x07release\x18\x03 \x01(\x0b\x32\x1d.workflows.v1.DeployedReleaseR\x07release2\xd3\x02\n\x12TaskReleaseService\x12[\n\x0ePublishRelease\x12#.workflows.v1.PublishReleaseRequest\x1a$.workflows.v1.PublishReleaseResponse\x12X\n\rDeployRelease\x12\".workflows.v1.DeployReleaseRequest\x1a#.workflows.v1.DeployReleaseResponse\x12\x85\x01\n\x1cGetClusterDeploymentManifest\x12\x31.workflows.v1.GetClusterDeploymentManifestRequest\x1a\x32.workflows.v1.GetClusterDeploymentManifestResponseBz\n\x10\x63om.workflows.v1B\x10TaskReleaseProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,42 +35,26 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'workflows.v1.task_release_p
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\020com.workflows.v1B\020TaskReleaseProtoP\001\242\002\003WXX\252\002\014Workflows.V1\312\002\014Workflows\\V1\342\002\030Workflows\\V1\\GPBMetadata\352\002\rWorkflows::V1\222\003\002\010\002'
-  _globals['_PUBLISHRELEASEREQUEST'].fields_by_name['tasks']._loaded_options = None
-  _globals['_PUBLISHRELEASEREQUEST'].fields_by_name['tasks']._serialized_options = b'\272H\005\222\001\002\010\001'
-  _globals['_PUBLISHRELEASEREQUEST'].fields_by_name['artifact_uri']._loaded_options = None
-  _globals['_PUBLISHRELEASEREQUEST'].fields_by_name['artifact_uri']._serialized_options = b'\272H\004r\002\020\001'
-  _globals['_PUBLISHRELEASEREQUEST'].fields_by_name['artifact_digest']._loaded_options = None
-  _globals['_PUBLISHRELEASEREQUEST'].fields_by_name['artifact_digest']._serialized_options = b'\272H\031r\0272\025^sha256:[a-f0-9]{64}$'
-  _globals['_PUBLISHRELEASEREQUEST'].fields_by_name['runtime_kind']._loaded_options = None
-  _globals['_PUBLISHRELEASEREQUEST'].fields_by_name['runtime_kind']._serialized_options = b'\272H\004r\002\020\001'
-  _globals['_PUBLISHRELEASEREQUEST'].fields_by_name['environment_digest']._loaded_options = None
-  _globals['_PUBLISHRELEASEREQUEST'].fields_by_name['environment_digest']._serialized_options = b'\272H\031r\0272\025^sha256:[a-f0-9]{64}$'
   _globals['_PUBLISHRELEASEREQUEST'].fields_by_name['metadata_json']._loaded_options = None
   _globals['_PUBLISHRELEASEREQUEST'].fields_by_name['metadata_json']._serialized_options = b'\252\001\002\010\001'
-  _globals['_DEPLOYRELEASEREQUEST'].fields_by_name['cluster_slug']._loaded_options = None
-  _globals['_DEPLOYRELEASEREQUEST'].fields_by_name['cluster_slug']._serialized_options = b'\272H\004r\002\020\001'
-  _globals['_DEPLOYRELEASEREQUEST'].fields_by_name['release_id']._loaded_options = None
-  _globals['_DEPLOYRELEASEREQUEST'].fields_by_name['release_id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_GETCLUSTERDEPLOYMENTMANIFESTREQUEST'].fields_by_name['cluster_slug']._loaded_options = None
-  _globals['_GETCLUSTERDEPLOYMENTMANIFESTREQUEST'].fields_by_name['cluster_slug']._serialized_options = b'\272H\004r\002\020\001'
   _globals['_DEPLOYEDRELEASE'].fields_by_name['metadata_json']._loaded_options = None
   _globals['_DEPLOYEDRELEASE'].fields_by_name['metadata_json']._serialized_options = b'\252\001\002\010\001'
-  _globals['_PUBLISHRELEASEREQUEST']._serialized_start=158
-  _globals['_PUBLISHRELEASEREQUEST']._serialized_end=523
-  _globals['_PUBLISHRELEASERESPONSE']._serialized_start=526
-  _globals['_PUBLISHRELEASERESPONSE']._serialized_end=704
-  _globals['_PUBLISHRELEASECHANGES']._serialized_start=706
-  _globals['_PUBLISHRELEASECHANGES']._serialized_end=813
-  _globals['_DEPLOYRELEASEREQUEST']._serialized_start=815
-  _globals['_DEPLOYRELEASEREQUEST']._serialized_end=936
-  _globals['_DEPLOYRELEASERESPONSE']._serialized_start=939
-  _globals['_DEPLOYRELEASERESPONSE']._serialized_end=1115
-  _globals['_GETCLUSTERDEPLOYMENTMANIFESTREQUEST']._serialized_start=1117
-  _globals['_GETCLUSTERDEPLOYMENTMANIFESTREQUEST']._serialized_end=1237
-  _globals['_DEPLOYEDRELEASE']._serialized_start=1240
-  _globals['_DEPLOYEDRELEASE']._serialized_end=1660
-  _globals['_GETCLUSTERDEPLOYMENTMANIFESTRESPONSE']._serialized_start=1663
-  _globals['_GETCLUSTERDEPLOYMENTMANIFESTRESPONSE']._serialized_end=1838
-  _globals['_TASKRELEASESERVICE']._serialized_start=1841
-  _globals['_TASKRELEASESERVICE']._serialized_end=2180
+  _globals['_PUBLISHRELEASEREQUEST']._serialized_start=129
+  _globals['_PUBLISHRELEASEREQUEST']._serialized_end=406
+  _globals['_PUBLISHRELEASERESPONSE']._serialized_start=409
+  _globals['_PUBLISHRELEASERESPONSE']._serialized_end=587
+  _globals['_PUBLISHRELEASECHANGES']._serialized_start=589
+  _globals['_PUBLISHRELEASECHANGES']._serialized_end=696
+  _globals['_DEPLOYRELEASEREQUEST']._serialized_start=698
+  _globals['_DEPLOYRELEASEREQUEST']._serialized_end=802
+  _globals['_DEPLOYRELEASERESPONSE']._serialized_start=805
+  _globals['_DEPLOYRELEASERESPONSE']._serialized_end=981
+  _globals['_GETCLUSTERDEPLOYMENTMANIFESTREQUEST']._serialized_start=983
+  _globals['_GETCLUSTERDEPLOYMENTMANIFESTREQUEST']._serialized_end=1094
+  _globals['_DEPLOYEDRELEASE']._serialized_start=1097
+  _globals['_DEPLOYEDRELEASE']._serialized_end=1517
+  _globals['_GETCLUSTERDEPLOYMENTMANIFESTRESPONSE']._serialized_start=1520
+  _globals['_GETCLUSTERDEPLOYMENTMANIFESTRESPONSE']._serialized_end=1695
+  _globals['_TASKRELEASESERVICE']._serialized_start=1698
+  _globals['_TASKRELEASESERVICE']._serialized_end=2037
 # @@protoc_insertion_point(module_scope)

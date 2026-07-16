@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `tilebox-workflows`: Allow task `execute()` methods to use a `-> None` return annotation when postponed annotation
   evaluation is enabled.
+- `tilebox-datasets` and `tilebox-workflows`: Generate validation-blind protobuf messages without vendoring
+  `buf.validate`, avoiding duplicate descriptor conflicts when applications use their own generated validation rules.
 
 ## [0.55.0] - 2026-07-01
 

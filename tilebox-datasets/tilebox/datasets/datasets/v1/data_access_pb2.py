@@ -22,14 +22,15 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from tilebox.datasets.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 from tilebox.datasets.datasets.v1 import core_pb2 as datasets_dot_v1_dot_core__pb2
 from tilebox.datasets.datasets.v1 import well_known_types_pb2 as datasets_dot_v1_dot_well__known__types__pb2
+from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 from tilebox.datasets.tilebox.v1 import query_pb2 as tilebox_dot_v1_dot_query__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1d\x64\x61tasets/v1/data_access.proto\x12\x0b\x64\x61tasets.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x16\x64\x61tasets/v1/core.proto\x1a\"datasets/v1/well_known_types.proto\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto\"\xc9\x01\n\x10QueryByIDRequest\x12-\n\ndataset_id\x18\x04 \x01(\x0b\x32\x0e.tilebox.v1.IDR\tdatasetId\x12\x41\n\x0e\x63ollection_ids\x18\x01 \x03(\x0b\x32\x0e.tilebox.v1.IDB\n\xbaH\x07\x92\x01\x04\x08\x00\x10\x64R\rcollectionIds\x12&\n\x02id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x02id\x12\x1b\n\tskip_data\x18\x03 \x01(\x08R\x08skipData\"\x83\x02\n\x0cQueryFilters\x12=\n\rtime_interval\x18\x01 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12\x45\n\x12\x64\x61tapoint_interval\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.IDIntervalR\x11\x64\x61tapointInterval\x12\x41\n\x0espatial_extent\x18\x03 \x01(\x0b\x32\x1a.datasets.v1.SpatialFilterR\rspatialExtent:*\xbaH\'\"%\n\rtime_interval\n\x12\x64\x61tapoint_interval\x10\x01\"\xe5\x01\n\rSpatialFilter\x12\x39\n\x08geometry\x18\x01 \x01(\x0b\x32\x15.datasets.v1.GeometryB\x06\xbaH\x03\xc8\x01\x01R\x08geometry\x12<\n\x04mode\x18\x02 \x01(\x0e\x32\x1e.datasets.v1.SpatialFilterModeB\x08\xbaH\x05\x82\x01\x02\x10\x01R\x04mode\x12[\n\x11\x63oordinate_system\x18\x03 \x01(\x0e\x32$.datasets.v1.SpatialCoordinateSystemB\x08\xbaH\x05\x82\x01\x02\x10\x01R\x10\x63oordinateSystem\"\x85\x02\n\x0cQueryRequest\x12-\n\ndataset_id\x18\x05 \x01(\x0b\x32\x0e.tilebox.v1.IDR\tdatasetId\x12\x41\n\x0e\x63ollection_ids\x18\x01 \x03(\x0b\x32\x0e.tilebox.v1.IDB\n\xbaH\x07\x92\x01\x04\x08\x00\x10\x64R\rcollectionIds\x12\x33\n\x07\x66ilters\x18\x02 \x01(\x0b\x32\x19.datasets.v1.QueryFiltersR\x07\x66ilters\x12\x31\n\x04page\x18\x03 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12\x1b\n\tskip_data\x18\x04 \x01(\x08R\x08skipData\"{\n\x0fQueryResultPage\x12,\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x18.datasets.v1.RepeatedAnyR\x04\x64\x61ta\x12:\n\tnext_page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x08nextPage*~\n\x11SpatialFilterMode\x12#\n\x1fSPATIAL_FILTER_MODE_UNSPECIFIED\x10\x00\x12\"\n\x1eSPATIAL_FILTER_MODE_INTERSECTS\x10\x01\x12 \n\x1cSPATIAL_FILTER_MODE_CONTAINS\x10\x02*\x96\x01\n\x17SpatialCoordinateSystem\x12)\n%SPATIAL_COORDINATE_SYSTEM_UNSPECIFIED\x10\x00\x12\'\n#SPATIAL_COORDINATE_SYSTEM_CARTESIAN\x10\x01\x12\'\n#SPATIAL_COORDINATE_SYSTEM_SPHERICAL\x10\x02\x32\x97\x01\n\x11\x44\x61taAccessService\x12>\n\tQueryByID\x12\x1d.datasets.v1.QueryByIDRequest\x1a\x10.datasets.v1.Any\"\x00\x12\x42\n\x05Query\x12\x19.datasets.v1.QueryRequest\x1a\x1c.datasets.v1.QueryResultPage\"\x00\x42t\n\x0f\x63om.datasets.v1B\x0f\x44\x61taAccessProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1d\x64\x61tasets/v1/data_access.proto\x12\x0b\x64\x61tasets.v1\x1a\x16\x64\x61tasets/v1/core.proto\x1a\"datasets/v1/well_known_types.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto\"\xb5\x01\n\x10QueryByIDRequest\x12-\n\ndataset_id\x18\x04 \x01(\x0b\x32\x0e.tilebox.v1.IDR\tdatasetId\x12\x35\n\x0e\x63ollection_ids\x18\x01 \x03(\x0b\x32\x0e.tilebox.v1.IDR\rcollectionIds\x12\x1e\n\x02id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x1b\n\tskip_data\x18\x03 \x01(\x08R\x08skipData\"\x98\x02\n\x0cQueryFilters\x12=\n\rtime_interval\x18\x01 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12\x45\n\x12\x64\x61tapoint_interval\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.IDIntervalR\x11\x64\x61tapointInterval\x12\x41\n\x0espatial_extent\x18\x03 \x01(\x0b\x32\x1a.datasets.v1.SpatialFilterR\rspatialExtent\x12?\n\x0b\x65xpressions\x18\x04 \x03(\x0b\x32\x1d.datasets.v1.FilterExpressionR\x0b\x65xpressions\"\xc0\x01\n\x10\x46ilterExpression\x12\x38\n\x07logical\x18\x01 \x01(\x0b\x32\x1e.datasets.v1.LogicalExpressionR\x07logical\x12<\n\ncomparison\x18\x02 \x01(\x0b\x32\x1c.datasets.v1.FieldComparisonR\ncomparison\x12\x34\n\x07is_null\x18\x03 \x01(\x0b\x32\x1b.datasets.v1.FieldNullCheckR\x06isNull\"\x88\x01\n\x11LogicalExpression\x12\x38\n\x08operator\x18\x01 \x01(\x0e\x32\x1c.datasets.v1.LogicalOperatorR\x08operator\x12\x39\n\x08operands\x18\x02 \x03(\x0b\x32\x1d.datasets.v1.FilterExpressionR\x08operands\"\xa6\x01\n\x0f\x46ieldComparison\x12\x1d\n\nfield_name\x18\x01 \x01(\tR\tfieldName\x12@\n\x08operator\x18\x02 \x01(\x0e\x32$.datasets.v1.FieldComparisonOperatorR\x08operator\x12\x32\n\x05value\x18\x03 \x01(\x0b\x32\x1c.datasets.v1.FieldQueryValueR\x05value\"/\n\x0e\x46ieldNullCheck\x12\x1d\n\nfield_name\x18\x01 \x01(\tR\tfieldName\"\xb0\x03\n\x0f\x46ieldQueryValue\x12$\n\nbool_value\x18\x01 \x01(\x08\x42\x05\xaa\x01\x02\x08\x01R\tboolValue\x12&\n\x0bint64_value\x18\x02 \x01(\x03\x42\x05\xaa\x01\x02\x08\x01R\nint64Value\x12(\n\x0cuint64_value\x18\x03 \x01(\x04\x42\x05\xaa\x01\x02\x08\x01R\x0buint64Value\x12(\n\x0c\x64ouble_value\x18\x04 \x01(\x01\x42\x05\xaa\x01\x02\x08\x01R\x0b\x64oubleValue\x12(\n\x0cstring_value\x18\x05 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x0bstringValue\x12\x43\n\x0ftimestamp_value\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0etimestampValue\x12@\n\x0e\x64uration_value\x18\x07 \x01(\x0b\x32\x19.google.protobuf.DurationR\rdurationValue\x12\"\n\tenum_name\x18\x08 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x08\x65numName\x12&\n\x0b\x62ytes_value\x18\t \x01(\x0c\x42\x05\xaa\x01\x02\x08\x01R\nbytesValue\"\xc9\x01\n\rSpatialFilter\x12\x31\n\x08geometry\x18\x01 \x01(\x0b\x32\x15.datasets.v1.GeometryR\x08geometry\x12\x32\n\x04mode\x18\x02 \x01(\x0e\x32\x1e.datasets.v1.SpatialFilterModeR\x04mode\x12Q\n\x11\x63oordinate_system\x18\x03 \x01(\x0e\x32$.datasets.v1.SpatialCoordinateSystemR\x10\x63oordinateSystem\"\xf9\x01\n\x0cQueryRequest\x12-\n\ndataset_id\x18\x05 \x01(\x0b\x32\x0e.tilebox.v1.IDR\tdatasetId\x12\x35\n\x0e\x63ollection_ids\x18\x01 \x03(\x0b\x32\x0e.tilebox.v1.IDR\rcollectionIds\x12\x33\n\x07\x66ilters\x18\x02 \x01(\x0b\x32\x19.datasets.v1.QueryFiltersR\x07\x66ilters\x12\x31\n\x04page\x18\x03 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12\x1b\n\tskip_data\x18\x04 \x01(\x08R\x08skipData\"{\n\x0fQueryResultPage\x12,\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x18.datasets.v1.RepeatedAnyR\x04\x64\x61ta\x12:\n\tnext_page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x08nextPage*\x80\x01\n\x0fLogicalOperator\x12 \n\x1cLOGICAL_OPERATOR_UNSPECIFIED\x10\x00\x12\x18\n\x14LOGICAL_OPERATOR_AND\x10\x01\x12\x17\n\x13LOGICAL_OPERATOR_OR\x10\x02\x12\x18\n\x14LOGICAL_OPERATOR_NOT\x10\x03*\xce\x02\n\x17\x46ieldComparisonOperator\x12)\n%FIELD_COMPARISON_OPERATOR_UNSPECIFIED\x10\x00\x12#\n\x1f\x46IELD_COMPARISON_OPERATOR_EQUAL\x10\x01\x12\'\n#FIELD_COMPARISON_OPERATOR_NOT_EQUAL\x10\x02\x12\'\n#FIELD_COMPARISON_OPERATOR_LESS_THAN\x10\x03\x12\x30\n,FIELD_COMPARISON_OPERATOR_LESS_THAN_OR_EQUAL\x10\x04\x12*\n&FIELD_COMPARISON_OPERATOR_GREATER_THAN\x10\x05\x12\x33\n/FIELD_COMPARISON_OPERATOR_GREATER_THAN_OR_EQUAL\x10\x06*~\n\x11SpatialFilterMode\x12#\n\x1fSPATIAL_FILTER_MODE_UNSPECIFIED\x10\x00\x12\"\n\x1eSPATIAL_FILTER_MODE_INTERSECTS\x10\x01\x12 \n\x1cSPATIAL_FILTER_MODE_CONTAINS\x10\x02*\x96\x01\n\x17SpatialCoordinateSystem\x12)\n%SPATIAL_COORDINATE_SYSTEM_UNSPECIFIED\x10\x00\x12\'\n#SPATIAL_COORDINATE_SYSTEM_CARTESIAN\x10\x01\x12\'\n#SPATIAL_COORDINATE_SYSTEM_SPHERICAL\x10\x02\x32\x93\x01\n\x11\x44\x61taAccessService\x12<\n\tQueryByID\x12\x1d.datasets.v1.QueryByIDRequest\x1a\x10.datasets.v1.Any\x12@\n\x05Query\x12\x19.datasets.v1.QueryRequest\x1a\x1c.datasets.v1.QueryResultPageBt\n\x0f\x63om.datasets.v1B\x0f\x44\x61taAccessProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,38 +38,52 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'datasets.v1.data_access_pb2
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\017com.datasets.v1B\017DataAccessProtoP\001\242\002\003DXX\252\002\013Datasets.V1\312\002\013Datasets\\V1\342\002\027Datasets\\V1\\GPBMetadata\352\002\014Datasets::V1\222\003\002\010\002'
-  _globals['_QUERYBYIDREQUEST'].fields_by_name['collection_ids']._loaded_options = None
-  _globals['_QUERYBYIDREQUEST'].fields_by_name['collection_ids']._serialized_options = b'\272H\007\222\001\004\010\000\020d'
-  _globals['_QUERYBYIDREQUEST'].fields_by_name['id']._loaded_options = None
-  _globals['_QUERYBYIDREQUEST'].fields_by_name['id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_QUERYFILTERS']._loaded_options = None
-  _globals['_QUERYFILTERS']._serialized_options = b'\272H\'\"%\n\rtime_interval\n\022datapoint_interval\020\001'
-  _globals['_SPATIALFILTER'].fields_by_name['geometry']._loaded_options = None
-  _globals['_SPATIALFILTER'].fields_by_name['geometry']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_SPATIALFILTER'].fields_by_name['mode']._loaded_options = None
-  _globals['_SPATIALFILTER'].fields_by_name['mode']._serialized_options = b'\272H\005\202\001\002\020\001'
-  _globals['_SPATIALFILTER'].fields_by_name['coordinate_system']._loaded_options = None
-  _globals['_SPATIALFILTER'].fields_by_name['coordinate_system']._serialized_options = b'\272H\005\202\001\002\020\001'
-  _globals['_QUERYREQUEST'].fields_by_name['collection_ids']._loaded_options = None
-  _globals['_QUERYREQUEST'].fields_by_name['collection_ids']._serialized_options = b'\272H\007\222\001\004\010\000\020d'
+  _globals['_FIELDQUERYVALUE'].fields_by_name['bool_value']._loaded_options = None
+  _globals['_FIELDQUERYVALUE'].fields_by_name['bool_value']._serialized_options = b'\252\001\002\010\001'
+  _globals['_FIELDQUERYVALUE'].fields_by_name['int64_value']._loaded_options = None
+  _globals['_FIELDQUERYVALUE'].fields_by_name['int64_value']._serialized_options = b'\252\001\002\010\001'
+  _globals['_FIELDQUERYVALUE'].fields_by_name['uint64_value']._loaded_options = None
+  _globals['_FIELDQUERYVALUE'].fields_by_name['uint64_value']._serialized_options = b'\252\001\002\010\001'
+  _globals['_FIELDQUERYVALUE'].fields_by_name['double_value']._loaded_options = None
+  _globals['_FIELDQUERYVALUE'].fields_by_name['double_value']._serialized_options = b'\252\001\002\010\001'
+  _globals['_FIELDQUERYVALUE'].fields_by_name['string_value']._loaded_options = None
+  _globals['_FIELDQUERYVALUE'].fields_by_name['string_value']._serialized_options = b'\252\001\002\010\001'
+  _globals['_FIELDQUERYVALUE'].fields_by_name['enum_name']._loaded_options = None
+  _globals['_FIELDQUERYVALUE'].fields_by_name['enum_name']._serialized_options = b'\252\001\002\010\001'
+  _globals['_FIELDQUERYVALUE'].fields_by_name['bytes_value']._loaded_options = None
+  _globals['_FIELDQUERYVALUE'].fields_by_name['bytes_value']._serialized_options = b'\252\001\002\010\001'
   _globals['_QUERYREQUEST'].fields_by_name['page']._loaded_options = None
   _globals['_QUERYREQUEST'].fields_by_name['page']._serialized_options = b'\252\001\002\010\001'
   _globals['_QUERYRESULTPAGE'].fields_by_name['next_page']._loaded_options = None
   _globals['_QUERYRESULTPAGE'].fields_by_name['next_page']._serialized_options = b'\252\001\002\010\001'
-  _globals['_SPATIALFILTERMODE']._serialized_start=1267
-  _globals['_SPATIALFILTERMODE']._serialized_end=1393
-  _globals['_SPATIALCOORDINATESYSTEM']._serialized_start=1396
-  _globals['_SPATIALCOORDINATESYSTEM']._serialized_end=1546
-  _globals['_QUERYBYIDREQUEST']._serialized_start=181
-  _globals['_QUERYBYIDREQUEST']._serialized_end=382
-  _globals['_QUERYFILTERS']._serialized_start=385
-  _globals['_QUERYFILTERS']._serialized_end=644
-  _globals['_SPATIALFILTER']._serialized_start=647
-  _globals['_SPATIALFILTER']._serialized_end=876
-  _globals['_QUERYREQUEST']._serialized_start=879
-  _globals['_QUERYREQUEST']._serialized_end=1140
-  _globals['_QUERYRESULTPAGE']._serialized_start=1142
-  _globals['_QUERYRESULTPAGE']._serialized_end=1265
-  _globals['_DATAACCESSSERVICE']._serialized_start=1549
-  _globals['_DATAACCESSSERVICE']._serialized_end=1700
+  _globals['_LOGICALOPERATOR']._serialized_start=2252
+  _globals['_LOGICALOPERATOR']._serialized_end=2380
+  _globals['_FIELDCOMPARISONOPERATOR']._serialized_start=2383
+  _globals['_FIELDCOMPARISONOPERATOR']._serialized_end=2717
+  _globals['_SPATIALFILTERMODE']._serialized_start=2719
+  _globals['_SPATIALFILTERMODE']._serialized_end=2845
+  _globals['_SPATIALCOORDINATESYSTEM']._serialized_start=2848
+  _globals['_SPATIALCOORDINATESYSTEM']._serialized_end=2998
+  _globals['_QUERYBYIDREQUEST']._serialized_start=217
+  _globals['_QUERYBYIDREQUEST']._serialized_end=398
+  _globals['_QUERYFILTERS']._serialized_start=401
+  _globals['_QUERYFILTERS']._serialized_end=681
+  _globals['_FILTEREXPRESSION']._serialized_start=684
+  _globals['_FILTEREXPRESSION']._serialized_end=876
+  _globals['_LOGICALEXPRESSION']._serialized_start=879
+  _globals['_LOGICALEXPRESSION']._serialized_end=1015
+  _globals['_FIELDCOMPARISON']._serialized_start=1018
+  _globals['_FIELDCOMPARISON']._serialized_end=1184
+  _globals['_FIELDNULLCHECK']._serialized_start=1186
+  _globals['_FIELDNULLCHECK']._serialized_end=1233
+  _globals['_FIELDQUERYVALUE']._serialized_start=1236
+  _globals['_FIELDQUERYVALUE']._serialized_end=1668
+  _globals['_SPATIALFILTER']._serialized_start=1671
+  _globals['_SPATIALFILTER']._serialized_end=1872
+  _globals['_QUERYREQUEST']._serialized_start=1875
+  _globals['_QUERYREQUEST']._serialized_end=2124
+  _globals['_QUERYRESULTPAGE']._serialized_start=2126
+  _globals['_QUERYRESULTPAGE']._serialized_end=2249
+  _globals['_DATAACCESSSERVICE']._serialized_start=3001
+  _globals['_DATAACCESSSERVICE']._serialized_end=3148
 # @@protoc_insertion_point(module_scope)

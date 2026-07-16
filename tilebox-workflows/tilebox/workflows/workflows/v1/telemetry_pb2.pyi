@@ -1,5 +1,3 @@
-from tilebox.datasets.buf.validate import validate_pb2 as _validate_pb2
-from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from opentelemetry.proto.logs.v1 import logs_pb2 as _logs_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2

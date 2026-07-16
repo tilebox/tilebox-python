@@ -22,16 +22,14 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from tilebox.datasets.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
-from tilebox.workflows.workflows.v1 import automation_pb2 as workflows_dot_v1_dot_automation__pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core__pb2
 from tilebox.workflows.workflows.v1 import task_pb2 as workflows_dot_v1_dot_task__pb2
 from tilebox.workflows.workflows.v1 import workflows_pb2 as workflows_dot_v1_dot_workflows__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19workflows/v1/worker.proto\x12\x0cworkflows.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x13tilebox/v1/id.proto\x1a\x1dworkflows/v1/automation.proto\x1a\x17workflows/v1/core.proto\x1a\x17workflows/v1/task.proto\x1a\x1cworkflows/v1/workflows.proto\"\x99\x02\n\x17InitializeRunnerRequest\x12+\n\trunner_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x08runnerId\x12!\n\x0ctrace_parent\x18\x02 \x01(\tR\x0btraceParent\x12/\n\x07\x63luster\x18\x03 \x01(\x0b\x32\x15.workflows.v1.ClusterR\x07\x63luster\x12\x32\n\x08workflow\x18\x04 \x01(\x0b\x32\x16.workflows.v1.WorkflowR\x08workflow\x12I\n\x0e\x61pi_connection\x18\x05 \x01(\x0b\x32\".workflows.v1.TileboxAPIConnectionR\rapiConnection\">\n\x14TileboxAPIConnection\x12\x10\n\x03url\x18\x01 \x01(\tR\x03url\x12\x14\n\x05token\x18\x02 \x01(\tR\x05token\"\x1a\n\x18InitializeRunnerResponse\"\xbb\x01\n\x13\x45xecuteTaskResponse\x12?\n\rcomputed_task\x18\x01 \x01(\x0b\x32\x1a.workflows.v1.ComputedTaskR\x0c\x63omputedTask\x12@\n\x0b\x66\x61iled_task\x18\x02 \x01(\x0b\x32\x1f.workflows.v1.TaskFailedRequestR\nfailedTask:!\xbaH\x1e\"\x1c\n\rcomputed_task\n\x0b\x66\x61iled_task2\xce\x02\n\rWorkerService\x12L\n\x13ListRegisteredTasks\x12\x16.google.protobuf.Empty\x1a\x1d.workflows.v1.TaskIdentifiers\x12\x63\n\x10InitializeWorker\x12%.workflows.v1.InitializeRunnerRequest\x1a&.workflows.v1.InitializeRunnerResponse\"\x00\x12\x46\n\x0b\x45xecuteTask\x12\x12.workflows.v1.Task\x1a!.workflows.v1.ExecuteTaskResponse\"\x00\x12\x42\n\x0eShutdownWorker\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\"\x00\x42p\n\x10\x63om.workflows.v1B\x0bWorkerProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1b\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19workflows/v1/worker.proto\x12\x0cworkflows.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x13tilebox/v1/id.proto\x1a\x17workflows/v1/core.proto\x1a\x17workflows/v1/task.proto\x1a\x1cworkflows/v1/workflows.proto\"\x99\x02\n\x17InitializeRunnerRequest\x12+\n\trunner_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x08runnerId\x12!\n\x0ctrace_parent\x18\x02 \x01(\tR\x0btraceParent\x12/\n\x07\x63luster\x18\x03 \x01(\x0b\x32\x15.workflows.v1.ClusterR\x07\x63luster\x12\x32\n\x08workflow\x18\x04 \x01(\x0b\x32\x16.workflows.v1.WorkflowR\x08workflow\x12I\n\x0e\x61pi_connection\x18\x05 \x01(\x0b\x32\".workflows.v1.TileboxAPIConnectionR\rapiConnection\">\n\x14TileboxAPIConnection\x12\x10\n\x03url\x18\x01 \x01(\tR\x03url\x12\x14\n\x05token\x18\x02 \x01(\tR\x05token\"\x1a\n\x18InitializeRunnerResponse\"\x98\x01\n\x13\x45xecuteTaskResponse\x12?\n\rcomputed_task\x18\x01 \x01(\x0b\x32\x1a.workflows.v1.ComputedTaskR\x0c\x63omputedTask\x12@\n\x0b\x66\x61iled_task\x18\x02 \x01(\x0b\x32\x1f.workflows.v1.TaskFailedRequestR\nfailedTask2\xc8\x02\n\rWorkerService\x12L\n\x13ListRegisteredTasks\x12\x16.google.protobuf.Empty\x1a\x1d.workflows.v1.TaskIdentifiers\x12\x61\n\x10InitializeWorker\x12%.workflows.v1.InitializeRunnerRequest\x1a&.workflows.v1.InitializeRunnerResponse\x12\x44\n\x0b\x45xecuteTask\x12\x12.workflows.v1.Task\x1a!.workflows.v1.ExecuteTaskResponse\x12@\n\x0eShutdownWorker\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.EmptyBp\n\x10\x63om.workflows.v1B\x0bWorkerProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1b\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,16 +37,14 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'workflows.v1.worker_pb2', _
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\020com.workflows.v1B\013WorkerProtoP\001\242\002\003WXX\252\002\014Workflows.V1\312\002\014Workflows\\V1\342\002\030Workflows\\V1\\GPBMetadata\352\002\rWorkflows::V1'
-  _globals['_EXECUTETASKRESPONSE']._loaded_options = None
-  _globals['_EXECUTETASKRESPONSE']._serialized_options = b'\272H\036\"\034\n\rcomputed_task\n\013failed_task'
-  _globals['_INITIALIZERUNNERREQUEST']._serialized_start=234
-  _globals['_INITIALIZERUNNERREQUEST']._serialized_end=515
-  _globals['_TILEBOXAPICONNECTION']._serialized_start=517
-  _globals['_TILEBOXAPICONNECTION']._serialized_end=579
-  _globals['_INITIALIZERUNNERRESPONSE']._serialized_start=581
-  _globals['_INITIALIZERUNNERRESPONSE']._serialized_end=607
-  _globals['_EXECUTETASKRESPONSE']._serialized_start=610
-  _globals['_EXECUTETASKRESPONSE']._serialized_end=797
-  _globals['_WORKERSERVICE']._serialized_start=800
-  _globals['_WORKERSERVICE']._serialized_end=1134
+  _globals['_INITIALIZERUNNERREQUEST']._serialized_start=174
+  _globals['_INITIALIZERUNNERREQUEST']._serialized_end=455
+  _globals['_TILEBOXAPICONNECTION']._serialized_start=457
+  _globals['_TILEBOXAPICONNECTION']._serialized_end=519
+  _globals['_INITIALIZERUNNERRESPONSE']._serialized_start=521
+  _globals['_INITIALIZERUNNERRESPONSE']._serialized_end=547
+  _globals['_EXECUTETASKRESPONSE']._serialized_start=550
+  _globals['_EXECUTETASKRESPONSE']._serialized_end=702
+  _globals['_WORKERSERVICE']._serialized_start=705
+  _globals['_WORKERSERVICE']._serialized_end=1033
 # @@protoc_insertion_point(module_scope)
