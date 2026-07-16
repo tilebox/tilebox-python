@@ -36,20 +36,20 @@ class Field(_message.Message):
     def __init__(self, descriptor: _Optional[_Union[_descriptor_pb2.FieldDescriptorProto, _Mapping]] = ..., annotation: _Optional[_Union[FieldAnnotation, _Mapping]] = ...) -> None: ...
 
 class FieldAnnotation(_message.Message):
-    __slots__ = ("description", "example_value", "source_json_pointer", "queryable", "queryable_json_schema_ref", "roles")
+    __slots__ = ("description", "example_value", "source_json_pointer", "queryable", "json_schema_ref", "roles")
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     EXAMPLE_VALUE_FIELD_NUMBER: _ClassVar[int]
     SOURCE_JSON_POINTER_FIELD_NUMBER: _ClassVar[int]
     QUERYABLE_FIELD_NUMBER: _ClassVar[int]
-    QUERYABLE_JSON_SCHEMA_REF_FIELD_NUMBER: _ClassVar[int]
+    JSON_SCHEMA_REF_FIELD_NUMBER: _ClassVar[int]
     ROLES_FIELD_NUMBER: _ClassVar[int]
     description: str
     example_value: str
     source_json_pointer: str
     queryable: bool
-    queryable_json_schema_ref: str
+    json_schema_ref: str
     roles: _containers.RepeatedScalarFieldContainer[FieldRole]
-    def __init__(self, description: _Optional[str] = ..., example_value: _Optional[str] = ..., source_json_pointer: _Optional[str] = ..., queryable: bool = ..., queryable_json_schema_ref: _Optional[str] = ..., roles: _Optional[_Iterable[_Union[FieldRole, str]]] = ...) -> None: ...
+    def __init__(self, description: _Optional[str] = ..., example_value: _Optional[str] = ..., source_json_pointer: _Optional[str] = ..., queryable: bool = ..., json_schema_ref: _Optional[str] = ..., roles: _Optional[_Iterable[_Union[FieldRole, str]]] = ...) -> None: ...
 
 class DatasetType(_message.Message):
     __slots__ = ("kind", "fields")
