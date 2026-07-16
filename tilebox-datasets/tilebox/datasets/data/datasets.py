@@ -1,7 +1,8 @@
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TypedDict, get_args, get_origin
+from typing import Literal, TypeAlias, TypedDict, get_args, get_origin
 from uuid import UUID
 
 import numpy as np
@@ -24,17 +25,56 @@ class DatasetKind(Enum):
 _dataset_kind_int_to_enum = {kind.value: kind for kind in DatasetKind}
 
 
+class FieldRole(Enum):
+    PRIMARY_TITLE = dataset_type_pb2.FIELD_ROLE_PRIMARY_TITLE
+    """The primary human-readable title or name used when displaying a datapoint."""
+
+
+_field_roles_from_string = {role.name.lower(): role for role in FieldRole}
+_field_role_int_to_enum = {role.value: role for role in FieldRole}
+FieldRolesLike: TypeAlias = list[FieldRole] | list[Literal["primary_title"]]
+
+
 @dataclass(frozen=True)
 class FieldAnnotation:
     description: str
+    """A human-readable description of the field."""
     example_value: str
+    """An example value illustrating the field's expected contents."""
+    source_json_pointer: str | None = None
+    """An RFC 6901 JSON Pointer locating the field value in the source document."""
+    queryable: bool = False
+    """Whether the field is available for use in server-side filter expressions."""
+    json_schema_ref: str | None = None
+    """A JSON Schema reference for the field when it corresponds to a well-known schema."""
+    roles: list[FieldRole] = dataclass_field(default_factory=list)
+    """Semantic display roles fulfilled by the field."""
 
     @classmethod
     def from_message(cls, annotation: dataset_type_pb2.FieldAnnotation) -> "FieldAnnotation":
-        return cls(description=annotation.description, example_value=annotation.example_value)
+        return cls(
+            description=annotation.description,
+            example_value=annotation.example_value,
+            source_json_pointer=(
+                annotation.source_json_pointer if annotation.HasField("source_json_pointer") else None
+            ),
+            queryable=annotation.queryable,
+            json_schema_ref=annotation.json_schema_ref if annotation.HasField("json_schema_ref") else None,
+            roles=[_field_role_int_to_enum[role] for role in annotation.roles],
+        )
 
     def to_message(self) -> dataset_type_pb2.FieldAnnotation:
-        return dataset_type_pb2.FieldAnnotation(description=self.description, example_value=self.example_value)
+        annotation = dataset_type_pb2.FieldAnnotation(
+            description=self.description,
+            example_value=self.example_value,
+            queryable=self.queryable,
+            roles=[role.value for role in self.roles],
+        )
+        if self.source_json_pointer is not None:
+            annotation.source_json_pointer = self.source_json_pointer
+        if self.json_schema_ref is not None:
+            annotation.json_schema_ref = self.json_schema_ref
+        return annotation
 
 
 class FieldDict(TypedDict):
@@ -63,6 +103,10 @@ class FieldDict(TypedDict):
     ]
     description: NotRequired[str]
     example_value: NotRequired[str]
+    source_json_pointer: NotRequired[str | None]
+    queryable: NotRequired[bool]
+    json_schema_ref: NotRequired[str | None]
+    roles: NotRequired[FieldRolesLike]
 
 
 _TYPE_INFO: dict[type, tuple[FieldDescriptorProto.Type.ValueType, str | None]] = {
@@ -83,14 +127,12 @@ _TYPE_INFO: dict[type, tuple[FieldDescriptorProto.Type.ValueType, str | None]] =
 class Field:
     descriptor: FieldDescriptorProto
     annotation: FieldAnnotation
-    queryable: bool
 
     @classmethod
     def from_message(cls, field: dataset_type_pb2.Field) -> "Field":
         return cls(
             descriptor=field.descriptor,
             annotation=FieldAnnotation.from_message(field.annotation),
-            queryable=field.annotation.queryable,
         )
 
     @classmethod
@@ -116,16 +158,19 @@ class Field:
             annotation=FieldAnnotation(
                 description=field.get("description", ""),
                 example_value=field.get("example_value", ""),
+                source_json_pointer=field.get("source_json_pointer"),
+                queryable=field.get("queryable", False),
+                json_schema_ref=field.get("json_schema_ref"),
+                roles=[
+                    _field_roles_from_string[role] if isinstance(role, str) else role for role in field.get("roles", [])
+                ],
             ),
-            queryable=False,
         )
 
     def to_message(self) -> dataset_type_pb2.Field:
-        annotation = self.annotation.to_message()
-        annotation.queryable = self.queryable
         return dataset_type_pb2.Field(
             descriptor=self.descriptor,
-            annotation=annotation,
+            annotation=self.annotation.to_message(),
         )
 
 
