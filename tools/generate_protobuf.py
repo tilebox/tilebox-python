@@ -23,6 +23,8 @@ def main() -> None:
         print("Usage: uv run generate-protobuf <tilebox-python-repo>")  # noqa: T201
         sys.exit(1)
 
+    # The Buf templates deliberately exclude buf.validate: these clients do not perform
+    # client-side validation, and validation-blind messages avoid global descriptor conflicts.
     print("Running buf generate")  # noqa: T201
     os.system("buf generate --template buf.gen.datasets.yaml")  # noqa: S605, S607
     os.system("buf generate --template buf.gen.workflows.yaml")  # noqa: S605, S607
@@ -32,8 +34,6 @@ def main() -> None:
         "import datasets.v1.": "import tilebox.datasets.datasets.v1.",
         "from tilebox.v1 import": "from tilebox.datasets.tilebox.v1 import",
         "import tilebox.v1.": "import tilebox.datasets.tilebox.v1.",
-        "from buf.validate import": "from tilebox.datasets.buf.validate import",
-        "import buf.validate.": "import tilebox.datasets.buf.validate.",
         "from workflows.v1 import": "from tilebox.workflows.workflows.v1 import",
         "import workflows.v1.": "import tilebox.workflows.workflows.v1.",
     }
@@ -41,7 +41,6 @@ def main() -> None:
     folders = (
         clients_repo / "tilebox-datasets" / "tilebox" / "datasets" / "datasets" / "v1",
         clients_repo / "tilebox-datasets" / "tilebox" / "datasets" / "tilebox" / "v1",
-        clients_repo / "tilebox-datasets" / "tilebox" / "datasets" / "buf" / "validate",
         clients_repo / "tilebox-workflows" / "tilebox" / "workflows" / "workflows" / "v1",
     )
 

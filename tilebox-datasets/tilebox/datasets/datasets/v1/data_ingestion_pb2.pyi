@@ -1,4 +1,3 @@
-from tilebox.datasets.buf.validate import validate_pb2 as _validate_pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor

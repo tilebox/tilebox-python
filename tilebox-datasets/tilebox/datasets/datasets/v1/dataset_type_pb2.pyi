@@ -1,4 +1,3 @@
-from tilebox.datasets.buf.validate import validate_pb2 as _validate_pb2
 from tilebox.datasets.datasets.v1 import well_known_types_pb2 as _well_known_types_pb2
 from google.protobuf import descriptor_pb2 as _descriptor_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -17,27 +16,40 @@ class DatasetKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DATASET_KIND_UNSPECIFIED: _ClassVar[DatasetKind]
     DATASET_KIND_TEMPORAL: _ClassVar[DatasetKind]
     DATASET_KIND_SPATIOTEMPORAL: _ClassVar[DatasetKind]
+
+class FieldRole(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    FIELD_ROLE_UNSPECIFIED: _ClassVar[FieldRole]
+    FIELD_ROLE_PRIMARY_TITLE: _ClassVar[FieldRole]
 DATASET_KIND_UNSPECIFIED: DatasetKind
 DATASET_KIND_TEMPORAL: DatasetKind
 DATASET_KIND_SPATIOTEMPORAL: DatasetKind
+FIELD_ROLE_UNSPECIFIED: FieldRole
+FIELD_ROLE_PRIMARY_TITLE: FieldRole
 
 class Field(_message.Message):
-    __slots__ = ("descriptor", "annotation", "queryable")
+    __slots__ = ("descriptor", "annotation")
     DESCRIPTOR_FIELD_NUMBER: _ClassVar[int]
     ANNOTATION_FIELD_NUMBER: _ClassVar[int]
-    QUERYABLE_FIELD_NUMBER: _ClassVar[int]
     descriptor: _descriptor_pb2.FieldDescriptorProto
     annotation: FieldAnnotation
-    queryable: bool
-    def __init__(self, descriptor: _Optional[_Union[_descriptor_pb2.FieldDescriptorProto, _Mapping]] = ..., annotation: _Optional[_Union[FieldAnnotation, _Mapping]] = ..., queryable: bool = ...) -> None: ...
+    def __init__(self, descriptor: _Optional[_Union[_descriptor_pb2.FieldDescriptorProto, _Mapping]] = ..., annotation: _Optional[_Union[FieldAnnotation, _Mapping]] = ...) -> None: ...
 
 class FieldAnnotation(_message.Message):
-    __slots__ = ("description", "example_value")
+    __slots__ = ("description", "example_value", "source_json_pointer", "queryable", "queryable_json_schema_ref", "roles")
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     EXAMPLE_VALUE_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_JSON_POINTER_FIELD_NUMBER: _ClassVar[int]
+    QUERYABLE_FIELD_NUMBER: _ClassVar[int]
+    QUERYABLE_JSON_SCHEMA_REF_FIELD_NUMBER: _ClassVar[int]
+    ROLES_FIELD_NUMBER: _ClassVar[int]
     description: str
     example_value: str
-    def __init__(self, description: _Optional[str] = ..., example_value: _Optional[str] = ...) -> None: ...
+    source_json_pointer: str
+    queryable: bool
+    queryable_json_schema_ref: str
+    roles: _containers.RepeatedScalarFieldContainer[FieldRole]
+    def __init__(self, description: _Optional[str] = ..., example_value: _Optional[str] = ..., source_json_pointer: _Optional[str] = ..., queryable: bool = ..., queryable_json_schema_ref: _Optional[str] = ..., roles: _Optional[_Iterable[_Union[FieldRole, str]]] = ...) -> None: ...
 
 class DatasetType(_message.Message):
     __slots__ = ("kind", "fields")

@@ -22,14 +22,14 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from tilebox.datasets.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
+from google.api import field_behavior_pb2 as google_dot_api_dot_field__behavior__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1dworkflows/v1/automation.proto\x12\x0cworkflows.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\x1a\x17workflows/v1/core.proto\"\x9c\x01\n\x0fStorageLocation\x12&\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x02id\x12&\n\x08location\x18\x02 \x01(\tB\n\xbaH\x07r\x05 \x01(\x80\x04R\x08location\x12\x39\n\x04type\x18\x03 \x01(\x0e\x32\x19.workflows.v1.StorageTypeB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00R\x04type\"O\n\x10StorageLocations\x12;\n\tlocations\x18\x01 \x03(\x0b\x32\x1d.workflows.v1.StorageLocationR\tlocations\"\x90\x03\n\x13\x41utomationPrototype\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x1e\n\x04name\x18\x02 \x01(\tB\n\xbaH\x07r\x05 \x01(\x80\x08R\x04name\x12@\n\tprototype\x18\x03 \x01(\x0b\x32\".workflows.v1.SingleTaskSubmissionR\tprototype\x12\x61\n\x16storage_event_triggers\x18\x04 \x03(\x0b\x32!.workflows.v1.StorageEventTriggerB\x08\xbaH\x05\x92\x01\x02\x10 R\x14storageEventTriggers\x12H\n\rcron_triggers\x18\x05 \x03(\x0b\x32\x19.workflows.v1.CronTriggerB\x08\xbaH\x05\x92\x01\x02\x10 R\x0c\x63ronTriggers\x12\x1a\n\x08\x64isabled\x18\x06 \x01(\x08R\x08\x64isabled:.\xbaH+\")\n\x16storage_event_triggers\n\rcron_triggers\x10\x01\"R\n\x0b\x41utomations\x12\x43\n\x0b\x61utomations\x18\x01 \x03(\x0b\x32!.workflows.v1.AutomationPrototypeR\x0b\x61utomations\"\xab\x01\n\x13StorageEventTrigger\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12H\n\x10storage_location\x18\x02 \x01(\x0b\x32\x1d.workflows.v1.StorageLocationR\x0fstorageLocation\x12*\n\x0cglob_pattern\x18\x03 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0bglobPattern\"R\n\x0b\x43ronTrigger\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12#\n\x08schedule\x18\x02 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x08schedule\"E\n\nAutomation\x12#\n\rtrigger_event\x18\x01 \x01(\x0cR\x0ctriggerEvent\x12\x12\n\x04\x61rgs\x18\x02 \x01(\x0cR\x04\x61rgs\"\xa7\x01\n\x15TriggeredStorageEvent\x12>\n\x13storage_location_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x11storageLocationId\x12\x32\n\x04type\x18\x02 \x01(\x0e\x32\x1e.workflows.v1.StorageEventTypeR\x04type\x12\x1a\n\x08location\x18\x03 \x01(\tR\x08location\"S\n\x12TriggeredCronEvent\x12=\n\x0ctrigger_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0btriggerTime\"w\n\x17\x44\x65leteAutomationRequest\x12;\n\rautomation_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x0c\x61utomationId\x12\x1f\n\x0b\x63\x61ncel_jobs\x18\x02 \x01(\x08R\ncancelJobs*k\n\x0bStorageType\x12\x1c\n\x18STORAGE_TYPE_UNSPECIFIED\x10\x00\x12\x14\n\x10STORAGE_TYPE_GCS\x10\x01\x12\x13\n\x0fSTORAGE_TYPE_S3\x10\x02\x12\x13\n\x0fSTORAGE_TYPE_FS\x10\x03*V\n\x10StorageEventType\x12\"\n\x1eSTORAGE_EVENT_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n\x1aSTORAGE_EVENT_TYPE_CREATED\x10\x01\x32\xd1\x05\n\x11\x41utomationService\x12N\n\x14ListStorageLocations\x12\x16.google.protobuf.Empty\x1a\x1e.workflows.v1.StorageLocations\x12\x43\n\x12GetStorageLocation\x12\x0e.tilebox.v1.ID\x1a\x1d.workflows.v1.StorageLocation\x12U\n\x15\x43reateStorageLocation\x12\x1d.workflows.v1.StorageLocation\x1a\x1d.workflows.v1.StorageLocation\x12?\n\x15\x44\x65leteStorageLocation\x12\x0e.tilebox.v1.ID\x1a\x16.google.protobuf.Empty\x12\x44\n\x0fListAutomations\x12\x16.google.protobuf.Empty\x1a\x19.workflows.v1.Automations\x12\x42\n\rGetAutomation\x12\x0e.tilebox.v1.ID\x1a!.workflows.v1.AutomationPrototype\x12X\n\x10\x43reateAutomation\x12!.workflows.v1.AutomationPrototype\x1a!.workflows.v1.AutomationPrototype\x12X\n\x10UpdateAutomation\x12!.workflows.v1.AutomationPrototype\x1a!.workflows.v1.AutomationPrototype\x12Q\n\x10\x44\x65leteAutomation\x12%.workflows.v1.DeleteAutomationRequest\x1a\x16.google.protobuf.EmptyBy\n\x10\x63om.workflows.v1B\x0f\x41utomationProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1dworkflows/v1/automation.proto\x12\x0cworkflows.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\x1a\x17workflows/v1/core.proto\"|\n\x0fStorageLocation\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x1a\n\x08location\x18\x02 \x01(\tR\x08location\x12-\n\x04type\x18\x03 \x01(\x0e\x32\x19.workflows.v1.StorageTypeR\x04type\"O\n\x10StorageLocations\x12;\n\tlocations\x18\x01 \x03(\x0b\x32\x1d.workflows.v1.StorageLocationR\tlocations\"\xc0\x02\n\x13\x41utomationPrototype\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12@\n\tprototype\x18\x03 \x01(\x0b\x32\".workflows.v1.SingleTaskSubmissionR\tprototype\x12W\n\x16storage_event_triggers\x18\x04 \x03(\x0b\x32!.workflows.v1.StorageEventTriggerR\x14storageEventTriggers\x12>\n\rcron_triggers\x18\x05 \x03(\x0b\x32\x19.workflows.v1.CronTriggerR\x0c\x63ronTriggers\x12\x1a\n\x08\x64isabled\x18\x06 \x01(\x08R\x08\x64isabled\"R\n\x0b\x41utomations\x12\x43\n\x0b\x61utomations\x18\x01 \x03(\x0b\x32!.workflows.v1.AutomationPrototypeR\x0b\x61utomations\"\xa2\x01\n\x13StorageEventTrigger\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12H\n\x10storage_location\x18\x02 \x01(\x0b\x32\x1d.workflows.v1.StorageLocationR\x0fstorageLocation\x12!\n\x0cglob_pattern\x18\x03 \x01(\tR\x0bglobPattern\"\x96\x01\n\x0b\x43ronTrigger\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x1a\n\x08schedule\x18\x02 \x01(\tR\x08schedule\x12K\n\x11next_scheduled_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x03\xe0\x41\x03R\x0fnextScheduledAt\"E\n\nAutomation\x12#\n\rtrigger_event\x18\x01 \x01(\x0cR\x0ctriggerEvent\x12\x12\n\x04\x61rgs\x18\x02 \x01(\x0cR\x04\x61rgs\"\xa7\x01\n\x15TriggeredStorageEvent\x12>\n\x13storage_location_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x11storageLocationId\x12\x32\n\x04type\x18\x02 \x01(\x0e\x32\x1e.workflows.v1.StorageEventTypeR\x04type\x12\x1a\n\x08location\x18\x03 \x01(\tR\x08location\"S\n\x12TriggeredCronEvent\x12=\n\x0ctrigger_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0btriggerTime\"o\n\x17\x44\x65leteAutomationRequest\x12\x33\n\rautomation_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x0c\x61utomationId\x12\x1f\n\x0b\x63\x61ncel_jobs\x18\x02 \x01(\x08R\ncancelJobs*k\n\x0bStorageType\x12\x1c\n\x18STORAGE_TYPE_UNSPECIFIED\x10\x00\x12\x14\n\x10STORAGE_TYPE_GCS\x10\x01\x12\x13\n\x0fSTORAGE_TYPE_S3\x10\x02\x12\x13\n\x0fSTORAGE_TYPE_FS\x10\x03*V\n\x10StorageEventType\x12\"\n\x1eSTORAGE_EVENT_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n\x1aSTORAGE_EVENT_TYPE_CREATED\x10\x01\x32\xd1\x05\n\x11\x41utomationService\x12N\n\x14ListStorageLocations\x12\x16.google.protobuf.Empty\x1a\x1e.workflows.v1.StorageLocations\x12\x43\n\x12GetStorageLocation\x12\x0e.tilebox.v1.ID\x1a\x1d.workflows.v1.StorageLocation\x12U\n\x15\x43reateStorageLocation\x12\x1d.workflows.v1.StorageLocation\x1a\x1d.workflows.v1.StorageLocation\x12?\n\x15\x44\x65leteStorageLocation\x12\x0e.tilebox.v1.ID\x1a\x16.google.protobuf.Empty\x12\x44\n\x0fListAutomations\x12\x16.google.protobuf.Empty\x1a\x19.workflows.v1.Automations\x12\x42\n\rGetAutomation\x12\x0e.tilebox.v1.ID\x1a!.workflows.v1.AutomationPrototype\x12X\n\x10\x43reateAutomation\x12!.workflows.v1.AutomationPrototype\x1a!.workflows.v1.AutomationPrototype\x12X\n\x10UpdateAutomation\x12!.workflows.v1.AutomationPrototype\x1a!.workflows.v1.AutomationPrototype\x12Q\n\x10\x44\x65leteAutomation\x12%.workflows.v1.DeleteAutomationRequest\x1a\x16.google.protobuf.EmptyBy\n\x10\x63om.workflows.v1B\x0f\x41utomationProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,50 +37,32 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'workflows.v1.automation_pb2
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\020com.workflows.v1B\017AutomationProtoP\001\242\002\003WXX\252\002\014Workflows.V1\312\002\014Workflows\\V1\342\002\030Workflows\\V1\\GPBMetadata\352\002\rWorkflows::V1\222\003\002\010\002'
-  _globals['_STORAGELOCATION'].fields_by_name['id']._loaded_options = None
-  _globals['_STORAGELOCATION'].fields_by_name['id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_STORAGELOCATION'].fields_by_name['location']._loaded_options = None
-  _globals['_STORAGELOCATION'].fields_by_name['location']._serialized_options = b'\272H\007r\005 \001(\200\004'
-  _globals['_STORAGELOCATION'].fields_by_name['type']._loaded_options = None
-  _globals['_STORAGELOCATION'].fields_by_name['type']._serialized_options = b'\272H\007\202\001\004\020\001 \000'
-  _globals['_AUTOMATIONPROTOTYPE'].fields_by_name['name']._loaded_options = None
-  _globals['_AUTOMATIONPROTOTYPE'].fields_by_name['name']._serialized_options = b'\272H\007r\005 \001(\200\010'
-  _globals['_AUTOMATIONPROTOTYPE'].fields_by_name['storage_event_triggers']._loaded_options = None
-  _globals['_AUTOMATIONPROTOTYPE'].fields_by_name['storage_event_triggers']._serialized_options = b'\272H\005\222\001\002\020 '
-  _globals['_AUTOMATIONPROTOTYPE'].fields_by_name['cron_triggers']._loaded_options = None
-  _globals['_AUTOMATIONPROTOTYPE'].fields_by_name['cron_triggers']._serialized_options = b'\272H\005\222\001\002\020 '
-  _globals['_AUTOMATIONPROTOTYPE']._loaded_options = None
-  _globals['_AUTOMATIONPROTOTYPE']._serialized_options = b'\272H+\")\n\026storage_event_triggers\n\rcron_triggers\020\001'
-  _globals['_STORAGEEVENTTRIGGER'].fields_by_name['glob_pattern']._loaded_options = None
-  _globals['_STORAGEEVENTTRIGGER'].fields_by_name['glob_pattern']._serialized_options = b'\272H\004r\002\020\001'
-  _globals['_CRONTRIGGER'].fields_by_name['schedule']._loaded_options = None
-  _globals['_CRONTRIGGER'].fields_by_name['schedule']._serialized_options = b'\272H\004r\002\020\001'
-  _globals['_DELETEAUTOMATIONREQUEST'].fields_by_name['automation_id']._loaded_options = None
-  _globals['_DELETEAUTOMATIONREQUEST'].fields_by_name['automation_id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_STORAGETYPE']._serialized_start=1616
-  _globals['_STORAGETYPE']._serialized_end=1723
-  _globals['_STORAGEEVENTTYPE']._serialized_start=1725
-  _globals['_STORAGEEVENTTYPE']._serialized_end=1811
-  _globals['_STORAGELOCATION']._serialized_start=185
-  _globals['_STORAGELOCATION']._serialized_end=341
-  _globals['_STORAGELOCATIONS']._serialized_start=343
-  _globals['_STORAGELOCATIONS']._serialized_end=422
-  _globals['_AUTOMATIONPROTOTYPE']._serialized_start=425
-  _globals['_AUTOMATIONPROTOTYPE']._serialized_end=825
-  _globals['_AUTOMATIONS']._serialized_start=827
-  _globals['_AUTOMATIONS']._serialized_end=909
-  _globals['_STORAGEEVENTTRIGGER']._serialized_start=912
-  _globals['_STORAGEEVENTTRIGGER']._serialized_end=1083
-  _globals['_CRONTRIGGER']._serialized_start=1085
-  _globals['_CRONTRIGGER']._serialized_end=1167
-  _globals['_AUTOMATION']._serialized_start=1169
-  _globals['_AUTOMATION']._serialized_end=1238
-  _globals['_TRIGGEREDSTORAGEEVENT']._serialized_start=1241
-  _globals['_TRIGGEREDSTORAGEEVENT']._serialized_end=1408
-  _globals['_TRIGGEREDCRONEVENT']._serialized_start=1410
-  _globals['_TRIGGEREDCRONEVENT']._serialized_end=1493
-  _globals['_DELETEAUTOMATIONREQUEST']._serialized_start=1495
-  _globals['_DELETEAUTOMATIONREQUEST']._serialized_end=1614
-  _globals['_AUTOMATIONSERVICE']._serialized_start=1814
-  _globals['_AUTOMATIONSERVICE']._serialized_end=2535
+  _globals['_CRONTRIGGER'].fields_by_name['next_scheduled_at']._loaded_options = None
+  _globals['_CRONTRIGGER'].fields_by_name['next_scheduled_at']._serialized_options = b'\340A\003'
+  _globals['_STORAGETYPE']._serialized_start=1559
+  _globals['_STORAGETYPE']._serialized_end=1666
+  _globals['_STORAGEEVENTTYPE']._serialized_start=1668
+  _globals['_STORAGEEVENTTYPE']._serialized_end=1754
+  _globals['_STORAGELOCATION']._serialized_start=188
+  _globals['_STORAGELOCATION']._serialized_end=312
+  _globals['_STORAGELOCATIONS']._serialized_start=314
+  _globals['_STORAGELOCATIONS']._serialized_end=393
+  _globals['_AUTOMATIONPROTOTYPE']._serialized_start=396
+  _globals['_AUTOMATIONPROTOTYPE']._serialized_end=716
+  _globals['_AUTOMATIONS']._serialized_start=718
+  _globals['_AUTOMATIONS']._serialized_end=800
+  _globals['_STORAGEEVENTTRIGGER']._serialized_start=803
+  _globals['_STORAGEEVENTTRIGGER']._serialized_end=965
+  _globals['_CRONTRIGGER']._serialized_start=968
+  _globals['_CRONTRIGGER']._serialized_end=1118
+  _globals['_AUTOMATION']._serialized_start=1120
+  _globals['_AUTOMATION']._serialized_end=1189
+  _globals['_TRIGGEREDSTORAGEEVENT']._serialized_start=1192
+  _globals['_TRIGGEREDSTORAGEEVENT']._serialized_end=1359
+  _globals['_TRIGGEREDCRONEVENT']._serialized_start=1361
+  _globals['_TRIGGEREDCRONEVENT']._serialized_end=1444
+  _globals['_DELETEAUTOMATIONREQUEST']._serialized_start=1446
+  _globals['_DELETEAUTOMATIONREQUEST']._serialized_end=1557
+  _globals['_AUTOMATIONSERVICE']._serialized_start=1757
+  _globals['_AUTOMATIONSERVICE']._serialized_end=2478
 # @@protoc_insertion_point(module_scope)

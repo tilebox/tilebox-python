@@ -22,16 +22,13 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from tilebox.datasets.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
-from opentelemetry.proto.logs.v1 import logs_pb2 as opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2
-from opentelemetry.proto.trace.v1 import trace_pb2 as opentelemetry_dot_proto_dot_trace_dot_v1_dot_trace__pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 from tilebox.datasets.tilebox.v1 import query_pb2 as tilebox_dot_v1_dot_query__pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core__pb2
 from tilebox.workflows.workflows.v1 import diagram_pb2 as workflows_dot_v1_dot_diagram__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16workflows/v1/job.proto\x12\x0cworkflows.v1\x1a\x1b\x62uf/validate/validate.proto\x1a&opentelemetry/proto/logs/v1/logs.proto\x1a(opentelemetry/proto/trace/v1/trace.proto\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto\x1a\x17workflows/v1/core.proto\x1a\x1aworkflows/v1/diagram.proto\"\xce\x03\n\x10SubmitJobRequest\x12\x33\n\x05tasks\x18\x05 \x01(\x0b\x32\x1d.workflows.v1.TaskSubmissionsR\x05tasks\x12\"\n\x08job_name\x18\x02 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x07jobName\x12*\n\x0ctrace_parent\x18\x03 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0btraceParent\x12\x33\n\rautomation_id\x18\x04 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x0c\x61utomationId\x12R\n\x0clegacy_tasks\x18\x01 \x03(\x0b\x32\".workflows.v1.SingleTaskSubmissionB\x0b\x18\x01\xbaH\x06\x92\x01\x03\x10\xe8\x07R\x0blegacyTasks:\xab\x01\xbaH\xa7\x01\x1a\xa4\x01\n!submit_job_request.tasks_required\x12$At least one task must be submitted.\x1aY(this.tasks != null && this.tasks.task_groups.size() > 0) || this.legacy_tasks.size() > 0\">\n\rGetJobRequest\x12-\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x05jobId\"F\n\x15GetJobProgressRequest\x12-\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x05jobId\"@\n\x0fRetryJobRequest\x12-\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x05jobId\"F\n\x10RetryJobResponse\x12\x32\n\x15num_tasks_rescheduled\x18\x01 \x01(\x03R\x13numTasksRescheduled\"A\n\x10\x43\x61ncelJobRequest\x12-\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x05jobId\"\x13\n\x11\x43\x61ncelJobResponse\"\xec\x01\n\x13VisualizeJobRequest\x12-\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x05jobId\x12\x42\n\x0erender_options\x18\x02 \x01(\x0b\x32\x1b.workflows.v1.RenderOptionsR\rrenderOptions\x12\x38\n\x05theme\x18\x03 \x01(\x0e\x32\".workflows.v1.WorkflowDiagramThemeR\x05theme\x12(\n\x10include_job_name\x18\x04 \x01(\x08R\x0eincludeJobName\"\x8e\x03\n\x0cQueryFilters\x12=\n\rtime_interval\x18\x01 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12\x37\n\x0bid_interval\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.IDIntervalR\nidInterval\x12\x35\n\x0e\x61utomation_ids\x18\x03 \x03(\x0b\x32\x0e.tilebox.v1.IDR\rautomationIds\x12.\n\x06states\x18\x04 \x03(\x0e\x32\x16.workflows.v1.JobStateR\x06states\x12\x1b\n\x04name\x18\x05 \x01(\tB\x07\xbaH\x04r\x02\x18\x64R\x04name\x12\x38\n\x0btask_states\x18\x06 \x03(\x0e\x32\x17.workflows.v1.TaskStateR\ntaskStates\x12#\n\rcluster_slugs\x18\x07 \x03(\tR\x0c\x63lusterSlugs:#\xbaH \"\x1e\n\rtime_interval\n\x0bid_interval\x10\x00\"\xbd\x01\n\x10QueryJobsRequest\x12\x34\n\x07\x66ilters\x18\x01 \x01(\x0b\x32\x1a.workflows.v1.QueryFiltersR\x07\x66ilters\x12\x31\n\x04page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12@\n\x0esort_direction\x18\x03 \x01(\x0e\x32\x19.tilebox.v1.SortDirectionR\rsortDirection\"v\n\x11QueryJobsResponse\x12%\n\x04jobs\x18\x01 \x03(\x0b\x32\x11.workflows.v1.JobR\x04jobs\x12:\n\tnext_page\x18\x03 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x08nextPage\"G\n\x16GetJobPrototypeRequest\x12-\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x05jobId\"w\n\x17GetJobPrototypeResponse\x12\x41\n\nroot_tasks\x18\x01 \x03(\x0b\x32\".workflows.v1.SingleTaskSubmissionR\trootTasks\x12\x19\n\x08job_name\x18\x02 \x01(\tR\x07jobName\"\xc6\x01\n\x0f\x43loneJobRequest\x12-\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x06\xbaH\x03\xc8\x01\x01R\x05jobId\x12`\n\x14root_tasks_overrides\x18\x02 \x03(\x0b\x32\".workflows.v1.SingleTaskSubmissionB\n\xbaH\x07\x92\x01\x04\x08\x01\x10@R\x12rootTasksOverrides\x12\"\n\x08job_name\x18\x03 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x07jobName*\xd4\x01\n\x14WorkflowDiagramTheme\x12&\n\"WORKFLOW_DIAGRAM_THEME_UNSPECIFIED\x10\x00\x12 \n\x1cWORKFLOW_DIAGRAM_THEME_LIGHT\x10\x01\x12\x1f\n\x1bWORKFLOW_DIAGRAM_THEME_DARK\x10\x02\x12(\n$WORKFLOW_DIAGRAM_THEME_CONSOLE_LIGHT\x10\x03\x12\'\n#WORKFLOW_DIAGRAM_THEME_CONSOLE_DARK\x10\x04\x32\x9f\x05\n\nJobService\x12>\n\tSubmitJob\x12\x1e.workflows.v1.SubmitJobRequest\x1a\x11.workflows.v1.Job\x12\x38\n\x06GetJob\x12\x1b.workflows.v1.GetJobRequest\x1a\x11.workflows.v1.Job\x12H\n\x0eGetJobProgress\x12#.workflows.v1.GetJobProgressRequest\x1a\x11.workflows.v1.Job\x12I\n\x08RetryJob\x12\x1d.workflows.v1.RetryJobRequest\x1a\x1e.workflows.v1.RetryJobResponse\x12L\n\tCancelJob\x12\x1e.workflows.v1.CancelJobRequest\x1a\x1f.workflows.v1.CancelJobResponse\x12H\n\x0cVisualizeJob\x12!.workflows.v1.VisualizeJobRequest\x1a\x15.workflows.v1.Diagram\x12L\n\tQueryJobs\x12\x1e.workflows.v1.QueryJobsRequest\x1a\x1f.workflows.v1.QueryJobsResponse\x12^\n\x0fGetJobPrototype\x12$.workflows.v1.GetJobPrototypeRequest\x1a%.workflows.v1.GetJobPrototypeResponse\x12<\n\x08\x43loneJob\x12\x1d.workflows.v1.CloneJobRequest\x1a\x11.workflows.v1.JobBr\n\x10\x63om.workflows.v1B\x08JobProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16workflows/v1/job.proto\x12\x0cworkflows.v1\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto\x1a\x17workflows/v1/core.proto\x1a\x1aworkflows/v1/diagram.proto\"\x85\x02\n\x10SubmitJobRequest\x12\x33\n\x05tasks\x18\x05 \x01(\x0b\x32\x1d.workflows.v1.TaskSubmissionsR\x05tasks\x12\x19\n\x08job_name\x18\x02 \x01(\tR\x07jobName\x12!\n\x0ctrace_parent\x18\x03 \x01(\tR\x0btraceParent\x12\x33\n\rautomation_id\x18\x04 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x0c\x61utomationId\x12I\n\x0clegacy_tasks\x18\x01 \x03(\x0b\x32\".workflows.v1.SingleTaskSubmissionB\x02\x18\x01R\x0blegacyTasks\"6\n\rGetJobRequest\x12%\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05jobId\">\n\x15GetJobProgressRequest\x12%\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05jobId\"8\n\x0fRetryJobRequest\x12%\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05jobId\"F\n\x10RetryJobResponse\x12\x32\n\x15num_tasks_rescheduled\x18\x01 \x01(\x03R\x13numTasksRescheduled\"9\n\x10\x43\x61ncelJobRequest\x12%\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05jobId\"\x13\n\x11\x43\x61ncelJobResponse\"\xe4\x01\n\x13VisualizeJobRequest\x12%\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05jobId\x12\x42\n\x0erender_options\x18\x02 \x01(\x0b\x32\x1b.workflows.v1.RenderOptionsR\rrenderOptions\x12\x38\n\x05theme\x18\x03 \x01(\x0e\x32\".workflows.v1.WorkflowDiagramThemeR\x05theme\x12(\n\x10include_job_name\x18\x04 \x01(\x08R\x0eincludeJobName\"\xe0\x02\n\x0cQueryFilters\x12=\n\rtime_interval\x18\x01 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12\x37\n\x0bid_interval\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.IDIntervalR\nidInterval\x12\x35\n\x0e\x61utomation_ids\x18\x03 \x03(\x0b\x32\x0e.tilebox.v1.IDR\rautomationIds\x12.\n\x06states\x18\x04 \x03(\x0e\x32\x16.workflows.v1.JobStateR\x06states\x12\x12\n\x04name\x18\x05 \x01(\tR\x04name\x12\x38\n\x0btask_states\x18\x06 \x03(\x0e\x32\x17.workflows.v1.TaskStateR\ntaskStates\x12#\n\rcluster_slugs\x18\x07 \x03(\tR\x0c\x63lusterSlugs\"\xbd\x01\n\x10QueryJobsRequest\x12\x34\n\x07\x66ilters\x18\x01 \x01(\x0b\x32\x1a.workflows.v1.QueryFiltersR\x07\x66ilters\x12\x31\n\x04page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12@\n\x0esort_direction\x18\x03 \x01(\x0e\x32\x19.tilebox.v1.SortDirectionR\rsortDirection\"v\n\x11QueryJobsResponse\x12%\n\x04jobs\x18\x01 \x03(\x0b\x32\x11.workflows.v1.JobR\x04jobs\x12:\n\tnext_page\x18\x03 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x08nextPage\"?\n\x16GetJobPrototypeRequest\x12%\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05jobId\"w\n\x17GetJobPrototypeResponse\x12\x41\n\nroot_tasks\x18\x01 \x03(\x0b\x32\".workflows.v1.SingleTaskSubmissionR\trootTasks\x12\x19\n\x08job_name\x18\x02 \x01(\tR\x07jobName\"\xa9\x01\n\x0f\x43loneJobRequest\x12%\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05jobId\x12T\n\x14root_tasks_overrides\x18\x02 \x03(\x0b\x32\".workflows.v1.SingleTaskSubmissionR\x12rootTasksOverrides\x12\x19\n\x08job_name\x18\x03 \x01(\tR\x07jobName*\xd4\x01\n\x14WorkflowDiagramTheme\x12&\n\"WORKFLOW_DIAGRAM_THEME_UNSPECIFIED\x10\x00\x12 \n\x1cWORKFLOW_DIAGRAM_THEME_LIGHT\x10\x01\x12\x1f\n\x1bWORKFLOW_DIAGRAM_THEME_DARK\x10\x02\x12(\n$WORKFLOW_DIAGRAM_THEME_CONSOLE_LIGHT\x10\x03\x12\'\n#WORKFLOW_DIAGRAM_THEME_CONSOLE_DARK\x10\x04\x32\x9f\x05\n\nJobService\x12>\n\tSubmitJob\x12\x1e.workflows.v1.SubmitJobRequest\x1a\x11.workflows.v1.Job\x12\x38\n\x06GetJob\x12\x1b.workflows.v1.GetJobRequest\x1a\x11.workflows.v1.Job\x12H\n\x0eGetJobProgress\x12#.workflows.v1.GetJobProgressRequest\x1a\x11.workflows.v1.Job\x12I\n\x08RetryJob\x12\x1d.workflows.v1.RetryJobRequest\x1a\x1e.workflows.v1.RetryJobResponse\x12L\n\tCancelJob\x12\x1e.workflows.v1.CancelJobRequest\x1a\x1f.workflows.v1.CancelJobResponse\x12H\n\x0cVisualizeJob\x12!.workflows.v1.VisualizeJobRequest\x1a\x15.workflows.v1.Diagram\x12L\n\tQueryJobs\x12\x1e.workflows.v1.QueryJobsRequest\x1a\x1f.workflows.v1.QueryJobsResponse\x12^\n\x0fGetJobPrototype\x12$.workflows.v1.GetJobPrototypeRequest\x1a%.workflows.v1.GetJobPrototypeResponse\x12<\n\x08\x43loneJob\x12\x1d.workflows.v1.CloneJobRequest\x1a\x11.workflows.v1.JobBr\n\x10\x63om.workflows.v1B\x08JobProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,70 +36,42 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'workflows.v1.job_pb2', _glo
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\020com.workflows.v1B\010JobProtoP\001\242\002\003WXX\252\002\014Workflows.V1\312\002\014Workflows\\V1\342\002\030Workflows\\V1\\GPBMetadata\352\002\rWorkflows::V1\222\003\002\010\002'
-  _globals['_SUBMITJOBREQUEST'].fields_by_name['job_name']._loaded_options = None
-  _globals['_SUBMITJOBREQUEST'].fields_by_name['job_name']._serialized_options = b'\272H\004r\002\020\001'
-  _globals['_SUBMITJOBREQUEST'].fields_by_name['trace_parent']._loaded_options = None
-  _globals['_SUBMITJOBREQUEST'].fields_by_name['trace_parent']._serialized_options = b'\272H\004r\002\020\001'
   _globals['_SUBMITJOBREQUEST'].fields_by_name['legacy_tasks']._loaded_options = None
-  _globals['_SUBMITJOBREQUEST'].fields_by_name['legacy_tasks']._serialized_options = b'\030\001\272H\006\222\001\003\020\350\007'
-  _globals['_SUBMITJOBREQUEST']._loaded_options = None
-  _globals['_SUBMITJOBREQUEST']._serialized_options = b'\272H\247\001\032\244\001\n!submit_job_request.tasks_required\022$At least one task must be submitted.\032Y(this.tasks != null && this.tasks.task_groups.size() > 0) || this.legacy_tasks.size() > 0'
-  _globals['_GETJOBREQUEST'].fields_by_name['job_id']._loaded_options = None
-  _globals['_GETJOBREQUEST'].fields_by_name['job_id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_GETJOBPROGRESSREQUEST'].fields_by_name['job_id']._loaded_options = None
-  _globals['_GETJOBPROGRESSREQUEST'].fields_by_name['job_id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_RETRYJOBREQUEST'].fields_by_name['job_id']._loaded_options = None
-  _globals['_RETRYJOBREQUEST'].fields_by_name['job_id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_CANCELJOBREQUEST'].fields_by_name['job_id']._loaded_options = None
-  _globals['_CANCELJOBREQUEST'].fields_by_name['job_id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_VISUALIZEJOBREQUEST'].fields_by_name['job_id']._loaded_options = None
-  _globals['_VISUALIZEJOBREQUEST'].fields_by_name['job_id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_QUERYFILTERS'].fields_by_name['name']._loaded_options = None
-  _globals['_QUERYFILTERS'].fields_by_name['name']._serialized_options = b'\272H\004r\002\030d'
-  _globals['_QUERYFILTERS']._loaded_options = None
-  _globals['_QUERYFILTERS']._serialized_options = b'\272H \"\036\n\rtime_interval\n\013id_interval\020\000'
+  _globals['_SUBMITJOBREQUEST'].fields_by_name['legacy_tasks']._serialized_options = b'\030\001'
   _globals['_QUERYJOBSREQUEST'].fields_by_name['page']._loaded_options = None
   _globals['_QUERYJOBSREQUEST'].fields_by_name['page']._serialized_options = b'\252\001\002\010\001'
   _globals['_QUERYJOBSRESPONSE'].fields_by_name['next_page']._loaded_options = None
   _globals['_QUERYJOBSRESPONSE'].fields_by_name['next_page']._serialized_options = b'\252\001\002\010\001'
-  _globals['_GETJOBPROTOTYPEREQUEST'].fields_by_name['job_id']._loaded_options = None
-  _globals['_GETJOBPROTOTYPEREQUEST'].fields_by_name['job_id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_CLONEJOBREQUEST'].fields_by_name['job_id']._loaded_options = None
-  _globals['_CLONEJOBREQUEST'].fields_by_name['job_id']._serialized_options = b'\272H\003\310\001\001'
-  _globals['_CLONEJOBREQUEST'].fields_by_name['root_tasks_overrides']._loaded_options = None
-  _globals['_CLONEJOBREQUEST'].fields_by_name['root_tasks_overrides']._serialized_options = b'\272H\007\222\001\004\010\001\020@'
-  _globals['_CLONEJOBREQUEST'].fields_by_name['job_name']._loaded_options = None
-  _globals['_CLONEJOBREQUEST'].fields_by_name['job_name']._serialized_options = b'\272H\004r\002\020\001'
-  _globals['_WORKFLOWDIAGRAMTHEME']._serialized_start=2424
-  _globals['_WORKFLOWDIAGRAMTHEME']._serialized_end=2636
-  _globals['_SUBMITJOBREQUEST']._serialized_start=250
-  _globals['_SUBMITJOBREQUEST']._serialized_end=712
-  _globals['_GETJOBREQUEST']._serialized_start=714
-  _globals['_GETJOBREQUEST']._serialized_end=776
-  _globals['_GETJOBPROGRESSREQUEST']._serialized_start=778
-  _globals['_GETJOBPROGRESSREQUEST']._serialized_end=848
-  _globals['_RETRYJOBREQUEST']._serialized_start=850
-  _globals['_RETRYJOBREQUEST']._serialized_end=914
-  _globals['_RETRYJOBRESPONSE']._serialized_start=916
-  _globals['_RETRYJOBRESPONSE']._serialized_end=986
-  _globals['_CANCELJOBREQUEST']._serialized_start=988
-  _globals['_CANCELJOBREQUEST']._serialized_end=1053
-  _globals['_CANCELJOBRESPONSE']._serialized_start=1055
-  _globals['_CANCELJOBRESPONSE']._serialized_end=1074
-  _globals['_VISUALIZEJOBREQUEST']._serialized_start=1077
-  _globals['_VISUALIZEJOBREQUEST']._serialized_end=1313
-  _globals['_QUERYFILTERS']._serialized_start=1316
-  _globals['_QUERYFILTERS']._serialized_end=1714
-  _globals['_QUERYJOBSREQUEST']._serialized_start=1717
-  _globals['_QUERYJOBSREQUEST']._serialized_end=1906
-  _globals['_QUERYJOBSRESPONSE']._serialized_start=1908
-  _globals['_QUERYJOBSRESPONSE']._serialized_end=2026
-  _globals['_GETJOBPROTOTYPEREQUEST']._serialized_start=2028
-  _globals['_GETJOBPROTOTYPEREQUEST']._serialized_end=2099
-  _globals['_GETJOBPROTOTYPERESPONSE']._serialized_start=2101
-  _globals['_GETJOBPROTOTYPERESPONSE']._serialized_end=2220
-  _globals['_CLONEJOBREQUEST']._serialized_start=2223
-  _globals['_CLONEJOBREQUEST']._serialized_end=2421
-  _globals['_JOBSERVICE']._serialized_start=2639
-  _globals['_JOBSERVICE']._serialized_end=3310
+  _globals['_WORKFLOWDIAGRAMTHEME']._serialized_start=1989
+  _globals['_WORKFLOWDIAGRAMTHEME']._serialized_end=2201
+  _globals['_SUBMITJOBREQUEST']._serialized_start=139
+  _globals['_SUBMITJOBREQUEST']._serialized_end=400
+  _globals['_GETJOBREQUEST']._serialized_start=402
+  _globals['_GETJOBREQUEST']._serialized_end=456
+  _globals['_GETJOBPROGRESSREQUEST']._serialized_start=458
+  _globals['_GETJOBPROGRESSREQUEST']._serialized_end=520
+  _globals['_RETRYJOBREQUEST']._serialized_start=522
+  _globals['_RETRYJOBREQUEST']._serialized_end=578
+  _globals['_RETRYJOBRESPONSE']._serialized_start=580
+  _globals['_RETRYJOBRESPONSE']._serialized_end=650
+  _globals['_CANCELJOBREQUEST']._serialized_start=652
+  _globals['_CANCELJOBREQUEST']._serialized_end=709
+  _globals['_CANCELJOBRESPONSE']._serialized_start=711
+  _globals['_CANCELJOBRESPONSE']._serialized_end=730
+  _globals['_VISUALIZEJOBREQUEST']._serialized_start=733
+  _globals['_VISUALIZEJOBREQUEST']._serialized_end=961
+  _globals['_QUERYFILTERS']._serialized_start=964
+  _globals['_QUERYFILTERS']._serialized_end=1316
+  _globals['_QUERYJOBSREQUEST']._serialized_start=1319
+  _globals['_QUERYJOBSREQUEST']._serialized_end=1508
+  _globals['_QUERYJOBSRESPONSE']._serialized_start=1510
+  _globals['_QUERYJOBSRESPONSE']._serialized_end=1628
+  _globals['_GETJOBPROTOTYPEREQUEST']._serialized_start=1630
+  _globals['_GETJOBPROTOTYPEREQUEST']._serialized_end=1693
+  _globals['_GETJOBPROTOTYPERESPONSE']._serialized_start=1695
+  _globals['_GETJOBPROTOTYPERESPONSE']._serialized_end=1814
+  _globals['_CLONEJOBREQUEST']._serialized_start=1817
+  _globals['_CLONEJOBREQUEST']._serialized_end=1986
+  _globals['_JOBSERVICE']._serialized_start=2204
+  _globals['_JOBSERVICE']._serialized_end=2875
 # @@protoc_insertion_point(module_scope)

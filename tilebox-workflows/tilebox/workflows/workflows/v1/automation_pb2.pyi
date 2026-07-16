@@ -1,4 +1,4 @@
-from tilebox.datasets.buf.validate import validate_pb2 as _validate_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
@@ -79,12 +79,14 @@ class StorageEventTrigger(_message.Message):
     def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., storage_location: _Optional[_Union[StorageLocation, _Mapping]] = ..., glob_pattern: _Optional[str] = ...) -> None: ...
 
 class CronTrigger(_message.Message):
-    __slots__ = ("id", "schedule")
+    __slots__ = ("id", "schedule", "next_scheduled_at")
     ID_FIELD_NUMBER: _ClassVar[int]
     SCHEDULE_FIELD_NUMBER: _ClassVar[int]
+    NEXT_SCHEDULED_AT_FIELD_NUMBER: _ClassVar[int]
     id: _id_pb2.ID
     schedule: str
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., schedule: _Optional[str] = ...) -> None: ...
+    next_scheduled_at: _timestamp_pb2.Timestamp
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., schedule: _Optional[str] = ..., next_scheduled_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class Automation(_message.Message):
     __slots__ = ("trigger_event", "args")

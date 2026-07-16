@@ -15,9 +15,9 @@ from tilebox.datasets.query.time_interval import (
 
 _TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
-# first time we use pandas takes sometimes a while to import and compile the code, causing hypothesis timeout issues
-# so we warm up the function like this before
-_ = _convert_to_datetime("2026-01-01")
+# Parsing a timezone-suffixed string takes a slower pandas path on first use, which can exceed Hypothesis' deadline.
+# Exercise that path before Hypothesis starts timing generated examples.
+_ = _convert_to_datetime("2026-01-01 00:00:00.000000 UTC")
 
 
 @given(

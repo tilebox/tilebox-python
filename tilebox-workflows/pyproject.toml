@@ -21,7 +21,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "tilebox-datasets",
+    "tilebox-datasets>=0.56.0",
     "tilebox-grpc>=0.28.0",
     "google-cloud-storage>=2.10",
     # Pin below 1.42 until this Python 3.11 import-time warning fix is released on PyPI:

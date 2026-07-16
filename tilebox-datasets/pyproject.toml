@@ -56,7 +56,6 @@ packages = ["tilebox"]
 omit = [
     "tilebox/*/datasets/v1/*",
     "tilebox/*/tilebox/v1/*",
-    "tilebox/*/buf/validate/*",
 ]
 
 [tool.pytest.ini_options]

@@ -75,7 +75,6 @@ Generated files live under paths such as:
 
 - `tilebox-datasets/tilebox/datasets/datasets/v1/*_pb2*.py`
 - `tilebox-datasets/tilebox/datasets/tilebox/v1/*_pb2*.py`
-- `tilebox-datasets/tilebox/datasets/buf/validate/*_pb2*.py`
 - `tilebox-workflows/tilebox/workflows/workflows/v1/*_pb2*.py`
 
 Regenerate protobuf code with:

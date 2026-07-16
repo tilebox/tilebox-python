@@ -5,7 +5,7 @@ import grpc
 from tilebox.workflows.workflows.v1 import task_release_pb2 as workflows_dot_v1_dot_task__release__pb2
 
 
-class TaskReleaseServiceStub(object):
+class TaskReleaseServiceStub:
     """A service for managing workflows.
     """
 
@@ -32,7 +32,7 @@ class TaskReleaseServiceStub(object):
                 _registered_method=True)
 
 
-class TaskReleaseServiceServicer(object):
+class TaskReleaseServiceServicer:
     """A service for managing workflows.
     """
 
@@ -80,7 +80,7 @@ def add_TaskReleaseServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class TaskReleaseService(object):
+class TaskReleaseService:
     """A service for managing workflows.
     """
 

@@ -90,7 +90,7 @@ class Field:
         return cls(
             descriptor=field.descriptor,
             annotation=FieldAnnotation.from_message(field.annotation),
-            queryable=field.queryable,
+            queryable=field.annotation.queryable,
         )
 
     @classmethod
@@ -121,10 +121,11 @@ class Field:
         )
 
     def to_message(self) -> dataset_type_pb2.Field:
+        annotation = self.annotation.to_message()
+        annotation.queryable = self.queryable
         return dataset_type_pb2.Field(
             descriptor=self.descriptor,
-            annotation=self.annotation.to_message(),
-            queryable=self.queryable,
+            annotation=annotation,
         )
 
 
