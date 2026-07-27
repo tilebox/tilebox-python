@@ -4,10 +4,34 @@ from google.protobuf.message import Message
 from google.protobuf.message_factory import GetMessageClass, GetMessages
 
 from tilebox.datasets.data.datasets import AnnotatedType
+from tilebox.datasets.datasets.stac.v1 import (
+    asset_metadata_pb2,
+    asset_pb2,
+    authentication_pb2,
+    core_pb2,
+    processing_pb2,
+    product_pb2,
+    sar_pb2,
+    satellite_pb2,
+    storage_pb2,
+)
 from tilebox.datasets.datasets.v1 import well_known_types_pb2
 
 # make sure all the well known types are imported, and therefore available in the global protobuf message pool
-__all__ = ["duration_pb2", "timestamp_pb2", "well_known_types_pb2"]  # this is here so ruff doesn't remove the imports
+__all__ = [  # this is here so ruff doesn't remove the imports
+    "asset_metadata_pb2",
+    "asset_pb2",
+    "authentication_pb2",
+    "core_pb2",
+    "duration_pb2",
+    "processing_pb2",
+    "product_pb2",
+    "sar_pb2",
+    "satellite_pb2",
+    "storage_pb2",
+    "timestamp_pb2",
+    "well_known_types_pb2",
+]
 
 
 def register_once(message_type: AnnotatedType) -> type:

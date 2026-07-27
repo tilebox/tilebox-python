@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
+import pytest
 from hypothesis import given
 from hypothesis.strategies import datetimes
 from pandas.core.tools.datetimes import DatetimeScalar
@@ -10,6 +11,8 @@ from tilebox.datasets.query.time_interval import (
     TimeInterval,
     _convert_to_datetime,
     datetime_to_timestamp,
+    duration_to_timedelta,
+    timedelta_to_duration,
     timestamp_to_datetime,
 )
 
@@ -75,8 +78,24 @@ def test_time_interval_to_message_and_back(interval: TimeInterval) -> None:
 @given(datetimes())
 def test_datetime_to_timestamp_and_back(dt: datetime) -> None:
     """Make sure converting a datetime to a protobuf timestamp and then back again ends up with the same timestamp."""
-    # we always convert to UTC when converting to protobuf, so we loose the information of which timezone it was before
-    assert timestamp_to_datetime(datetime_to_timestamp(dt)) == dt.astimezone(timezone.utc)
+    # Naive datetimes are interpreted as UTC; timezone-aware datetimes are converted to UTC.
+    expected = dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+    assert timestamp_to_datetime(datetime_to_timestamp(dt)) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        timedelta(microseconds=-1),
+        timedelta(seconds=-1, microseconds=-1),
+        timedelta(days=-1, microseconds=123),
+        timedelta(seconds=1, microseconds=123),
+    ],
+)
+def test_timedelta_to_duration_and_back(value: timedelta) -> None:
+    duration = timedelta_to_duration(value)
+    assert duration_to_timedelta(duration) == value
+    assert duration.seconds == 0 or duration.nanos == 0 or (duration.seconds > 0) == (duration.nanos > 0)
 
 
 @given(datetime_scalars())

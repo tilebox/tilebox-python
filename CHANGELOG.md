@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-datasets`: Added typed server-side dataset query filters with comparison, logical, and null-check
+  expressions through `field()` and the `filter` query argument.
+
 ## [0.56.0] - 2026-07-16
 
 ### Added

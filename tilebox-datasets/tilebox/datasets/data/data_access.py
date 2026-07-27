@@ -8,6 +8,7 @@ from shapely import Geometry, from_wkb, to_wkb
 from typing_extensions import NotRequired
 
 from tilebox.datasets.datasets.v1 import data_access_pb2, well_known_types_pb2
+from tilebox.datasets.query.expression import Expression
 from tilebox.datasets.query.id_interval import IDInterval
 from tilebox.datasets.query.time_interval import TimeInterval
 
@@ -106,31 +107,52 @@ class SpatialFilter:
 class QueryFilters:
     temporal_extent: TimeInterval | IDInterval
     spatial_extent: SpatialFilter | None = None
+    filter: Expression | None = None
+
+    def __post_init__(self) -> None:
+        if self.filter is not None and not isinstance(self.filter, Expression):
+            raise TypeError(f"Expected a query expression, got {type(self.filter).__name__}")
 
     @classmethod
     def from_message(cls, filters: data_access_pb2.QueryFilters) -> "QueryFilters":
-        temporal_extent: TimeInterval | IDInterval | None = None
-        if filters.HasField("time_interval"):
-            temporal_extent = TimeInterval.from_message(filters.time_interval)
-        if filters.HasField("datapoint_interval"):
-            temporal_extent = IDInterval.from_message(filters.datapoint_interval)
+        interval_variants = [name for name in ("time_interval", "datapoint_interval") if filters.HasField(name)]
+        if len(interval_variants) != 1:
+            raise ValueError("Invalid filter: exactly one time or datapoint interval must be set")
 
-        if temporal_extent is None:
-            raise ValueError("Invalid filter: time or datapoint interval must be set")
+        if interval_variants[0] == "time_interval":
+            temporal_extent = TimeInterval.from_message(filters.time_interval)
+        else:
+            temporal_extent = IDInterval.from_message(filters.datapoint_interval)
 
         spatial_extent = None
         if filters.HasField("spatial_extent"):
             spatial_extent = SpatialFilter.from_message(filters.spatial_extent)
 
-        return QueryFilters(temporal_extent=temporal_extent, spatial_extent=spatial_extent)
+        expressions = tuple(Expression.from_message(expression) for expression in filters.expressions)
+        filter_expression = None
+        if expressions:
+            filter_expression = expressions[0]
+            for expression in expressions[1:]:
+                filter_expression &= expression
+
+        return QueryFilters(
+            temporal_extent=temporal_extent,
+            spatial_extent=spatial_extent,
+            filter=filter_expression,
+        )
 
     def to_message(self) -> data_access_pb2.QueryFilters:
         spatial_extent = self.spatial_extent.to_message() if self.spatial_extent else None
+        expressions = [self.filter.to_message()] if self.filter is not None else []
         if isinstance(self.temporal_extent, TimeInterval):
             return data_access_pb2.QueryFilters(
-                time_interval=self.temporal_extent.to_message(), spatial_extent=spatial_extent
+                time_interval=self.temporal_extent.to_message(),
+                spatial_extent=spatial_extent,
+                expressions=expressions,
             )
 
         return data_access_pb2.QueryFilters(
-            datapoint_interval=self.temporal_extent.to_message(), spatial_extent=spatial_extent
+            datapoint_interval=self.temporal_extent.to_message(),
+            spatial_extent=spatial_extent,
+            expressions=expressions,
         )

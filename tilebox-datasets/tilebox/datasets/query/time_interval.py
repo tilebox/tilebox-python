@@ -217,6 +217,8 @@ def timestamp_to_datetime(timestamp: Timestamp) -> datetime:
 
 def datetime_to_timestamp(dt: datetime) -> Timestamp:
     """Convert a datetime object to a protobuf timestamp."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
     # manual epoch offset calculation to avoid rounding errors and support negative timestamps (before 1970)
     offset_us = datetime_to_us(dt.astimezone(timezone.utc))
     seconds, us = divmod(offset_us, 10**6)
@@ -238,7 +240,9 @@ def us_to_datetime(us: int) -> datetime:
 
 def timedelta_to_duration(td: timedelta) -> Duration:
     """Convert a timedelta to a duration protobuf message."""
-    return Duration(seconds=int(td.total_seconds()), nanos=int(td.microseconds * 1000))
+    duration = Duration()
+    duration.FromTimedelta(td)
+    return duration
 
 
 def duration_to_timedelta(duration: Duration) -> timedelta:

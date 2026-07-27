@@ -6,10 +6,11 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from tilebox.datasets.aio.timeseries import TimeseriesCollection, TimeseriesDataset
+    from tilebox.datasets.query import field
     from tilebox.datasets.sync.client import Client
     from tilebox.datasets.sync.dataset import CollectionClient, DatasetClient
 
-__all__ = ["Client", "CollectionClient", "DatasetClient", "TimeseriesCollection", "TimeseriesDataset"]
+__all__ = ["Client", "CollectionClient", "DatasetClient", "TimeseriesCollection", "TimeseriesDataset", "field"]
 
 
 def __getattr__(name: str) -> Any:
@@ -29,6 +30,10 @@ def __getattr__(name: str) -> Any:
             from tilebox.datasets.sync.dataset import DatasetClient  # noqa: PLC0415
 
             value = DatasetClient
+        case "field":
+            from tilebox.datasets.query import field  # noqa: PLC0415
+
+            value = field
         case "TimeseriesCollection":
             from tilebox.datasets.aio.timeseries import TimeseriesCollection  # noqa: PLC0415
 

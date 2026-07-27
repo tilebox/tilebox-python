@@ -117,10 +117,10 @@ def test_create_and_update_dataset_include_field_annotations(operation: str) -> 
     annotations = {field.descriptor.name: field.annotation for field in request.type.fields}
     assert annotations["time"].source_json_pointer == "/properties/datetime"
     assert annotations["time"].json_schema_ref.endswith("datetime.json#/properties/datetime")
-    assert annotations["id"].source_json_pointer == "/properties/tilebox_id"
+    assert annotations["id"].source_json_pointer == "/properties/tilebox:id"
     assert not annotations["id"].HasField("json_schema_ref")
-    assert annotations["ingestion_time"].source_json_pointer == "/properties/created"
-    assert annotations["ingestion_time"].json_schema_ref.endswith("datetime.json#/properties/created")
+    assert annotations["ingestion_time"].source_json_pointer == "/properties/tilebox:ingestion_time"
+    assert not annotations["ingestion_time"].HasField("json_schema_ref")
     assert annotations["geometry"].source_json_pointer == "/geometry"
     assert annotations["geometry"].json_schema_ref == "https://geojson.org/schema/Geometry.json"
     assert all(
