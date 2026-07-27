@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-07-27
+
+### Added
+
+- `tilebox-datasets`: Added typed server-side dataset query filters with comparison, logical, and null-check
+  expressions through `field()` and the `filter` query argument.
+
+### Fixed
+
+- `tilebox-datasets`: Preserve unsupported protobuf message fields, including STAC well-known types, as object-valued
+  xarray variables instead of failing dataset queries.
+
 ## [0.56.0] - 2026-07-16
 
 ### Added
@@ -417,7 +429,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.56.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.57.0...HEAD
+[0.57.0]: https://github.com/tilebox/tilebox-python/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/tilebox/tilebox-python/compare/v0.55.1...v0.56.0
 [0.55.1]: https://github.com/tilebox/tilebox-python/compare/v0.55.0...v0.55.1
 [0.55.0]: https://github.com/tilebox/tilebox-python/compare/v0.54.0...v0.55.0

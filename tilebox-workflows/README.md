@@ -46,9 +46,10 @@ Create a task:
 ```python
 from tilebox.workflows import Task
 
+
 class MyFirstTask(Task):
-  def execute(self):
-    print("Hello World from my first Tilebox task!")
+    def execute(self):
+        print("Hello World from my first Tilebox task!")
 ```
 
 Submit a job

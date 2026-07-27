@@ -7,7 +7,7 @@ from _tilebox.grpc.aio.channel import ClientCallDetails, _AuthMetadataIntercepto
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("req_metadata", [None, [("some-other", "header")]])
-async def test_auth_interceptor(req_metadata: None | list[tuple[str, str]]) -> None:
+async def test_auth_interceptor(req_metadata: list[tuple[str, str]] | None) -> None:
     """Test that the auth interceptor adds the auth token as metadata to every gRPC request"""
     interceptor = _AuthMetadataInterceptor("very-secret")
 

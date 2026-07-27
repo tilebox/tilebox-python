@@ -26,6 +26,7 @@ from tilebox.datasets.protobuf_conversion.to_protobuf import (
     marshal_messages,
     to_messages,
 )
+from tilebox.datasets.query.expression import Expression
 from tilebox.datasets.query.id_interval import IDInterval, IDIntervalLike
 from tilebox.datasets.query.pagination import Pagination
 from tilebox.datasets.query.time_interval import TimeInterval, TimeIntervalLike
@@ -178,11 +179,12 @@ class DatasetClient:
         converter.convert(data)
         return converter.finalize("time", skip_empty_fields=skip_data).isel(time=0)
 
-    async def query(
+    async def query(  # noqa: PLR0913
         self,
         *,
-        collections: "list[str] | list[UUID] | list[Collection] | list[CollectionInfo] | list[CollectionClient] | dict[str, CollectionClient] | None",
+        collections: "list[str] | list[UUID] | list[Collection] | list[CollectionInfo] | list[CollectionClient] | dict[str, CollectionClient] | None" = None,
         temporal_extent: TimeIntervalLike,
+        filter: Expression | None = None,  # noqa: A002
         spatial_extent: SpatialFilterLike | None = None,
         skip_data: bool = False,
         show_progress: bool | ProgressCallback = False,
@@ -194,6 +196,7 @@ class DatasetClient:
             collections: The collections to query in. Supports collection names, ids or collection objects.
                 If not specified, all collections in the dataset are queried.
             temporal_extent: The temporal extent to query data for. (Required)
+            filter: An expression over queryable dataset fields. (Optional)
             spatial_extent: The spatial extent to query data in. (Optional)
             skip_data: Whether to skip the actual data of the datapoint. If True, only
                 datapoint metadata is returned.
@@ -203,6 +206,8 @@ class DatasetClient:
         Returns:
             Matching datapoints in the given temporal and spatial extent as an xarray dataset.
         """
+        if filter is not None and not isinstance(filter, Expression):
+            raise TypeError(f"Expected a query expression, got {type(filter).__name__}")
         if temporal_extent is None:
             raise ValueError("A temporal_extent for your query must be specified")
 
@@ -214,6 +219,7 @@ class DatasetClient:
             temporal_extent,
             spatial_extent,
             skip_data,
+            filter_expression=filter,
             dataset_name=self.name,
             show_progress=show_progress,
         )
@@ -434,6 +440,7 @@ class CollectionClient:
         self,
         *,
         temporal_extent: TimeIntervalLike,
+        filter: Expression | None = None,  # noqa: A002
         spatial_extent: SpatialFilterLike | None = None,
         skip_data: bool = False,
         show_progress: bool | ProgressCallback = False,
@@ -453,6 +460,7 @@ class CollectionClient:
                     first and last value in the array and the end time inclusive
                 - xr.Dataset: [ds.time[0], ds.time[-1]] -> Construct a TimeInterval with start and end time set to
                     the first and last value in the time coordinate of the dataset and the end time inclusive
+            filter: An expression over queryable dataset fields. (Optional)
             spatial_extent: The spatial extent to query data in. (Optional)
                 Expected to be either a shapely geometry, or a dict with the following keys:
                 - geometry: The geometry to query by. Must be a shapely.Polygon, shapely.MultiPolygon or shapely.Point.
@@ -469,6 +477,8 @@ class CollectionClient:
         Returns:
             Matching datapoints in the given temporal and spatial extent as an xarray dataset
         """
+        if filter is not None and not isinstance(filter, Expression):
+            raise TypeError(f"Expected a query expression, got {type(filter).__name__}")
         if temporal_extent is None:
             raise ValueError("A temporal_extent for your query must be specified")
 
@@ -479,6 +489,7 @@ class CollectionClient:
             temporal_extent,
             spatial_extent,
             skip_data,
+            filter_expression=filter,
             dataset_name=self._dataset.name,
             show_progress=show_progress,
         )
@@ -598,7 +609,7 @@ class CollectionClient:
         return num_deleted
 
 
-async def _query_page(  # noqa: PLR0913
+async def _query_page(  # noqa: PLR0913, PLR0917
     service: TileboxDatasetService,
     dataset_id: UUID,
     collection_ids: list[UUID] | None,
@@ -610,7 +621,7 @@ async def _query_page(  # noqa: PLR0913
     return await service.query(dataset_id, collection_ids or [], filters, skip_data, query_page)
 
 
-async def _iter_query_pages(  # noqa: PLR0913
+async def _iter_query_pages(  # noqa: PLR0913, PLR0917
     service: TileboxDatasetService,
     dataset_id: UUID,
     collection_ids: list[UUID] | None,
@@ -618,12 +629,17 @@ async def _iter_query_pages(  # noqa: PLR0913
     spatial_extent: SpatialFilterLike | None = None,
     skip_data: bool = False,
     *,
+    filter_expression: Expression | None = None,
     dataset_name: str,
     show_progress: bool | ProgressCallback = False,
     page_size: int | None = None,
 ) -> AsyncIterator[QueryResultPage]:
     time_interval = TimeInterval.parse(temporal_extent)
-    filters = QueryFilters(time_interval, SpatialFilter.parse(spatial_extent) if spatial_extent else None)
+    filters = QueryFilters(
+        time_interval,
+        SpatialFilter.parse(spatial_extent) if spatial_extent else None,
+        filter_expression,
+    )
 
     request = partial(_query_page, service, dataset_id, collection_ids, filters, skip_data)
 

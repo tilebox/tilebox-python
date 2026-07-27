@@ -15,7 +15,7 @@ from tests.data.collection import collection_infos, collection_names
 from tests.data.datapoint import example_datapoints, paginated_query_results
 from tests.data.datasets import example_dataset_type, example_dataset_type_url
 from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
-from tilebox.datasets import CollectionClient, DatasetClient
+from tilebox.datasets import CollectionClient, DatasetClient, field
 from tilebox.datasets.data.collection import Collection, CollectionInfo
 from tilebox.datasets.data.datapoint import AnyMessage, QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
@@ -258,6 +258,39 @@ def test_timeseries_dataset_query_multiple_collections(pages: list[QueryResultPa
     assert first_call_args[1] == [
         named_collection.collection.id,
     ]
+
+
+@settings(max_examples=1)
+@given(pages=paginated_query_results())
+def test_timeseries_dataset_query_filter(pages: list[QueryResultPage]) -> None:
+    dataset, service = _mocked_dataset()
+    service.get_collections.return_value = Promise.resolve([])
+    service.query.side_effect = [Promise.resolve(page) for page in pages]
+    interval = TimeInterval(datetime.now(), datetime.now() + timedelta(days=1))
+
+    dataset.query(
+        temporal_extent=interval,
+        filter=(field("quality") >= 80) | field("quality").is_null(),
+    )
+
+    filters = service.query.call_args_list[0][0][2].to_message()
+    assert len(filters.expressions) == 1
+    assert filters.expressions[0].logical.operands[0].comparison.field_name == "quality"
+
+
+def test_timeseries_dataset_query_rejects_invalid_filter_before_request() -> None:
+    dataset, service = _mocked_dataset()
+    interval = TimeInterval(datetime.now(), datetime.now() + timedelta(days=1))
+
+    with pytest.raises(TypeError, match="Expected a query expression"):
+        dataset.query(
+            collections=["collection"],
+            temporal_extent=interval,
+            filter="quality > 80",  # type: ignore[arg-type]
+        )
+
+    service.get_collections.assert_not_called()
+    service.query.assert_not_called()
 
 
 @patch("tilebox.datasets.sync.pagination.tqdm")

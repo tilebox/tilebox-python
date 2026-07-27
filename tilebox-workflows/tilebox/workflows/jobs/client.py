@@ -209,7 +209,7 @@ class JobClient:
         """
         return self._service.visualize(_to_uuid(job), direction, layout, sketchy)
 
-    def query(  # noqa: PLR0913
+    def query(  # noqa: PLR0913, PLR0917
         self,
         temporal_extent: "TimeIntervalLike | IDIntervalLike",
         automation_ids: UUID | list[UUID] | None = None,
