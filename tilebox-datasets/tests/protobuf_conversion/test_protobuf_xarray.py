@@ -2,6 +2,9 @@ from uuid import UUID
 
 import pandas as pd
 import pytest
+from google.protobuf import descriptor_pb2
+from google.protobuf.descriptor_pool import Default
+from google.protobuf.message_factory import GetMessageClass
 from hypothesis import given, settings
 from hypothesis.strategies import lists
 from numpy.testing import assert_array_almost_equal, assert_array_equal
@@ -11,6 +14,7 @@ from xarray.testing import assert_equal
 
 from tests.data.datapoint import example_datapoints
 from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
+from tilebox.datasets.datasets.stac.v1.asset_pb2 import Assets
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
 from tilebox.datasets.query.time_interval import timestamp_to_datetime, us_to_datetime
 
@@ -97,6 +101,45 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
 
     for i in range(len(datapoint.some_repeated_geometry)):
         assert isinstance(dataset.some_repeated_geometry[i].item(), Polygon | MultiPolygon)
+
+
+def test_convert_unknown_message_fields_as_objects() -> None:
+    file_descriptor = descriptor_pb2.FileDescriptorProto(
+        name="tests/protobuf_conversion/stac_datapoint.proto",
+        package="tests.protobuf_conversion",
+        dependency=["datasets/stac/v1/asset.proto"],
+    )
+    message_descriptor = file_descriptor.message_type.add(name="StacDatapoint")
+    message_descriptor.field.add(
+        name="assets",
+        number=1,
+        label=descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+        type=descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+        type_name=".datasets.stac.v1.Assets",
+    )
+    message_descriptor.field.add(
+        name="related_assets",
+        number=2,
+        label=descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED,
+        type=descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+        type_name=".datasets.stac.v1.Assets",
+    )
+    descriptor = Default().AddSerializedFile(file_descriptor.SerializeToString())
+    message_type = GetMessageClass(descriptor.message_types_by_name["StacDatapoint"])
+
+    assets = Assets()
+    related_assets = Assets()
+    messages = [message_type(), message_type(assets=assets, related_assets=[related_assets])]
+
+    converter = MessageToXarrayConverter()
+    converter.convert_all(messages)
+    dataset = converter.finalize("time")
+
+    assert dataset.assets.dtype == object
+    assert dataset.assets[0].item() is None
+    assert dataset.assets[1].item() == assets
+    assert dataset.related_assets.dtype == object
+    assert dataset.related_assets[1, 0].item() == related_assets
 
 
 @given(lists(example_datapoints(generated_fields=True, missing_fields=True), min_size=5, max_size=30))

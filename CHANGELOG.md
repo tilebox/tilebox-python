@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tilebox-datasets`: Added typed server-side dataset query filters with comparison, logical, and null-check
   expressions through `field()` and the `filter` query argument.
 
+### Fixed
+
+- `tilebox-datasets`: Preserve unsupported protobuf message fields, including STAC well-known types, as object-valued
+  xarray variables instead of failing dataset queries.
+
 ## [0.56.0] - 2026-07-16
 
 ### Added

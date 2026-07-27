@@ -257,10 +257,7 @@ def infer_field_type(field: FieldDescriptor) -> ProtobufFieldType:
         if field.message_type is None:
             raise ValueError("Expected message type for field but got None")
         message_name = field.message_type.full_name
-        if message_name not in _MESSAGE_NAMES_TO_FIELDS:
-            raise ValueError(f"Unsupported message type {message_name}")
-
-        return _MESSAGE_NAMES_TO_FIELDS[message_name]
+        return _MESSAGE_NAMES_TO_FIELDS.get(message_name, ProtobufFieldType(object))
 
     if field.type == FieldDescriptor.TYPE_ENUM:
         return EnumField(enum_mapping_from_field_descriptor(field))
