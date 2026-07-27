@@ -73,9 +73,7 @@ from tilebox.storage import CopernicusStorageClient
 # https://documentation.dataspace.copernicus.eu/APIs/S3.html
 # to learn how to get your access key and secret access key
 storage_client = CopernicusStorageClient(
-    access_key="YOUR_ACCESS_KEY",
-    secret_access_key="YOUR_SECRET_ACCESS_KEY",
-    cache_directory=Path("./data")
+    access_key="YOUR_ACCESS_KEY", secret_access_key="YOUR_SECRET_ACCESS_KEY", cache_directory=Path("./data")
 )
 
 downloaded_data = storage_client.download(s2_granule)

@@ -322,7 +322,7 @@ async def list_object_paths(store: ObjectStore, prefix: str) -> list[str]:
     return sorted(str(ObjectPath(obj["path"]).relative_to(prefix_path)) for obj in objects)
 
 
-async def download_objects(  # noqa: PLR0913
+async def download_objects(  # noqa: PLR0913, PLR0917
     store: ObjectStore,
     prefix: str,
     objects: list[str],

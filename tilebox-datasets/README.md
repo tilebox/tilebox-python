@@ -65,10 +65,7 @@ Query data:
 
 ```python
 s2a_l1c = sentinel2_msi.collection("S2A_S2MSI1C")
-results = s2a_l1c.query(
-  temporal_extent=("2025-03-01", "2025-06-01"),
-  show_progress=True
-)
+results = s2a_l1c.query(temporal_extent=("2025-03-01", "2025-06-01"), show_progress=True)
 print(f"Found {results.sizes['time']} datapoints")  # Found 220542 datapoints
 ```
 
@@ -77,15 +74,15 @@ Spatio-temporal queries:
 ```python
 from shapely.geometry import shape
 
-area_of_interest = shape({
-    "type": "Polygon",  # coords in lon, lat
-    "coordinates": [[[-5, 50], [-5, 56], [-11, 56], [-11, 50], [-5, 50]]]}
+area_of_interest = shape(
+    {
+        "type": "Polygon",  # coords in lon, lat
+        "coordinates": [[[-5, 50], [-5, 56], [-11, 56], [-11, 50], [-5, 50]]],
+    }
 )
 s2a_l1c = sentinel2_msi.collection("S2A_S2MSI1C")
 results = s2a_l1c.query(
-  temporal_extent=("2025-03-01", "2025-06-01"),
-  spatial_extent=area_of_interest,
-  show_progress=True
+    temporal_extent=("2025-03-01", "2025-06-01"), spatial_extent=area_of_interest, show_progress=True
 )
 print(f"Found {results.sizes['time']} datapoints")  # Found 979 datapoints
 ```

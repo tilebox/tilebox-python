@@ -46,10 +46,7 @@ Open a gRPC channel:
 ```python
 from _tilebox.grpc.channel import open_channel
 
-channel = open_channel(
-    "https://api.tilebox.com",
-    auth_token="YOUR_TILEBOX_API_KEY"
-)
+channel = open_channel("https://api.tilebox.com", auth_token="YOUR_TILEBOX_API_KEY")
 ```
 
 ## License

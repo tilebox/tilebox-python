@@ -598,7 +598,7 @@ class CollectionClient:
         return num_deleted
 
 
-async def _query_page(  # noqa: PLR0913
+async def _query_page(  # noqa: PLR0913, PLR0917
     service: TileboxDatasetService,
     dataset_id: UUID,
     collection_ids: list[UUID] | None,
@@ -610,7 +610,7 @@ async def _query_page(  # noqa: PLR0913
     return await service.query(dataset_id, collection_ids or [], filters, skip_data, query_page)
 
 
-async def _iter_query_pages(  # noqa: PLR0913
+async def _iter_query_pages(  # noqa: PLR0913, PLR0917
     service: TileboxDatasetService,
     dataset_id: UUID,
     collection_ids: list[UUID] | None,

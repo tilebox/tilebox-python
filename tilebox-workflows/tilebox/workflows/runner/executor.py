@@ -33,7 +33,7 @@ _MAX_TASK_PROGRESS_INDICATORS = 1000
 
 
 class TaskExecutor:
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         runner: Runner,
         cache: JobCache,
