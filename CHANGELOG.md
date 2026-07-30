@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-datasets`: Added `AssetCollection.from_datapoint()` for resolving STAC assets and their generated metadata,
+  storage, and authentication messages from queried datapoints.
+- `tilebox-storage`: Added async asset resolution, reading, downloading, and GeoTIFF access backed by object stores.
+
 ## [0.57.0] - 2026-07-27
 
 ### Added
