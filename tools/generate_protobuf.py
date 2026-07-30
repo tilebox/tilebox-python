@@ -27,6 +27,7 @@ def main() -> None:
     # client-side validation, and validation-blind messages avoid global descriptor conflicts.
     print("Running buf generate")  # noqa: T201
     os.system("buf generate --template buf.gen.datasets.yaml")  # noqa: S605, S607
+    os.system("buf generate --template buf.gen.datasets-bufpy.yaml")  # noqa: S605, S607
     os.system("buf generate --template buf.gen.workflows.yaml")  # noqa: S605, S607
 
     package_mapping = {
