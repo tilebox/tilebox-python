@@ -28,6 +28,8 @@ dependencies = [
     "shapely>=2",
     "obstore>=0.8.0",
     "boto3>=1.37.0",  # required for the obstore Boto3CredentialProvider
+    "async-geotiff; python_version >= '3.11'",
+    "pyproj>=3.4",
 ]
 
 [dependency-groups]

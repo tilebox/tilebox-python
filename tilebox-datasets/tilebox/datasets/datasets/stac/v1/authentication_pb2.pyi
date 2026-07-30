@@ -115,13 +115,5 @@ class AuthenticationParameter(_message.Message):
     location: str
     required: bool
     description: str
-    schema: JSONSchema
-    def __init__(self, location: _Optional[str] = ..., required: bool = ..., description: _Optional[str] = ..., schema: _Optional[_Union[JSONSchema, _Mapping]] = ...) -> None: ...
-
-class JSONSchema(_message.Message):
-    __slots__ = ("object", "boolean")
-    OBJECT_FIELD_NUMBER: _ClassVar[int]
-    BOOLEAN_FIELD_NUMBER: _ClassVar[int]
-    object: _struct_pb2.Struct
-    boolean: bool
-    def __init__(self, object: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., boolean: bool = ...) -> None: ...
+    schema: _struct_pb2.Struct
+    def __init__(self, location: _Optional[str] = ..., required: bool = ..., description: _Optional[str] = ..., schema: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...) -> None: ...

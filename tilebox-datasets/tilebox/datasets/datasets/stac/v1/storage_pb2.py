@@ -22,9 +22,10 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1e\x64\x61tasets/stac/v1/storage.proto\x12\x10\x64\x61tasets.stac.v1\"\xa8\x01\n\x07Storage\x12@\n\x07schemes\x18\x01 \x03(\x0b\x32&.datasets.stac.v1.Storage.SchemesEntryR\x07schemes\x1a[\n\x0cSchemesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x35\n\x05value\x18\x02 \x01(\x0b\x32\x1f.datasets.stac.v1.StorageSchemeR\x05value:\x02\x38\x01\"\xdc\x02\n\rStorageScheme\x12H\n\nknown_type\x18\x01 \x01(\x0e\x32\".datasets.stac.v1.KnownStorageTypeB\x05\xaa\x01\x02\x08\x01R\tknownType\x12&\n\x0b\x63ustom_type\x18\x02 \x01(\tB\x05\xaa\x01\x02\x08\x01R\ncustomType\x12\x1a\n\x08platform\x18\x03 \x01(\tR\x08platform\x12\x1b\n\x05title\x18\x04 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x05title\x12\'\n\x0b\x64\x65scription\x18\x05 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x0b\x64\x65scription\x12\x1d\n\x06region\x18\x06 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x06region\x12,\n\x0erequester_pays\x18\x07 \x01(\x08\x42\x05\xaa\x01\x02\x08\x01R\rrequesterPays\x12*\n\rstorage_class\x18\x08 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x0cstorageClass*\xcc\x01\n\x10KnownStorageType\x12\"\n\x1eKNOWN_STORAGE_TYPE_UNSPECIFIED\x10\x00\x12\x1d\n\x19KNOWN_STORAGE_TYPE_AWS_S3\x10\x01\x12 \n\x1cKNOWN_STORAGE_TYPE_CUSTOM_S3\x10\x02\x12&\n\"KNOWN_STORAGE_TYPE_MICROSOFT_AZURE\x10\x03\x12+\n\'KNOWN_STORAGE_TYPE_GOOGLE_CLOUD_STORAGE\x10\x04\x42\x8b\x01\n\x14\x63om.datasets.stac.v1B\x0cStorageProtoP\x01\xa2\x02\x03\x44SX\xaa\x02\x10\x44\x61tasets.Stac.V1\xca\x02\x10\x44\x61tasets\\Stac\\V1\xe2\x02\x1c\x44\x61tasets\\Stac\\V1\\GPBMetadata\xea\x02\x12\x44\x61tasets::Stac::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1e\x64\x61tasets/stac/v1/storage.proto\x12\x10\x64\x61tasets.stac.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xa8\x01\n\x07Storage\x12@\n\x07schemes\x18\x01 \x03(\x0b\x32&.datasets.stac.v1.Storage.SchemesEntryR\x07schemes\x1a[\n\x0cSchemesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x35\n\x05value\x18\x02 \x01(\x0b\x32\x1f.datasets.stac.v1.StorageSchemeR\x05value:\x02\x38\x01\"\xed\x04\n\rStorageScheme\x12H\n\nknown_type\x18\x01 \x01(\x0e\x32\".datasets.stac.v1.KnownStorageTypeB\x05\xaa\x01\x02\x08\x01R\tknownType\x12&\n\x0b\x63ustom_type\x18\x02 \x01(\tB\x05\xaa\x01\x02\x08\x01R\ncustomType\x12\x1a\n\x08platform\x18\x03 \x01(\tR\x08platform\x12\x1b\n\x05title\x18\x04 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x05title\x12\'\n\x0b\x64\x65scription\x18\x05 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x0b\x64\x65scription\x12\x1d\n\x06region\x18\x06 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x06region\x12,\n\x0erequester_pays\x18\x07 \x01(\x08\x42\x05\xaa\x01\x02\x08\x01R\rrequesterPays\x12*\n\rstorage_class\x18\x08 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x0cstorageClass\x12\x1d\n\x06\x62ucket\x18\t \x01(\tB\x05\xaa\x01\x02\x08\x01R\x06\x62ucket\x12\x1f\n\x07\x61\x63\x63ount\x18\n \x01(\tB\x05\xaa\x01\x02\x08\x01R\x07\x61\x63\x63ount\x12n\n\x15\x61\x64\x64itional_properties\x18\x0b \x03(\x0b\x32\x39.datasets.stac.v1.StorageScheme.AdditionalPropertiesEntryR\x14\x61\x64\x64itionalProperties\x1a_\n\x19\x41\x64\x64itionalPropertiesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01*\xcc\x01\n\x10KnownStorageType\x12\"\n\x1eKNOWN_STORAGE_TYPE_UNSPECIFIED\x10\x00\x12\x1d\n\x19KNOWN_STORAGE_TYPE_AWS_S3\x10\x01\x12 \n\x1cKNOWN_STORAGE_TYPE_CUSTOM_S3\x10\x02\x12&\n\"KNOWN_STORAGE_TYPE_MICROSOFT_AZURE\x10\x03\x12+\n\'KNOWN_STORAGE_TYPE_GOOGLE_CLOUD_STORAGE\x10\x04\x42\x8b\x01\n\x14\x63om.datasets.stac.v1B\x0cStorageProtoP\x01\xa2\x02\x03\x44SX\xaa\x02\x10\x44\x61tasets.Stac.V1\xca\x02\x10\x44\x61tasets\\Stac\\V1\xe2\x02\x1c\x44\x61tasets\\Stac\\V1\\GPBMetadata\xea\x02\x12\x44\x61tasets::Stac::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,6 +35,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._serialized_options = b'\n\024com.datasets.stac.v1B\014StorageProtoP\001\242\002\003DSX\252\002\020Datasets.Stac.V1\312\002\020Datasets\\Stac\\V1\342\002\034Datasets\\Stac\\V1\\GPBMetadata\352\002\022Datasets::Stac::V1\222\003\002\010\002'
   _globals['_STORAGE_SCHEMESENTRY']._loaded_options = None
   _globals['_STORAGE_SCHEMESENTRY']._serialized_options = b'8\001'
+  _globals['_STORAGESCHEME_ADDITIONALPROPERTIESENTRY']._loaded_options = None
+  _globals['_STORAGESCHEME_ADDITIONALPROPERTIESENTRY']._serialized_options = b'8\001'
   _globals['_STORAGESCHEME'].fields_by_name['known_type']._loaded_options = None
   _globals['_STORAGESCHEME'].fields_by_name['known_type']._serialized_options = b'\252\001\002\010\001'
   _globals['_STORAGESCHEME'].fields_by_name['custom_type']._loaded_options = None
@@ -48,12 +51,18 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_STORAGESCHEME'].fields_by_name['requester_pays']._serialized_options = b'\252\001\002\010\001'
   _globals['_STORAGESCHEME'].fields_by_name['storage_class']._loaded_options = None
   _globals['_STORAGESCHEME'].fields_by_name['storage_class']._serialized_options = b'\252\001\002\010\001'
-  _globals['_KNOWNSTORAGETYPE']._serialized_start=575
-  _globals['_KNOWNSTORAGETYPE']._serialized_end=779
-  _globals['_STORAGE']._serialized_start=53
-  _globals['_STORAGE']._serialized_end=221
-  _globals['_STORAGE_SCHEMESENTRY']._serialized_start=130
-  _globals['_STORAGE_SCHEMESENTRY']._serialized_end=221
-  _globals['_STORAGESCHEME']._serialized_start=224
-  _globals['_STORAGESCHEME']._serialized_end=572
+  _globals['_STORAGESCHEME'].fields_by_name['bucket']._loaded_options = None
+  _globals['_STORAGESCHEME'].fields_by_name['bucket']._serialized_options = b'\252\001\002\010\001'
+  _globals['_STORAGESCHEME'].fields_by_name['account']._loaded_options = None
+  _globals['_STORAGESCHEME'].fields_by_name['account']._serialized_options = b'\252\001\002\010\001'
+  _globals['_KNOWNSTORAGETYPE']._serialized_start=878
+  _globals['_KNOWNSTORAGETYPE']._serialized_end=1082
+  _globals['_STORAGE']._serialized_start=83
+  _globals['_STORAGE']._serialized_end=251
+  _globals['_STORAGE_SCHEMESENTRY']._serialized_start=160
+  _globals['_STORAGE_SCHEMESENTRY']._serialized_end=251
+  _globals['_STORAGESCHEME']._serialized_start=254
+  _globals['_STORAGESCHEME']._serialized_end=875
+  _globals['_STORAGESCHEME_ADDITIONALPROPERTIESENTRY']._serialized_start=780
+  _globals['_STORAGESCHEME_ADDITIONALPROPERTIESENTRY']._serialized_end=875
 # @@protoc_insertion_point(module_scope)
