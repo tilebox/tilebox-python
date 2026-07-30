@@ -10,8 +10,8 @@ import pytest
 from obstore.store import LocalStore
 
 from tilebox.datasets.assets.assets import Asset, AssetLocation
-from tilebox.datasets.assets.stac.authentication import AuthenticationScheme
-from tilebox.datasets.assets.stac.storage import StorageScheme
+from tilebox.datasets.datasets.stac.v1.authentication_pb import AuthenticationScheme, KnownAuthenticationType
+from tilebox.datasets.datasets.stac.v1.storage_pb import KnownStorageType, StorageScheme
 from tilebox.storage.aio import AssetAccessPolicy, Client
 
 
@@ -32,8 +32,8 @@ def test_new_aio_api_does_not_introduce_root_client_or_eager_geotiff_import() ->
 
 
 def test_resolve_prefers_s3_and_reuses_store() -> None:
-    scheme = StorageScheme(key="earth-search", type="aws_s3", region="us-west-2", requester_pays=False)
-    schemes = MappingProxyType({scheme.key: scheme})
+    scheme = StorageScheme(known_type=KnownStorageType.AWS_S3, region="us-west-2", requester_pays=False)
+    schemes = MappingProxyType({"earth-search": scheme})
     primary = AssetLocation("https://example.com/data.tif", schemes)
     alternate = AssetLocation("s3://bucket/path/data.tif", schemes)
     asset = _asset(primary, alternates=MappingProxyType({"s3": alternate}))
@@ -68,14 +68,14 @@ def test_concurrent_resolution_constructs_one_store() -> None:
 
 
 def test_resolution_rejection_details_and_client_policy() -> None:
-    auth = AuthenticationScheme(key="oauth", type="oauth2")
-    first = StorageScheme(key="first", type="aws_s3")
-    second = StorageScheme(key="second", type="aws_s3")
+    auth = AuthenticationScheme(known_type=KnownAuthenticationType.OAUTH2)
+    first = StorageScheme(known_type=KnownStorageType.AWS_S3)
+    second = StorageScheme(known_type=KnownStorageType.AWS_S3)
     asset = _asset(
         AssetLocation(
             "s3://bucket/data.tif",
-            MappingProxyType({first.key: first, second.key: second}),
-            MappingProxyType({auth.key: auth}),
+            MappingProxyType({"first": first, "second": second}),
+            MappingProxyType({"oauth": auth}),
         )
     )
     client = Client()
@@ -83,9 +83,9 @@ def test_resolution_rejection_details_and_client_policy() -> None:
     with pytest.raises(ValueError, match=r"primary.*multiple storage schemes"):
         client.resolve(asset)
     authenticated = _asset(
-        AssetLocation("s3://bucket/data.tif", authentication_schemes=MappingProxyType({auth.key: auth}))
+        AssetLocation("s3://bucket/data.tif", authentication_schemes=MappingProxyType({"oauth": auth}))
     )
-    with pytest.raises(ValueError, match=r"authentication scheme 'oauth'.*unsupported"):
+    with pytest.raises(ValueError, match=r"authentication type 'oauth2'.*unsupported"):
         client.resolve(authenticated)
 
     primary = AssetLocation("https://example.com/data.tif")

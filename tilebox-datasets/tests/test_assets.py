@@ -3,24 +3,33 @@ from pathlib import Path
 import numpy as np
 import pytest
 import xarray as xr
-from google.protobuf.struct_pb2 import Struct
 
 from tilebox.datasets import iter_datapoints
 from tilebox.datasets.assets import AssetCollection
-from tilebox.datasets.assets.stac.authentication import SignedURLFlow as SignedURLFlowModel
-from tilebox.datasets.assets.stac.metadata import ElectroOpticalProperties, RasterProperties
-from tilebox.datasets.datasets.stac.v1.asset_metadata_pb2 import RasterProperties as RasterPropertiesProto
-from tilebox.datasets.datasets.stac.v1.asset_pb2 import Asset, AssetAccessProfile, AssetLocation, Assets, Band
-from tilebox.datasets.datasets.stac.v1.authentication_pb2 import (
+from tilebox.datasets.datasets.stac.v1.asset_metadata_pb import (
+    EOCommonName,
+    EOProperties,
+    RasterProperties,
+)
+from tilebox.datasets.datasets.stac.v1.asset_pb import (
+    Asset,
+    AssetAccessProfile,
+    AssetLocation,
+    Assets,
+    Band,
+    DataType,
+    KnownAssetRole,
+)
+from tilebox.datasets.datasets.stac.v1.authentication_pb import (
     Authentication,
     AuthenticationFlow,
     AuthenticationParameter,
     SignedURLFlow,
 )
-from tilebox.datasets.datasets.stac.v1.authentication_pb2 import (
+from tilebox.datasets.datasets.stac.v1.authentication_pb import (
     AuthenticationScheme as AuthenticationSchemeProto,
 )
-from tilebox.datasets.datasets.stac.v1.storage_pb2 import Storage, StorageScheme
+from tilebox.datasets.datasets.stac.v1.storage_pb import KnownStorageType, Storage, StorageScheme
 
 TESTDATA = Path(__file__).parent / "testdata"
 
@@ -37,8 +46,8 @@ def _read_real_fixture() -> tuple[Assets, Storage]:
     The datapoint's STAC ID is ``S2A_T33TWM_20161102T100149_L2A``. It has no
     authentication metadata, so no synthetic Authentication fixture is stored.
     """
-    assets = Assets.FromString((TESTDATA / "sentinel2_assets.binpb").read_bytes())
-    storage = Storage.FromString((TESTDATA / "sentinel2_storage.binpb").read_bytes())
+    assets = Assets.from_binary((TESTDATA / "sentinel2_assets.binpb").read_bytes())
+    storage = Storage.from_binary((TESTDATA / "sentinel2_storage.binpb").read_bytes())
     return assets, storage
 
 
@@ -52,19 +61,17 @@ def test_real_sentinel2_fixture_decodes_to_self_contained_assets() -> None:
     assert red.alternates["s3"].href == (
         "s3://e84-earth-search-sentinel-data/sentinel-2-c1-l2a/33/T/WM/2016/11/S2A_T33TWM_20161102T100149_L2A/B04.tif"
     )
-    assert red.alternates["s3"].storage_schemes["earth-search"].key == "earth-search"
     assert red.alternates["s3"].storage_schemes["earth-search"].region == "us-west-2"
     assert red.media_type == "image/tiff; application=geotiff; profile=cloud-optimized"
-    assert red.roles == frozenset({"data", "reflectance"})
-    assert red.raster == RasterProperties(sampling="unspecified", scale=0.0001, offset=-0.1, spatial_resolution=10)
-    assert red.bands[0].data_type == "uint16"
+    assert red.roles == frozenset({KnownAssetRole.DATA, KnownAssetRole.REFLECTANCE})
+    assert red.raster == RasterProperties(scale=0.0001, offset=-0.1, spatial_resolution=10)
+    assert red.bands[0].data_type == DataType.UINT16
     assert red.bands[0].nodata == 0
     assert red.bands[0].raster == red.raster
-    assert red.bands[0].electro_optical == ElectroOpticalProperties(
-        common_name="red",
+    assert red.bands[0].eo == EOProperties(
+        common_name=EOCommonName.RED,
         center_wavelength=0.665,
         full_width_half_max=0.038,
-        solar_illumination=None,
     )
 
 
@@ -97,52 +104,34 @@ def test_context_ambiguity_and_explicit_override() -> None:
     assert decoded["data"].primary.storage_schemes["main"].region == "us-west-2"
 
 
-def test_storage_and_authentication_extensions_use_immutable_mappings() -> None:
+def test_locations_reuse_generated_storage_and_authentication_messages() -> None:
     root = Assets(
         access_profiles=[AssetAccessProfile(base_href="s3://bucket/", storage_refs=["main"], auth_refs=["signed"])],
         assets=[Asset(key="data", primary=AssetLocation(access_profile_index=0, href="data.tif"))],
     )
-    properties = Struct()
-    properties.update({"endpoint": "https://example.com", "options": ["one", "two"]})
-    storage = Storage(
-        schemes={
-            "main": StorageScheme(
-                known_type="KNOWN_STORAGE_TYPE_CUSTOM_S3",
-                bucket="bucket",
-                account="account",
-                additional_properties=properties.fields,
-            )
-        }
+    scheme_message = StorageScheme(
+        known_type=KnownStorageType.CUSTOM_S3,
+        bucket="bucket",
+        account="account",
     )
-    schema = Struct()
-    schema.update({"type": "string", "enum": ["one", "two"]})
-    authentication = Authentication(
-        schemes={
-            "signed": AuthenticationSchemeProto(
-                flows=[
-                    AuthenticationFlow(
-                        key="authorizationCode",
-                        signed_url=SignedURLFlow(
-                            parameters={"token": AuthenticationParameter(required=True, schema=schema)}
-                        ),
-                    )
-                ]
-            )
-        }
+    storage = Storage(schemes={"main": scheme_message})
+    signed_url = SignedURLFlow(parameters={"token": AuthenticationParameter(required=True)})
+    authentication_scheme = AuthenticationSchemeProto(
+        flows=[AuthenticationFlow(key="authorizationCode", signed_url=signed_url)]
     )
+    authentication = Authentication(schemes={"signed": authentication_scheme})
 
     location = AssetCollection.from_datapoint(_scalar(root=root, storage=storage, authentication=authentication))[
         "data"
     ].primary
     scheme = location.storage_schemes["main"]
+    assert scheme is scheme_message
     assert scheme.bucket == "bucket"
     assert scheme.account == "account"
-    assert scheme.additional_properties == {"endpoint": "https://example.com", "options": ("one", "two")}
-    flow = location.authentication_schemes["signed"].flows["authorizationCode"]
-    assert isinstance(flow, SignedURLFlowModel)
-    assert flow.parameters["token"].schema == {"type": "string", "enum": ("one", "two")}
+    assert location.authentication_schemes["signed"] is authentication_scheme
+    assert location.authentication_schemes["signed"].flows[0].signed_url == signed_url
     with pytest.raises(TypeError):
-        scheme.additional_properties["new"] = True  # type: ignore[index]
+        location.storage_schemes["new"] = scheme  # type: ignore[index]
 
 
 def test_alternate_href_absent_empty_and_nonempty_are_distinct() -> None:
@@ -174,22 +163,22 @@ def test_alternate_href_absent_empty_and_nonempty_are_distinct() -> None:
 def test_band_inheritance_is_field_by_field() -> None:
     root = Assets(
         access_profiles=[AssetAccessProfile(base_href="file:///")],
-        band_profiles=[Band(name="red", raster=RasterPropertiesProto(scale=2))],
+        band_profiles=[Band(name="red", raster=RasterProperties(scale=2))],
         assets=[
             Asset(
                 key="data",
                 primary=AssetLocation(access_profile_index=0, href="tmp/data.tif"),
                 band_profile_indices=[0],
-                data_type="DATA_TYPE_UINT16",
+                data_type=DataType.UINT16,
                 nodata=-1,
-                raster=RasterPropertiesProto(offset=3, spatial_resolution=10),
+                raster=RasterProperties(offset=3, spatial_resolution=10),
             )
         ],
     )
     band = AssetCollection.from_datapoint(_scalar(root=root))["data"].bands[0]
-    assert band.data_type == "uint16"
+    assert band.data_type == DataType.UINT16
     assert band.nodata == -1
-    assert band.raster == RasterProperties(sampling="unspecified", scale=2, offset=3, spatial_resolution=10)
+    assert band.raster == RasterProperties(scale=2, offset=3, spatial_resolution=10)
 
 
 def test_missing_referenced_context_is_rejected() -> None:

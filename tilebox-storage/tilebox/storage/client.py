@@ -16,8 +16,8 @@ if TYPE_CHECKING:
     from obstore.store import ObjectStore
 
     from tilebox.datasets.assets.assets import Asset, AssetLocation
-    from tilebox.datasets.assets.stac.authentication import AuthenticationScheme
-    from tilebox.datasets.assets.stac.storage import StorageScheme
+    from tilebox.datasets.datasets.stac.v1.authentication_pb import AuthenticationScheme
+    from tilebox.datasets.datasets.stac.v1.storage_pb import StorageScheme
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,7 +83,7 @@ class Client:
         details = "; ".join(rejected) or "asset has no locations"
         raise ValueError(f"unable to resolve asset {asset.key!r}: {details}")
 
-    def _store_for(  # noqa: C901, PLR0912
+    def _store_for(  # noqa: C901, PLR0912, PLR0915
         self,
         href: str,
         storage: "StorageScheme | None",
@@ -93,22 +93,24 @@ class Client:
 
         parsed = urlsplit(href)
         scheme = _uri_scheme(href)
-        if authentication is not None and authentication.type != "s3":
-            raise ValueError(f"authentication scheme {authentication.key!r} ({authentication.type!r}) is unsupported")
+        authentication_type = _authentication_type(authentication)
+        if authentication is not None and authentication_type != "s3":
+            raise ValueError(f"authentication type {authentication_type!r} is unsupported")
 
         if scheme == "file":
             identity = ("file", "/")
             constructor = lambda: LocalStore("/")  # noqa: E731
             path = unquote(parsed.path if parsed.scheme else href).lstrip("/")
         elif scheme == "s3":
-            if storage is not None and storage.type not in {"aws_s3", "custom_s3", "unspecified", None}:
-                raise ValueError(f"storage scheme {storage.key!r} is incompatible with s3")
+            storage_type = _storage_type(storage)
+            if storage is not None and storage_type not in {"aws_s3", "custom_s3", "unspecified"}:
+                raise ValueError(f"storage type {storage_type!r} is incompatible with s3")
             authenticated = authentication is not None
             options = (
-                storage.region if storage else None,
-                storage.requester_pays if storage else None,
+                storage.region if storage and storage.has_field("region") else None,
+                storage.requester_pays if storage and storage.has_field("requester_pays") else None,
                 not authenticated,
-                storage.platform if storage and storage.type == "custom_s3" else None,
+                storage.platform if storage and storage_type == "custom_s3" and storage.platform else None,
             )
             identity = ("s3", parsed.netloc, *options, repr(authentication))
             constructor = lambda: S3Store(  # noqa: E731
@@ -126,8 +128,9 @@ class Client:
             )
             path = parsed.path.lstrip("/")
         elif scheme in {"gs", "gcs"}:
-            if storage is not None and storage.type not in {"google_cloud_storage", "unspecified", None}:
-                raise ValueError(f"storage scheme {storage.key!r} is incompatible with Google Cloud Storage")
+            storage_type = _storage_type(storage)
+            if storage is not None and storage_type not in {"google_cloud_storage", "unspecified"}:
+                raise ValueError(f"storage type {storage_type!r} is incompatible with Google Cloud Storage")
             anonymous = authentication is None
             identity = ("gs", parsed.netloc, anonymous, repr(authentication))
             constructor = lambda: GCSStore(parsed.netloc, skip_signature=anonymous)  # noqa: E731
@@ -281,6 +284,40 @@ class Client:
 
 def _uri_scheme(href: str) -> str:
     return urlsplit(href).scheme.lower() or "file"
+
+
+def _storage_type(storage: "StorageScheme | None") -> str | None:
+    if storage is None:
+        return None
+    if storage.has_field("custom_type"):
+        return storage.custom_type
+    from tilebox.datasets.datasets.stac.v1.storage_pb import KnownStorageType  # noqa: PLC0415
+
+    return {
+        KnownStorageType.UNSPECIFIED: "unspecified",
+        KnownStorageType.AWS_S3: "aws_s3",
+        KnownStorageType.CUSTOM_S3: "custom_s3",
+        KnownStorageType.MICROSOFT_AZURE: "microsoft_azure",
+        KnownStorageType.GOOGLE_CLOUD_STORAGE: "google_cloud_storage",
+    }[storage.known_type]
+
+
+def _authentication_type(authentication: "AuthenticationScheme | None") -> str | None:
+    if authentication is None:
+        return None
+    if authentication.has_field("custom_type"):
+        return authentication.custom_type
+    from tilebox.datasets.datasets.stac.v1.authentication_pb import KnownAuthenticationType  # noqa: PLC0415
+
+    return {
+        KnownAuthenticationType.UNSPECIFIED: "unspecified",
+        KnownAuthenticationType.HTTP: "http",
+        KnownAuthenticationType.S3: "s3",
+        KnownAuthenticationType.SIGNED_URL: "signed_url",
+        KnownAuthenticationType.OAUTH2: "oauth2",
+        KnownAuthenticationType.API_KEY: "api_key",
+        KnownAuthenticationType.OPEN_ID_CONNECT: "open_id_connect",
+    }[authentication.known_type]
 
 
 def _select_scheme(schemes: Mapping[str, Any], kind: str) -> Any | None:

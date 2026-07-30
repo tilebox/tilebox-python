@@ -19,7 +19,8 @@ from tilebox.datasets.datasets.stac.v1.asset_pb import Assets
 from tilebox.datasets.datasets.stac.v1.asset_pb2 import Assets as AssetsPB2
 from tilebox.datasets.datasets.stac.v1.authentication_pb import Authentication
 from tilebox.datasets.datasets.stac.v1.authentication_pb2 import Authentication as AuthenticationPB2
-from tilebox.datasets.datasets.stac.v1.core_pb import Provider
+from tilebox.datasets.datasets.stac.v1.core_pb import Links, Provider
+from tilebox.datasets.datasets.stac.v1.core_pb2 import Links as LinksPB2
 from tilebox.datasets.datasets.stac.v1.core_pb2 import Provider as ProviderPB2
 from tilebox.datasets.datasets.stac.v1.processing_pb import ProcessingSoftware
 from tilebox.datasets.datasets.stac.v1.processing_pb2 import ProcessingSoftware as ProcessingSoftwarePB2
@@ -289,6 +290,7 @@ _MESSAGE_NAMES_TO_FIELDS = {
     "google.protobuf.Duration": TimeDeltaField(),
     "datasets.stac.v1.Assets": ProtobufPyMessageField(AssetsPB2, AssetsRepr),
     "datasets.stac.v1.Authentication": ProtobufPyMessageField(AuthenticationPB2, Authentication),
+    "datasets.stac.v1.Links": ProtobufPyMessageField(LinksPB2, Links),
     "datasets.stac.v1.Provider": ProtobufPyMessageField(ProviderPB2, Provider),
     "datasets.stac.v1.ProcessingSoftware": ProtobufPyMessageField(ProcessingSoftwarePB2, ProcessingSoftware),
     "datasets.stac.v1.Storage": ProtobufPyMessageField(StoragePB2, Storage),

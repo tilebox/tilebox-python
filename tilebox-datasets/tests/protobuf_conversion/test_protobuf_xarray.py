@@ -19,12 +19,15 @@ from tilebox.datasets.datasets.stac.v1.asset_pb2 import Asset as AssetPB2
 from tilebox.datasets.datasets.stac.v1.asset_pb2 import Assets as AssetsPB2
 from tilebox.datasets.datasets.stac.v1.authentication_pb import Authentication
 from tilebox.datasets.datasets.stac.v1.authentication_pb2 import Authentication as AuthenticationPB2
-from tilebox.datasets.datasets.stac.v1.core_pb import Provider
+from tilebox.datasets.datasets.stac.v1.core_pb import Links, Provider
+from tilebox.datasets.datasets.stac.v1.core_pb2 import Link as LinkPB2
+from tilebox.datasets.datasets.stac.v1.core_pb2 import Links as LinksPB2
 from tilebox.datasets.datasets.stac.v1.core_pb2 import Provider as ProviderPB2
 from tilebox.datasets.datasets.stac.v1.processing_pb import ProcessingSoftware
 from tilebox.datasets.datasets.stac.v1.processing_pb2 import ProcessingSoftware as ProcessingSoftwarePB2
 from tilebox.datasets.datasets.stac.v1.storage_pb import Storage
 from tilebox.datasets.datasets.stac.v1.storage_pb2 import Storage as StoragePB2
+from tilebox.datasets.protobuf_conversion.field_types import AssetsRepr
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
 from tilebox.datasets.protobuf_conversion.to_protobuf import to_messages
 from tilebox.datasets.query.time_interval import timestamp_to_datetime, us_to_datetime
@@ -116,8 +119,9 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
 
 def test_convert_stac_messages_to_protobuf_py() -> None:
     message_types = {
-        "assets": ("datasets.stac.v1.Assets", AssetsPB2(assets=[AssetPB2(key="preview")]), Assets),
+        "assets": ("datasets.stac.v1.Assets", AssetsPB2(assets=[AssetPB2(key="preview")]), AssetsRepr),
         "authentication": ("datasets.stac.v1.Authentication", AuthenticationPB2(), Authentication),
+        "links": ("datasets.stac.v1.Links", LinksPB2(links=[LinkPB2(href="https://example.com")]), Links),
         "provider": ("datasets.stac.v1.Provider", ProviderPB2(name="Tilebox"), Provider),
         "processing_software": (
             "datasets.stac.v1.ProcessingSoftware",
@@ -178,6 +182,11 @@ def test_convert_stac_messages_to_protobuf_py() -> None:
         converted_repeated_value = dataset[repeated_field_name][1, 0].item()
         assert isinstance(converted_repeated_value, target_type)
         assert converted_repeated_value.to_binary() == source_value.SerializeToString()
+
+    converted_assets = dataset["assets"][1].item()
+    assert isinstance(converted_assets, Assets)
+    assert repr(converted_assets) == "[preview]"
+    assert str(converted_assets) == "1 assets"
 
     roundtripped = to_messages(dataset, message_type)
     assert roundtripped == messages
