@@ -14,8 +14,19 @@ from xarray.testing import assert_equal
 
 from tests.data.datapoint import example_datapoints
 from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
-from tilebox.datasets.datasets.stac.v1.asset_pb2 import Assets
+from tilebox.datasets.datasets.stac.v1.asset_pb import Assets
+from tilebox.datasets.datasets.stac.v1.asset_pb2 import Asset as AssetPB2
+from tilebox.datasets.datasets.stac.v1.asset_pb2 import Assets as AssetsPB2
+from tilebox.datasets.datasets.stac.v1.authentication_pb import Authentication
+from tilebox.datasets.datasets.stac.v1.authentication_pb2 import Authentication as AuthenticationPB2
+from tilebox.datasets.datasets.stac.v1.core_pb import Provider
+from tilebox.datasets.datasets.stac.v1.core_pb2 import Provider as ProviderPB2
+from tilebox.datasets.datasets.stac.v1.processing_pb import ProcessingSoftware
+from tilebox.datasets.datasets.stac.v1.processing_pb2 import ProcessingSoftware as ProcessingSoftwarePB2
+from tilebox.datasets.datasets.stac.v1.storage_pb import Storage
+from tilebox.datasets.datasets.stac.v1.storage_pb2 import Storage as StoragePB2
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
+from tilebox.datasets.protobuf_conversion.to_protobuf import to_messages
 from tilebox.datasets.query.time_interval import timestamp_to_datetime, us_to_datetime
 
 
@@ -103,43 +114,81 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
         assert isinstance(dataset.some_repeated_geometry[i].item(), Polygon | MultiPolygon)
 
 
-def test_convert_unknown_message_fields_as_objects() -> None:
+def test_convert_stac_messages_to_protobuf_py() -> None:
+    message_types = {
+        "assets": ("datasets.stac.v1.Assets", AssetsPB2(assets=[AssetPB2(key="preview")]), Assets),
+        "authentication": ("datasets.stac.v1.Authentication", AuthenticationPB2(), Authentication),
+        "provider": ("datasets.stac.v1.Provider", ProviderPB2(name="Tilebox"), Provider),
+        "processing_software": (
+            "datasets.stac.v1.ProcessingSoftware",
+            ProcessingSoftwarePB2(versions={"processor": "1.0"}),
+            ProcessingSoftware,
+        ),
+        "storage": ("datasets.stac.v1.Storage", StoragePB2(), Storage),
+    }
     file_descriptor = descriptor_pb2.FileDescriptorProto(
         name="tests/protobuf_conversion/stac_datapoint.proto",
         package="tests.protobuf_conversion",
-        dependency=["datasets/stac/v1/asset.proto"],
+        dependency=[
+            "datasets/stac/v1/asset.proto",
+            "datasets/stac/v1/authentication.proto",
+            "datasets/stac/v1/core.proto",
+            "datasets/stac/v1/processing.proto",
+            "datasets/stac/v1/storage.proto",
+        ],
     )
     message_descriptor = file_descriptor.message_type.add(name="StacDatapoint")
-    message_descriptor.field.add(
-        name="assets",
-        number=1,
-        label=descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
-        type=descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
-        type_name=".datasets.stac.v1.Assets",
-    )
-    message_descriptor.field.add(
-        name="related_assets",
-        number=2,
-        label=descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED,
-        type=descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
-        type_name=".datasets.stac.v1.Assets",
-    )
+    for index, (field_name, (message_name, _, _)) in enumerate(message_types.items()):
+        message_descriptor.field.add(
+            name=field_name,
+            number=index * 2 + 1,
+            label=descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+            type=descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+            type_name=f".{message_name}",
+        )
+        message_descriptor.field.add(
+            name=f"related_{field_name}",
+            number=index * 2 + 2,
+            label=descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED,
+            type=descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
+            type_name=f".{message_name}",
+        )
     descriptor = Default().AddSerializedFile(file_descriptor.SerializeToString())
     message_type = GetMessageClass(descriptor.message_types_by_name["StacDatapoint"])
 
-    assets = Assets()
-    related_assets = Assets()
-    messages = [message_type(), message_type(assets=assets, related_assets=[related_assets])]
+    values = {}
+    for field_name, (_, source_value, _) in message_types.items():
+        values[field_name] = source_value
+        values[f"related_{field_name}"] = [source_value]
+    messages = [message_type(), message_type(**values)]
 
     converter = MessageToXarrayConverter()
     converter.convert_all(messages)
     dataset = converter.finalize("time")
 
-    assert dataset.assets.dtype == object
-    assert dataset.assets[0].item() is None
-    assert dataset.assets[1].item() == assets
-    assert dataset.related_assets.dtype == object
-    assert dataset.related_assets[1, 0].item() == related_assets
+    for field_name, (_, source_value, target_type) in message_types.items():
+        assert dataset[field_name].dtype == object
+        assert dataset[field_name][0].item() is None
+        converted_value = dataset[field_name][1].item()
+        assert isinstance(converted_value, target_type)
+        assert converted_value.to_binary() == source_value.SerializeToString()
+
+        repeated_field_name = f"related_{field_name}"
+        assert dataset[repeated_field_name].dtype == object
+        converted_repeated_value = dataset[repeated_field_name][1, 0].item()
+        assert isinstance(converted_repeated_value, target_type)
+        assert converted_repeated_value.to_binary() == source_value.SerializeToString()
+
+    roundtripped = to_messages(dataset, message_type)
+    assert roundtripped == messages
+
+    for repeated_container in (list, tuple):
+        input_data = {}
+        for field_name, (_, source_value, target_type) in message_types.items():
+            target_value = target_type.from_binary(source_value.SerializeToString())
+            input_data[field_name] = [target_value]
+            input_data[f"related_{field_name}"] = [repeated_container([target_value])]
+        assert to_messages(input_data, message_type) == [message_type(**values)]
 
 
 @given(lists(example_datapoints(generated_fields=True, missing_fields=True), min_size=5, max_size=30))
