@@ -12,10 +12,12 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from numpy import dtypes as npdtypes
 from pandas.core.tools.datetimes import DatetimeScalar, to_datetime
 from pandas.core.tools.timedeltas import to_timedelta
+from protobuf import Message as ProtobufPyMessage
 from shapely import from_wkb
 
 from tilebox.datasets.datasets.v1.well_known_types_pb2 import UUID as UUIDMessage  # noqa: N811
 from tilebox.datasets.datasets.v1.well_known_types_pb2 import Geometry, LatLon, LatLonAlt, Quaternion, Vec3
+from tilebox.datasets.schema import _MESSAGE_FIELD_TYPES, Assets
 
 ScalarProtoFieldValue = Message | float | str | bool | bytes
 
@@ -65,6 +67,41 @@ class ProtobufFieldType:
 
     def to_proto(self, value: Any) -> ProtoFieldValue | None:
         return value
+
+
+class ProtobufPyMessageField(ProtobufFieldType):
+    """Convert between protobuf wire messages and protobuf-py values."""
+
+    def __init__(
+        self,
+        wire_type: type[Message],
+        value_type: type[ProtobufPyMessage[Any]],
+        *,
+        read_type: type[ProtobufPyMessage[Any]] | None = None,
+    ) -> None:
+        """Initialize a protobuf-py field converter.
+
+        Args:
+            wire_type: Google protobuf message used on the ingestion wire.
+            value_type: Public protobuf-py message accepted during ingestion.
+            read_type: Optional subtype returned when decoding query results.
+        """
+        super().__init__(object)
+        self._wire_type = wire_type
+        self._value_type = value_type
+        self._read_type = read_type or value_type
+
+    def from_proto(self, value: ProtoFieldValue) -> ProtobufPyMessage[Any]:
+        if not isinstance(value, self._wire_type):
+            raise TypeError(f"Expected {self._wire_type.__name__} message but got {type(value)}")
+        return self._read_type.from_binary(value.SerializeToString())
+
+    def to_proto(self, value: ProtobufPyMessage[Any]) -> Message | None:
+        if is_missing(value):
+            return None
+        if not isinstance(value, self._value_type):
+            raise TypeError(f"Expected {self._value_type.__name__} message but got {type(value)}")
+        return self._wire_type.FromString(value.to_binary())
 
 
 class BoolField(ProtobufFieldType):
@@ -240,9 +277,28 @@ _PROTOBUF_TYPE_TO_NUMPY_TYPE = {
     FieldDescriptor.TYPE_BYTES: object,  # use object to allow for variable length bytes
 }
 
-_MESSAGE_NAMES_TO_FIELDS = {
+
+class _AssetsDisplay(Assets):
+    """Assets value with concise text representations, including in xarray displays."""
+
+    def __repr__(self) -> str:
+        return f"[{', '.join(a.key for a in self.assets)}]"
+
+    def __str__(self) -> str:
+        return f"{len(self.assets)} assets"
+
+
+_MESSAGE_NAMES_TO_FIELDS: dict[str, ProtobufFieldType] = {
     "google.protobuf.Timestamp": TimestampField(),
     "google.protobuf.Duration": TimeDeltaField(),
+    **{
+        wire_type.DESCRIPTOR.full_name: ProtobufPyMessageField(
+            wire_type,
+            value_type,
+            read_type=_AssetsDisplay if value_type is Assets else None,
+        )
+        for value_type, wire_type in _MESSAGE_FIELD_TYPES.items()
+    },
     "datasets.v1.UUID": UUIDField(),
     "datasets.v1.Geometry": GeometryField(),
     "datasets.v1.Vec3": Vec3Field(),

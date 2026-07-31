@@ -32,6 +32,8 @@ dependencies = [
     "pandas>=2.1",
     "shapely>=2",
     "promise>=2.3",
+    "typing-extensions>=4.5",
+    "protobuf-py>=0.1.1",
 ]
 
 [dependency-groups]

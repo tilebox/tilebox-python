@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://www.schemastore.org/buf.gen.json
+version: v2
+plugins:
+  - remote: buf.build/bufbuild/py:v0.2.0
+    out: tilebox-datasets/tilebox/datasets
+    opt: init_files=false
+inputs:
+  - module: buf.build/tilebox/api
+    paths:
+      - "datasets/stac/v1"
+    # Keep this experimental package validation-blind, matching the existing generated clients.
+    exclude_types:
+      - "buf.validate.**"

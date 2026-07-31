@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-07-31
+
+### Added
+
+- `tilebox-datasets`: Added `AssetCollection.from_datapoint()` for resolving STAC assets and their generated metadata,
+  storage, and authentication messages from queried datapoints.
+- `tilebox-datasets`: Added `Asset`, `Band`, and `AssetLocation` authoring types together with
+  `AssetCollection.from_assets()` and `AssetCollection.to_fields()` for compiling optimized STAC asset metadata for
+  ingestion, plus common string-valued `MediaType` constants.
+- `tilebox-datasets`: Added public schema field types for creating datasets containing supported STAC Assets, Storage,
+  Authentication, Links, Provider, and ProcessingSoftware messages, with aliases for Geometry and UUID fields.
+- `tilebox-storage`: Added async asset resolution, reading, downloading, and GeoTIFF access backed by object stores.
+
 ## [0.57.0] - 2026-07-27
 
 ### Added
@@ -429,7 +442,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.57.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.58.0...HEAD
+[0.58.0]: https://github.com/tilebox/tilebox-python/compare/v0.57.0...v0.58.0 
 [0.57.0]: https://github.com/tilebox/tilebox-python/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/tilebox/tilebox-python/compare/v0.55.1...v0.56.0
 [0.55.1]: https://github.com/tilebox/tilebox-python/compare/v0.55.0...v0.55.1

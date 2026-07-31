@@ -18,6 +18,15 @@ from aiofile import async_open
 
 from _tilebox.grpc.aio.producer_consumer import async_producer_consumer
 from _tilebox.grpc.aio.syncify import Syncifiable
+from tilebox.storage.client import (
+    AssetAccessPolicy,
+    Client,
+    ResolvedAsset,
+    download,
+    iter_bytes,
+    open_geotiff,
+    read_bytes,
+)
 from tilebox.storage.granule import (
     ASFStorageGranule,
     CopernicusStorageGranule,
@@ -26,6 +35,25 @@ from tilebox.storage.granule import (
     USGSLandsatStorageGranule,
     _is_copernicus_odata_url,
 )
+
+__all__ = [
+    "ASFStorageClient",
+    "AssetAccessPolicy",
+    "CachingStorageClient",
+    "Client",
+    "CopernicusStorageClient",
+    "LocalFileSystemStorageClient",
+    "ResolvedAsset",
+    "StorageClient",
+    "USGSLandsatStorageClient",
+    "UmbraStorageClient",
+    "download",
+    "download_objects",
+    "iter_bytes",
+    "list_object_paths",
+    "open_geotiff",
+    "read_bytes",
+]
 
 if TYPE_CHECKING:
     import niquests

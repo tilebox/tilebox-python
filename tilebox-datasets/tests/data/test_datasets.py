@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from google.protobuf.descriptor_pb2 import FieldDescriptorProto
 from hypothesis import given
 
 from tests.data.datasets import (
@@ -26,6 +27,7 @@ from tilebox.datasets.data.datasets import (
     FieldRole,
     ListDatasetsResponse,
 )
+from tilebox.datasets.schema import Assets, Authentication, Links, ProcessingSoftware, Provider, Storage
 from tilebox.datasets.service import TileboxDatasetService
 
 
@@ -59,6 +61,28 @@ def test_field_from_dict(field_dict: FieldDict) -> None:
     assert field.annotation.roles == [
         FieldRole[role.upper()] if isinstance(role, str) else role for role in field_dict.get("roles", [])
     ]
+
+
+@pytest.mark.parametrize(
+    ("message_type", "message_name"),
+    [
+        (Assets, "datasets.stac.v1.Assets"),
+        (Authentication, "datasets.stac.v1.Authentication"),
+        (Links, "datasets.stac.v1.Links"),
+        (Provider, "datasets.stac.v1.Provider"),
+        (ProcessingSoftware, "datasets.stac.v1.ProcessingSoftware"),
+        (Storage, "datasets.stac.v1.Storage"),
+    ],
+)
+def test_message_types_can_define_dataset_fields(message_type: type, message_name: str) -> None:
+    scalar = Field.from_dict({"name": "metadata", "type": message_type})
+    repeated = Field.from_dict({"name": "metadata", "type": list[message_type]})  # type: ignore[typeddict-item,valid-type]
+
+    assert scalar.descriptor.type == FieldDescriptorProto.TYPE_MESSAGE
+    assert scalar.descriptor.type_name == f".{message_name}"
+    assert scalar.descriptor.label == FieldDescriptorProto.LABEL_OPTIONAL
+    assert repeated.descriptor.type_name == f".{message_name}"
+    assert repeated.descriptor.label == FieldDescriptorProto.LABEL_REPEATED
 
 
 @given(fields())

@@ -6,11 +6,20 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from tilebox.datasets.aio.timeseries import TimeseriesCollection, TimeseriesDataset
+    from tilebox.datasets.datapoints import iter_datapoints
     from tilebox.datasets.query import field
     from tilebox.datasets.sync.client import Client
     from tilebox.datasets.sync.dataset import CollectionClient, DatasetClient
 
-__all__ = ["Client", "CollectionClient", "DatasetClient", "TimeseriesCollection", "TimeseriesDataset", "field"]
+__all__ = [
+    "Client",
+    "CollectionClient",
+    "DatasetClient",
+    "TimeseriesCollection",
+    "TimeseriesDataset",
+    "field",
+    "iter_datapoints",
+]
 
 
 def __getattr__(name: str) -> Any:
@@ -42,6 +51,10 @@ def __getattr__(name: str) -> Any:
             from tilebox.datasets.aio.timeseries import TimeseriesDataset  # noqa: PLC0415
 
             value = TimeseriesDataset
+        case "iter_datapoints":
+            from tilebox.datasets.datapoints import iter_datapoints  # noqa: PLC0415
+
+            value = iter_datapoints
         case _:
             raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

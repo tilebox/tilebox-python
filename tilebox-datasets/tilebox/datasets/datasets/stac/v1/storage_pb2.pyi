@@ -1,3 +1,4 @@
+from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -34,7 +35,14 @@ class Storage(_message.Message):
     def __init__(self, schemes: _Optional[_Mapping[str, StorageScheme]] = ...) -> None: ...
 
 class StorageScheme(_message.Message):
-    __slots__ = ("known_type", "custom_type", "platform", "title", "description", "region", "requester_pays", "storage_class")
+    __slots__ = ("known_type", "custom_type", "platform", "title", "description", "region", "requester_pays", "storage_class", "bucket", "account", "additional_properties")
+    class AdditionalPropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...) -> None: ...
     KNOWN_TYPE_FIELD_NUMBER: _ClassVar[int]
     CUSTOM_TYPE_FIELD_NUMBER: _ClassVar[int]
     PLATFORM_FIELD_NUMBER: _ClassVar[int]
@@ -43,6 +51,9 @@ class StorageScheme(_message.Message):
     REGION_FIELD_NUMBER: _ClassVar[int]
     REQUESTER_PAYS_FIELD_NUMBER: _ClassVar[int]
     STORAGE_CLASS_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_FIELD_NUMBER: _ClassVar[int]
+    ACCOUNT_FIELD_NUMBER: _ClassVar[int]
+    ADDITIONAL_PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     known_type: KnownStorageType
     custom_type: str
     platform: str
@@ -51,4 +62,7 @@ class StorageScheme(_message.Message):
     region: str
     requester_pays: bool
     storage_class: str
-    def __init__(self, known_type: _Optional[_Union[KnownStorageType, str]] = ..., custom_type: _Optional[str] = ..., platform: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., region: _Optional[str] = ..., requester_pays: bool = ..., storage_class: _Optional[str] = ...) -> None: ...
+    bucket: str
+    account: str
+    additional_properties: _containers.MessageMap[str, _struct_pb2.Value]
+    def __init__(self, known_type: _Optional[_Union[KnownStorageType, str]] = ..., custom_type: _Optional[str] = ..., platform: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., region: _Optional[str] = ..., requester_pays: bool = ..., storage_class: _Optional[str] = ..., bucket: _Optional[str] = ..., account: _Optional[str] = ..., additional_properties: _Optional[_Mapping[str, _struct_pb2.Value]] = ...) -> None: ...
