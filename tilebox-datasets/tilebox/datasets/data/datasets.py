@@ -3,15 +3,14 @@ from dataclasses import field as dataclass_field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Literal, TypeAlias, TypedDict, get_args, get_origin
-from uuid import UUID
 
 import numpy as np
 from google.protobuf import duration_pb2, timestamp_pb2
 from google.protobuf.descriptor_pb2 import FieldDescriptorProto, FileDescriptorSet
-from shapely import Geometry
 from typing_extensions import NotRequired, Required
 
 from tilebox.datasets.datasets.v1 import core_pb2, dataset_type_pb2, datasets_pb2, well_known_types_pb2
+from tilebox.datasets.schema import UUID, Geometry, MessageFieldType, _wire_message_type
 from tilebox.datasets.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
 
 
@@ -100,6 +99,7 @@ class FieldDict(TypedDict):
         | type[list[UUID]]
         | type[Geometry]
         | type[list[Geometry]]
+        | MessageFieldType
     ]
     description: NotRequired[str]
     example_value: NotRequired[str]
@@ -146,7 +146,12 @@ class Field:
             label = FieldDescriptorProto.Label.LABEL_OPTIONAL
             inner_type = field["type"]
 
-        (field_type, field_type_name) = _TYPE_INFO[inner_type]
+        wire_message_type = _wire_message_type(inner_type)
+        if wire_message_type is not None:
+            field_type = FieldDescriptorProto.TYPE_MESSAGE
+            field_type_name = f".{wire_message_type.DESCRIPTOR.full_name}"
+        else:
+            (field_type, field_type_name) = _TYPE_INFO[inner_type]
 
         return cls(
             descriptor=FieldDescriptorProto(

@@ -27,7 +27,7 @@ from tilebox.datasets.datasets.stac.v1.processing_pb import ProcessingSoftware
 from tilebox.datasets.datasets.stac.v1.processing_pb2 import ProcessingSoftware as ProcessingSoftwarePB2
 from tilebox.datasets.datasets.stac.v1.storage_pb import Storage
 from tilebox.datasets.datasets.stac.v1.storage_pb2 import Storage as StoragePB2
-from tilebox.datasets.protobuf_conversion.field_types import AssetsRepr
+from tilebox.datasets.protobuf_conversion.field_types import _AssetsDisplay
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
 from tilebox.datasets.protobuf_conversion.to_protobuf import to_messages
 from tilebox.datasets.query.time_interval import timestamp_to_datetime, us_to_datetime
@@ -119,7 +119,7 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
 
 def test_convert_stac_messages_to_protobuf_py() -> None:
     message_types = {
-        "assets": ("datasets.stac.v1.Assets", AssetsPB2(assets=[AssetPB2(key="preview")]), AssetsRepr),
+        "assets": ("datasets.stac.v1.Assets", AssetsPB2(assets=[AssetPB2(key="preview")]), _AssetsDisplay),
         "authentication": ("datasets.stac.v1.Authentication", AuthenticationPB2(), Authentication),
         "links": ("datasets.stac.v1.Links", LinksPB2(links=[LinkPB2(href="https://example.com")]), Links),
         "provider": ("datasets.stac.v1.Provider", ProviderPB2(name="Tilebox"), Provider),
@@ -176,6 +176,10 @@ def test_convert_stac_messages_to_protobuf_py() -> None:
         converted_value = dataset[field_name][1].item()
         assert isinstance(converted_value, target_type)
         assert converted_value.to_binary() == source_value.SerializeToString()
+        if field_name == "assets":
+            assert isinstance(converted_value, Assets)
+            assert str(converted_value) == "1 assets"
+            assert repr(converted_value) == "[preview]"
 
         repeated_field_name = f"related_{field_name}"
         assert dataset[repeated_field_name].dtype == object
@@ -193,11 +197,20 @@ def test_convert_stac_messages_to_protobuf_py() -> None:
 
     for repeated_container in (list, tuple):
         input_data = {}
+        record = {}
         for field_name, (_, source_value, target_type) in message_types.items():
-            target_value = target_type.from_binary(source_value.SerializeToString())
+            value_type = Assets if field_name == "assets" else target_type
+            target_value = value_type.from_binary(source_value.SerializeToString())
             input_data[field_name] = [target_value]
             input_data[f"related_{field_name}"] = [repeated_container([target_value])]
+            record[field_name] = target_value
+            record[f"related_{field_name}"] = repeated_container([target_value])
         assert to_messages(input_data, message_type) == [message_type(**values)]
+        assert to_messages([record], message_type) == [message_type(**values)]
+
+    html = dataset._repr_html_()
+    assert "preview" in html
+    assert "access_profiles" not in html
 
 
 @given(lists(example_datapoints(generated_fields=True, missing_fields=True), min_size=5, max_size=30))

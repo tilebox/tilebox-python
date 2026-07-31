@@ -521,8 +521,8 @@ class CollectionClient:
             data: The data to ingest. Supported data types are:
                 - xr.Dataset: Ingest a dataset such as it is returned by the output of `collection.load()`
                 - pd.DataFrame: Ingest a pandas DataFrame, mapping the column names to the dataset fields
-                - Iterable, dict or nd-array: Ingest any object that can be converted to a pandas DataFrame,
-                    equivalent to `ingest(pd.DataFrame(data))`
+                - Mapping: Ingest column-oriented fields, with one collection of values per field name
+                - Iterable of mappings: Ingest record-oriented data, with one mapping per datapoint
             allow_existing: Whether to allow existing datapoints. Datapoints will only be overwritten if
                 all of their fields are exactly equal to already existing datapoints. Tilebox will never create
                 duplicate datapoints, but will raise an error if the datapoint already exists. Setting this to

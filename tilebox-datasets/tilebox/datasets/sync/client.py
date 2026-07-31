@@ -123,7 +123,8 @@ class Client:
         Args:
             kind: The kind of the dataset.
             code_name: The code name of the dataset.
-            fields: The custom fields of the dataset.
+            fields: The custom fields of the dataset. Supported generated
+                message field types are available from :mod:`tilebox.datasets.schema`.
             name: The name of the dataset. Defaults to the code name.
 
         Returns:

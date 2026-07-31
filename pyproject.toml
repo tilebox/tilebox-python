@@ -119,4 +119,5 @@ exclude = [
     "**/*_pb2.py",
     "**/*_pb2.pyi",
     "**/*pb2_grpc.py",
+    "**/*pb.py",
 ]

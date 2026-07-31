@@ -1,4 +1,8 @@
+from datetime import datetime, timezone
+
+import numpy as np
 import pandas as pd
+import pytest
 import xarray as xr
 from hypothesis import given
 from hypothesis.strategies import lists
@@ -39,3 +43,75 @@ def test_pandas_to_protobuf_messages(datapoints: list[pd.DataFrame]) -> None:
     dataframe = pd.concat(datapoints)
     converted = to_messages(dataframe, ExampleDatapoint)
     assert len(converted) == len(datapoints)
+
+
+def test_record_oriented_data_preserves_absent_fields_and_filters_missing_values() -> None:
+    time = datetime(2026, 7, 31, tzinfo=timezone.utc)
+    converted = to_messages(
+        [
+            {
+                "time": time,
+                "some_bool": True,
+                "some_int": 4,
+                "some_repeated_int": [1, None, np.nan, 2],
+            },
+            {"time": time, "some_bool": np.nan},
+        ],
+        ExampleDatapoint,
+        required_fields=["time"],
+    )
+
+    assert converted[0].some_bool is True
+    assert converted[0].some_int == 4
+    assert converted[0].some_repeated_int == [1, 2]
+    assert converted[1].some_bool is False
+    assert converted[1].some_int == 0
+
+
+def test_record_oriented_data_requires_every_record_to_have_required_fields() -> None:
+    with pytest.raises(ValueError, match=r"Record 1: Missing required field.*time"):
+        to_messages(
+            [{"time": datetime(2026, 7, 31, tzinfo=timezone.utc)}, {"some_int": 1}],
+            ExampleDatapoint,
+            required_fields=["time"],
+        )
+
+
+def test_record_oriented_data_rejects_required_values_that_convert_to_unset() -> None:
+    with pytest.raises(ValueError, match="Record 0: Field 'some_identifier': Invalid value for required field"):
+        to_messages(
+            [{"some_identifier": ""}],
+            ExampleDatapoint,
+            required_fields=["some_identifier"],
+        )
+
+
+def test_dataframe_missing_values_leave_optional_fields_unset() -> None:
+    time = datetime(2026, 7, 31, tzinfo=timezone.utc)
+    dataframe = pd.DataFrame([{"time": time, "some_bool": True}, {"time": time}])
+
+    converted = to_messages(dataframe, ExampleDatapoint, required_fields=["time"])
+
+    assert converted[0].some_bool is True
+    assert converted[1].some_bool is False
+
+
+def test_iterable_of_column_tuples_is_rejected_as_invalid_records() -> None:
+    with pytest.raises(TypeError, match="record 0 is tuple"):
+        to_messages([("time", [datetime(2026, 7, 31, tzinfo=timezone.utc)])], ExampleDatapoint)  # type: ignore[arg-type]
+
+
+def test_ignored_columns_do_not_participate_in_shape_validation() -> None:
+    converted = to_messages(
+        {"time": [datetime(2026, 7, 31, tzinfo=timezone.utc)], "id": []},
+        ExampleDatapoint,
+        required_fields=["time"],
+        ignore_fields=["id"],
+    )
+
+    assert len(converted) == 1
+
+
+def test_conversion_errors_include_record_and_field_context() -> None:
+    with pytest.raises(TypeError, match="Record 0: Field 'some_repeated_int': Expected an iterable"):
+        to_messages([{"some_repeated_int": 1}], ExampleDatapoint)
