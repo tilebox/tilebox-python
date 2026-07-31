@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, is_dataclass, replace
+from dataclasses import field as dataclass_field
 from dataclasses import fields as dataclass_fields
 from enum import Enum
 from math import isnan
@@ -202,8 +203,8 @@ class AssetLocation:
     """
 
     href: str
-    storage_schemes: Mapping[str, StorageScheme] = _EMPTY_MAPPING
-    authentication_schemes: Mapping[str, AuthenticationScheme] = _EMPTY_MAPPING
+    storage_schemes: Mapping[str, StorageScheme] = dataclass_field(default_factory=lambda: _EMPTY_MAPPING)
+    authentication_schemes: Mapping[str, AuthenticationScheme] = dataclass_field(default_factory=lambda: _EMPTY_MAPPING)
     alternate_name: str | None = None
 
 
@@ -240,7 +241,7 @@ class Asset:
 
     key: str
     primary: AssetLocation
-    alternates: Mapping[str, AssetLocation] = _EMPTY_MAPPING
+    alternates: Mapping[str, AssetLocation] = dataclass_field(default_factory=lambda: _EMPTY_MAPPING)
     media_type: MediaType | str | None = None
     title: str | None = None
     description: str | None = None
