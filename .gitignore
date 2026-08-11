@@ -2,6 +2,7 @@
 
 __pycache__/
 .ipynb_checkpoints/
+.virtual_documents/
 
 .idea/
 
@@ -18,4 +19,5 @@ test-report.xml
 
 *.egg-info/
 
-.amp/
+.amp/*
+!.amp/services.yaml

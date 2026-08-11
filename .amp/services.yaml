@@ -1,0 +1,16 @@
+services:
+  jupyter:
+    command: >-
+      uv run --with jupyterlab --with jupyterlab-lsp
+      jupyter lab
+      --ip=0.0.0.0
+      --port=$PORT
+      --no-browser
+      --IdentityProvider.token=
+      --ServerApp.password=
+      --ServerApp.allow_remote_access=True
+      --ServerApp.allow_origin_pat=^https://[A-Za-z0-9-]+[.]onamp[.]dev$
+      --ServerApp.root_dir=.
+    portal:
+      title: JupyterLab
+      description: JupyterLab with ty language-server completion for the Tilebox workspace.
