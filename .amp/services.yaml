@@ -1,7 +1,11 @@
 services:
   jupyter:
     command: >-
-      uv run --with jupyterlab --with jupyterlab-lsp
+      uv run
+      --with jupyterlab
+      --with jupyterlab-lsp
+      --with ipywidgets
+      --with jupyter-collaboration
       jupyter lab
       --ip=0.0.0.0
       --port=$PORT
