@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v uv >/dev/null 2>&1; then
+  python -m pip install --user uv
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
+uv sync --all-packages --frozen
+
+mkdir -p \
+  "$HOME/.jupyter/jupyter_server_config.d" \
+  "$HOME/.jupyter/lab/user-settings/@jupyterlab/completer-extension"
+
+cat > "$HOME/.jupyter/jupyter_server_config.d/ty-language-server.json" <<'EOF'
+{
+  "LanguageServerManager": {
+    "language_servers": {
+      "ty": {
+        "version": 2,
+        "argv": ["ty", "server"],
+        "languages": ["python"],
+        "mime_types": ["text/python", "text/x-python", "text/x-ipython"],
+        "display_name": "ty"
+      }
+    }
+  }
+}
+EOF
+
+cat > "$HOME/.jupyter/lab/user-settings/@jupyterlab/completer-extension/manager.jupyterlab-settings" <<'EOF'
+{
+  "autoCompletion": true
+}
+EOF
