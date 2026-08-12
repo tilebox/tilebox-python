@@ -1,6 +1,5 @@
-import __future__
-
 import json
+from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -48,18 +47,47 @@ def test_task_validation_simple_task_executable() -> None:
     assert TaskMeta.for_task(SimpleTask).executable is True
 
 
-def _compile_task_with_postponed_return_annotation(return_annotation: str) -> type:
+def test_task_validation_execute_awaitable_return_type() -> None:
+    class AwaitableTask(Task):
+        def execute(self, context: ExecutionContext) -> Awaitable[None]:
+            _ = context
+
+            async def execute_async() -> None:
+                pass
+
+            return execute_async()
+
+    assert TaskMeta.for_task(AwaitableTask).executable is True
+
+
+def test_task_validation_execute_awaitable_with_value_return_type() -> None:
+    with pytest.raises(TypeError, match="to not have a return value"):
+
+        class InvalidAwaitableTask(Task):
+            def execute(self, context: ExecutionContext) -> Awaitable[int]:
+                _ = context
+
+                async def execute_async() -> int:
+                    return 1
+
+                return execute_async()
+
+
+def _compile_task_with_postponed_return_annotation(
+    return_annotation: str, context_annotation: str = "ExecutionContext"
+) -> type:
     source = f"""
+from __future__ import annotations
+
 class PostponedAnnotationsTask(Task):
-    def execute(self, context: ExecutionContext) -> {return_annotation}:
+    def execute(self, context: {context_annotation}) -> {return_annotation}:
         pass
 """
-    namespace: dict[str, type] = {"Task": Task, "ExecutionContext": ExecutionContext}
+    namespace: dict[str, type] = {"Task": Task, "ExecutionContext": ExecutionContext, "Awaitable": Awaitable}
     code = compile(
         source,
         filename="<postponed-annotations-test>",
         mode="exec",
-        flags=__future__.annotations.compiler_flag,
         dont_inherit=True,
     )
     exec(code, namespace)  # noqa: S102
@@ -68,6 +96,19 @@ class PostponedAnnotationsTask(Task):
 
 def test_task_validation_execute_none_return_type_with_postponed_annotations() -> None:
     task_class = _compile_task_with_postponed_return_annotation("None")
+
+    assert TaskMeta.for_task(task_class).executable is True
+
+
+def test_task_validation_execute_awaitable_return_type_with_postponed_annotations() -> None:
+    task_class = _compile_task_with_postponed_return_annotation("Awaitable[None]")
+
+    assert TaskMeta.for_task(task_class).executable is True
+
+
+@pytest.mark.parametrize("return_annotation", ["None", "Awaitable[None]"])
+def test_task_validation_postponed_return_annotation_fallback(return_annotation: str) -> None:
+    task_class = _compile_task_with_postponed_return_annotation(return_annotation, "MissingContext")
 
     assert TaskMeta.for_task(task_class).executable is True
 

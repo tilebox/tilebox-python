@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 import subprocess
@@ -42,7 +43,8 @@ def bytes_to_int(b: bytes) -> int:
 class FibonacciTask(Task):
     n: int
 
-    def execute(self, context: ExecutionContext) -> None:
+    async def execute(self, context: ExecutionContext) -> None:
+        await asyncio.sleep(0)
         cache: JobCache = context.job_cache  # ty: ignore[unresolved-attribute]
         key = f"fib_{self.n}"
         if f"fib_{self.n}" in cache:
@@ -91,7 +93,8 @@ def test_runner_with_fibonacci_workflow() -> None:
 
 
 class FlakyTask(Task):
-    def execute(self, context: ExecutionContext) -> None:
+    async def execute(self, context: ExecutionContext) -> None:
+        await asyncio.sleep(0)
         cache: JobCache = context.job_cache  # ty: ignore[unresolved-attribute]
         if "succeed" in cache:
             return  # finally succeed
@@ -219,8 +222,8 @@ class ExplicitIdentifierTaskV2(Task):
         pass
 
 
-def test_runner_disallow_duplicate_task_identifiers() -> None:
-    runner = TaskRunner(
+def _mock_task_runner() -> TaskRunner:
+    return TaskRunner(
         MagicMock(),
         "dummy-cluster",
         InMemoryCache(),
@@ -230,6 +233,19 @@ def test_runner_disallow_duplicate_task_identifiers() -> None:
         MagicMock(),
         MagicMock(),
     )
+
+
+@pytest.mark.asyncio
+async def test_runner_must_be_called_from_synchronous_code() -> None:
+    runner = _mock_task_runner()
+
+    for run in (runner.run_all, runner.run_forever):
+        with pytest.raises(RuntimeError, match="must be called from synchronous code"):
+            run()
+
+
+def test_runner_disallow_duplicate_task_identifiers() -> None:
+    runner = _mock_task_runner()
 
     runner.register(FlakyTask)
     with pytest.raises(

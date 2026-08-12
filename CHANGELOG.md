@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-workflows`: Added support for asynchronous task `execute()` methods, allowing tasks to await async APIs
+  directly.
+
 ## [0.58.0] - 2026-07-31
 
 ### Added
