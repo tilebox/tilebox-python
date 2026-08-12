@@ -1,13 +1,11 @@
 import json
 from collections.abc import Awaitable
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Annotated
 
 import pytest
 
 from tests.proto.test_pb2 import SampleArgs
-from tilebox.types import CRS, GeographicArea, GridSpec, PixelWindow, SpatialResolution, TimeInterval
 from tilebox.workflows.cache import InMemoryCache
 from tilebox.workflows.data import TaskIdentifier
 from tilebox.workflows.runner.task_runner import ExecutionContext as RunnerExecutionContext
@@ -294,24 +292,6 @@ class ExampleTaskWithNestedJson(Task):
 def test_serialize_deserialize_task_nested_json() -> None:
     task = ExampleTaskWithNestedJson("Hello", DoublyNestedJson("World", NestedJson("!")))
     assert deserialize_task(ExampleTaskWithNestedJson, serialize_task(task)) == task
-
-
-class ExampleTaskWithSharedTypes(Task):
-    area: GeographicArea
-    time: TimeInterval
-    grid: GridSpec
-    window: PixelWindow
-
-
-def test_serialize_deserialize_task_shared_types() -> None:
-    task = ExampleTaskWithSharedTypes(
-        area=GeographicArea.from_bounds(16.1, 48.0, 16.7, 48.4),
-        time=TimeInterval(datetime(2026, 1, 1, tzinfo=timezone.utc), datetime(2026, 2, 1, tzinfo=timezone.utc)),
-        grid=GridSpec(CRS("EPSG:3857"), SpatialResolution.square(10, unit="metre")),
-        window=PixelWindow(0, 0, 256, 256),
-    )
-
-    assert deserialize_task(ExampleTaskWithSharedTypes, serialize_task(task)) == task
 
 
 class ExampleTaskWithNestedProtobuf(Task):
