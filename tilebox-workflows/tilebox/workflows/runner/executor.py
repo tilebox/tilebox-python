@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
 import logging
 from base64 import b64encode
-from collections.abc import Callable, Iterator, MutableMapping, Sequence
+from collections.abc import Awaitable, Callable, Iterator, MutableMapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -287,7 +289,13 @@ def _set_task_input_span_attribute(span: object, task_input: bytes | None) -> No
 
 
 def _execute(task: TaskInstance, context: ExecutionContext) -> None:
-    return task.execute(context)
+    result = task.execute(context)
+    if inspect.isawaitable(result):
+        asyncio.run(_await_execute(result))
+
+
+async def _await_execute(result: Awaitable[None]) -> None:
+    await result
 
 
 @contextmanager

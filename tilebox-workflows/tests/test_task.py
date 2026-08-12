@@ -1,12 +1,13 @@
-import __future__
-
 import json
+from collections.abc import Awaitable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Annotated
 
 import pytest
 
 from tests.proto.test_pb2 import SampleArgs
+from tilebox.types import CRS, GeographicArea, GridSpec, PixelWindow, SpatialResolution, TimeInterval
 from tilebox.workflows.cache import InMemoryCache
 from tilebox.workflows.data import TaskIdentifier
 from tilebox.workflows.runner.task_runner import ExecutionContext as RunnerExecutionContext
@@ -48,18 +49,47 @@ def test_task_validation_simple_task_executable() -> None:
     assert TaskMeta.for_task(SimpleTask).executable is True
 
 
-def _compile_task_with_postponed_return_annotation(return_annotation: str) -> type:
+def test_task_validation_execute_awaitable_return_type() -> None:
+    class AwaitableTask(Task):
+        def execute(self, context: ExecutionContext) -> Awaitable[None]:
+            _ = context
+
+            async def execute_async() -> None:
+                pass
+
+            return execute_async()
+
+    assert TaskMeta.for_task(AwaitableTask).executable is True
+
+
+def test_task_validation_execute_awaitable_with_value_return_type() -> None:
+    with pytest.raises(TypeError, match="to not have a return value"):
+
+        class InvalidAwaitableTask(Task):
+            def execute(self, context: ExecutionContext) -> Awaitable[int]:
+                _ = context
+
+                async def execute_async() -> int:
+                    return 1
+
+                return execute_async()
+
+
+def _compile_task_with_postponed_return_annotation(
+    return_annotation: str, context_annotation: str = "ExecutionContext"
+) -> type:
     source = f"""
+from __future__ import annotations
+
 class PostponedAnnotationsTask(Task):
-    def execute(self, context: ExecutionContext) -> {return_annotation}:
+    def execute(self, context: {context_annotation}) -> {return_annotation}:
         pass
 """
-    namespace: dict[str, type] = {"Task": Task, "ExecutionContext": ExecutionContext}
+    namespace: dict[str, type] = {"Task": Task, "ExecutionContext": ExecutionContext, "Awaitable": Awaitable}
     code = compile(
         source,
         filename="<postponed-annotations-test>",
         mode="exec",
-        flags=__future__.annotations.compiler_flag,
         dont_inherit=True,
     )
     exec(code, namespace)  # noqa: S102
@@ -68,6 +98,19 @@ class PostponedAnnotationsTask(Task):
 
 def test_task_validation_execute_none_return_type_with_postponed_annotations() -> None:
     task_class = _compile_task_with_postponed_return_annotation("None")
+
+    assert TaskMeta.for_task(task_class).executable is True
+
+
+def test_task_validation_execute_awaitable_return_type_with_postponed_annotations() -> None:
+    task_class = _compile_task_with_postponed_return_annotation("Awaitable[None]")
+
+    assert TaskMeta.for_task(task_class).executable is True
+
+
+@pytest.mark.parametrize("return_annotation", ["None", "Awaitable[None]"])
+def test_task_validation_postponed_return_annotation_fallback(return_annotation: str) -> None:
+    task_class = _compile_task_with_postponed_return_annotation(return_annotation, "MissingContext")
 
     assert TaskMeta.for_task(task_class).executable is True
 
@@ -251,6 +294,24 @@ class ExampleTaskWithNestedJson(Task):
 def test_serialize_deserialize_task_nested_json() -> None:
     task = ExampleTaskWithNestedJson("Hello", DoublyNestedJson("World", NestedJson("!")))
     assert deserialize_task(ExampleTaskWithNestedJson, serialize_task(task)) == task
+
+
+class ExampleTaskWithSharedTypes(Task):
+    area: GeographicArea
+    time: TimeInterval
+    grid: GridSpec
+    window: PixelWindow
+
+
+def test_serialize_deserialize_task_shared_types() -> None:
+    task = ExampleTaskWithSharedTypes(
+        area=GeographicArea.from_bounds(16.1, 48.0, 16.7, 48.4),
+        time=TimeInterval(datetime(2026, 1, 1, tzinfo=timezone.utc), datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        grid=GridSpec(CRS("EPSG:3857"), SpatialResolution.square(10, unit="metre")),
+        window=PixelWindow(0, 0, 256, 256),
+    )
+
+    assert deserialize_task(ExampleTaskWithSharedTypes, serialize_task(task)) == task
 
 
 class ExampleTaskWithNestedProtobuf(Task):

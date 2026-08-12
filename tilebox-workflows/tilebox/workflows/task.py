@@ -4,8 +4,10 @@ import typing
 from abc import ABC, ABCMeta, abstractmethod
 from base64 import b64decode, b64encode
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Awaitable, Sequence
+from contextlib import suppress
 from dataclasses import dataclass, fields, is_dataclass
+from datetime import datetime
 from types import NoneType, UnionType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, get_args, get_origin
 
@@ -104,7 +106,7 @@ class Task(metaclass=_ABCTaskify):
     This class is a dataclass. The task is automatically assigned an identifier based on the class name.
     """
 
-    def execute(self, context: "ExecutionContext") -> None:
+    def execute(self, context: "ExecutionContext") -> Awaitable[None] | None:
         """The entry point for the execution of the task.
 
         It is called when the task is executed and is responsible for performing the task's operation.
@@ -141,11 +143,29 @@ def _validate_execute_method(
             f"but got {class_name}.execute{signature}!"
         )
 
-    # `from __future__ import annotations` stores `-> None` as the string "None".
-    if signature.return_annotation not in (None, "None", inspect.Signature.empty):
+    return_annotation = signature.return_annotation
+    with suppress(NameError, TypeError):
+        return_annotation = typing.get_type_hints(execute).get("return", return_annotation)
+
+    if not _is_valid_execute_return_annotation(return_annotation):
         raise TypeError(f"Expected {class_name}.execute{signature} to not have a return value!")
 
     return True
+
+
+def _is_valid_execute_return_annotation(annotation: Any) -> bool:
+    if annotation in (None, NoneType, "None", "Awaitable[None]", inspect.Signature.empty):
+        return True
+
+    origin = get_origin(annotation)
+    if origin in (typing.Union, UnionType):
+        return all(_is_valid_execute_return_annotation(member) for member in get_args(annotation))
+
+    if not isinstance(origin, type) or not issubclass(origin, Awaitable):
+        return False
+
+    result_types = get_args(annotation)
+    return bool(result_types) and result_types[-1] in (None, NoneType)
 
 
 @dataclass
@@ -458,6 +478,8 @@ def _serialize_as_dict(task: Task) -> dict[str, Any]:
 
 
 def _serialize_value(value: Any, base64_encode_protobuf: bool) -> Any:  # noqa: PLR0911
+    if isinstance(value, datetime):
+        return value.isoformat()
     if isinstance(value, list):
         return [_serialize_value(v, base64_encode_protobuf) for v in value]
     if isinstance(value, tuple):
@@ -515,6 +537,8 @@ def _deserialize_value(field_type: type, value: Any) -> Any:  # noqa: PLR0911
         return None
 
     field_type = _get_deserialization_field_type(field_type)
+    if field_type is datetime and isinstance(value, str):
+        return datetime.fromisoformat(value)
     if hasattr(field_type, "FromString"):
         return field_type.FromString(b64decode(value))  # ty: ignore[call-non-callable]
     if is_dataclass(field_type) and isinstance(value, dict):
