@@ -229,13 +229,11 @@ class _SimpleFieldConverter(_FieldConverter):
         if self._data.shape == ():  # the first time we actually allocate a buffer
             self._data = np.full((buffer_size, self._type.value_dim), self._type.fill_value, dtype=self._type.dtype)
         elif buffer_size > len(self._data):
-            # resize the data buffer to the new capacity, by just padding it with zeros at the end
-            missing = buffer_size - len(self._data)
-            self._data = np.pad(
-                self._data,
-                ((0, missing), (0, 0)),
-                constant_values=self._type.fill_value,
-            )
+            current_size = len(self._data)
+            data = np.empty((buffer_size, self._type.value_dim), dtype=self._type.dtype)
+            data[:current_size] = self._data
+            data[current_size:] = self._type.fill_value
+            self._data = data
 
 
 class _ArrayFieldConverter(_FieldConverter):
@@ -306,14 +304,13 @@ class _ArrayFieldConverter(_FieldConverter):
             self._data = np.full(
                 (self._capacity, self._array_dim, self._type.value_dim), self._type.fill_value, dtype=self._type.dtype
             )
-        else:  # resize the data buffer to the new capacity, by just padding it with zeros at the end
-            missing_capacity = self._capacity - self._data.shape[0]
-            missing_array_dim = self._array_dim - self._data.shape[1]
-            self._data = np.pad(
-                self._data,
-                ((0, missing_capacity), (0, missing_array_dim), (0, 0)),
-                constant_values=self._type.fill_value,
-            )
+        else:
+            current_capacity, current_array_dim = self._data.shape[:2]
+            data = np.empty((self._capacity, self._array_dim, self._type.value_dim), dtype=self._type.dtype)
+            data[:current_capacity, :current_array_dim] = self._data
+            data[current_capacity:] = self._type.fill_value
+            data[:current_capacity, current_array_dim:] = self._type.fill_value
+            self._data = data
 
 
 class _EnumFieldConverter(_SimpleFieldConverter):
