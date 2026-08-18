@@ -251,7 +251,7 @@ class ExampleTaskWithMultipleArgs(Task):
 
 def test_serialize_multiple_args_json() -> None:
     task = ExampleTaskWithMultipleArgs("Hello", 123)
-    assert serialize_task(task) == json.dumps({"x": "Hello", "y": 123}).encode()
+    assert json.loads(serialize_task(task)) == {"x": "Hello", "y": 123}
 
 
 def test_serialize_deserialize_multiple_args_json() -> None:

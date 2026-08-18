@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `tilebox-workflows`: Added support for asynchronous task `execute()` methods, allowing tasks to await async APIs
   directly.
+- `tilebox-workflows`: Added typed task-input serialization for the following types and libraries:
+  - Python primitives and containers: `None`, `bool`, `int`, `float`, `str`, `bytes`, `bytearray`, `list`, `tuple`,
+    `dict`, `set`, and `frozenset`, including nested dataclasses, enums, unions, and optional values.
+  - Python standard-library value types: `datetime`, `date`, `time`, `timedelta`, `UUID`, `Decimal`, `PurePath`
+    subclasses such as `Path`, and `ZoneInfo`.
+  - Protobuf `Message` types, including messages nested in dataclasses and containers.
+  - Shapely geometry types, including points, lines, linear rings, polygons, multi-geometries, and geometry
+    collections.
+  - `affine.Affine` and `pyproj.CRS`.
+  - ODC Geo `CRS`, `Geometry`, `BoundingBox`, `XY`, `Resolution`, `Index2d`, `Shape2d`, `GeoBox`, `GeoboxTiles`, and
+    `AnchorEnum`.
+  - Tilebox Datasets `TimeInterval`, `IDInterval`, and `SpatialFilter`.
+  - Raster windows from Rasterio and async-geotiff when the corresponding optional library is installed.
 
 ### Fixed
 
