@@ -6,7 +6,9 @@ import json
 import logging
 from base64 import b64encode
 from collections.abc import Awaitable, Callable, Iterator, MutableMapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, contextmanager
+from contextvars import copy_context
 from typing import TYPE_CHECKING
 from uuid import UUID
 from warnings import warn
@@ -291,7 +293,15 @@ def _set_task_input_span_attribute(span: object, task_input: bytes | None) -> No
 def _execute(task: TaskInstance, context: ExecutionContext) -> None:
     result = task.execute(context)
     if inspect.isawaitable(result):
-        asyncio.run(_await_execute(result))
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(_await_execute(result))
+        else:
+            # The caller's loop cannot make progress while the synchronous runner is blocking its thread.
+            # Run the task on a separate thread with the current tracing and logging context instead.
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(copy_context().run, asyncio.run, _await_execute(result)).result()
 
 
 async def _await_execute(result: Awaitable[None]) -> None:

@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tilebox-workflows`: Added support for asynchronous task `execute()` methods, allowing tasks to await async APIs
   directly.
 
+### Fixed
+
+- `tilebox-workflows`: Propagate the task ID to all OpenTelemetry sub-spans created during task execution.
+
 ## [0.58.0] - 2026-07-31
 
 ### Added

@@ -74,7 +74,8 @@ class SumResultTask(Task):
         cache[f"fib_{self.n}"] = int_to_bytes(fib_n_1 + fib_n_2)
 
 
-def test_runner_with_fibonacci_workflow() -> None:
+@pytest.mark.asyncio
+async def test_runner_with_fibonacci_workflow() -> None:
     client = replay_client("fibonacci_workflow.rpcs.bin")
     n = 7  # compute fib(7)
     with patch("tilebox.workflows.jobs.client.get_trace_parent_of_current_span") as get_trace_parent_mock:
@@ -233,15 +234,6 @@ def _mock_task_runner() -> TaskRunner:
         MagicMock(),
         MagicMock(),
     )
-
-
-@pytest.mark.asyncio
-async def test_runner_must_be_called_from_synchronous_code() -> None:
-    runner = _mock_task_runner()
-
-    for run in (runner.run_all, runner.run_forever):
-        with pytest.raises(RuntimeError, match="must be called from synchronous code"):
-            run()
 
 
 def test_runner_disallow_duplicate_task_identifiers() -> None:
