@@ -28,7 +28,7 @@ from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 from tilebox.datasets.tilebox.v1 import query_pb2 as tilebox_dot_v1_dot_query__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1cworkflows/v1/telemetry.proto\x12\x0cworkflows.v1\x1a&opentelemetry/proto/logs/v1/logs.proto\x1a(opentelemetry/proto/trace/v1/trace.proto\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto\"\xb1\x01\n\x13QueryJobLogsRequest\x12%\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05jobId\x12\x31\n\x04page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12@\n\x0esort_direction\x18\x03 \x01(\x0e\x32\x19.tilebox.v1.SortDirectionR\rsortDirection\"\xd0\x01\n\x1aQueryLogsInIntervalRequest\x12=\n\rtime_interval\x18\x01 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12\x31\n\x04page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12@\n\x0esort_direction\x18\x03 \x01(\x0e\x32\x19.tilebox.v1.SortDirectionR\rsortDirection\"\x9f\x01\n\x11PaginatedLogsData\x12N\n\rresource_logs\x18\x01 \x03(\x0b\x32).opentelemetry.proto.logs.v1.ResourceLogsR\x0cresourceLogs\x12:\n\tnext_page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x08nextPage\"\xb2\x01\n\x14QueryJobSpansRequest\x12%\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05jobId\x12\x31\n\x04page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12@\n\x0esort_direction\x18\x03 \x01(\x0e\x32\x19.tilebox.v1.SortDirectionR\rsortDirection\"\xa4\x01\n\x12PaginatedSpansData\x12R\n\x0eresource_spans\x18\x01 \x03(\x0b\x32+.opentelemetry.proto.trace.v1.ResourceSpansR\rresourceSpans\x12:\n\tnext_page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x08nextPage2\xa4\x02\n\x15TelemetryQueryService\x12R\n\x0cQueryJobLogs\x12!.workflows.v1.QueryJobLogsRequest\x1a\x1f.workflows.v1.PaginatedLogsData\x12`\n\x13QueryLogsInInterval\x12(.workflows.v1.QueryLogsInIntervalRequest\x1a\x1f.workflows.v1.PaginatedLogsData\x12U\n\rQueryJobSpans\x12\".workflows.v1.QueryJobSpansRequest\x1a .workflows.v1.PaginatedSpansDataBs\n\x10\x63om.workflows.v1B\x0eTelemetryProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1b\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1cworkflows/v1/telemetry.proto\x12\x0cworkflows.v1\x1a&opentelemetry/proto/logs/v1/logs.proto\x1a(opentelemetry/proto/trace/v1/trace.proto\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto\"\xe1\x01\n\x13QueryJobLogsRequest\x12%\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05jobId\x12\x31\n\x04page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12@\n\x0esort_direction\x18\x03 \x01(\x0e\x32\x19.tilebox.v1.SortDirectionR\rsortDirection\x12.\n\x07task_id\x18\x04 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x05\xaa\x01\x02\x08\x01R\x06taskId\"\xd0\x01\n\x1aQueryLogsInIntervalRequest\x12=\n\rtime_interval\x18\x01 \x01(\x0b\x32\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12\x31\n\x04page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12@\n\x0esort_direction\x18\x03 \x01(\x0e\x32\x19.tilebox.v1.SortDirectionR\rsortDirection\"\x9f\x01\n\x11PaginatedLogsData\x12N\n\rresource_logs\x18\x01 \x03(\x0b\x32).opentelemetry.proto.logs.v1.ResourceLogsR\x0cresourceLogs\x12:\n\tnext_page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x08nextPage\"\xe2\x01\n\x14QueryJobSpansRequest\x12%\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x05jobId\x12\x31\n\x04page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x04page\x12@\n\x0esort_direction\x18\x03 \x01(\x0e\x32\x19.tilebox.v1.SortDirectionR\rsortDirection\x12.\n\x07task_id\x18\x04 \x01(\x0b\x32\x0e.tilebox.v1.IDB\x05\xaa\x01\x02\x08\x01R\x06taskId\"\xa4\x01\n\x12PaginatedSpansData\x12R\n\x0eresource_spans\x18\x01 \x03(\x0b\x32+.opentelemetry.proto.trace.v1.ResourceSpansR\rresourceSpans\x12:\n\tnext_page\x18\x02 \x01(\x0b\x32\x16.tilebox.v1.PaginationB\x05\xaa\x01\x02\x08\x01R\x08nextPage2\xa4\x02\n\x15TelemetryQueryService\x12R\n\x0cQueryJobLogs\x12!.workflows.v1.QueryJobLogsRequest\x1a\x1f.workflows.v1.PaginatedLogsData\x12`\n\x13QueryLogsInInterval\x12(.workflows.v1.QueryLogsInIntervalRequest\x1a\x1f.workflows.v1.PaginatedLogsData\x12U\n\rQueryJobSpans\x12\".workflows.v1.QueryJobSpansRequest\x1a .workflows.v1.PaginatedSpansDataBs\n\x10\x63om.workflows.v1B\x0eTelemetryProtoP\x01\xa2\x02\x03WXX\xaa\x02\x0cWorkflows.V1\xca\x02\x0cWorkflows\\V1\xe2\x02\x18Workflows\\V1\\GPBMetadata\xea\x02\rWorkflows::V1b\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -38,24 +38,28 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._serialized_options = b'\n\020com.workflows.v1B\016TelemetryProtoP\001\242\002\003WXX\252\002\014Workflows.V1\312\002\014Workflows\\V1\342\002\030Workflows\\V1\\GPBMetadata\352\002\rWorkflows::V1'
   _globals['_QUERYJOBLOGSREQUEST'].fields_by_name['page']._loaded_options = None
   _globals['_QUERYJOBLOGSREQUEST'].fields_by_name['page']._serialized_options = b'\252\001\002\010\001'
+  _globals['_QUERYJOBLOGSREQUEST'].fields_by_name['task_id']._loaded_options = None
+  _globals['_QUERYJOBLOGSREQUEST'].fields_by_name['task_id']._serialized_options = b'\252\001\002\010\001'
   _globals['_QUERYLOGSININTERVALREQUEST'].fields_by_name['page']._loaded_options = None
   _globals['_QUERYLOGSININTERVALREQUEST'].fields_by_name['page']._serialized_options = b'\252\001\002\010\001'
   _globals['_PAGINATEDLOGSDATA'].fields_by_name['next_page']._loaded_options = None
   _globals['_PAGINATEDLOGSDATA'].fields_by_name['next_page']._serialized_options = b'\252\001\002\010\001'
   _globals['_QUERYJOBSPANSREQUEST'].fields_by_name['page']._loaded_options = None
   _globals['_QUERYJOBSPANSREQUEST'].fields_by_name['page']._serialized_options = b'\252\001\002\010\001'
+  _globals['_QUERYJOBSPANSREQUEST'].fields_by_name['task_id']._loaded_options = None
+  _globals['_QUERYJOBSPANSREQUEST'].fields_by_name['task_id']._serialized_options = b'\252\001\002\010\001'
   _globals['_PAGINATEDSPANSDATA'].fields_by_name['next_page']._loaded_options = None
   _globals['_PAGINATEDSPANSDATA'].fields_by_name['next_page']._serialized_options = b'\252\001\002\010\001'
   _globals['_QUERYJOBLOGSREQUEST']._serialized_start=174
-  _globals['_QUERYJOBLOGSREQUEST']._serialized_end=351
-  _globals['_QUERYLOGSININTERVALREQUEST']._serialized_start=354
-  _globals['_QUERYLOGSININTERVALREQUEST']._serialized_end=562
-  _globals['_PAGINATEDLOGSDATA']._serialized_start=565
-  _globals['_PAGINATEDLOGSDATA']._serialized_end=724
-  _globals['_QUERYJOBSPANSREQUEST']._serialized_start=727
-  _globals['_QUERYJOBSPANSREQUEST']._serialized_end=905
-  _globals['_PAGINATEDSPANSDATA']._serialized_start=908
-  _globals['_PAGINATEDSPANSDATA']._serialized_end=1072
-  _globals['_TELEMETRYQUERYSERVICE']._serialized_start=1075
-  _globals['_TELEMETRYQUERYSERVICE']._serialized_end=1367
+  _globals['_QUERYJOBLOGSREQUEST']._serialized_end=399
+  _globals['_QUERYLOGSININTERVALREQUEST']._serialized_start=402
+  _globals['_QUERYLOGSININTERVALREQUEST']._serialized_end=610
+  _globals['_PAGINATEDLOGSDATA']._serialized_start=613
+  _globals['_PAGINATEDLOGSDATA']._serialized_end=772
+  _globals['_QUERYJOBSPANSREQUEST']._serialized_start=775
+  _globals['_QUERYJOBSPANSREQUEST']._serialized_end=1001
+  _globals['_PAGINATEDSPANSDATA']._serialized_start=1004
+  _globals['_PAGINATEDSPANSDATA']._serialized_end=1168
+  _globals['_TELEMETRYQUERYSERVICE']._serialized_start=1171
+  _globals['_TELEMETRYQUERYSERVICE']._serialized_end=1463
 # @@protoc_insertion_point(module_scope)

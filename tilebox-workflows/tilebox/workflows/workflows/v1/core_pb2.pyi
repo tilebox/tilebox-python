@@ -56,7 +56,7 @@ TASK_STATE_SKIPPED: TaskState
 TASK_STATE_FAILED_OPTIONAL: TaskState
 
 class Job(_message.Message):
-    __slots__ = ("id", "name", "trace_parent", "canceled", "legacy_state", "submitted_at", "started_at", "task_summaries", "automation_id", "progress", "state", "execution_stats")
+    __slots__ = ("id", "name", "trace_parent", "canceled", "legacy_state", "submitted_at", "started_at", "automation_id", "progress", "state", "execution_stats")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TRACE_PARENT_FIELD_NUMBER: _ClassVar[int]
@@ -64,7 +64,6 @@ class Job(_message.Message):
     LEGACY_STATE_FIELD_NUMBER: _ClassVar[int]
     SUBMITTED_AT_FIELD_NUMBER: _ClassVar[int]
     STARTED_AT_FIELD_NUMBER: _ClassVar[int]
-    TASK_SUMMARIES_FIELD_NUMBER: _ClassVar[int]
     AUTOMATION_ID_FIELD_NUMBER: _ClassVar[int]
     PROGRESS_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
@@ -76,12 +75,11 @@ class Job(_message.Message):
     legacy_state: LegacyJobState
     submitted_at: _timestamp_pb2.Timestamp
     started_at: _timestamp_pb2.Timestamp
-    task_summaries: _containers.RepeatedCompositeFieldContainer[TaskSummary]
     automation_id: _id_pb2.ID
     progress: _containers.RepeatedCompositeFieldContainer[Progress]
     state: JobState
     execution_stats: ExecutionStats
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., canceled: bool = ..., legacy_state: _Optional[_Union[LegacyJobState, str]] = ..., submitted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., task_summaries: _Optional[_Iterable[_Union[TaskSummary, _Mapping]]] = ..., automation_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., progress: _Optional[_Iterable[_Union[Progress, _Mapping]]] = ..., state: _Optional[_Union[JobState, str]] = ..., execution_stats: _Optional[_Union[ExecutionStats, _Mapping]] = ...) -> None: ...
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., trace_parent: _Optional[str] = ..., canceled: bool = ..., legacy_state: _Optional[_Union[LegacyJobState, str]] = ..., submitted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., automation_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., progress: _Optional[_Iterable[_Union[Progress, _Mapping]]] = ..., state: _Optional[_Union[JobState, str]] = ..., execution_stats: _Optional[_Union[ExecutionStats, _Mapping]] = ...) -> None: ...
 
 class ExecutionStats(_message.Message):
     __slots__ = ("first_task_started_at", "last_task_stopped_at", "compute_time", "elapsed_time", "parallelism", "total_tasks", "tasks_by_state")
@@ -108,22 +106,6 @@ class TaskStateCount(_message.Message):
     state: TaskState
     count: int
     def __init__(self, state: _Optional[_Union[TaskState, str]] = ..., count: _Optional[int] = ...) -> None: ...
-
-class TaskSummary(_message.Message):
-    __slots__ = ("id", "display", "state", "parent_id", "started_at", "stopped_at")
-    ID_FIELD_NUMBER: _ClassVar[int]
-    DISPLAY_FIELD_NUMBER: _ClassVar[int]
-    STATE_FIELD_NUMBER: _ClassVar[int]
-    PARENT_ID_FIELD_NUMBER: _ClassVar[int]
-    STARTED_AT_FIELD_NUMBER: _ClassVar[int]
-    STOPPED_AT_FIELD_NUMBER: _ClassVar[int]
-    id: _id_pb2.ID
-    display: str
-    state: TaskState
-    parent_id: _id_pb2.ID
-    started_at: _timestamp_pb2.Timestamp
-    stopped_at: _timestamp_pb2.Timestamp
-    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., state: _Optional[_Union[TaskState, str]] = ..., parent_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., stopped_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class Progress(_message.Message):
     __slots__ = ("label", "total", "done")

@@ -17,7 +17,6 @@ from tilebox.workflows.workflows.v1.core_pb2 import Job as JobMessage
 from tilebox.workflows.workflows.v1.diagram_pb2 import Diagram, RenderOptions
 from tilebox.workflows.workflows.v1.job_pb2 import (
     CancelJobRequest,
-    GetJobProgressRequest,
     GetJobRequest,
     QueryJobsRequest,
     RetryJobRequest,
@@ -46,16 +45,12 @@ class JobService:
             job_name=job_name,
             trace_parent=trace_parent,
         )
-        return RichDisplayJob.from_message(self.service.SubmitJob(request), _widget=JobWidget(self.get_progress))
+        return RichDisplayJob.from_message(self.service.SubmitJob(request), _widget=JobWidget(self.get_by_id))
 
     def get_by_id(self, job_id: UUID) -> Job:
         request = GetJobRequest(job_id=uuid_to_uuid_message(job_id))
         response: JobMessage = self.service.GetJob(request)
-        return RichDisplayJob.from_message(response, _widget=JobWidget(self.get_progress))
-
-    def get_progress(self, job_id: UUID) -> Job:
-        request = GetJobProgressRequest(job_id=uuid_to_uuid_message(job_id))
-        return Job.from_message(self.service.GetJobProgress(request))
+        return RichDisplayJob.from_message(response, _widget=JobWidget(self.get_by_id))
 
     def retry(self, job_id: UUID) -> int:
         request = RetryJobRequest(job_id=uuid_to_uuid_message(job_id))
@@ -82,5 +77,5 @@ class JobService:
         response: QueryJobsResponseMessage = self.service.QueryJobs(request)
 
         return QueryJobsResponse.from_message(
-            response, job_factory=lambda job: RichDisplayJob.from_message(job, _widget=JobWidget(self.get_progress))
+            response, job_factory=lambda job: RichDisplayJob.from_message(job, _widget=JobWidget(self.get_by_id))
         )

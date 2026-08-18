@@ -4,7 +4,6 @@ import asyncio
 import inspect
 import json
 import logging
-from base64 import b64encode
 from collections.abc import Awaitable, Callable, Iterator, MutableMapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, contextmanager
@@ -87,7 +86,6 @@ class TaskExecutor:
 
                 try:
                     task_instance = task_class._deserialize(task.input, self.runner_context)  # noqa: SLF001
-                    _set_task_input_span_attribute(span, task.input)
                     with wrap_execute_context_manager(task, context):
                         _execute(task_instance, context)
 
@@ -278,16 +276,6 @@ def _finalize_mutable_progress_trackers(
     progress_bars: dict[str | None, ProgressUpdate],
 ) -> list[ProgressIndicator]:
     return [ProgressIndicator(label, bar._total, bar._done) for label, bar in progress_bars.items()]  # noqa: SLF001
-
-
-def _set_task_input_span_attribute(span: object, task_input: bytes | None) -> None:
-    task_input_span_attr = ""
-    if task_input is not None:
-        try:
-            task_input_span_attr = task_input.decode("utf-8")
-        except UnicodeDecodeError:
-            task_input_span_attr = b64encode(task_input).decode("ascii")
-    span.set_attribute("input", task_input_span_attr)  # ty: ignore[unresolved-attribute]
 
 
 def _execute(task: TaskInstance, context: ExecutionContext) -> None:
