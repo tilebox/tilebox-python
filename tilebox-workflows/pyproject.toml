@@ -40,11 +40,21 @@ dependencies = [
     # grpcio 1.80.0 contains unwanted log message spam: https://github.com/grpc/grpc/issues/42293
     "grpcio<1.80.0",
     "opentelemetry-instrumentation-logging>=0.62b1",
+    "msgspec>=0.19",
+]
+
+[project.optional-dependencies]
+geospatial = [
+    "affine>=2",
+    "odc-geo>=0.5",
+    "pyproj>=3.4",
+    "shapely>=2",
 ]
 
 [dependency-groups]
 dev = [
     "hypothesis>=6.112.1",
+    "odc-geo>=0.5",
     "pytest-cov>=5.0.0",
     "pytest>=8.3.2",
     "moto>=5",

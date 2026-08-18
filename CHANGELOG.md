@@ -7,10 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.59.0] - 2026-08-18
+
 ### Added
 
 - `tilebox-workflows`: Added support for asynchronous task `execute()` methods, allowing tasks to await async APIs
   directly.
+- `tilebox-workflows`: Added typed task-input serialization for the following types and libraries:
+  - Python primitives and containers: `None`, `bool`, `int`, `float`, `str`, `bytes`, `bytearray`, `list`, `tuple`,
+    `dict`, `set`, and `frozenset`, including nested dataclasses, enums, unions, and optional values.
+  - Python standard-library value types: `datetime`, `date`, `time`, `timedelta`, `UUID`, `Decimal`, `PurePath`
+    subclasses such as `Path`, and `ZoneInfo`.
+  - Protobuf `Message` types, including messages nested in dataclasses and containers.
+  - Shapely geometry types, including points, lines, linear rings, polygons, multi-geometries, and geometry
+    collections.
+  - `affine.Affine` and `pyproj.CRS`.
+  - ODC Geo `CRS`, `Geometry`, `BoundingBox`, `XY`, `Resolution`, `Index2d`, `Shape2d`, `GeoBox`, `GeoboxTiles`, and
+    `AnchorEnum`.
+  - Tilebox Datasets `TimeInterval`, `IDInterval`, and `SpatialFilter`.
+  - Raster windows from Rasterio and async-geotiff when the corresponding optional library is installed.
+
+### Changed
+
+- `tilebox-workflows`: job responses no longer include task summaries.
+- `tilebox-workflows`: Use `GetJob` for live notebook progress updates
+
+### Fixed
+
+- `tilebox-workflows`: Propagate the task ID to all OpenTelemetry sub-spans created during task execution.
 
 ## [0.58.0] - 2026-07-31
 
@@ -447,7 +471,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.58.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.59.0...HEAD
+[0.59.0]: https://github.com/tilebox/tilebox-python/compare/v0.58.0...v0.59.0 
 [0.58.0]: https://github.com/tilebox/tilebox-python/compare/v0.57.0...v0.58.0 
 [0.57.0]: https://github.com/tilebox/tilebox-python/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/tilebox/tilebox-python/compare/v0.55.1...v0.56.0

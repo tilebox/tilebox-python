@@ -1,19 +1,17 @@
 import inspect
-import json
 import typing
 from abc import ABC, ABCMeta, abstractmethod
-from base64 import b64decode, b64encode
 from collections import defaultdict
 from collections.abc import Awaitable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, fields, is_dataclass
-from datetime import datetime
 from types import NoneType, UnionType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, get_args, get_origin
 
 # from python 3.11 onwards this is available as typing.dataclass_transform:
 from typing_extensions import dataclass_transform
 
+from tilebox.workflows._serialization import decode_json, encode_json_field, encode_json_fields
 from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmissionGroup, TaskSubmissions
 
 if TYPE_CHECKING:
@@ -446,6 +444,7 @@ def serialize_task(task: Task) -> bytes:
 
     Serialization is done as json, so the result will be a json string mapping field names to their values.
     However, if only one field is present, it will be serialized directly, without the need for a json string.
+    Timezone-aware datetimes retain their offset, while timezone-naive datetimes remain naive.
     """
     if not is_dataclass(task):
         raise TypeError("Cannot serialize the given task - did you inherit from Task?")
@@ -454,46 +453,12 @@ def serialize_task(task: Task) -> bytes:
     if len(task_fields) == 0:
         return b""  # empty task
     if len(task_fields) == 1:
-        # if there is only one field, we can serialize it directly
-        field = _serialize_value(getattr(task, task_fields[0].name), base64_encode_protobuf=False)
-        if not isinstance(field, bytes):
-            field = json.dumps(field).encode()
-        return field
+        value = getattr(task, task_fields[0].name)
+        if hasattr(value, "SerializeToString"):
+            return value.SerializeToString()
+        return encode_json_field(value, type(task), task_fields[0].name)
 
-    return json.dumps(_serialize_as_dict(task)).encode()
-
-
-def _serialize_as_dict(task: Task) -> dict[str, Any]:
-    as_dict: dict[str, Any] = {}
-    for dataclass_field in fields(task):  # ty: ignore[invalid-argument-type]
-        skip = dataclass_field.metadata.get("skip_serialization", False)
-        if skip:
-            continue
-
-        as_dict[dataclass_field.name] = _serialize_value(
-            getattr(task, dataclass_field.name), base64_encode_protobuf=True
-        )
-
-    return as_dict
-
-
-def _serialize_value(value: Any, base64_encode_protobuf: bool) -> Any:  # noqa: PLR0911
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, list):
-        return [_serialize_value(v, base64_encode_protobuf) for v in value]
-    if isinstance(value, tuple):
-        return tuple(_serialize_value(v, base64_encode_protobuf) for v in value)
-    if isinstance(value, dict):
-        # avoid serializing the dict keys, since nested dicts are not valid keys in dicts
-        return {k: _serialize_value(v, base64_encode_protobuf) for k, v in value.items()}
-    if hasattr(value, "SerializeToString"):  # protobuf message
-        if base64_encode_protobuf:
-            return b64encode(value.SerializeToString()).decode("ascii")
-        return value.SerializeToString()
-    if is_dataclass(value):
-        return _serialize_as_dict(value)
-    return value
+    return encode_json_fields(task, task_fields)
 
 
 _T = TypeVar("_T", bound=Task)
@@ -511,60 +476,17 @@ def deserialize_task(task_cls: type[_T], task_input: bytes) -> _T:
         return task_cls()  # empty task
     if len(task_fields) == 1:
         # if there is only one field, we deserialize it directly
-        field_type = _get_deserialization_field_type(task_fields[0].type)  # ty: ignore[invalid-argument-type]
-        if hasattr(field_type, "FromString"):  # protobuf message
-            value = field_type.FromString(task_input)  # ty: ignore[call-non-callable]
+        type_hints = typing.get_type_hints(task_cls, include_extras=True)
+        field_type = type_hints.get(task_fields[0].name, task_fields[0].type)
+        protobuf_type = _get_deserialization_field_type(field_type)
+        if hasattr(protobuf_type, "FromString"):  # protobuf message
+            value = None if task_input == b"null" else protobuf_type.FromString(task_input)  # ty: ignore[call-non-callable]
         else:
-            value = _deserialize_value(field_type, json.loads(task_input.decode()))
+            value = decode_json(task_input, field_type)
 
         return task_cls(**{task_fields[0].name: value})
 
-    return _deserialize_dataclass(task_cls, json.loads(task_input.decode()))
-
-
-def _deserialize_dataclass(cls: type[_T], params: dict[str, Any]) -> _T:
-    """Deserialize a dataclass, while allowing recursively nested dataclasses or protobuf messages."""
-    for param in list(params):
-        # recursively deserialize nested dataclasses
-        field = cls.__dataclass_fields__[param]  # ty: ignore[unresolved-attribute]
-        params[field.name] = _deserialize_value(field.type, params[field.name])
-
-    return cls(**params)
-
-
-def _deserialize_value(field_type: type, value: Any) -> Any:  # noqa: PLR0911
-    if value is None:
-        return None
-
-    field_type = _get_deserialization_field_type(field_type)
-    if field_type is datetime and isinstance(value, str):
-        return datetime.fromisoformat(value)
-    if hasattr(field_type, "FromString"):
-        return field_type.FromString(b64decode(value))  # ty: ignore[call-non-callable]
-    if is_dataclass(field_type) and isinstance(value, dict):
-        return _deserialize_dataclass(field_type, value)
-
-    # in case our field type is a list or dict, we need to recursively deserialize the values
-    origin_type = get_origin(field_type)
-    if not origin_type:
-        return value  # simple type, no further recursion needed
-
-    type_args = get_args(field_type)  # the wrapped type in a container, e.g. list[str] -> type_args is (str,)
-
-    if isinstance(value, list) and origin_type is list and len(type_args) == 1:
-        return [_deserialize_value(type_args[0], v) for v in value]
-    if isinstance(value, list) and origin_type is tuple:
-        # tuples are serialized as json list, so we get a list back
-        # which we want to convert back to a tuple
-        if len(type_args) == 2 and type_args[1] is Ellipsis:
-            type_args = (type_args[0],)  # variadic tuple, we only have one type argument to use for all values
-            return tuple(_deserialize_value(type_args[0], v) for v in value)
-        return tuple(_deserialize_value(type_args[min(i, len(type_args) - 1)], v) for i, v in enumerate(value))
-
-    if isinstance(value, dict) and origin_type is dict and len(type_args) == 2:
-        return {k: _deserialize_value(type_args[1], v) for k, v in value.items()}
-
-    return value
+    return decode_json(task_input, task_cls)
 
 
 def _get_deserialization_field_type(field_type: type) -> type:

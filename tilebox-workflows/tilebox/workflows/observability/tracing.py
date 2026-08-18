@@ -106,7 +106,10 @@ class WorkflowTracer:
 
     @contextmanager
     def span(self, name: str, *args: Any, **kwargs: Any) -> Iterator[OTSpan]:
+        parent_task_id = getattr(get_current_span(), "attributes", {}).get("task_id")
         with self._tracer.start_as_current_span(name, *args, **kwargs) as span:
+            if isinstance(parent_task_id, str):
+                span.set_attribute("task_id", parent_task_id)
             yield span
 
     def current_span(self) -> OTSpan:

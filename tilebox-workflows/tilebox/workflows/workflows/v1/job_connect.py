@@ -26,7 +26,7 @@ class JobService(Protocol):
     async def get_job(self, request: workflows_dot_v1_dot_job__pb2.GetJobRequest, ctx: RequestContext) -> workflows_dot_v1_dot_core__pb2.Job:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
-    async def get_job_progress(self, request: workflows_dot_v1_dot_job__pb2.GetJobProgressRequest, ctx: RequestContext) -> workflows_dot_v1_dot_core__pb2.Job:
+    async def list_job_tasks(self, request: workflows_dot_v1_dot_job__pb2.ListJobTasksRequest, ctx: RequestContext) -> workflows_dot_v1_dot_job__pb2.ListJobTasksResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
     async def retry_job(self, request: workflows_dot_v1_dot_job__pb2.RetryJobRequest, ctx: RequestContext) -> workflows_dot_v1_dot_job__pb2.RetryJobResponse:
@@ -73,15 +73,15 @@ class JobServiceASGIApplication(ConnectASGIApplication[JobService]):
                     ),
                     function=svc.get_job,
                 ),
-                "/workflows.v1.JobService/GetJobProgress": Endpoint.unary(
+                "/workflows.v1.JobService/ListJobTasks": Endpoint.unary(
                     method=MethodInfo(
-                        name="GetJobProgress",
+                        name="ListJobTasks",
                         service_name="workflows.v1.JobService",
-                        input=workflows_dot_v1_dot_job__pb2.GetJobProgressRequest,
-                        output=workflows_dot_v1_dot_core__pb2.Job,
+                        input=workflows_dot_v1_dot_job__pb2.ListJobTasksRequest,
+                        output=workflows_dot_v1_dot_job__pb2.ListJobTasksResponse,
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
-                    function=svc.get_job_progress,
+                    function=svc.list_job_tasks,
                 ),
                 "/workflows.v1.JobService/RetryJob": Endpoint.unary(
                     method=MethodInfo(
@@ -197,20 +197,20 @@ class JobServiceClient(ConnectClient):
             timeout_ms=timeout_ms,
         )
 
-    async def get_job_progress(
+    async def list_job_tasks(
         self,
-        request: workflows_dot_v1_dot_job__pb2.GetJobProgressRequest,
+        request: workflows_dot_v1_dot_job__pb2.ListJobTasksRequest,
         *,
         headers: Headers | Mapping[str, str] | None = None,
         timeout_ms: int | None = None,
-    ) -> workflows_dot_v1_dot_core__pb2.Job:
+    ) -> workflows_dot_v1_dot_job__pb2.ListJobTasksResponse:
         return await self.execute_unary(
             request=request,
             method=MethodInfo(
-                name="GetJobProgress",
+                name="ListJobTasks",
                 service_name="workflows.v1.JobService",
-                input=workflows_dot_v1_dot_job__pb2.GetJobProgressRequest,
-                output=workflows_dot_v1_dot_core__pb2.Job,
+                input=workflows_dot_v1_dot_job__pb2.ListJobTasksRequest,
+                output=workflows_dot_v1_dot_job__pb2.ListJobTasksResponse,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,
@@ -346,7 +346,7 @@ class JobServiceSync(Protocol):
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def get_job(self, request: workflows_dot_v1_dot_job__pb2.GetJobRequest, ctx: RequestContext) -> workflows_dot_v1_dot_core__pb2.Job:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
-    def get_job_progress(self, request: workflows_dot_v1_dot_job__pb2.GetJobProgressRequest, ctx: RequestContext) -> workflows_dot_v1_dot_core__pb2.Job:
+    def list_job_tasks(self, request: workflows_dot_v1_dot_job__pb2.ListJobTasksRequest, ctx: RequestContext) -> workflows_dot_v1_dot_job__pb2.ListJobTasksResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def retry_job(self, request: workflows_dot_v1_dot_job__pb2.RetryJobRequest, ctx: RequestContext) -> workflows_dot_v1_dot_job__pb2.RetryJobResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
@@ -386,15 +386,15 @@ class JobServiceWSGIApplication(ConnectWSGIApplication):
                     ),
                     function=service.get_job,
                 ),
-                "/workflows.v1.JobService/GetJobProgress": EndpointSync.unary(
+                "/workflows.v1.JobService/ListJobTasks": EndpointSync.unary(
                     method=MethodInfo(
-                        name="GetJobProgress",
+                        name="ListJobTasks",
                         service_name="workflows.v1.JobService",
-                        input=workflows_dot_v1_dot_job__pb2.GetJobProgressRequest,
-                        output=workflows_dot_v1_dot_core__pb2.Job,
+                        input=workflows_dot_v1_dot_job__pb2.ListJobTasksRequest,
+                        output=workflows_dot_v1_dot_job__pb2.ListJobTasksResponse,
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
-                    function=service.get_job_progress,
+                    function=service.list_job_tasks,
                 ),
                 "/workflows.v1.JobService/RetryJob": EndpointSync.unary(
                     method=MethodInfo(
@@ -510,20 +510,20 @@ class JobServiceClientSync(ConnectClientSync):
             timeout_ms=timeout_ms,
         )
 
-    def get_job_progress(
+    def list_job_tasks(
         self,
-        request: workflows_dot_v1_dot_job__pb2.GetJobProgressRequest,
+        request: workflows_dot_v1_dot_job__pb2.ListJobTasksRequest,
         *,
         headers: Headers | Mapping[str, str] | None = None,
         timeout_ms: int | None = None,
-    ) -> workflows_dot_v1_dot_core__pb2.Job:
+    ) -> workflows_dot_v1_dot_job__pb2.ListJobTasksResponse:
         return self.execute_unary(
             request=request,
             method=MethodInfo(
-                name="GetJobProgress",
+                name="ListJobTasks",
                 service_name="workflows.v1.JobService",
-                input=workflows_dot_v1_dot_job__pb2.GetJobProgressRequest,
-                output=workflows_dot_v1_dot_core__pb2.Job,
+                input=workflows_dot_v1_dot_job__pb2.ListJobTasksRequest,
+                output=workflows_dot_v1_dot_job__pb2.ListJobTasksResponse,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,

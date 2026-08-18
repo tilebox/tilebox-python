@@ -17,7 +17,7 @@ class ExampleProtoCronTask(CronTask):
 
 
 def test_cron_task_serialization() -> None:
-    assert ExampleCronTask("test", 42)._serialize_args() == b'{"name": "test", "value": 42}'
+    assert ExampleCronTask("test", 42)._serialize_args() == b'{"name":"test","value":42}'
 
 
 def test_cron_task_serialization_protobuf() -> None:
@@ -36,7 +36,7 @@ def test_cron_task_de_serialization_roundtrip() -> None:
     triggered_task = task.once(trigger_time=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
 
     serialized = triggered_task._serialize()
-    assert serialized == b'\n\x08\n\x06\x08\x80\xcc\xb9\xff\x05\x12\x1d{"name": "test", "value": 42}'
+    assert serialized == b'\n\x08\n\x06\x08\x80\xcc\xb9\xff\x05\x12\x1a{"name":"test","value":42}'
     assert ExampleCronTask._deserialize(serialized) == triggered_task
 
 

@@ -1,4 +1,3 @@
-import asyncio
 import random
 import signal
 import threading
@@ -449,7 +448,6 @@ class TaskRunner:
         Run the task runner forever. This will poll for new tasks and execute them as they come in.
         If no tasks are available, it will sleep for a short time and then try again.
         """
-        _ensure_no_running_event_loop()
         with _GracefulShutdown(_SHUTDOWN_GRACE_PERIOD, self._polling_runner) as shutdown_context:
             self._polling_runner.run_forever(shutdown_context)
 
@@ -457,14 +455,5 @@ class TaskRunner:
         """
         Run the task runner and execute all tasks, until there are no more tasks available.
         """
-        _ensure_no_running_event_loop()
         with _GracefulShutdown(_SHUTDOWN_GRACE_PERIOD, self._polling_runner) as shutdown_context:
             self._polling_runner.run_all(shutdown_context)
-
-
-def _ensure_no_running_event_loop() -> None:
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return
-    raise RuntimeError("TaskRunner.run_all() and TaskRunner.run_forever() must be called from synchronous code.")

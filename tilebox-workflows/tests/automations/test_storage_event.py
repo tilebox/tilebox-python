@@ -21,7 +21,7 @@ class ExampleProtoStorageEventTask(StorageEventTask):
 
 
 def test_storage_event_task_serialization() -> None:
-    assert ExampleStorageEventTask("test", 42)._serialize_args() == b'{"name": "test", "value": 42}'
+    assert ExampleStorageEventTask("test", 42)._serialize_args() == b'{"name":"test","value":42}'
 
 
 def test_storage_event_task_serialization_protobuf() -> None:

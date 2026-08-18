@@ -1,3 +1,4 @@
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
 from tilebox.datasets.tilebox.v1 import query_pb2 as _query_pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as _core_pb2
@@ -44,11 +45,71 @@ class GetJobRequest(_message.Message):
     job_id: _id_pb2.ID
     def __init__(self, job_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
 
-class GetJobProgressRequest(_message.Message):
-    __slots__ = ("job_id",)
+class TaskSummary(_message.Message):
+    __slots__ = ("id", "parent_id", "display", "state", "submitted_at", "started_at", "stopped_at", "input", "retry_count", "max_retries", "has_children", "cluster_slug", "optional")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    PARENT_ID_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    SUBMITTED_AT_FIELD_NUMBER: _ClassVar[int]
+    STARTED_AT_FIELD_NUMBER: _ClassVar[int]
+    STOPPED_AT_FIELD_NUMBER: _ClassVar[int]
+    INPUT_FIELD_NUMBER: _ClassVar[int]
+    RETRY_COUNT_FIELD_NUMBER: _ClassVar[int]
+    MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
+    HAS_CHILDREN_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_SLUG_FIELD_NUMBER: _ClassVar[int]
+    OPTIONAL_FIELD_NUMBER: _ClassVar[int]
+    id: _id_pb2.ID
+    parent_id: _id_pb2.ID
+    display: str
+    state: _core_pb2.TaskState
+    submitted_at: _timestamp_pb2.Timestamp
+    started_at: _timestamp_pb2.Timestamp
+    stopped_at: _timestamp_pb2.Timestamp
+    input: bytes
+    retry_count: int
+    max_retries: int
+    has_children: bool
+    cluster_slug: str
+    optional: bool
+    def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., parent_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., display: _Optional[str] = ..., state: _Optional[_Union[_core_pb2.TaskState, str]] = ..., submitted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., stopped_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., input: _Optional[bytes] = ..., retry_count: _Optional[int] = ..., max_retries: _Optional[int] = ..., has_children: bool = ..., cluster_slug: _Optional[str] = ..., optional: bool = ...) -> None: ...
+
+class JobTaskChildrenPrefetch(_message.Message):
+    __slots__ = ("limit",)
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    limit: int
+    def __init__(self, limit: _Optional[int] = ...) -> None: ...
+
+class ListJobTasksRequest(_message.Message):
+    __slots__ = ("job_id", "parent_task_id", "page", "prefetch_children")
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    PARENT_TASK_ID_FIELD_NUMBER: _ClassVar[int]
+    PAGE_FIELD_NUMBER: _ClassVar[int]
+    PREFETCH_CHILDREN_FIELD_NUMBER: _ClassVar[int]
     job_id: _id_pb2.ID
-    def __init__(self, job_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
+    parent_task_id: _id_pb2.ID
+    page: _query_pb2.Pagination
+    prefetch_children: JobTaskChildrenPrefetch
+    def __init__(self, job_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., parent_task_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ..., prefetch_children: _Optional[_Union[JobTaskChildrenPrefetch, _Mapping]] = ...) -> None: ...
+
+class JobTaskPage(_message.Message):
+    __slots__ = ("parent_task_id", "tasks", "next_page")
+    PARENT_TASK_ID_FIELD_NUMBER: _ClassVar[int]
+    TASKS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_FIELD_NUMBER: _ClassVar[int]
+    parent_task_id: _id_pb2.ID
+    tasks: _containers.RepeatedCompositeFieldContainer[TaskSummary]
+    next_page: _query_pb2.Pagination
+    def __init__(self, parent_task_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., tasks: _Optional[_Iterable[_Union[TaskSummary, _Mapping]]] = ..., next_page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ...) -> None: ...
+
+class ListJobTasksResponse(_message.Message):
+    __slots__ = ("page", "prefetched_child_pages")
+    PAGE_FIELD_NUMBER: _ClassVar[int]
+    PREFETCHED_CHILD_PAGES_FIELD_NUMBER: _ClassVar[int]
+    page: JobTaskPage
+    prefetched_child_pages: _containers.RepeatedCompositeFieldContainer[JobTaskPage]
+    def __init__(self, page: _Optional[_Union[JobTaskPage, _Mapping]] = ..., prefetched_child_pages: _Optional[_Iterable[_Union[JobTaskPage, _Mapping]]] = ...) -> None: ...
 
 class RetryJobRequest(_message.Message):
     __slots__ = ("job_id",)

@@ -11,14 +11,16 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class QueryJobLogsRequest(_message.Message):
-    __slots__ = ("job_id", "page", "sort_direction")
+    __slots__ = ("job_id", "page", "sort_direction", "task_id")
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
     PAGE_FIELD_NUMBER: _ClassVar[int]
     SORT_DIRECTION_FIELD_NUMBER: _ClassVar[int]
+    TASK_ID_FIELD_NUMBER: _ClassVar[int]
     job_id: _id_pb2.ID
     page: _query_pb2.Pagination
     sort_direction: _query_pb2.SortDirection
-    def __init__(self, job_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ..., sort_direction: _Optional[_Union[_query_pb2.SortDirection, str]] = ...) -> None: ...
+    task_id: _id_pb2.ID
+    def __init__(self, job_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ..., sort_direction: _Optional[_Union[_query_pb2.SortDirection, str]] = ..., task_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
 
 class QueryLogsInIntervalRequest(_message.Message):
     __slots__ = ("time_interval", "page", "sort_direction")
@@ -39,14 +41,16 @@ class PaginatedLogsData(_message.Message):
     def __init__(self, resource_logs: _Optional[_Iterable[_Union[_logs_pb2.ResourceLogs, _Mapping]]] = ..., next_page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ...) -> None: ...
 
 class QueryJobSpansRequest(_message.Message):
-    __slots__ = ("job_id", "page", "sort_direction")
+    __slots__ = ("job_id", "page", "sort_direction", "task_id")
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
     PAGE_FIELD_NUMBER: _ClassVar[int]
     SORT_DIRECTION_FIELD_NUMBER: _ClassVar[int]
+    TASK_ID_FIELD_NUMBER: _ClassVar[int]
     job_id: _id_pb2.ID
     page: _query_pb2.Pagination
     sort_direction: _query_pb2.SortDirection
-    def __init__(self, job_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ..., sort_direction: _Optional[_Union[_query_pb2.SortDirection, str]] = ...) -> None: ...
+    task_id: _id_pb2.ID
+    def __init__(self, job_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ..., sort_direction: _Optional[_Union[_query_pb2.SortDirection, str]] = ..., task_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
 
 class PaginatedSpansData(_message.Message):
     __slots__ = ("resource_spans", "next_page")

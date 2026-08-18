@@ -4,9 +4,10 @@ import asyncio
 import inspect
 import json
 import logging
-from base64 import b64encode
 from collections.abc import Awaitable, Callable, Iterator, MutableMapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, contextmanager
+from contextvars import copy_context
 from typing import TYPE_CHECKING
 from uuid import UUID
 from warnings import warn
@@ -85,7 +86,6 @@ class TaskExecutor:
 
                 try:
                     task_instance = task_class._deserialize(task.input, self.runner_context)  # noqa: SLF001
-                    _set_task_input_span_attribute(span, task.input)
                     with wrap_execute_context_manager(task, context):
                         _execute(task_instance, context)
 
@@ -278,20 +278,18 @@ def _finalize_mutable_progress_trackers(
     return [ProgressIndicator(label, bar._total, bar._done) for label, bar in progress_bars.items()]  # noqa: SLF001
 
 
-def _set_task_input_span_attribute(span: object, task_input: bytes | None) -> None:
-    task_input_span_attr = ""
-    if task_input is not None:
-        try:
-            task_input_span_attr = task_input.decode("utf-8")
-        except UnicodeDecodeError:
-            task_input_span_attr = b64encode(task_input).decode("ascii")
-    span.set_attribute("input", task_input_span_attr)  # ty: ignore[unresolved-attribute]
-
-
 def _execute(task: TaskInstance, context: ExecutionContext) -> None:
     result = task.execute(context)
     if inspect.isawaitable(result):
-        asyncio.run(_await_execute(result))
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(_await_execute(result))
+        else:
+            # The caller's loop cannot make progress while the synchronous runner is blocking its thread.
+            # Run the task on a separate thread with the current tracing and logging context instead.
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(copy_context().run, asyncio.run, _await_execute(result)).result()
 
 
 async def _await_execute(result: Awaitable[None]) -> None:

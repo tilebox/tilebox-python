@@ -11,12 +11,14 @@ from tilebox.workflows.observability import tracing
 class RecordingSpanProcessor(SpanProcessor):
     def __init__(self) -> None:
         self.span_names: list[str] = []
+        self.span_attributes: dict[str, dict[str, object]] = {}
 
     def on_start(self, span: Span, parent_context: Context | None = None) -> None:
         pass
 
     def on_end(self, span: ReadableSpan) -> None:
         self.span_names.append(span.name)
+        self.span_attributes[span.name] = dict(span.attributes or {})
 
     def shutdown(self) -> None:
         pass
@@ -74,3 +76,20 @@ def test_workflow_tracers_copy_configured_span_processors_once(
         ["span-0"],
         ["span-1"],
     ]
+
+
+def test_workflow_tracer_propagates_task_id_to_sub_spans(
+    span_processors: list[RecordingSpanProcessor],
+) -> None:
+    tracer = tracing.WorkflowTracer(service=None, url="https://api.tilebox.com", token=None)
+
+    with tracer.span("task") as task_span:
+        task_span.set_attribute("task_id", "task-123")
+        with tracer.span("sub-span"), tracer.span("nested-sub-span"):
+            pass
+
+    assert span_processors[0].span_attributes == {
+        "nested-sub-span": {"task_id": "task-123"},
+        "sub-span": {"task_id": "task-123"},
+        "task": {"task_id": "task-123"},
+    }
