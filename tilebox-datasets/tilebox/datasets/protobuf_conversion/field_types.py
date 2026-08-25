@@ -1,5 +1,7 @@
+import re
 from collections.abc import Sequence
 from datetime import timedelta
+from enum import Enum
 from typing import Any
 from uuid import UUID
 
@@ -120,21 +122,30 @@ class BoolField(ProtobufFieldType):
 
 class EnumField(ProtobufFieldType):
     def __init__(self, name_lookup: dict[int, str]) -> None:
-        super().__init__(np.uint8)  # we support up to 256 different enum values for now
+        super().__init__(object)
         self._values_to_name = name_lookup
         self._names_to_value = {name: value for value, name in name_lookup.items()}
 
-    def from_proto(self, value: ProtoFieldValue) -> int:
+    def from_proto(self, value: ProtoFieldValue) -> str:
         if not isinstance(value, int):
             raise TypeError(f"Expected int message but got {type(value)}")
-        return value  # we don't parse the value when loading, to avoid having huge arrays of strings
+        try:
+            return self._values_to_name[value]
+        except KeyError as error:
+            raise ValueError(f"Invalid enum value {value}") from error
 
-    def to_proto(self, value: str | int) -> int:
+    def to_proto(self, value: str | int | Enum) -> int:
+        if isinstance(value, Enum):
+            value = value.name
         if isinstance(value, (str, np.str_)):
-            return self._names_to_value[value]
-        if int(value) not in self._values_to_name:
+            try:
+                return self._names_to_value[value]
+            except KeyError as error:
+                raise ValueError(f"Invalid enum name {value!r}") from error
+        integer_value = int(value)
+        if integer_value not in self._values_to_name:
             raise ValueError(f"Invalid enum value {value}")  # during ingestion, we can raise an error here
-        return value
+        return integer_value
 
 
 class TimestampField(ProtobufFieldType):
@@ -360,8 +371,11 @@ def _camel_to_uppercase(name: str) -> str:
     Examples:
         >>> _camel_to_uppercase("ProcessingLevel")
         'PROCESSING_LEVEL'
+        >>> _camel_to_uppercase("SARPolarization")
+        'SAR_POLARIZATION'
     """
-    return "".join(["_" + c.lower() if c.isupper() else c for c in name]).lstrip("_").upper()
+    name = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
+    return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).upper()
 
 
 def is_missing(value: Any) -> bool:
