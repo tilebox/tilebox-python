@@ -2,7 +2,13 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from _tilebox.grpc.aio.channel import ClientCallDetails, _AuthMetadataInterceptor, _RpcMethodPrefixInterceptor
+from _tilebox.grpc.aio.channel import (
+    ClientCallDetails,
+    _AuthMetadataInterceptor,
+    _ClientMetadataInterceptor,
+    _RpcMethodPrefixInterceptor,
+)
+from _tilebox.grpc.channel import CLIENT_SOURCE_HEADER, CLIENT_VERSION_HEADER
 
 
 @pytest.mark.asyncio
@@ -20,6 +26,23 @@ async def test_auth_interceptor(req_metadata: list[tuple[str, str]] | None) -> N
     mock_method.assert_called_once()
     updated_call_details = mock_method.call_args[0][0]
     assert ("authorization", "Bearer very-secret") in updated_call_details.metadata
+
+
+@pytest.mark.asyncio
+async def test_client_metadata_interceptor() -> None:
+    interceptor = _ClientMetadataInterceptor()
+    mock_method = AsyncMock()
+
+    await interceptor.intercept_unary_unary(
+        mock_method,
+        ClientCallDetails("/some-rpc-method", 10, [("authorization", "Bearer token")], None, True),
+        AsyncMock(),
+    )
+
+    metadata = mock_method.call_args[0][0].metadata
+    assert ("authorization", "Bearer token") in metadata
+    assert (CLIENT_SOURCE_HEADER, "python_sdk") in metadata
+    assert any(key == CLIENT_VERSION_HEADER and value for key, value in metadata)
 
 
 @pytest.mark.asyncio

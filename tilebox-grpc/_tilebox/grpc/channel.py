@@ -3,6 +3,8 @@ import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as package_version
 from typing import Literal, TypeVar
 
 from _tilebox.grpc.error import async_wrap_connect_rpc, wrap_connect_rpc
@@ -46,6 +48,9 @@ CHANNEL_OPTIONS = [
     ("grpc.service_config", json.dumps(_SERVICE_CONFIG)),
 ]
 
+CLIENT_SOURCE_HEADER = "tilebox-client-source"
+CLIENT_VERSION_HEADER = "tilebox-client-version"
+
 
 class ChannelProtocol(Enum):
     HTTPS = 1
@@ -77,7 +82,7 @@ def open_channel(url: str, auth_token: str | None = None, rpc_method_prefix: str
         A sync gRPC channel.
     """
     channel_info = parse_channel_info(url)
-    interceptors: list[UnaryUnaryClientInterceptor] = []
+    interceptors: list[UnaryUnaryClientInterceptor] = [_ClientMetadataInterceptor()]
     if auth_token is not None:
         interceptors = [_AuthMetadataInterceptor(auth_token), *interceptors]  # add auth interceptor as the first one
     if rpc_method_prefix is not None:
@@ -185,7 +190,7 @@ class ConnectStubAdapter:
         method_path_prefix = _rpc_method_prefix_path(rpc_method_prefix)
         service_name = _connect_service_name(client)
         self._client = client
-        self._headers = headers
+        self._headers = {**(headers or {}), **_client_metadata()}
 
         for connect_name in _connect_client_methods(client):
             grpc_name = _snake_to_pascal_case(connect_name)
@@ -211,7 +216,7 @@ class AsyncConnectStubAdapter:
         method_path_prefix = _rpc_method_prefix_path(rpc_method_prefix)
         service_name = _connect_service_name(client)
         self._client = client
-        self._headers = headers
+        self._headers = {**(headers or {}), **_client_metadata()}
 
         for connect_name in _connect_client_methods(client):
             grpc_name = _snake_to_pascal_case(connect_name)
@@ -278,6 +283,20 @@ class _AuthMetadataInterceptor(UnaryUnaryClientInterceptor):
         return continuation(add_metadata(client_call_details, [self._auth]), request)
 
 
+class _ClientMetadataInterceptor(UnaryUnaryClientInterceptor):
+    def __init__(self) -> None:
+        super().__init__()
+        self._metadata = list(_client_metadata().items())
+
+    def intercept_unary_unary(
+        self,
+        continuation: Callable[[ClientCallDetails, RequestType], ResponseType],
+        client_call_details: ClientCallDetails,
+        request: RequestType,
+    ) -> ResponseType:
+        return continuation(add_metadata(client_call_details, self._metadata), request)
+
+
 class _RpcMethodPrefixInterceptor(UnaryUnaryClientInterceptor):
     def __init__(self, prefix: str) -> None:
         """A sync gRPC channel interceptor which prefixes every outgoing RPC method path."""
@@ -299,6 +318,17 @@ def add_metadata(
     metadata = [] if client_call_details.metadata is None else list(client_call_details.metadata)
     metadata.extend(additional_metadata)
     return _replace_call_details(client_call_details, metadata=metadata)
+
+
+def _client_metadata() -> dict[str, str]:
+    try:
+        client_version = package_version("tilebox-grpc")
+    except PackageNotFoundError:
+        client_version = "dev"
+    return {
+        CLIENT_SOURCE_HEADER: "python_sdk",
+        CLIENT_VERSION_HEADER: client_version,
+    }
 
 
 def update_method(client_call_details: ClientCallDetails, prefix: str) -> ClientCallDetails:

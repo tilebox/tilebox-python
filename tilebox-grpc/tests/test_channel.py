@@ -1,11 +1,17 @@
+from importlib.metadata import PackageNotFoundError
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from _tilebox.grpc.channel import (
     CHANNEL_OPTIONS,
+    CLIENT_SOURCE_HEADER,
+    CLIENT_VERSION_HEADER,
+    AsyncConnectStubAdapter,
     ChannelProtocol,
     ClientCallDetails,
+    ConnectStubAdapter,
+    _ClientMetadataInterceptor,
     _RpcMethodPrefixInterceptor,
     connect_address,
     open_channel,
@@ -39,6 +45,72 @@ def test_open_authenticated_channel(open_func: MagicMock, intercept_func: MagicM
     assert intercept_func.call_args[0][1]._auth == ("authorization", "Bearer very-secret")
 
 
+@patch("_tilebox.grpc.channel.package_version", return_value="1.2.3")
+def test_client_metadata_interceptor(package_version: MagicMock) -> None:
+    interceptor = _ClientMetadataInterceptor()
+    continuation = MagicMock()
+
+    interceptor.intercept_unary_unary(
+        continuation,
+        ClientCallDetails("/some-rpc-method", 10, [("authorization", "Bearer token")], None, True),
+        MagicMock(),
+    )
+
+    package_version.assert_called_once_with("tilebox-grpc")
+    metadata = continuation.call_args[0][0].metadata
+    assert ("authorization", "Bearer token") in metadata
+    assert (CLIENT_SOURCE_HEADER, "python_sdk") in metadata
+    assert (CLIENT_VERSION_HEADER, "1.2.3") in metadata
+
+
+def test_client_metadata_uses_dev_version_when_package_is_not_installed() -> None:
+    with patch("_tilebox.grpc.channel.package_version", side_effect=PackageNotFoundError):
+        interceptor = _ClientMetadataInterceptor()
+
+    assert (CLIENT_VERSION_HEADER, "dev") in interceptor._metadata
+
+
+class _ConnectClient:
+    def get_value(self, request: str, *, headers: dict[str, str]) -> tuple[str, dict[str, str]]:
+        return request, headers
+
+
+class _AsyncConnectClient:
+    async def get_value(self, request: str, *, headers: dict[str, str]) -> tuple[str, dict[str, str]]:
+        return request, headers
+
+
+@patch("_tilebox.grpc.channel.package_version", return_value="1.2.3")
+def test_connect_stub_adapter_adds_client_metadata(package_version: MagicMock) -> None:
+    adapter = ConnectStubAdapter(_ConnectClient(), {"authorization": "Bearer token"})
+
+    request, headers = adapter.GetValue("request")  # ty: ignore[unresolved-attribute]  # added dynamically
+
+    assert request == "request"
+    assert headers == {
+        "authorization": "Bearer token",
+        CLIENT_SOURCE_HEADER: "python_sdk",
+        CLIENT_VERSION_HEADER: "1.2.3",
+    }
+    package_version.assert_called_once_with("tilebox-grpc")
+
+
+@pytest.mark.asyncio
+@patch("_tilebox.grpc.channel.package_version", return_value="1.2.3")
+async def test_async_connect_stub_adapter_adds_client_metadata(package_version: MagicMock) -> None:
+    adapter = AsyncConnectStubAdapter(_AsyncConnectClient(), {"authorization": "Bearer token"})
+
+    request, headers = await adapter.GetValue("request")  # ty: ignore[unresolved-attribute]  # added dynamically
+
+    assert request == "request"
+    assert headers == {
+        "authorization": "Bearer token",
+        CLIENT_SOURCE_HEADER: "python_sdk",
+        CLIENT_VERSION_HEADER: "1.2.3",
+    }
+    package_version.assert_called_once_with("tilebox-grpc")
+
+
 @patch("_tilebox.grpc.channel.intercept_channel")
 @patch("_tilebox.grpc.channel.secure_channel")
 def test_open_channel_with_rpc_method_prefix(open_func: MagicMock, intercept_func: MagicMock) -> None:
@@ -46,7 +118,7 @@ def test_open_channel_with_rpc_method_prefix(open_func: MagicMock, intercept_fun
     open_func.assert_called_once()
     intercept_func.assert_called_once()
 
-    assert intercept_func.call_args[0][1]._prefix == "/public"
+    assert intercept_func.call_args[0][2]._prefix == "/public"
 
 
 def test_rpc_method_prefix_interceptor() -> None:
