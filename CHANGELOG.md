@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.60.0] - 2026-08-25
+
+### Changed
+
+- `tilebox-datasets`: Dataset queries now return short enum names as strings (for example, `HH`) instead of numeric
+  values with a name mapping in the xarray variable attributes. Repeated enum fields can now be queried and
+  round-tripped through all supported ingestion inputs.
+
 ## [0.59.0] - 2026-08-18
 
 ### Added
@@ -471,7 +479,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.59.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.60.0...HEAD
+[0.60.0]: https://github.com/tilebox/tilebox-python/compare/v0.59.0...v0.60.0
 [0.59.0]: https://github.com/tilebox/tilebox-python/compare/v0.58.0...v0.59.0 
 [0.58.0]: https://github.com/tilebox/tilebox-python/compare/v0.57.0...v0.58.0 
 [0.57.0]: https://github.com/tilebox/tilebox-python/compare/v0.56.0...v0.57.0

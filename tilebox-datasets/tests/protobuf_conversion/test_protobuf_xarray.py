@@ -1,3 +1,4 @@
+from enum import Enum
 from uuid import UUID
 
 import pandas as pd
@@ -25,8 +26,14 @@ from tilebox.datasets.datasets.stac.v1.core_pb2 import Links as LinksPB2
 from tilebox.datasets.datasets.stac.v1.core_pb2 import Provider as ProviderPB2
 from tilebox.datasets.datasets.stac.v1.processing_pb import ProcessingSoftware
 from tilebox.datasets.datasets.stac.v1.processing_pb2 import ProcessingSoftware as ProcessingSoftwarePB2
+from tilebox.datasets.datasets.stac.v1.sar_pb2 import (
+    SAR_POLARIZATION_HH,
+    SAR_POLARIZATION_VV,
+    SARProperties,
+)
 from tilebox.datasets.datasets.stac.v1.storage_pb import Storage
 from tilebox.datasets.datasets.stac.v1.storage_pb2 import Storage as StoragePB2
+from tilebox.datasets.datasets.v1.well_known_types_pb2 import ProcessingLevel
 from tilebox.datasets.protobuf_conversion.field_types import _AssetsDisplay
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
 from tilebox.datasets.protobuf_conversion.to_protobuf import to_messages
@@ -87,7 +94,7 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
     )
 
     assert isinstance(dataset.some_geometry.item(), Polygon | MultiPolygon)
-    assert dataset.some_enum.item() == datapoint.some_enum
+    assert dataset.some_enum.item() == ProcessingLevel.Name(datapoint.some_enum).removeprefix("PROCESSING_LEVEL_")
 
     assert list(dataset.some_repeated_string.to_numpy()) == list(datapoint.some_repeated_string)
     assert_array_equal(dataset.some_repeated_int.to_numpy(), datapoint.some_repeated_int)
@@ -211,6 +218,89 @@ def test_convert_stac_messages_to_protobuf_py() -> None:
     html = dataset._repr_html_()
     assert "preview" in html
     assert "access_profiles" not in html
+
+
+def test_convert_scalar_and_repeated_enums_to_names_and_round_trip() -> None:
+    class Polarization(Enum):
+        HH = "HH"
+        VV = "VV"
+
+    file_descriptor = descriptor_pb2.FileDescriptorProto(
+        name="tests/protobuf_conversion/enum_datapoint.proto",
+        package="tests.protobuf_conversion.enums",
+    )
+    enum_descriptor = file_descriptor.enum_type.add(name="SARPolarization")
+    for name, number in (("SAR_POLARIZATION_UNSPECIFIED", 0), ("SAR_POLARIZATION_HH", 1), ("SAR_POLARIZATION_VV", 2)):
+        enum_descriptor.value.add(name=name, number=number)
+    message_descriptor = file_descriptor.message_type.add(name="EnumDatapoint")
+    message_descriptor.field.add(
+        name="primary_polarization",
+        number=1,
+        label=descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+        type=descriptor_pb2.FieldDescriptorProto.TYPE_ENUM,
+        type_name=".tests.protobuf_conversion.enums.SARPolarization",
+    )
+    message_descriptor.field.add(
+        name="polarizations",
+        number=2,
+        label=descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED,
+        type=descriptor_pb2.FieldDescriptorProto.TYPE_ENUM,
+        type_name=".tests.protobuf_conversion.enums.SARPolarization",
+    )
+    descriptor = Default().AddSerializedFile(file_descriptor.SerializeToString())
+    message_type = GetMessageClass(descriptor.message_types_by_name["EnumDatapoint"])
+    messages = [
+        message_type(primary_polarization=1, polarizations=[0, 1]),
+        message_type(primary_polarization=2, polarizations=[2]),
+        message_type(),
+    ]
+
+    converter = MessageToXarrayConverter()
+    converter.convert_all(messages)
+    dataset = converter.finalize("time")
+
+    assert dataset.primary_polarization.dtype == object
+    assert dataset.primary_polarization[:2].to_numpy().tolist() == ["HH", "VV"]
+    assert pd.isna(dataset.primary_polarization[2].item())
+    assert dataset.polarizations.dtype == object
+    assert dataset.polarizations[0].to_numpy().tolist() == ["UNSPECIFIED", "HH"]
+    assert dataset.polarizations[1, 0].item() == "VV"
+    assert pd.isna(dataset.polarizations[1, 1].item())
+    assert pd.isna(dataset.polarizations[2].to_numpy()).all()
+    assert dataset.polarizations.dims == ("time", "n_polarizations")
+    assert dataset.primary_polarization.attrs == {}
+    assert dataset.polarizations.attrs == {}
+    assert to_messages(dataset, message_type) == messages
+
+    expected = message_type(primary_polarization=1, polarizations=[1, 2, 0])
+    record = {"primary_polarization": "HH", "polarizations": ["HH", Polarization.VV, 0]}
+    assert to_messages([record], message_type) == [expected]
+    assert to_messages({name: [value] for name, value in record.items()}, message_type) == [expected]
+    assert to_messages(pd.DataFrame([record]), message_type) == [expected]
+
+    with pytest.raises(ValueError, match="Record 0: Field 'polarizations': Invalid enum name 'INVALID'"):
+        to_messages([{"polarizations": ["INVALID"]}], message_type)
+
+
+def test_convert_sar_polarizations_with_short_names_in_both_directions() -> None:
+    messages = [
+        SARProperties(polarizations=[SAR_POLARIZATION_HH, SAR_POLARIZATION_VV]),
+        SARProperties(polarizations=[SAR_POLARIZATION_VV]),
+        SARProperties(),
+    ]
+    converter = MessageToXarrayConverter()
+    converter.convert_all(messages)
+
+    dataset = converter.finalize("item")
+
+    assert dataset.polarizations[0].to_numpy().tolist() == ["HH", "VV"]
+    assert dataset.polarizations[1, 0].item() == "VV"
+    assert pd.isna(dataset.polarizations[1, 1].item())
+    assert pd.isna(dataset.polarizations[2].to_numpy()).all()
+
+    other_fields = [field.name for field in SARProperties.DESCRIPTOR.fields if field.name != "polarizations"]
+    assert to_messages(dataset, SARProperties, ignore_fields=other_fields) == messages
+    assert to_messages([{"polarizations": ["HH", "VV"]}], SARProperties) == [messages[0]]
 
 
 @given(lists(example_datapoints(generated_fields=True, missing_fields=True), min_size=5, max_size=30))

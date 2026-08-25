@@ -13,10 +13,8 @@ from google.protobuf.message import Message
 from numpy.typing import NDArray
 
 from tilebox.datasets.protobuf_conversion.field_types import (
-    EnumField,
     ProtobufFieldType,
     ProtoFieldValue,
-    enum_mapping_from_field_descriptor,
     infer_field_type,
 )
 
@@ -313,26 +311,6 @@ class _ArrayFieldConverter(_FieldConverter):
             self._data = data
 
 
-class _EnumFieldConverter(_SimpleFieldConverter):
-    def __init__(self, field_name: str, enum_names: dict[int, str]) -> None:
-        """
-        A field converter for the enum type.
-
-        Args:
-            field_name: The name of enum field in the protobuf message
-        """
-        super().__init__(field_name, EnumField(enum_names))
-        self._enum_names = enum_names
-
-    def finalize(
-        self, dataset: xr.Dataset, count: int, dimension_names: tuple[str, ...], skip_if_empty: bool = False
-    ) -> str | None:
-        field_name = super().finalize(dataset, count, dimension_names, skip_if_empty)
-        if field_name is not None:
-            dataset[field_name].attrs["names"] = self._enum_names
-        return field_name
-
-
 def _create_field_converters(message: Message, buffer_size: int) -> dict[str, _FieldConverter]:
     """
     Create a dictionary mapping from field names to field converters for the given protobuf message descriptor.
@@ -369,13 +347,6 @@ def _create_field_converter(field: FieldDescriptor) -> _FieldConverter:
     Returns:
         A field converter for the given protobuf field descriptor
     """
-    # special handling for enums:
-    if field.type == FieldDescriptor.TYPE_ENUM:
-        if field.is_repeated:
-            raise NotImplementedError("Repeated enum fields are not supported")
-
-        return _EnumFieldConverter(field.name, enum_mapping_from_field_descriptor(field))
-
     field_type = infer_field_type(field)
     if field.is_repeated:
         return _ArrayFieldConverter(field.name, field_type)
