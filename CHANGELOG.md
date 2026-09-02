@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-grpc`: Add client source and version metadata to all API requests.
+
 ### Fixed
 
 - `tilebox-datasets`: Allow `iter_datapoints()` to handle empty query results.
