@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `tilebox-datasets`: Allow `iter_datapoints()` to handle empty query results.
+
 ## [0.60.0] - 2026-08-25
 
 ### Changed

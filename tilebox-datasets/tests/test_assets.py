@@ -595,6 +595,7 @@ def test_missing_referenced_context_is_rejected() -> None:
 def test_iter_datapoints_and_multi_datapoint_error() -> None:
     data = xr.Dataset({"value": ("time", [1, 2, 3])})
     assert [datapoint.value.item() for datapoint in iter_datapoints(data)] == [1, 2, 3]
+    assert list(iter_datapoints(xr.Dataset())) == []
     with pytest.raises(ValueError, match=r"(?s)received 3.*dimension 'time'"):
         AssetCollection.from_datapoint(data)
     with pytest.raises(ValueError, match=r"'sample'.*not present"):

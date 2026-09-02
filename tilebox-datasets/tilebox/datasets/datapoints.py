@@ -7,6 +7,9 @@ import xarray as xr
 
 def iter_datapoints(data: xr.Dataset, *, dimension: str = "time") -> Iterator[xr.Dataset]:
     """Yield scalar datapoints from an xarray query result."""
+    if not data.variables:
+        # Empty query results produce an empty iterator.
+        return
     if dimension not in data.sizes:
         raise ValueError(f"datapoint dimension {dimension!r} is not present in the dataset")
     for index in range(data.sizes[dimension]):
