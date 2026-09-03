@@ -72,7 +72,8 @@ class WorkerServiceServicer(worker_pb2_grpc.WorkerServiceServicer):
     ) -> worker_pb2.ExecuteTaskResponse:
         logger.debug("ExecuteTask RPC called")
         task = Task.from_message(request)
-        if self._executor is None:
+        executor = self._executor
+        if executor is None:
             failed_task = FailedTask.from_task_error(
                 task,
                 RuntimeError("Worker is not initialized"),
@@ -82,7 +83,7 @@ class WorkerServiceServicer(worker_pb2_grpc.WorkerServiceServicer):
             logger.debug(f"ExecuteTask RPC returning failed task for uninitialized worker, task_id={task.id}")
             return worker_pb2.ExecuteTaskResponse(failed_task=failed_task.to_message())
 
-        result = self._executor.execute_task(task)
+        result = executor.execute_task(task)
         if isinstance(result, ComputedTask):
             logger.debug(f"ExecuteTask RPC returning computed task, task_id={task.id}")
             return worker_pb2.ExecuteTaskResponse(computed_task=result.to_message())

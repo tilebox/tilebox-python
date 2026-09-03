@@ -108,6 +108,9 @@ class Task(metaclass=_ABCTaskify):
         """The entry point for the execution of the task.
 
         It is called when the task is executed and is responsible for performing the task's operation.
+        A fresh task instance and execution context are created for every execution. Worker runtimes may execute
+        multiple tasks concurrently on different threads, and asynchronous tasks may use different event loops.
+        Mutable class or module state, runner context state, and custom caches must be safe for concurrent access.
 
         Args:
             context: The execution context for the task. It provides access to an API for submitting new tasks as part

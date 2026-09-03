@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `tilebox-datasets`: Allow `iter_datapoints()` to handle empty query results.
+- `tilebox-workflows`: Make built-in worker state safe for concurrent task execution in a shared Python runtime and
+  document the concurrency contract for custom runner contexts, caches, and shared task state.
 
 ## [0.60.0] - 2026-08-25
 

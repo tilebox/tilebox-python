@@ -8,6 +8,7 @@ from collections.abc import Awaitable, Callable, Iterator, MutableMapping, Seque
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, contextmanager
 from contextvars import copy_context
+from threading import RLock
 from typing import TYPE_CHECKING
 from uuid import UUID
 from warnings import warn
@@ -241,35 +242,42 @@ class LazyStorageLocations(MutableMapping[UUID, StorageLocation]):
         self._runner_context = runner_context
         self._locations: dict[UUID, StorageLocation] = {}
         self._loaded = False
+        self._lock = RLock()
 
     def _load(self) -> None:
-        if self._loaded:
-            return
-        self._locations = {
-            location.id: location._with_runner_context(self._runner_context)  # noqa: SLF001
-            for location in self._client.automations().storage_locations()
-        }
-        self._loaded = True
+        with self._lock:
+            if self._loaded:
+                return
+            self._locations = {
+                location.id: location._with_runner_context(self._runner_context)  # noqa: SLF001
+                for location in self._client.automations().storage_locations()
+            }
+            self._loaded = True
 
     def __getitem__(self, key: UUID) -> StorageLocation:
-        self._load()
-        return self._locations[key]
+        with self._lock:
+            self._load()
+            return self._locations[key]
 
     def __setitem__(self, key: UUID, value: StorageLocation) -> None:
-        self._load()
-        self._locations[key] = value
+        with self._lock:
+            self._load()
+            self._locations[key] = value
 
     def __delitem__(self, key: UUID) -> None:
-        self._load()
-        del self._locations[key]
+        with self._lock:
+            self._load()
+            del self._locations[key]
 
     def __iter__(self) -> Iterator[UUID]:
-        self._load()
-        return iter(self._locations)
+        with self._lock:
+            self._load()
+            return iter(tuple(self._locations))
 
     def __len__(self) -> int:
-        self._load()
-        return len(self._locations)
+        with self._lock:
+            self._load()
+            return len(self._locations)
 
 
 def _finalize_mutable_progress_trackers(

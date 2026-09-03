@@ -1136,6 +1136,12 @@ class AutomationPrototype:
 
 
 class RunnerContext:
+    """Process-level context shared by task executions in a runner.
+
+    A runner creates one context instance during initialization. Worker runtimes may access that instance concurrently
+    from multiple threads, so subclasses must synchronize mutable state and use clients that support concurrent access.
+    """
+
     def __init__(
         self,
         tracer: WorkflowTracer | None = None,
