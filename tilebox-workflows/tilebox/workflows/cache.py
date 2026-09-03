@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from io import BytesIO
 from pathlib import Path
 from pathlib import PurePosixPath as ObjectPath
+from threading import RLock
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -17,6 +18,13 @@ else:
 
 
 class JobCache(ABC):
+    """Cache shared by tasks belonging to the same job.
+
+    Task executions may access a cache concurrently, including from different threads in a shared worker runtime.
+    Implementations must therefore make individual cache operations and :meth:`group` thread-safe. Sequences of
+    operations, such as checking for a key before setting it, are not atomic.
+    """
+
     @abstractmethod
     def __contains__(self, key: str) -> bool: ...
     @abstractmethod
@@ -121,46 +129,50 @@ class ObstoreCache(JobCache):
 
 
 class InMemoryCache(JobCache):
-    def __init__(self) -> None:
+    def __init__(self, *, _lock: Any | None = None) -> None:
         """A simple in-memory cache implementation.
 
         Useful for testing and development. Provides no persistence, and
         no way of sharing data between multiple task runners.
         """
         self.cache: dict[str, bytes | InMemoryCache] = {}
+        self._lock = _lock or RLock()
 
     def __contains__(self, key: str) -> bool:
-        return key in self.cache
+        with self._lock:
+            return key in self.cache
 
     def __setitem__(self, key: str, value: bytes) -> None:
-        parent_group, key = self._resolve_slashes(key, create_missing=False)
-        parent_group.cache[key] = value
+        with self._lock:
+            parent_group, key = self._resolve_slashes(key, create_missing=False)
+            parent_group.cache[key] = value
 
     def __getitem__(self, key: str) -> bytes:
-        parent_group, key = self._resolve_slashes(key, create_missing=False)
-        item = parent_group.cache[key]
-        if not isinstance(item, bytes):
-            # item is a directory
-            raise KeyError(f"{key} is not cached!")
-        return item
+        with self._lock:
+            parent_group, key = self._resolve_slashes(key, create_missing=False)
+            item = parent_group.cache[key]
+            if not isinstance(item, bytes):
+                # item is a directory
+                raise KeyError(f"{key} is not cached!")
+            return item
 
     def __iter__(self) -> Iterator[str]:
-        for k, v in self.cache.items():
-            if isinstance(v, bytes):
-                yield k
+        with self._lock:
+            return iter([key for key, value in self.cache.items() if isinstance(value, bytes)])
 
     def group(self, key: str) -> "InMemoryCache":
-        parent_group, key = self._resolve_slashes(key, create_missing=True)
-        try:
-            group = parent_group.cache[key]
-        except KeyError:
-            group = InMemoryCache()
-            parent_group.cache[key] = group
+        with self._lock:
+            parent_group, key = self._resolve_slashes(key, create_missing=True)
+            try:
+                group = parent_group.cache[key]
+            except KeyError:
+                group = InMemoryCache(_lock=self._lock)
+                parent_group.cache[key] = group
 
-        if not isinstance(group, InMemoryCache):
-            # if key is a file, we return an empty group
-            return InMemoryCache()
-        return group
+            if not isinstance(group, InMemoryCache):
+                # if key is a file, we return an empty group
+                return InMemoryCache(_lock=self._lock)
+            return group
 
     def _resolve_slashes(self, key: str, create_missing: bool = False) -> tuple["InMemoryCache", str]:
         """Resolve slashes in a given cache key, by converting them into nested groups.
@@ -187,7 +199,7 @@ class InMemoryCache(JobCache):
             except KeyError:
                 if create_missing:
                     # create a new group for this key if it doesn't exist
-                    sub_group = InMemoryCache()
+                    sub_group = InMemoryCache(_lock=self._lock)
                     group.cache[part] = sub_group
                 else:
                     raise KeyError(f"{part} is not cached!") from None

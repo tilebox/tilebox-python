@@ -71,6 +71,21 @@ runner = client.runner(tasks=[MyFirstTask])
 runner.run_all()
 ```
 
+## Concurrent worker execution
+
+A worker runtime can execute multiple tasks concurrently in one Python process. Each execution receives a newly
+deserialized task instance and its own `ExecutionContext`, including task-local subtask and progress state. The
+`RunnerContext`, configured `JobCache`, and any class or module state are process-level resources shared by those
+executions.
+
+Custom runner contexts, caches, and shared task state must therefore support concurrent access from multiple threads.
+Asynchronous task executions may also run on different event loops. Configure and register these resources before the
+worker starts; do not mutate runner configuration while tasks are executing. Compound cache operations are not atomic
+unless the cache implementation explicitly provides that guarantee.
+
+Concurrency in one runtime avoids repeated process initialization and allows overlapping I/O or native code that
+releases Python's GIL. CPU-bound Python code still needs multiple runtime processes for parallel execution.
+
 ## Documentation
 
 Check out the [Tilebox Workflows documentation](https://docs.tilebox.com/workflows/introduction) for more information.

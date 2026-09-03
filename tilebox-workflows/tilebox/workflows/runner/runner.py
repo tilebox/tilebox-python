@@ -13,6 +13,12 @@ if TYPE_CHECKING:
 
 
 class Runner:
+    """Registry and process-level resources for executing workflow tasks.
+
+    Register tasks and configure the runner before starting it. A worker runtime can execute several registered tasks
+    concurrently; task classes and configured context and cache implementations must follow their concurrency contracts.
+    """
+
     def __init__(
         self,
         *,
