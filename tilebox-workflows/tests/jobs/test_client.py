@@ -14,6 +14,8 @@ from tilebox.workflows.data import (
     JobState,
     LogRecord,
     LogRecords,
+    LogSeverity,
+    LogSeverityLiteral,
     QueryJobLogsResponse,
     QueryJobSpansResponse,
     Span,
@@ -23,6 +25,7 @@ from tilebox.workflows.data import (
 )
 from tilebox.workflows.jobs.client import JobClient
 from tilebox.workflows.jobs.service import JobService
+from tilebox.workflows.jobs.telemetry_service import TelemetryService
 from tilebox.workflows.observability.tracing import NoopWorkflowTracer
 from tilebox.workflows.task import ExecutionContext, Task
 from tilebox.workflows.workflows.v1.core_pb2 import Job as JobMessage
@@ -40,6 +43,7 @@ from tilebox.workflows.workflows.v1.job_pb2 import (
     VisualizeJobRequest,
 )
 from tilebox.workflows.workflows.v1.job_pb2_grpc import JobServiceStub
+from tilebox.workflows.workflows.v1.telemetry_pb2 import PaginatedLogsData, PaginatedSpansData
 
 
 class DummyTask(Task):
@@ -89,6 +93,32 @@ def test_query_logs_paginates() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    ("level", "expected"),
+    [
+        (LogSeverity.WARNING, [LogSeverity.WARNING.value]),
+        ("warning", [LogSeverity.WARNING.value]),
+        ([LogSeverity.WARNING, LogSeverity.ERROR], [LogSeverity.WARNING.value, LogSeverity.ERROR.value]),
+        (["warning", "error"], [LogSeverity.WARNING.value, LogSeverity.ERROR.value]),
+    ],
+)
+def test_query_logs_filters_by_task_and_severity(
+    level: LogSeverity | LogSeverityLiteral | list[LogSeverity] | list[LogSeverityLiteral], expected: list[int]
+) -> None:
+    service = MagicMock()
+    service.QueryJobLogs.return_value = PaginatedLogsData()
+    telemetry_service = TelemetryService(MagicMock())
+    telemetry_service.service = service
+    job_client = JobClient(MagicMock(), telemetry_service, NoopWorkflowTracer())
+    task_id = uuid4()
+
+    job_client.query_logs(uuid4(), task_id=str(task_id), level=level)
+
+    request = service.QueryJobLogs.call_args.args[0]
+    assert uuid_message_to_uuid(request.task_id) == task_id
+    assert list(request.filters.severity_levels) == expected
+
+
 def test_query_spans_paginates() -> None:
     next_page_start = uuid4()
     spans = [
@@ -135,6 +165,20 @@ def test_query_spans_paginates() -> None:
         None,
         next_page_start,
     ]
+
+
+def test_query_spans_filters_by_task() -> None:
+    service = MagicMock()
+    service.QueryJobSpans.return_value = PaginatedSpansData()
+    telemetry_service = TelemetryService(MagicMock())
+    telemetry_service.service = service
+    job_client = JobClient(MagicMock(), telemetry_service, NoopWorkflowTracer())
+    task_id = uuid4()
+
+    job_client.query_spans(uuid4(), task_id=str(task_id))
+
+    request = service.QueryJobSpans.call_args.args[0]
+    assert uuid_message_to_uuid(request.task_id) == task_id
 
 
 class MockJobService(JobServiceStub):
@@ -219,6 +263,19 @@ def test_query_empty_cluster_list_applies_no_cluster_filter() -> None:
     job_client.query((uuid4(), uuid4()), clusters=[])
 
     assert list(mock_service.query_requests[-1].filters.cluster_slugs) == []
+
+
+def test_query_without_temporal_extent() -> None:
+    service = JobService(MagicMock())
+    mock_service = MockJobService()
+    service.service = mock_service
+    job_client = JobClient(service, MagicMock(), NoopWorkflowTracer())
+
+    job_client.query(job_states=JobState.RUNNING)
+
+    filters = mock_service.query_requests[-1].filters
+    assert not filters.HasField("time_interval")
+    assert not filters.HasField("id_interval")
 
 
 def test_query_rejects_empty_cluster_slug() -> None:

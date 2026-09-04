@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import Literal, TypeAlias, TypedDict
+from warnings import warn
 
 from shapely import Geometry, from_wkb, to_wkb
 
@@ -15,7 +16,8 @@ from tilebox.datasets.query.time_interval import TimeInterval
 
 class SpatialFilterMode(Enum):
     INTERSECTS = data_access_pb2.SPATIAL_FILTER_MODE_INTERSECTS
-    CONTAINS = data_access_pb2.SPATIAL_FILTER_MODE_CONTAINS
+    FILTER_CONTAINS_GEOMETRY = data_access_pb2.SPATIAL_FILTER_MODE_FILTER_CONTAINS_GEOMETRY
+    GEOMETRY_CONTAINS_FILTER = data_access_pb2.SPATIAL_FILTER_MODE_GEOMETRY_CONTAINS_FILTER
 
 
 _filter_modes_from_string = {mode.name.lower(): mode for mode in SpatialFilterMode}
@@ -33,7 +35,10 @@ _coordinate_system_int_to_enum = {system.value: system for system in SpatialCoor
 
 class SpatialFilterDict(TypedDict):
     geometry: Geometry
-    mode: NotRequired[SpatialFilterMode | Literal["intersects", "contains"]]
+    # "contains" is deprecated and retained only for backwards compatibility.
+    mode: NotRequired[
+        SpatialFilterMode | Literal["intersects", "filter_contains_geometry", "geometry_contains_filter", "contains"]
+    ]
     coordinate_system: NotRequired[SpatialCoordinateSystem | Literal["cartesian", "spherical"]]
 
 
@@ -49,8 +54,8 @@ class SpatialFilter:
 
     Args:
         geometry: The spatial geometry to filter by (e.g. a polygon)
-        mode: The spatial filter mode to use. Can be one of "intersects" or "contains".
-            Defaults to "intersects".
+        mode: The spatial filter mode to use. Can be one of "intersects", "filter_contains_geometry", or
+            "geometry_contains_filter". Defaults to "intersects".
         crs: The coordinate system to use for performing geometry calculations. Can be one
             of "cartesian" or "spherical".
     """
@@ -92,6 +97,13 @@ class SpatialFilter:
         if isinstance(spatial_filter_like, dict):
             mode = spatial_filter_like.get("mode", None)
             if isinstance(mode, str):
+                if mode.lower() == "contains":
+                    warn(
+                        'The spatial filter mode "contains" is deprecated. Use "filter_contains_geometry" instead.',
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
+                    mode = "filter_contains_geometry"
                 mode = _filter_modes_from_string.get(mode.lower())
             coordinate_system = spatial_filter_like.get("coordinate_system", None)
             if isinstance(coordinate_system, str):

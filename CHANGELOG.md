@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.61.0] - 2026-09-04
+
 ### Added
 
 - `tilebox-grpc`: Add runtime and execution environment metadata to all API requests using the `Tilebox-Client` header.
+- `tilebox-datasets`: Add explicit `filter_contains_geometry` and `geometry_contains_filter` spatial query modes, 
+  deprecated the legacy `contains` mode which is an alias for `filter_contains_geometry`.
+- `tilebox-workflows`: Add task ID filters to job log and span queries and severity filters to job log queries.
+- `tilebox-workflows`: Allow querying jobs without specifying a temporal extent.
 
 ### Fixed
 
@@ -489,7 +495,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.60.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.61.0...HEAD
+[0.61.0]: https://github.com/tilebox/tilebox-python/compare/v0.60.0...v0.61.0
 [0.60.0]: https://github.com/tilebox/tilebox-python/compare/v0.59.0...v0.60.0
 [0.59.0]: https://github.com/tilebox/tilebox-python/compare/v0.58.0...v0.59.0 
 [0.58.0]: https://github.com/tilebox/tilebox-python/compare/v0.57.0...v0.58.0 

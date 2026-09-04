@@ -11,6 +11,8 @@ from tilebox.workflows.data import (
     Job,
     JobState,
     LogRecords,
+    LogSeverity,
+    LogSeverityLiteral,
     QueryFilters,
     QueryJobLogsResponse,
     QueryJobSpansResponse,
@@ -138,19 +140,36 @@ class JobClient:
         """
         return self._service.get_by_id(_to_uuid(job_id))
 
-    def query_logs(self, job_id: JobIDLike) -> LogRecords:
+    def query_logs(
+        self,
+        job_id: JobIDLike,
+        *,
+        task_id: UUID | str | None = None,
+        level: LogSeverity | LogSeverityLiteral | list[LogSeverity] | list[LogSeverityLiteral] | None = None,
+    ) -> LogRecords:
         """Query logs emitted while running a job.
 
         Args:
             job_id: The job or job id to query logs for.
+            task_id: A task id to filter logs by.
+            level: A severity level or list of severity levels to filter logs by.
 
         Returns:
             A list of log records for the given job.
         """
 
+        task_uuid = UUID(task_id) if isinstance(task_id, str) else task_id
+        levels = level if isinstance(level, list) else [level] if level is not None else []
+        try:
+            severity_levels = [
+                LogSeverity[severity.upper()] if isinstance(severity, str) else severity for severity in levels
+            ]
+        except KeyError as error:
+            raise ValueError(f"Invalid log severity level: {error.args[0].lower()}") from None
+
         def request(page: PaginationProtocol) -> QueryJobLogsResponse:
             query_page = Pagination(page.limit, page.starting_after)
-            return self._telemetry_service.query_job_logs(_to_uuid(job_id), query_page)
+            return self._telemetry_service.query_job_logs(_to_uuid(job_id), query_page, task_uuid, severity_levels)
 
         pages = paginated_request(request, Pagination())
 
@@ -159,19 +178,22 @@ class JobClient:
             logs.extend(page.logs)
         return logs
 
-    def query_spans(self, job_id: JobIDLike) -> Spans:
+    def query_spans(self, job_id: JobIDLike, *, task_id: UUID | str | None = None) -> Spans:
         """Query spans emitted while running a job.
 
         Args:
             job_id: The job or job id to query spans for.
+            task_id: A task id to filter spans by.
 
         Returns:
             A list of spans for the given job.
         """
 
+        task_uuid = UUID(task_id) if isinstance(task_id, str) else task_id
+
         def request(page: PaginationProtocol) -> QueryJobSpansResponse:
             query_page = Pagination(page.limit, page.starting_after)
-            return self._telemetry_service.query_job_spans(_to_uuid(job_id), query_page)
+            return self._telemetry_service.query_job_spans(_to_uuid(job_id), query_page, task_uuid)
 
         pages = paginated_request(request, Pagination())
 
@@ -211,18 +233,18 @@ class JobClient:
 
     def query(  # noqa: PLR0913, PLR0917
         self,
-        temporal_extent: "TimeIntervalLike | IDIntervalLike",
+        temporal_extent: "TimeIntervalLike | IDIntervalLike | None" = None,
         automation_ids: UUID | list[UUID] | None = None,
         job_states: JobState | list[JobState] | None = None,
         name: str | None = None,
         task_states: TaskState | list[TaskState] | None = None,
         clusters: ClusterSlugLike | list[ClusterSlugLike] | None = None,
     ) -> list[Job]:
-        """List jobs in the given temporal extent.
+        """List jobs matching the given filters.
 
         Args:
-            temporal_extent: The temporal extent to filter jobs by. If an IDInterval is given, jobs are filtered by their
-                job id instead of their creation time.
+            temporal_extent: The optional temporal extent to filter jobs by. If an IDInterval is given, jobs are filtered
+                by their job id instead of their creation time. If omitted, jobs are not filtered by time or id.
                 Can be specified in a number of ways:
                 - TimeInterval: interval -> Use the time interval as its given
                 - DatetimeScalar: [time, time] -> Construct a TimeInterval with start and end time set to the given
@@ -250,6 +272,8 @@ class JobClient:
         time_interval: TimeInterval | None = None
         id_interval: IDInterval | None = None
         match temporal_extent:
+            case None:
+                pass
             case (str(), str()):
                 # ty doesn't narrow types on match statements yet, once it does we can remove this cast
                 str_temporal_extent: tuple[str, str] = temporal_extent  # ty: ignore[invalid-assignment]

@@ -457,12 +457,12 @@ class CollectionClient:
             spatial_extent: The spatial extent to query data in. (Optional)
                 Expected to be either a shapely geometry, or a dict with the following keys:
                 - geometry: The geometry to query by. Must be a shapely.Polygon, shapely.MultiPolygon or shapely.Point.
-                - mode: The spatial filter mode to use. Can be one of "intersects" or "contains".
-                    Defaults to "intersects".
+                - mode: The spatial filter mode to use. Can be one of "intersects", "filter_contains_geometry", or
+                    "geometry_contains_filter". Defaults to "intersects".
                 - coordinate_system: The coordinate system to use for performing geometry calculations. Can be one
                     of "cartesian" or "spherical".
                 Only supported for spatiotemporal datasets. Will raise an error if used for other dataset types.
-                All datapoints whose geometry intersects the given spatial extent will be returned.
+                Datapoints matching the selected spatial filter mode will be returned.
             skip_data: Whether to skip the actual data of the datapoint. If True, only datapoint metadata is returned.
             show_progress: Whether to show a progress bar while loading the data.
                 If a callable is specified it is used as callback to report progress percentages.
