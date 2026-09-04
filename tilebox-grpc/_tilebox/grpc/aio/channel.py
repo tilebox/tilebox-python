@@ -9,6 +9,7 @@ from _tilebox.grpc.channel import (
     parse_channel_info,
     update_method,
 )
+from _tilebox.grpc.client_metadata import client_metadata
 from grpc import Compression, ssl_channel_credentials
 from grpc.aio import (
     Channel,
@@ -34,7 +35,7 @@ def open_channel(url: str, auth_token: str | None = None, rpc_method_prefix: str
         A gRPC channel.
     """
     channel_info = parse_channel_info(url)
-    interceptors: list[ClientInterceptor] = []
+    interceptors: list[ClientInterceptor] = [_ClientMetadataInterceptor()]
     if auth_token is not None:
         interceptors = [_AuthMetadataInterceptor(auth_token), *interceptors]  # add auth interceptor as the first one
     if rpc_method_prefix is not None:
@@ -88,6 +89,20 @@ class _AuthMetadataInterceptor(UnaryUnaryClientInterceptor):
         request: RequestType,
     ) -> UnaryUnaryCall:
         return await continuation(add_metadata(client_call_details, [self._auth]), request)
+
+
+class _ClientMetadataInterceptor(UnaryUnaryClientInterceptor):
+    def __init__(self) -> None:
+        super().__init__()
+        self._metadata = [(key.lower(), value) for key, value in client_metadata().items()]
+
+    async def intercept_unary_unary(
+        self,
+        continuation: Callable[[ClientCallDetails, RequestType], UnaryUnaryCall],
+        client_call_details: ClientCallDetails,
+        request: RequestType,
+    ) -> UnaryUnaryCall:
+        return await continuation(add_metadata(client_call_details, self._metadata), request)
 
 
 class _RpcMethodPrefixInterceptor(UnaryUnaryClientInterceptor):

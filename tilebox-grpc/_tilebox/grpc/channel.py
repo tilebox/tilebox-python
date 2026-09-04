@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal, TypeVar
 
+from _tilebox.grpc.client_metadata import client_metadata
 from _tilebox.grpc.error import async_wrap_connect_rpc, wrap_connect_rpc
 from grpc import (
     Channel,
@@ -77,7 +78,7 @@ def open_channel(url: str, auth_token: str | None = None, rpc_method_prefix: str
         A sync gRPC channel.
     """
     channel_info = parse_channel_info(url)
-    interceptors: list[UnaryUnaryClientInterceptor] = []
+    interceptors: list[UnaryUnaryClientInterceptor] = [_ClientMetadataInterceptor()]
     if auth_token is not None:
         interceptors = [_AuthMetadataInterceptor(auth_token), *interceptors]  # add auth interceptor as the first one
     if rpc_method_prefix is not None:
@@ -185,7 +186,7 @@ class ConnectStubAdapter:
         method_path_prefix = _rpc_method_prefix_path(rpc_method_prefix)
         service_name = _connect_service_name(client)
         self._client = client
-        self._headers = headers
+        self._headers = {**(headers or {}), **client_metadata()}
 
         for connect_name in _connect_client_methods(client):
             grpc_name = _snake_to_pascal_case(connect_name)
@@ -211,7 +212,7 @@ class AsyncConnectStubAdapter:
         method_path_prefix = _rpc_method_prefix_path(rpc_method_prefix)
         service_name = _connect_service_name(client)
         self._client = client
-        self._headers = headers
+        self._headers = {**(headers or {}), **client_metadata()}
 
         for connect_name in _connect_client_methods(client):
             grpc_name = _snake_to_pascal_case(connect_name)
@@ -276,6 +277,20 @@ class _AuthMetadataInterceptor(UnaryUnaryClientInterceptor):
         request: RequestType,
     ) -> ResponseType:
         return continuation(add_metadata(client_call_details, [self._auth]), request)
+
+
+class _ClientMetadataInterceptor(UnaryUnaryClientInterceptor):
+    def __init__(self) -> None:
+        super().__init__()
+        self._metadata = [(key.lower(), value) for key, value in client_metadata().items()]
+
+    def intercept_unary_unary(
+        self,
+        continuation: Callable[[ClientCallDetails, RequestType], ResponseType],
+        client_call_details: ClientCallDetails,
+        request: RequestType,
+    ) -> ResponseType:
+        return continuation(add_metadata(client_call_details, self._metadata), request)
 
 
 class _RpcMethodPrefixInterceptor(UnaryUnaryClientInterceptor):

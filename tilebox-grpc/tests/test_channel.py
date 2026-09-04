@@ -4,13 +4,17 @@ import pytest
 
 from _tilebox.grpc.channel import (
     CHANNEL_OPTIONS,
+    AsyncConnectStubAdapter,
     ChannelProtocol,
     ClientCallDetails,
+    ConnectStubAdapter,
+    _ClientMetadataInterceptor,
     _RpcMethodPrefixInterceptor,
     connect_address,
     open_channel,
     parse_channel_info,
 )
+from _tilebox.grpc.client_metadata import CLIENT_HEADER
 
 
 @patch("_tilebox.grpc.channel.secure_channel")
@@ -39,6 +43,62 @@ def test_open_authenticated_channel(open_func: MagicMock, intercept_func: MagicM
     assert intercept_func.call_args[0][1]._auth == ("authorization", "Bearer very-secret")
 
 
+@patch("_tilebox.grpc.channel.client_metadata", return_value={CLIENT_HEADER: 'name="python"'})
+def test_client_metadata_interceptor(client_metadata: MagicMock) -> None:
+    interceptor = _ClientMetadataInterceptor()
+    continuation = MagicMock()
+
+    interceptor.intercept_unary_unary(
+        continuation,
+        ClientCallDetails("/some-rpc-method", 10, [("authorization", "Bearer token")], None, True),
+        MagicMock(),
+    )
+
+    client_metadata.assert_called_once_with()
+    metadata = continuation.call_args[0][0].metadata
+    assert ("authorization", "Bearer token") in metadata
+    assert (CLIENT_HEADER.lower(), 'name="python"') in metadata
+
+
+class _ConnectClient:
+    def get_value(self, request: str, *, headers: dict[str, str]) -> tuple[str, dict[str, str]]:
+        return request, headers
+
+
+class _AsyncConnectClient:
+    async def get_value(self, request: str, *, headers: dict[str, str]) -> tuple[str, dict[str, str]]:
+        return request, headers
+
+
+@patch("_tilebox.grpc.channel.client_metadata", return_value={CLIENT_HEADER: 'name="python"'})
+def test_connect_stub_adapter_adds_client_metadata(client_metadata: MagicMock) -> None:
+    adapter = ConnectStubAdapter(_ConnectClient(), {"authorization": "Bearer token"})
+
+    request, headers = adapter.GetValue("request")  # ty: ignore[unresolved-attribute]  # added dynamically
+
+    assert request == "request"
+    assert headers == {
+        "authorization": "Bearer token",
+        CLIENT_HEADER: 'name="python"',
+    }
+    client_metadata.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+@patch("_tilebox.grpc.channel.client_metadata", return_value={CLIENT_HEADER: 'name="python"'})
+async def test_async_connect_stub_adapter_adds_client_metadata(client_metadata: MagicMock) -> None:
+    adapter = AsyncConnectStubAdapter(_AsyncConnectClient(), {"authorization": "Bearer token"})
+
+    request, headers = await adapter.GetValue("request")  # ty: ignore[unresolved-attribute]  # added dynamically
+
+    assert request == "request"
+    assert headers == {
+        "authorization": "Bearer token",
+        CLIENT_HEADER: 'name="python"',
+    }
+    client_metadata.assert_called_once_with()
+
+
 @patch("_tilebox.grpc.channel.intercept_channel")
 @patch("_tilebox.grpc.channel.secure_channel")
 def test_open_channel_with_rpc_method_prefix(open_func: MagicMock, intercept_func: MagicMock) -> None:
@@ -46,7 +106,7 @@ def test_open_channel_with_rpc_method_prefix(open_func: MagicMock, intercept_fun
     open_func.assert_called_once()
     intercept_func.assert_called_once()
 
-    assert intercept_func.call_args[0][1]._prefix == "/public"
+    assert intercept_func.call_args[0][2]._prefix == "/public"
 
 
 def test_rpc_method_prefix_interceptor() -> None:

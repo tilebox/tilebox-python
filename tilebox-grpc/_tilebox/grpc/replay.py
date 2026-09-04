@@ -8,6 +8,7 @@ from google.protobuf.message import Message
 
 from _tilebox.grpc.channel import (
     _AuthMetadataInterceptor,
+    _ClientMetadataInterceptor,
     _open_channel,
     parse_channel_info,
 )
@@ -32,7 +33,7 @@ ResponseType = TypeVar("ResponseType")
 def open_recording_channel(url: str, auth_token: str | None, recording: str | Path) -> Channel:
     """Open a gRPC channel to the given URL and record all requests and responses to a file."""
     channel_info = parse_channel_info(url)
-    interceptors: list[UnaryUnaryClientInterceptor] = [_RecordRPCsInterceptor(recording)]
+    interceptors: list[UnaryUnaryClientInterceptor] = [_ClientMetadataInterceptor(), _RecordRPCsInterceptor(recording)]
     if auth_token is not None:
         interceptors = [_AuthMetadataInterceptor(auth_token), *interceptors]  # add auth interceptor as the first one
 

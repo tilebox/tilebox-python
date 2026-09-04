@@ -47,6 +47,12 @@ class JobService(Protocol):
     async def clone_job(self, request: workflows_dot_v1_dot_job__pb2.CloneJobRequest, ctx: RequestContext) -> workflows_dot_v1_dot_core__pb2.Job:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
+    async def get_job_state_counts(self, request: workflows_dot_v1_dot_job__pb2.GetJobStateCountsRequest, ctx: RequestContext) -> workflows_dot_v1_dot_job__pb2.GetJobStateCountsResponse:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+
+    async def get_task_queue_stats(self, request: workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsRequest, ctx: RequestContext) -> workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsResponse:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+
 
 class JobServiceASGIApplication(ConnectASGIApplication[JobService]):
     def __init__(self, service: JobService | AsyncGenerator[JobService], *, interceptors: Iterable[Interceptor]=(), read_max_bytes: int | None = None, compressions: Iterable[Compression] | None = None, codecs: Iterable[Codec] | None = None) -> None:
@@ -142,6 +148,26 @@ class JobServiceASGIApplication(ConnectASGIApplication[JobService]):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=svc.clone_job,
+                ),
+                "/workflows.v1.JobService/GetJobStateCounts": Endpoint.unary(
+                    method=MethodInfo(
+                        name="GetJobStateCounts",
+                        service_name="workflows.v1.JobService",
+                        input=workflows_dot_v1_dot_job__pb2.GetJobStateCountsRequest,
+                        output=workflows_dot_v1_dot_job__pb2.GetJobStateCountsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.get_job_state_counts,
+                ),
+                "/workflows.v1.JobService/GetTaskQueueStats": Endpoint.unary(
+                    method=MethodInfo(
+                        name="GetTaskQueueStats",
+                        service_name="workflows.v1.JobService",
+                        input=workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsRequest,
+                        output=workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.get_task_queue_stats,
                 ),
             },
             interceptors=interceptors,
@@ -337,6 +363,46 @@ class JobServiceClient(ConnectClient):
             timeout_ms=timeout_ms,
         )
 
+    async def get_job_state_counts(
+        self,
+        request: workflows_dot_v1_dot_job__pb2.GetJobStateCountsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_job__pb2.GetJobStateCountsResponse:
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="GetJobStateCounts",
+                service_name="workflows.v1.JobService",
+                input=workflows_dot_v1_dot_job__pb2.GetJobStateCountsRequest,
+                output=workflows_dot_v1_dot_job__pb2.GetJobStateCountsResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    async def get_task_queue_stats(
+        self,
+        request: workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsResponse:
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="GetTaskQueueStats",
+                service_name="workflows.v1.JobService",
+                input=workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsRequest,
+                output=workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
 
 
 
@@ -359,6 +425,10 @@ class JobServiceSync(Protocol):
     def get_job_prototype(self, request: workflows_dot_v1_dot_job__pb2.GetJobPrototypeRequest, ctx: RequestContext) -> workflows_dot_v1_dot_job__pb2.GetJobPrototypeResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def clone_job(self, request: workflows_dot_v1_dot_job__pb2.CloneJobRequest, ctx: RequestContext) -> workflows_dot_v1_dot_core__pb2.Job:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+    def get_job_state_counts(self, request: workflows_dot_v1_dot_job__pb2.GetJobStateCountsRequest, ctx: RequestContext) -> workflows_dot_v1_dot_job__pb2.GetJobStateCountsResponse:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+    def get_task_queue_stats(self, request: workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsRequest, ctx: RequestContext) -> workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
 
@@ -455,6 +525,26 @@ class JobServiceWSGIApplication(ConnectWSGIApplication):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=service.clone_job,
+                ),
+                "/workflows.v1.JobService/GetJobStateCounts": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="GetJobStateCounts",
+                        service_name="workflows.v1.JobService",
+                        input=workflows_dot_v1_dot_job__pb2.GetJobStateCountsRequest,
+                        output=workflows_dot_v1_dot_job__pb2.GetJobStateCountsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.get_job_state_counts,
+                ),
+                "/workflows.v1.JobService/GetTaskQueueStats": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="GetTaskQueueStats",
+                        service_name="workflows.v1.JobService",
+                        input=workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsRequest,
+                        output=workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.get_task_queue_stats,
                 ),
             },
             interceptors=interceptors,
@@ -644,6 +734,46 @@ class JobServiceClientSync(ConnectClientSync):
                 service_name="workflows.v1.JobService",
                 input=workflows_dot_v1_dot_job__pb2.CloneJobRequest,
                 output=workflows_dot_v1_dot_core__pb2.Job,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    def get_job_state_counts(
+        self,
+        request: workflows_dot_v1_dot_job__pb2.GetJobStateCountsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_job__pb2.GetJobStateCountsResponse:
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="GetJobStateCounts",
+                service_name="workflows.v1.JobService",
+                input=workflows_dot_v1_dot_job__pb2.GetJobStateCountsRequest,
+                output=workflows_dot_v1_dot_job__pb2.GetJobStateCountsResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    def get_task_queue_stats(
+        self,
+        request: workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsResponse:
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="GetTaskQueueStats",
+                service_name="workflows.v1.JobService",
+                input=workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsRequest,
+                output=workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsResponse,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,

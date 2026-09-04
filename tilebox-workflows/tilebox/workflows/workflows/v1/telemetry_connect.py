@@ -24,6 +24,9 @@ class TelemetryQueryService(Protocol):
     async def query_logs_in_interval(self, request: workflows_dot_v1_dot_telemetry__pb2.QueryLogsInIntervalRequest, ctx: RequestContext) -> workflows_dot_v1_dot_telemetry__pb2.PaginatedLogsData:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
+    async def get_log_message_counts(self, request: workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsRequest, ctx: RequestContext) -> workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsResponse:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+
     async def query_job_spans(self, request: workflows_dot_v1_dot_telemetry__pb2.QueryJobSpansRequest, ctx: RequestContext) -> workflows_dot_v1_dot_telemetry__pb2.PaginatedSpansData:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
@@ -52,6 +55,16 @@ class TelemetryQueryServiceASGIApplication(ConnectASGIApplication[TelemetryQuery
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=svc.query_logs_in_interval,
+                ),
+                "/workflows.v1.TelemetryQueryService/GetLogMessageCounts": Endpoint.unary(
+                    method=MethodInfo(
+                        name="GetLogMessageCounts",
+                        service_name="workflows.v1.TelemetryQueryService",
+                        input=workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsRequest,
+                        output=workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.get_log_message_counts,
                 ),
                 "/workflows.v1.TelemetryQueryService/QueryJobSpans": Endpoint.unary(
                     method=MethodInfo(
@@ -117,6 +130,26 @@ class TelemetryQueryServiceClient(ConnectClient):
             timeout_ms=timeout_ms,
         )
 
+    async def get_log_message_counts(
+        self,
+        request: workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsResponse:
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="GetLogMessageCounts",
+                service_name="workflows.v1.TelemetryQueryService",
+                input=workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsRequest,
+                output=workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
     async def query_job_spans(
         self,
         request: workflows_dot_v1_dot_telemetry__pb2.QueryJobSpansRequest,
@@ -146,6 +179,8 @@ class TelemetryQueryServiceSync(Protocol):
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def query_logs_in_interval(self, request: workflows_dot_v1_dot_telemetry__pb2.QueryLogsInIntervalRequest, ctx: RequestContext) -> workflows_dot_v1_dot_telemetry__pb2.PaginatedLogsData:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+    def get_log_message_counts(self, request: workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsRequest, ctx: RequestContext) -> workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsResponse:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def query_job_spans(self, request: workflows_dot_v1_dot_telemetry__pb2.QueryJobSpansRequest, ctx: RequestContext) -> workflows_dot_v1_dot_telemetry__pb2.PaginatedSpansData:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
@@ -173,6 +208,16 @@ class TelemetryQueryServiceWSGIApplication(ConnectWSGIApplication):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=service.query_logs_in_interval,
+                ),
+                "/workflows.v1.TelemetryQueryService/GetLogMessageCounts": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="GetLogMessageCounts",
+                        service_name="workflows.v1.TelemetryQueryService",
+                        input=workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsRequest,
+                        output=workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.get_log_message_counts,
                 ),
                 "/workflows.v1.TelemetryQueryService/QueryJobSpans": EndpointSync.unary(
                     method=MethodInfo(
@@ -232,6 +277,26 @@ class TelemetryQueryServiceClientSync(ConnectClientSync):
                 service_name="workflows.v1.TelemetryQueryService",
                 input=workflows_dot_v1_dot_telemetry__pb2.QueryLogsInIntervalRequest,
                 output=workflows_dot_v1_dot_telemetry__pb2.PaginatedLogsData,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    def get_log_message_counts(
+        self,
+        request: workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsResponse:
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="GetLogMessageCounts",
+                service_name="workflows.v1.TelemetryQueryService",
+                input=workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsRequest,
+                output=workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsResponse,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,
