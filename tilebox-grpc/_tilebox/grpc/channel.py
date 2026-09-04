@@ -3,10 +3,9 @@ import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as package_version
 from typing import Literal, TypeVar
 
+from _tilebox.grpc.client_metadata import client_metadata
 from _tilebox.grpc.error import async_wrap_connect_rpc, wrap_connect_rpc
 from grpc import (
     Channel,
@@ -47,9 +46,6 @@ CHANNEL_OPTIONS = [
     ("grpc.max_receive_message_length", 512 * 1024 * 1024),  # Max 512 MB
     ("grpc.service_config", json.dumps(_SERVICE_CONFIG)),
 ]
-
-CLIENT_SOURCE_HEADER = "tilebox-client-source"
-CLIENT_VERSION_HEADER = "tilebox-client-version"
 
 
 class ChannelProtocol(Enum):
@@ -190,7 +186,7 @@ class ConnectStubAdapter:
         method_path_prefix = _rpc_method_prefix_path(rpc_method_prefix)
         service_name = _connect_service_name(client)
         self._client = client
-        self._headers = {**(headers or {}), **_client_metadata()}
+        self._headers = {**(headers or {}), **client_metadata()}
 
         for connect_name in _connect_client_methods(client):
             grpc_name = _snake_to_pascal_case(connect_name)
@@ -216,7 +212,7 @@ class AsyncConnectStubAdapter:
         method_path_prefix = _rpc_method_prefix_path(rpc_method_prefix)
         service_name = _connect_service_name(client)
         self._client = client
-        self._headers = {**(headers or {}), **_client_metadata()}
+        self._headers = {**(headers or {}), **client_metadata()}
 
         for connect_name in _connect_client_methods(client):
             grpc_name = _snake_to_pascal_case(connect_name)
@@ -286,7 +282,7 @@ class _AuthMetadataInterceptor(UnaryUnaryClientInterceptor):
 class _ClientMetadataInterceptor(UnaryUnaryClientInterceptor):
     def __init__(self) -> None:
         super().__init__()
-        self._metadata = list(_client_metadata().items())
+        self._metadata = [(key.lower(), value) for key, value in client_metadata().items()]
 
     def intercept_unary_unary(
         self,
@@ -318,17 +314,6 @@ def add_metadata(
     metadata = [] if client_call_details.metadata is None else list(client_call_details.metadata)
     metadata.extend(additional_metadata)
     return _replace_call_details(client_call_details, metadata=metadata)
-
-
-def _client_metadata() -> dict[str, str]:
-    try:
-        client_version = package_version("tilebox-grpc")
-    except PackageNotFoundError:
-        client_version = "dev"
-    return {
-        CLIENT_SOURCE_HEADER: "python_sdk",
-        CLIENT_VERSION_HEADER: client_version,
-    }
 
 
 def update_method(client_call_details: ClientCallDetails, prefix: str) -> ClientCallDetails:

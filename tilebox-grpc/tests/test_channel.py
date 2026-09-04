@@ -1,12 +1,9 @@
-from importlib.metadata import PackageNotFoundError
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from _tilebox.grpc.channel import (
     CHANNEL_OPTIONS,
-    CLIENT_SOURCE_HEADER,
-    CLIENT_VERSION_HEADER,
     AsyncConnectStubAdapter,
     ChannelProtocol,
     ClientCallDetails,
@@ -17,6 +14,7 @@ from _tilebox.grpc.channel import (
     open_channel,
     parse_channel_info,
 )
+from _tilebox.grpc.client_metadata import CLIENT_HEADER
 
 
 @patch("_tilebox.grpc.channel.secure_channel")
@@ -45,8 +43,8 @@ def test_open_authenticated_channel(open_func: MagicMock, intercept_func: MagicM
     assert intercept_func.call_args[0][1]._auth == ("authorization", "Bearer very-secret")
 
 
-@patch("_tilebox.grpc.channel.package_version", return_value="1.2.3")
-def test_client_metadata_interceptor(package_version: MagicMock) -> None:
+@patch("_tilebox.grpc.channel.client_metadata", return_value={CLIENT_HEADER: 'name="python"'})
+def test_client_metadata_interceptor(client_metadata: MagicMock) -> None:
     interceptor = _ClientMetadataInterceptor()
     continuation = MagicMock()
 
@@ -56,18 +54,10 @@ def test_client_metadata_interceptor(package_version: MagicMock) -> None:
         MagicMock(),
     )
 
-    package_version.assert_called_once_with("tilebox-grpc")
+    client_metadata.assert_called_once_with()
     metadata = continuation.call_args[0][0].metadata
     assert ("authorization", "Bearer token") in metadata
-    assert (CLIENT_SOURCE_HEADER, "python_sdk") in metadata
-    assert (CLIENT_VERSION_HEADER, "1.2.3") in metadata
-
-
-def test_client_metadata_uses_dev_version_when_package_is_not_installed() -> None:
-    with patch("_tilebox.grpc.channel.package_version", side_effect=PackageNotFoundError):
-        interceptor = _ClientMetadataInterceptor()
-
-    assert (CLIENT_VERSION_HEADER, "dev") in interceptor._metadata
+    assert (CLIENT_HEADER.lower(), 'name="python"') in metadata
 
 
 class _ConnectClient:
@@ -80,8 +70,8 @@ class _AsyncConnectClient:
         return request, headers
 
 
-@patch("_tilebox.grpc.channel.package_version", return_value="1.2.3")
-def test_connect_stub_adapter_adds_client_metadata(package_version: MagicMock) -> None:
+@patch("_tilebox.grpc.channel.client_metadata", return_value={CLIENT_HEADER: 'name="python"'})
+def test_connect_stub_adapter_adds_client_metadata(client_metadata: MagicMock) -> None:
     adapter = ConnectStubAdapter(_ConnectClient(), {"authorization": "Bearer token"})
 
     request, headers = adapter.GetValue("request")  # ty: ignore[unresolved-attribute]  # added dynamically
@@ -89,15 +79,14 @@ def test_connect_stub_adapter_adds_client_metadata(package_version: MagicMock) -
     assert request == "request"
     assert headers == {
         "authorization": "Bearer token",
-        CLIENT_SOURCE_HEADER: "python_sdk",
-        CLIENT_VERSION_HEADER: "1.2.3",
+        CLIENT_HEADER: 'name="python"',
     }
-    package_version.assert_called_once_with("tilebox-grpc")
+    client_metadata.assert_called_once_with()
 
 
 @pytest.mark.asyncio
-@patch("_tilebox.grpc.channel.package_version", return_value="1.2.3")
-async def test_async_connect_stub_adapter_adds_client_metadata(package_version: MagicMock) -> None:
+@patch("_tilebox.grpc.channel.client_metadata", return_value={CLIENT_HEADER: 'name="python"'})
+async def test_async_connect_stub_adapter_adds_client_metadata(client_metadata: MagicMock) -> None:
     adapter = AsyncConnectStubAdapter(_AsyncConnectClient(), {"authorization": "Bearer token"})
 
     request, headers = await adapter.GetValue("request")  # ty: ignore[unresolved-attribute]  # added dynamically
@@ -105,10 +94,9 @@ async def test_async_connect_stub_adapter_adds_client_metadata(package_version: 
     assert request == "request"
     assert headers == {
         "authorization": "Bearer token",
-        CLIENT_SOURCE_HEADER: "python_sdk",
-        CLIENT_VERSION_HEADER: "1.2.3",
+        CLIENT_HEADER: 'name="python"',
     }
-    package_version.assert_called_once_with("tilebox-grpc")
+    client_metadata.assert_called_once_with()
 
 
 @patch("_tilebox.grpc.channel.intercept_channel")

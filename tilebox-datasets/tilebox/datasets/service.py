@@ -1,6 +1,3 @@
-import os
-import sys
-from importlib.metadata import distributions
 from typing import Any
 from uuid import UUID
 
@@ -30,11 +27,9 @@ from tilebox.datasets.datasets.v1.collections_pb2 import (
 from tilebox.datasets.datasets.v1.data_access_pb2 import QueryByIDRequest, QueryRequest
 from tilebox.datasets.datasets.v1.data_ingestion_pb2 import DeleteRequest, IngestRequest
 from tilebox.datasets.datasets.v1.datasets_pb2 import (
-    ClientInfo,
     CreateDatasetRequest,
     GetDatasetRequest,
     ListDatasetsRequest,
-    Package,
     UpdateDatasetRequest,
 )
 from tilebox.datasets.query.pagination import Pagination
@@ -128,9 +123,9 @@ class TileboxDatasetService:
 
     def list_datasets(self) -> Promise[ListDatasetsResponse]:
         """List all datasets and dataset groups."""
-        return Promise.resolve(
-            self._dataset_service.ListDatasets(ListDatasetsRequest(client_info=_client_info()))
-        ).then(ListDatasetsResponse.from_message)
+        return Promise.resolve(self._dataset_service.ListDatasets(ListDatasetsRequest())).then(
+            ListDatasetsResponse.from_message
+        )
 
     def get_dataset_by_id(self, dataset_id: UUID) -> Promise[Dataset]:
         """Get a dataset by its id."""
@@ -263,34 +258,6 @@ class TileboxDatasetService:
         return Promise.resolve(self._data_ingestion_service.Delete(req)).then(
             lambda response: response.num_deleted,
         )
-
-
-def _client_info() -> ClientInfo:
-    tilebox_packages = sorted([pkg for pkg in distributions() if "tilebox" in pkg.name], key=lambda pkg: pkg.name)
-    return ClientInfo(
-        name="Python",
-        environment=_environment_info(),
-        packages=[Package(name=pkg.name, version=pkg.version) for pkg in tilebox_packages],
-    )
-
-
-def _environment_info() -> str:
-    python_version = sys.version.split(" ")[0]
-    try:
-        shell = str(get_ipython())  # ty: ignore[unresolved-reference]
-    except NameError:
-        return f"Python {python_version}"  # Probably standard Python interpreter
-
-    if "ZMQInteractiveShell" in shell:
-        if "DATALORE_USER" in os.environ:
-            return f"Jetbrains Datalore using python {python_version}"
-        return f"JupyterLab using python {python_version}"
-    if "TerminalInteractiveShell" in shell:
-        return f"Terminal IPython using python {python_version}"
-    if "google" in shell:
-        return f"Google Colab using python {python_version}"
-
-    return f"Unknown IPython using python {python_version}"
 
 
 _time_field = Field(

@@ -5,11 +5,11 @@ from _tilebox.grpc.channel import (
     CHANNEL_OPTIONS,
     ChannelInfo,
     ChannelProtocol,
-    _client_metadata,
     add_metadata,
     parse_channel_info,
     update_method,
 )
+from _tilebox.grpc.client_metadata import client_metadata
 from grpc import Compression, ssl_channel_credentials
 from grpc.aio import (
     Channel,
@@ -94,7 +94,7 @@ class _AuthMetadataInterceptor(UnaryUnaryClientInterceptor):
 class _ClientMetadataInterceptor(UnaryUnaryClientInterceptor):
     def __init__(self) -> None:
         super().__init__()
-        self._metadata = list(_client_metadata().items())
+        self._metadata = [(key.lower(), value) for key, value in client_metadata().items()]
 
     async def intercept_unary_unary(
         self,

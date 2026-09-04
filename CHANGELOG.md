@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `tilebox-grpc`: Add client source and version metadata to all API requests.
+- `tilebox-grpc`: Add runtime and execution environment metadata to all API requests using the `Tilebox-Client` header.
 
 ### Fixed
 

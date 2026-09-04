@@ -8,7 +8,7 @@ from _tilebox.grpc.aio.channel import (
     _ClientMetadataInterceptor,
     _RpcMethodPrefixInterceptor,
 )
-from _tilebox.grpc.channel import CLIENT_SOURCE_HEADER, CLIENT_VERSION_HEADER
+from _tilebox.grpc.client_metadata import CLIENT_HEADER
 
 
 @pytest.mark.asyncio
@@ -41,8 +41,8 @@ async def test_client_metadata_interceptor() -> None:
 
     metadata = mock_method.call_args[0][0].metadata
     assert ("authorization", "Bearer token") in metadata
-    assert (CLIENT_SOURCE_HEADER, "python_sdk") in metadata
-    assert any(key == CLIENT_VERSION_HEADER and value for key, value in metadata)
+    assert len([key for key, _ in metadata if key == CLIENT_HEADER.lower()]) == 1
+    assert any(key == CLIENT_HEADER.lower() and 'name="python"' in value for key, value in metadata)
 
 
 @pytest.mark.asyncio
