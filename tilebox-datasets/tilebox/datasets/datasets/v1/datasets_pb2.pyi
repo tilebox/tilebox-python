@@ -47,24 +47,6 @@ class UpdateDatasetRequest(_message.Message):
     description: str
     def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ..., type: _Optional[_Union[_dataset_type_pb2.DatasetType, _Mapping]] = ..., summary: _Optional[str] = ..., code_name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
 
-class ClientInfo(_message.Message):
-    __slots__ = ("name", "environment", "packages")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
-    PACKAGES_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    environment: str
-    packages: _containers.RepeatedCompositeFieldContainer[Package]
-    def __init__(self, name: _Optional[str] = ..., environment: _Optional[str] = ..., packages: _Optional[_Iterable[_Union[Package, _Mapping]]] = ...) -> None: ...
-
-class Package(_message.Message):
-    __slots__ = ("name", "version")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    version: str
-    def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
-
 class DeleteDatasetRequest(_message.Message):
     __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -78,10 +60,8 @@ class DeleteDatasetResponse(_message.Message):
     def __init__(self, trashed: bool = ...) -> None: ...
 
 class ListDatasetsRequest(_message.Message):
-    __slots__ = ("client_info",)
-    CLIENT_INFO_FIELD_NUMBER: _ClassVar[int]
-    client_info: ClientInfo
-    def __init__(self, client_info: _Optional[_Union[ClientInfo, _Mapping]] = ...) -> None: ...
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class ListDatasetsResponse(_message.Message):
     __slots__ = ("datasets", "groups", "server_message", "owned_datasets", "maximum_owned_datasets")

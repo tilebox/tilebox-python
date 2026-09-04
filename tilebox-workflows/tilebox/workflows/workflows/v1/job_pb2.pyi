@@ -1,3 +1,4 @@
+from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
 from tilebox.datasets.tilebox.v1 import query_pb2 as _query_pb2
@@ -204,3 +205,45 @@ class CloneJobRequest(_message.Message):
     root_tasks_overrides: _containers.RepeatedCompositeFieldContainer[_core_pb2.SingleTaskSubmission]
     job_name: str
     def __init__(self, job_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., root_tasks_overrides: _Optional[_Iterable[_Union[_core_pb2.SingleTaskSubmission, _Mapping]]] = ..., job_name: _Optional[str] = ...) -> None: ...
+
+class GetJobStateCountsRequest(_message.Message):
+    __slots__ = ("time_interval",)
+    TIME_INTERVAL_FIELD_NUMBER: _ClassVar[int]
+    time_interval: _query_pb2.TimeInterval
+    def __init__(self, time_interval: _Optional[_Union[_query_pb2.TimeInterval, _Mapping]] = ...) -> None: ...
+
+class GetJobStateCountsResponse(_message.Message):
+    __slots__ = ("state_counts", "total_jobs")
+    STATE_COUNTS_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_JOBS_FIELD_NUMBER: _ClassVar[int]
+    state_counts: _containers.RepeatedCompositeFieldContainer[JobStateCount]
+    total_jobs: int
+    def __init__(self, state_counts: _Optional[_Iterable[_Union[JobStateCount, _Mapping]]] = ..., total_jobs: _Optional[int] = ...) -> None: ...
+
+class JobStateCount(_message.Message):
+    __slots__ = ("state", "count")
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    state: _core_pb2.JobState
+    count: int
+    def __init__(self, state: _Optional[_Union[_core_pb2.JobState, str]] = ..., count: _Optional[int] = ...) -> None: ...
+
+class GetTaskQueueStatsRequest(_message.Message):
+    __slots__ = ("job_time_interval", "job_max_age")
+    JOB_TIME_INTERVAL_FIELD_NUMBER: _ClassVar[int]
+    JOB_MAX_AGE_FIELD_NUMBER: _ClassVar[int]
+    job_time_interval: _query_pb2.TimeInterval
+    job_max_age: _duration_pb2.Duration
+    def __init__(self, job_time_interval: _Optional[_Union[_query_pb2.TimeInterval, _Mapping]] = ..., job_max_age: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...) -> None: ...
+
+class GetTaskQueueStatsResponse(_message.Message):
+    __slots__ = ("waiting_jobs", "running_jobs", "queued_tasks", "oldest_waiting_job")
+    WAITING_JOBS_FIELD_NUMBER: _ClassVar[int]
+    RUNNING_JOBS_FIELD_NUMBER: _ClassVar[int]
+    QUEUED_TASKS_FIELD_NUMBER: _ClassVar[int]
+    OLDEST_WAITING_JOB_FIELD_NUMBER: _ClassVar[int]
+    waiting_jobs: int
+    running_jobs: int
+    queued_tasks: int
+    oldest_waiting_job: _core_pb2.Job
+    def __init__(self, waiting_jobs: _Optional[int] = ..., running_jobs: _Optional[int] = ..., queued_tasks: _Optional[int] = ..., oldest_waiting_job: _Optional[_Union[_core_pb2.Job, _Mapping]] = ...) -> None: ...

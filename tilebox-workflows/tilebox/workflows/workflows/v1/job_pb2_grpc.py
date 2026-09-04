@@ -62,6 +62,16 @@ class JobServiceStub:
                 request_serializer=workflows_dot_v1_dot_job__pb2.CloneJobRequest.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_core__pb2.Job.FromString,
                 _registered_method=True)
+        self.GetJobStateCounts = channel.unary_unary(
+                '/workflows.v1.JobService/GetJobStateCounts',
+                request_serializer=workflows_dot_v1_dot_job__pb2.GetJobStateCountsRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_job__pb2.GetJobStateCountsResponse.FromString,
+                _registered_method=True)
+        self.GetTaskQueueStats = channel.unary_unary(
+                '/workflows.v1.JobService/GetTaskQueueStats',
+                request_serializer=workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsResponse.FromString,
+                _registered_method=True)
 
 
 class JobServiceServicer:
@@ -122,6 +132,18 @@ class JobServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetJobStateCounts(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetTaskQueueStats(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_JobServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -169,6 +191,16 @@ def add_JobServiceServicer_to_server(servicer, server):
                     servicer.CloneJob,
                     request_deserializer=workflows_dot_v1_dot_job__pb2.CloneJobRequest.FromString,
                     response_serializer=workflows_dot_v1_dot_core__pb2.Job.SerializeToString,
+            ),
+            'GetJobStateCounts': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetJobStateCounts,
+                    request_deserializer=workflows_dot_v1_dot_job__pb2.GetJobStateCountsRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_job__pb2.GetJobStateCountsResponse.SerializeToString,
+            ),
+            'GetTaskQueueStats': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetTaskQueueStats,
+                    request_deserializer=workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -415,6 +447,60 @@ class JobService:
             '/workflows.v1.JobService/CloneJob',
             workflows_dot_v1_dot_job__pb2.CloneJobRequest.SerializeToString,
             workflows_dot_v1_dot_core__pb2.Job.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetJobStateCounts(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.JobService/GetJobStateCounts',
+            workflows_dot_v1_dot_job__pb2.GetJobStateCountsRequest.SerializeToString,
+            workflows_dot_v1_dot_job__pb2.GetJobStateCountsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetTaskQueueStats(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.JobService/GetTaskQueueStats',
+            workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsRequest.SerializeToString,
+            workflows_dot_v1_dot_job__pb2.GetTaskQueueStatsResponse.FromString,
             options,
             channel_credentials,
             insecure,

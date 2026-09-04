@@ -27,7 +27,7 @@ from tilebox.datasets.datasets.v1 import dataset_type_pb2 as datasets_dot_v1_dot
 from tilebox.datasets.tilebox.v1 import id_pb2 as tilebox_dot_v1_dot_id__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1a\x64\x61tasets/v1/datasets.proto\x12\x0b\x64\x61tasets.v1\x1a\x16\x64\x61tasets/v1/core.proto\x1a\x1e\x64\x61tasets/v1/dataset_type.proto\x1a\x13tilebox/v1/id.proto\"\xb1\x01\n\x14\x43reateDatasetRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12,\n\x04type\x18\x02 \x01(\x0b\x32\x18.datasets.v1.DatasetTypeR\x04type\x12\x18\n\x07summary\x18\x03 \x01(\tR\x07summary\x12\x1b\n\tcode_name\x18\x04 \x01(\tR\x08\x63odeName\x12 \n\x0b\x64\x65scription\x18\x05 \x01(\tR\x0b\x64\x65scription\"G\n\x11GetDatasetRequest\x12\x12\n\x04slug\x18\x01 \x01(\tR\x04slug\x12\x1e\n\x02id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\"\xf4\x01\n\x14UpdateDatasetRequest\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x19\n\x04name\x18\x02 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x04name\x12\x33\n\x04type\x18\x03 \x01(\x0b\x32\x18.datasets.v1.DatasetTypeB\x05\xaa\x01\x02\x08\x01R\x04type\x12\x1f\n\x07summary\x18\x04 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x07summary\x12\"\n\tcode_name\x18\x05 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x08\x63odeName\x12\'\n\x0b\x64\x65scription\x18\x06 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x0b\x64\x65scription\"t\n\nClientInfo\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12 \n\x0b\x65nvironment\x18\x02 \x01(\tR\x0b\x65nvironment\x12\x30\n\x08packages\x18\x03 \x03(\x0b\x32\x14.datasets.v1.PackageR\x08packages\"7\n\x07Package\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\"6\n\x14\x44\x65leteDatasetRequest\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\"1\n\x15\x44\x65leteDatasetResponse\x12\x18\n\x07trashed\x18\x01 \x01(\x08R\x07trashed\"O\n\x13ListDatasetsRequest\x12\x38\n\x0b\x63lient_info\x18\x01 \x01(\x0b\x32\x17.datasets.v1.ClientInfoR\nclientInfo\"\x86\x02\n\x14ListDatasetsResponse\x12\x30\n\x08\x64\x61tasets\x18\x01 \x03(\x0b\x32\x14.datasets.v1.DatasetR\x08\x64\x61tasets\x12\x31\n\x06groups\x18\x02 \x03(\x0b\x32\x19.datasets.v1.DatasetGroupR\x06groups\x12%\n\x0eserver_message\x18\x03 \x01(\tR\rserverMessage\x12%\n\x0eowned_datasets\x18\x04 \x01(\x03R\rownedDatasets\x12;\n\x16maximum_owned_datasets\x18\x05 \x01(\x03\x42\x05\xaa\x01\x02\x08\x01R\x14maximumOwnedDatasets2\x95\x03\n\x0e\x44\x61tasetService\x12H\n\rCreateDataset\x12!.datasets.v1.CreateDatasetRequest\x1a\x14.datasets.v1.Dataset\x12\x42\n\nGetDataset\x12\x1e.datasets.v1.GetDatasetRequest\x1a\x14.datasets.v1.Dataset\x12H\n\rUpdateDataset\x12!.datasets.v1.UpdateDatasetRequest\x1a\x14.datasets.v1.Dataset\x12V\n\rDeleteDataset\x12!.datasets.v1.DeleteDatasetRequest\x1a\".datasets.v1.DeleteDatasetResponse\x12S\n\x0cListDatasets\x12 .datasets.v1.ListDatasetsRequest\x1a!.datasets.v1.ListDatasetsResponseBr\n\x0f\x63om.datasets.v1B\rDatasetsProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1a\x64\x61tasets/v1/datasets.proto\x12\x0b\x64\x61tasets.v1\x1a\x16\x64\x61tasets/v1/core.proto\x1a\x1e\x64\x61tasets/v1/dataset_type.proto\x1a\x13tilebox/v1/id.proto\"\xb1\x01\n\x14\x43reateDatasetRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12,\n\x04type\x18\x02 \x01(\x0b\x32\x18.datasets.v1.DatasetTypeR\x04type\x12\x18\n\x07summary\x18\x03 \x01(\tR\x07summary\x12\x1b\n\tcode_name\x18\x04 \x01(\tR\x08\x63odeName\x12 \n\x0b\x64\x65scription\x18\x05 \x01(\tR\x0b\x64\x65scription\"G\n\x11GetDatasetRequest\x12\x12\n\x04slug\x18\x01 \x01(\tR\x04slug\x12\x1e\n\x02id\x18\x02 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\"\xf4\x01\n\x14UpdateDatasetRequest\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\x12\x19\n\x04name\x18\x02 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x04name\x12\x33\n\x04type\x18\x03 \x01(\x0b\x32\x18.datasets.v1.DatasetTypeB\x05\xaa\x01\x02\x08\x01R\x04type\x12\x1f\n\x07summary\x18\x04 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x07summary\x12\"\n\tcode_name\x18\x05 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x08\x63odeName\x12\'\n\x0b\x64\x65scription\x18\x06 \x01(\tB\x05\xaa\x01\x02\x08\x01R\x0b\x64\x65scription\"6\n\x14\x44\x65leteDatasetRequest\x12\x1e\n\x02id\x18\x01 \x01(\x0b\x32\x0e.tilebox.v1.IDR\x02id\"1\n\x15\x44\x65leteDatasetResponse\x12\x18\n\x07trashed\x18\x01 \x01(\x08R\x07trashed\"\x15\n\x13ListDatasetsRequest\"\x86\x02\n\x14ListDatasetsResponse\x12\x30\n\x08\x64\x61tasets\x18\x01 \x03(\x0b\x32\x14.datasets.v1.DatasetR\x08\x64\x61tasets\x12\x31\n\x06groups\x18\x02 \x03(\x0b\x32\x19.datasets.v1.DatasetGroupR\x06groups\x12%\n\x0eserver_message\x18\x03 \x01(\tR\rserverMessage\x12%\n\x0eowned_datasets\x18\x04 \x01(\x03R\rownedDatasets\x12;\n\x16maximum_owned_datasets\x18\x05 \x01(\x03\x42\x05\xaa\x01\x02\x08\x01R\x14maximumOwnedDatasets2\x95\x03\n\x0e\x44\x61tasetService\x12H\n\rCreateDataset\x12!.datasets.v1.CreateDatasetRequest\x1a\x14.datasets.v1.Dataset\x12\x42\n\nGetDataset\x12\x1e.datasets.v1.GetDatasetRequest\x1a\x14.datasets.v1.Dataset\x12H\n\rUpdateDataset\x12!.datasets.v1.UpdateDatasetRequest\x1a\x14.datasets.v1.Dataset\x12V\n\rDeleteDataset\x12!.datasets.v1.DeleteDatasetRequest\x1a\".datasets.v1.DeleteDatasetResponse\x12S\n\x0cListDatasets\x12 .datasets.v1.ListDatasetsRequest\x1a!.datasets.v1.ListDatasetsResponseBr\n\x0f\x63om.datasets.v1B\rDatasetsProtoP\x01\xa2\x02\x03\x44XX\xaa\x02\x0b\x44\x61tasets.V1\xca\x02\x0b\x44\x61tasets\\V1\xe2\x02\x17\x44\x61tasets\\V1\\GPBMetadata\xea\x02\x0c\x44\x61tasets::V1\x92\x03\x02\x08\x02\x62\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -53,18 +53,14 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_GETDATASETREQUEST']._serialized_end=371
   _globals['_UPDATEDATASETREQUEST']._serialized_start=374
   _globals['_UPDATEDATASETREQUEST']._serialized_end=618
-  _globals['_CLIENTINFO']._serialized_start=620
-  _globals['_CLIENTINFO']._serialized_end=736
-  _globals['_PACKAGE']._serialized_start=738
-  _globals['_PACKAGE']._serialized_end=793
-  _globals['_DELETEDATASETREQUEST']._serialized_start=795
-  _globals['_DELETEDATASETREQUEST']._serialized_end=849
-  _globals['_DELETEDATASETRESPONSE']._serialized_start=851
-  _globals['_DELETEDATASETRESPONSE']._serialized_end=900
-  _globals['_LISTDATASETSREQUEST']._serialized_start=902
-  _globals['_LISTDATASETSREQUEST']._serialized_end=981
-  _globals['_LISTDATASETSRESPONSE']._serialized_start=984
-  _globals['_LISTDATASETSRESPONSE']._serialized_end=1246
-  _globals['_DATASETSERVICE']._serialized_start=1249
-  _globals['_DATASETSERVICE']._serialized_end=1654
+  _globals['_DELETEDATASETREQUEST']._serialized_start=620
+  _globals['_DELETEDATASETREQUEST']._serialized_end=674
+  _globals['_DELETEDATASETRESPONSE']._serialized_start=676
+  _globals['_DELETEDATASETRESPONSE']._serialized_end=725
+  _globals['_LISTDATASETSREQUEST']._serialized_start=727
+  _globals['_LISTDATASETSREQUEST']._serialized_end=748
+  _globals['_LISTDATASETSRESPONSE']._serialized_start=751
+  _globals['_LISTDATASETSRESPONSE']._serialized_end=1013
+  _globals['_DATASETSERVICE']._serialized_start=1016
+  _globals['_DATASETSERVICE']._serialized_end=1421
 # @@protoc_insertion_point(module_scope)

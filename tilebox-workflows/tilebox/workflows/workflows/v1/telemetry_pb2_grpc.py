@@ -26,6 +26,11 @@ class TelemetryQueryServiceStub:
                 request_serializer=workflows_dot_v1_dot_telemetry__pb2.QueryLogsInIntervalRequest.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_telemetry__pb2.PaginatedLogsData.FromString,
                 _registered_method=True)
+        self.GetLogMessageCounts = channel.unary_unary(
+                '/workflows.v1.TelemetryQueryService/GetLogMessageCounts',
+                request_serializer=workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsResponse.FromString,
+                _registered_method=True)
         self.QueryJobSpans = channel.unary_unary(
                 '/workflows.v1.TelemetryQueryService/QueryJobSpans',
                 request_serializer=workflows_dot_v1_dot_telemetry__pb2.QueryJobSpansRequest.SerializeToString,
@@ -50,6 +55,12 @@ class TelemetryQueryServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetLogMessageCounts(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def QueryJobSpans(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -68,6 +79,11 @@ def add_TelemetryQueryServiceServicer_to_server(servicer, server):
                     servicer.QueryLogsInInterval,
                     request_deserializer=workflows_dot_v1_dot_telemetry__pb2.QueryLogsInIntervalRequest.FromString,
                     response_serializer=workflows_dot_v1_dot_telemetry__pb2.PaginatedLogsData.SerializeToString,
+            ),
+            'GetLogMessageCounts': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetLogMessageCounts,
+                    request_deserializer=workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsResponse.SerializeToString,
             ),
             'QueryJobSpans': grpc.unary_unary_rpc_method_handler(
                     servicer.QueryJobSpans,
@@ -131,6 +147,33 @@ class TelemetryQueryService:
             '/workflows.v1.TelemetryQueryService/QueryLogsInInterval',
             workflows_dot_v1_dot_telemetry__pb2.QueryLogsInIntervalRequest.SerializeToString,
             workflows_dot_v1_dot_telemetry__pb2.PaginatedLogsData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetLogMessageCounts(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.TelemetryQueryService/GetLogMessageCounts',
+            workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsRequest.SerializeToString,
+            workflows_dot_v1_dot_telemetry__pb2.GetLogMessageCountsResponse.FromString,
             options,
             channel_credentials,
             insecure,
