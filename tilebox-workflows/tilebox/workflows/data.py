@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
 from uuid import UUID
 
 from google.protobuf.duration_pb2 import Duration
@@ -37,7 +37,7 @@ else:
     WorkflowTracer = Any
 
 from tilebox.workflows.workflows.v1 import automation_pb2 as automation_pb
-from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2, workflows_pb2
+from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2, telemetry_pb2, workflows_pb2
 
 _VERSION_PATTERN = re.compile(r"^v(\d+)\.(\d+)$")  # matches a version string in the format "v3.2"
 
@@ -699,6 +699,17 @@ def _parse_version(version: str) -> tuple[int, int]:
         return int(match.group(1)), int(match.group(2))
 
     raise ValueError(f"Invalid version string: {version}")
+
+
+class LogSeverity(Enum):
+    TRACE = telemetry_pb2.LOG_SEVERITY_GROUP_TRACE
+    DEBUG = telemetry_pb2.LOG_SEVERITY_GROUP_DEBUG
+    INFO = telemetry_pb2.LOG_SEVERITY_GROUP_INFO
+    WARNING = telemetry_pb2.LOG_SEVERITY_GROUP_WARNING
+    ERROR = telemetry_pb2.LOG_SEVERITY_GROUP_ERROR
+
+
+LogSeverityLiteral: TypeAlias = Literal["trace", "debug", "info", "warning", "error"]
 
 
 @dataclass

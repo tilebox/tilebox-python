@@ -26,8 +26,11 @@ def spatial_filter_likes(draw: DrawFn) -> Geometry | SpatialFilterDict:
         return geometry
 
     # return a dict
-    mode: SpatialFilterMode | Literal["intersects", "contains"] | None = draw(
-        sampled_from(["intersects", "contains"]), sampled_from(SpatialFilterMode) | none()
+    mode: SpatialFilterMode | Literal["intersects", "filter_contains_geometry", "geometry_contains_filter"] | None = (
+        draw(
+            sampled_from(["intersects", "filter_contains_geometry", "geometry_contains_filter"]),
+            sampled_from(SpatialFilterMode) | none(),
+        )
     )
     coordinate_system: SpatialCoordinateSystem | Literal["cartesian", "spherical"] | None = draw(
         sampled_from(["cartesian", "spherical"]), sampled_from(SpatialCoordinateSystem) | none()

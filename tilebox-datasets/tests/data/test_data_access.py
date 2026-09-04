@@ -3,10 +3,10 @@ from uuid import uuid4
 
 import pytest
 from hypothesis import given
-from shapely import Geometry
+from shapely import Geometry, box
 
 from tests.data.data_access import query_filters, spatial_filter_likes, spatial_filters
-from tilebox.datasets.data.data_access import QueryFilters, SpatialFilter, SpatialFilterDict
+from tilebox.datasets.data.data_access import QueryFilters, SpatialFilter, SpatialFilterDict, SpatialFilterMode
 from tilebox.datasets.datasets.v1 import data_access_pb2
 from tilebox.datasets.query import TimeInterval, field
 from tilebox.datasets.query.id_interval import IDInterval
@@ -35,6 +35,25 @@ def test_parse_spatial_filter_like(spatial_filter_like: Geometry | SpatialFilter
             assert spatial_filter.coordinate_system is None
         else:
             assert spatial_filter.coordinate_system is not None
+
+
+def test_contains_spatial_filter_mode_is_deprecated() -> None:
+    with pytest.warns(DeprecationWarning, match='Use "filter_contains_geometry" instead'):
+        spatial_filter = SpatialFilter.parse({"geometry": box(0, 0, 1, 1), "mode": "contains"})
+
+    assert spatial_filter.mode is SpatialFilterMode.FILTER_CONTAINS_GEOMETRY
+
+
+@pytest.mark.parametrize(
+    ("mode", "wire_mode"),
+    [
+        (SpatialFilterMode.FILTER_CONTAINS_GEOMETRY, data_access_pb2.SPATIAL_FILTER_MODE_FILTER_CONTAINS_GEOMETRY),
+        (SpatialFilterMode.GEOMETRY_CONTAINS_FILTER, data_access_pb2.SPATIAL_FILTER_MODE_GEOMETRY_CONTAINS_FILTER),
+    ],
+)
+def test_directional_spatial_filter_modes(mode: SpatialFilterMode, wire_mode: int) -> None:
+    message = SpatialFilter(box(0, 0, 1, 1), mode).to_message()
+    assert message.mode == wire_mode
 
 
 @given(query_filters())

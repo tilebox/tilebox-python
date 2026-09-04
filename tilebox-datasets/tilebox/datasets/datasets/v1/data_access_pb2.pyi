@@ -34,7 +34,8 @@ class SpatialFilterMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     SPATIAL_FILTER_MODE_UNSPECIFIED: _ClassVar[SpatialFilterMode]
     SPATIAL_FILTER_MODE_INTERSECTS: _ClassVar[SpatialFilterMode]
-    SPATIAL_FILTER_MODE_CONTAINS: _ClassVar[SpatialFilterMode]
+    SPATIAL_FILTER_MODE_FILTER_CONTAINS_GEOMETRY: _ClassVar[SpatialFilterMode]
+    SPATIAL_FILTER_MODE_GEOMETRY_CONTAINS_FILTER: _ClassVar[SpatialFilterMode]
 
 class SpatialCoordinateSystem(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -54,7 +55,8 @@ FIELD_COMPARISON_OPERATOR_GREATER_THAN: FieldComparisonOperator
 FIELD_COMPARISON_OPERATOR_GREATER_THAN_OR_EQUAL: FieldComparisonOperator
 SPATIAL_FILTER_MODE_UNSPECIFIED: SpatialFilterMode
 SPATIAL_FILTER_MODE_INTERSECTS: SpatialFilterMode
-SPATIAL_FILTER_MODE_CONTAINS: SpatialFilterMode
+SPATIAL_FILTER_MODE_FILTER_CONTAINS_GEOMETRY: SpatialFilterMode
+SPATIAL_FILTER_MODE_GEOMETRY_CONTAINS_FILTER: SpatialFilterMode
 SPATIAL_COORDINATE_SYSTEM_UNSPECIFIED: SpatialCoordinateSystem
 SPATIAL_COORDINATE_SYSTEM_CARTESIAN: SpatialCoordinateSystem
 SPATIAL_COORDINATE_SYSTEM_SPHERICAL: SpatialCoordinateSystem
