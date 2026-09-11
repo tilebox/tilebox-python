@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if ! git lfs version >/dev/null 2>&1; then
+  echo "Installing Git LFS"
+  sudo apt-get update
+  sudo apt-get install -y git-lfs
+fi
+
+echo "Fetching Git LFS fixtures"
+git lfs install --local
+git lfs pull
+
 if ! command -v uv >/dev/null 2>&1; then
   python -m pip install --user uv
   export PATH="$HOME/.local/bin:$PATH"
