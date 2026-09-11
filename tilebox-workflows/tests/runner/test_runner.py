@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -12,9 +13,27 @@ from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
 from tilebox.workflows import ExecutionContext, Runner, Task
 from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.client import Client
-from tilebox.workflows.data import JobState, ProgressIndicator, RunnerContext, TaskState
+from tilebox.workflows.data import JobState, ProgressIndicator, RunnerContext, TaskIdentifier, TaskState
+from tilebox.workflows.data import Task as TaskData
 from tilebox.workflows.observability.tracing import NoopWorkflowTracer
+from tilebox.workflows.runner.executor import ExecutionContext as RunnerExecutionContext
 from tilebox.workflows.runner.task_runner import TaskRunner
+
+
+def test_public_execution_context_attributes() -> None:
+    class RenameTask(Task):
+        def execute(self, context: ExecutionContext) -> None:
+            context.current_task.display = "Processing"
+            context.job_cache["result"] = b"processed"
+
+    task = TaskData(uuid4(), TaskIdentifier("RenameTask", "v0.0"), display="Queued")
+    cache = InMemoryCache()
+    context = RunnerExecutionContext(MagicMock(), task, cache)
+
+    RenameTask().execute(context)
+
+    assert task.display == "Processing"
+    assert cache["result"] == b"processed"
 
 
 def test_task_authoring_imports_are_lazy() -> None:
@@ -45,7 +64,7 @@ class FibonacciTask(Task):
 
     async def execute(self, context: ExecutionContext) -> None:
         await asyncio.sleep(0)
-        cache: JobCache = context.job_cache  # ty: ignore[unresolved-attribute]
+        cache: JobCache = context.job_cache
         key = f"fib_{self.n}"
         if f"fib_{self.n}" in cache:
             # If the result is already in the cache, we can skip the calculation
@@ -66,7 +85,7 @@ class SumResultTask(Task):
     n: int
 
     def execute(self, context: ExecutionContext) -> None:
-        cache: JobCache = context.job_cache  # ty: ignore[unresolved-attribute]
+        cache: JobCache = context.job_cache
         fib_n_1 = bytes_to_int(cache[f"fib_{self.n - 1}"])
         fib_n_2 = bytes_to_int(cache[f"fib_{self.n - 2}"])
 
@@ -96,7 +115,7 @@ async def test_runner_with_fibonacci_workflow() -> None:
 class FlakyTask(Task):
     async def execute(self, context: ExecutionContext) -> None:
         await asyncio.sleep(0)
-        cache: JobCache = context.job_cache  # ty: ignore[unresolved-attribute]
+        cache: JobCache = context.job_cache
         if "succeed" in cache:
             return  # finally succeed
 
@@ -288,14 +307,14 @@ class OptionalSubtasks(Task):
 
 class FailingTask(Task):
     def execute(self, context: ExecutionContext) -> None:
-        cache = context.job_cache  # ty: ignore[unresolved-attribute]
+        cache = context.job_cache
         cache["failing_task"] = b"1"  # to make sure it actually ran
         raise ValueError("This task always fails")
 
 
 class SucceedingTask(Task):
     def execute(self, context: ExecutionContext) -> None:
-        cache = context.job_cache  # ty: ignore[unresolved-attribute]
+        cache = context.job_cache
         cache["succeeding_task"] = b"1"  # to make sure it actually ran
 
 

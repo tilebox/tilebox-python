@@ -13,8 +13,10 @@ from typing_extensions import dataclass_transform
 
 from tilebox.workflows._serialization import decode_json, encode_json_field, encode_json_fields
 from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmissionGroup, TaskSubmissions
+from tilebox.workflows.data import Task as TaskData
 
 if TYPE_CHECKING:
+    from tilebox.workflows.cache import JobCache
     from tilebox.workflows.observability.logging import StructuredLogger
     from tilebox.workflows.observability.tracing import WorkflowTracer
 else:
@@ -377,6 +379,9 @@ class ProgressUpdate:
 
 class ExecutionContext(ABC):
     """The execution context for a task."""
+
+    current_task: TaskData
+    job_cache: "JobCache"
 
     @abstractmethod
     def submit_subtask(

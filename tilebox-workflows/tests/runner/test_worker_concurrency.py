@@ -47,7 +47,7 @@ def test_worker_executes_tasks_concurrently_with_isolated_execution_state(
                     (self.label, id(self), id(context), id(context.runner_context), id(asyncio.get_running_loop()))
                 )
 
-            cache: JobCache = context.job_cache  # ty: ignore[unresolved-attribute]
+            cache: JobCache = context.job_cache
             cache[self.label] = self.label.encode()
             context.logger.info("Concurrent task executing", label=self.label)
             context.progress(self.label).add(1)
