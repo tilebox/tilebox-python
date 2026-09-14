@@ -6,7 +6,8 @@ from collections.abc import Awaitable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, fields, is_dataclass
 from types import NoneType, UnionType
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast, get_args, get_origin
+from uuid import UUID
 
 # from python 3.11 onwards this is available as typing.dataclass_transform:
 from typing_extensions import dataclass_transform
@@ -15,6 +16,7 @@ from tilebox.workflows._serialization import decode_json, encode_json_field, enc
 from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmissionGroup, TaskSubmissions
 
 if TYPE_CHECKING:
+    from tilebox.workflows.cache import JobCache
     from tilebox.workflows.observability.logging import StructuredLogger
     from tilebox.workflows.observability.tracing import WorkflowTracer
 else:
@@ -375,8 +377,30 @@ class ProgressUpdate:
         self._done += count
 
 
+class CurrentJob(Protocol):
+    """Read-only job information available during task execution."""
+
+    @property
+    def id(self) -> UUID: ...
+
+    @property
+    def name(self) -> str: ...
+
+
+class CurrentTask(Protocol):
+    """Task information available during execution, with an editable display label."""
+
+    display: str | None
+
+    @property
+    def job(self) -> CurrentJob: ...
+
+
 class ExecutionContext(ABC):
     """The execution context for a task."""
+
+    current_task: CurrentTask
+    job_cache: "JobCache"
 
     @abstractmethod
     def submit_subtask(
