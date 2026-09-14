@@ -6,6 +6,7 @@ import sys
 from pyproj import CRS, Proj, Transformer
 
 try:
+    from affine import TransformNotInvertibleError
     from async_geotiff import GeoTIFF, Window
 except ImportError:
     if sys.version_info < (3, 11):
@@ -78,9 +79,10 @@ def window_from_bounds(  # noqa: C901
     left, bottom, right, top = transformed
     try:
         inverse = ~geotiff.transform
-        pixels = [inverse * (x, y) for x in (left, right) for y in (bottom, top)]
-    except Exception as error:
+    except TransformNotInvertibleError as error:
         raise ValueError("GeoTIFF transform is not invertible") from error
+    pixels = [(x, y) for x in (left, right) for y in (bottom, top)]
+    inverse.itransform(pixels)
     col_start = math.floor(min(point[0] for point in pixels))
     col_stop = math.ceil(max(point[0] for point in pixels))
     row_start = math.floor(min(point[1] for point in pixels))
