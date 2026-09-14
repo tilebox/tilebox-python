@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, contextmanager
 from contextvars import copy_context
 from threading import RLock
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from uuid import UUID
 from warnings import warn
 
@@ -26,8 +26,14 @@ from tilebox.workflows.data import (
 from tilebox.workflows.observability.logging import StructuredLogger
 from tilebox.workflows.observability.tracing import NoopWorkflowTracer, WorkflowTracer, start_job_span
 from tilebox.workflows.runner.runner import Runner
+from tilebox.workflows.task import (
+    CurrentTask,
+    FutureTask,
+    ProgressUpdate,
+    RunnerContext,
+    merge_future_tasks_to_submissions,
+)
 from tilebox.workflows.task import ExecutionContext as ExecutionContextBase
-from tilebox.workflows.task import FutureTask, ProgressUpdate, RunnerContext, merge_future_tasks_to_submissions
 from tilebox.workflows.task import Task as TaskInstance
 
 if TYPE_CHECKING:
@@ -133,7 +139,8 @@ class TaskExecutor:
 class ExecutionContext(ExecutionContextBase):
     def __init__(self, executor: TaskExecutor, task: Task, job_cache: JobCache) -> None:
         self._executor = executor
-        self.current_task = task
+        # Executing tasks have a job, unlike general Task data objects.
+        self.current_task = cast(CurrentTask, task)
         self.job_cache = job_cache
         self._sub_tasks: list[FutureTask] = []
         self._progress_indicators: dict[str | None, ProgressUpdate] = {}
