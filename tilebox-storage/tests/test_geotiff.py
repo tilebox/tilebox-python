@@ -12,12 +12,12 @@ GeoTIFF = async_geotiff.GeoTIFF
 from tilebox.storage.geotiff import window_from_bounds  # noqa: E402
 
 
-def _geotiff() -> GeoTIFF:
+def _geotiff(transform: Affine = Affine(1, 0, 0, 0, -1, 10)) -> GeoTIFF:
     return cast(
         GeoTIFF,
         SimpleNamespace(
             crs="EPSG:4326",
-            transform=Affine(1, 0, 0, 0, -1, 10),
+            transform=transform,
             width=10,
             height=10,
         ),
@@ -31,6 +31,18 @@ def test_window_from_projected_bounds_rounds_outward() -> None:
 
 def test_window_clips_partial_overlap() -> None:
     assert window_from_bounds(_geotiff(), (-3, 8, 3, 12), crs="EPSG:4326") == Window(0, 0, 3, 2)
+
+
+def test_window_from_sheared_transform() -> None:
+    # x = 2 * col + row, y = 10 - row: rows span [3, 7], columns [-1.5, 3.5].
+    geotiff = _geotiff(Affine(2, 1, 0, 0, -1, 10))
+    assert window_from_bounds(geotiff, (4, 3, 10, 7), crs="EPSG:4326") == Window(0, 3, 4, 4)
+
+
+def test_window_rejects_noninvertible_transform() -> None:
+    geotiff = _geotiff(Affine(1, 2, 0, 2, 4, 10))
+    with pytest.raises(ValueError, match="GeoTIFF transform is not invertible"):
+        window_from_bounds(geotiff, (1, 2, 3, 5), crs="EPSG:4326")
 
 
 def test_window_requires_full_containment() -> None:
