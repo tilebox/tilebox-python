@@ -12,9 +12,40 @@ from shapely import Polygon
 from _tilebox.grpc.error import NotFoundError
 from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
 from tilebox.datasets import Client, DatasetClient
+from tilebox.datasets.aio.client import Client as AsyncClient
 from tilebox.datasets.client import _TILEBOX_API_URL, _TILEBOX_DEV_API_URL
 from tilebox.datasets.data.datapoint import QueryResultPage
 from tilebox.datasets.query.time_interval import us_to_datetime
+
+
+@pytest.mark.parametrize("client_type", [Client, AsyncClient])
+@pytest.mark.parametrize(
+    ("environment_url", "explicit_url", "expected_url"),
+    [
+        (None, None, "https://api.tilebox.com"),
+        ("", None, "https://api.tilebox.com"),
+        ("https://runner.example.com/", None, "https://runner.example.com"),
+        ("https://runner.example.com", "https://explicit.example.com", "https://explicit.example.com"),
+        ("https://runner.example.com", "https://api.tilebox.com", "https://api.tilebox.com"),
+    ],
+)
+def test_client_url_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    client_type: type[Client] | type[AsyncClient],
+    environment_url: str | None,
+    explicit_url: str | None,
+    expected_url: str,
+) -> None:
+    monkeypatch.delenv("TILEBOX_API_URL", raising=False)
+    if environment_url is not None:
+        monkeypatch.setenv("TILEBOX_API_URL", environment_url)
+    monkeypatch.setenv("TILEBOX_API_KEY", "runner-key")
+    with patch(f"{client_type.__module__}.open_channel") as open_channel_mock:
+        if explicit_url is None:
+            client_type()
+        else:
+            client_type(url=explicit_url)
+        open_channel_mock.assert_called_once_with(expected_url, "runner-key", rpc_method_prefix=None)
 
 
 def test_heavy_imports_are_lazy() -> None:

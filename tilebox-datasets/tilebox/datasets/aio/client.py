@@ -28,7 +28,7 @@ class Client:
     def __init__(
         self,
         *,
-        url: str = _TILEBOX_API_URL,
+        url: str | None = None,
         token: str | None = None,
         warn_if_unauthenticated: bool = True,
         transport: Transport = "grpc",
@@ -37,7 +37,8 @@ class Client:
         Create a Tilebox datasets client.
 
         Args:
-            url: Tilebox API Url. Defaults to "https://api.tilebox.com".
+            url: Tilebox API URL. If not set, uses the `TILEBOX_API_URL` environment variable,
+                or defaulting to "https://api.tilebox.com".
             token: The API Key to authenticate with. If not set the `TILEBOX_API_KEY` environment variable will be used.
                 If no token is provided or found, anonymous open data access will be used.
             warn_if_unauthenticated: Whether to warn if no API key is provided and the client is used with the default
@@ -45,6 +46,8 @@ class Client:
             transport: Network transport to use for API requests. Defaults to "grpc". Use "http1" to force
                 the Connect protocol over HTTP/1.1 for networks that do not support gRPC over HTTP/2 correctly.
         """
+        if url is None:
+            url = os.environ.get("TILEBOX_API_URL") or _TILEBOX_API_URL
         url = url.removesuffix("/")
 
         if token is None:

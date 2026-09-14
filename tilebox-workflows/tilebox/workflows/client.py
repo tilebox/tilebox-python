@@ -33,7 +33,7 @@ class Client:
     def __init__(
         self,
         *,
-        url: str = "https://api.tilebox.com",
+        url: str | None = None,
         token: str | None = None,
         name: str | None = None,
         client_id: UUID | None = None,
@@ -43,7 +43,8 @@ class Client:
         Create a Tilebox workflows client.
 
         Args:
-            url: Tilebox API Url. Defaults to "https://api.tilebox.com".
+            url: Tilebox API URL. If not set, uses the `TILEBOX_API_URL` environment variable,
+                or defaulting to "https://api.tilebox.com".
             token: The API Key to authenticate with. If not set the `TILEBOX_API_KEY` environment variable will be used.
             name: An optional name of the client, used as service.name for telemetry. If not set, defaults to
                 the service name provided by `tilebox.workflows.observability.tracing.configure_otel_tracing`,
@@ -52,6 +53,8 @@ class Client:
             transport: Network transport to use for API requests. Defaults to "grpc". Use "http1" to force
                 the Connect protocol over HTTP/1.1 for networks that do not support gRPC over HTTP/2 correctly.
         """
+        if url is None:
+            url = os.environ.get("TILEBOX_API_URL") or "https://api.tilebox.com"
         token = _token_from_env(url, token)
         self._auth: dict[str, str] = {"token": token, "url": url}
         match transport:

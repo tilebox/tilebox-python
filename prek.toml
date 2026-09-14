@@ -19,7 +19,7 @@ hooks = [
 
 [[repos]]
 repo = "https://github.com/charliermarsh/ruff-pre-commit"
-rev = "v0.16.5"
+rev = "v0.16.7"
 hooks = [
   {
     id = "ruff-check",
@@ -32,14 +32,8 @@ hooks = [
 ]
 
 [[repos]]
-repo = "local"
+repo = "https://github.com/astral-sh/ty-pre-commit"
+rev = "v0.0.79"
 hooks = [
-  {
-    id = "ty",
-    name = "ty-check",
-    entry = "uv run ty check",
-    language = "python",
-    types = ["python"],
-    pass_filenames = true
-  }
+  { id = "ty" },
 ]

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `tilebox-datasets`, `tilebox-workflows`: Use `TILEBOX_API_URL` as the default API URL when no explicit client URL is provided, falling back to production when the environment variable is unset or empty.
+
 ## [0.61.0] - 2026-09-04
 
 ### Added

@@ -9,7 +9,7 @@ Usage (from repo root):
 uv run generate-protobuf <path-to-tilebox-python-repo>
 """
 
-import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -26,9 +26,9 @@ def main() -> None:
     # The Buf templates deliberately exclude buf.validate: these clients do not perform
     # client-side validation, and validation-blind messages avoid global descriptor conflicts.
     print("Running buf generate")  # noqa: T201
-    os.system("buf generate --template buf.gen.datasets.yaml")  # noqa: S605, S607
-    os.system("buf generate --template buf.gen.datasets-bufpy.yaml")  # noqa: S605, S607
-    os.system("buf generate --template buf.gen.workflows.yaml")  # noqa: S605, S607
+    subprocess.run(["buf", "generate", "--template", "buf.gen.datasets.yaml"], check=True)  # noqa: S607
+    subprocess.run(["buf", "generate", "--template", "buf.gen.datasets-bufpy.yaml"], check=True)  # noqa: S607
+    subprocess.run(["buf", "generate", "--template", "buf.gen.workflows.yaml"], check=True)  # noqa: S607
 
     package_mapping = {
         "from datasets.v1 import": "from tilebox.datasets.datasets.v1 import",
