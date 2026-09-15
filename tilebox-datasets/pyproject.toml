@@ -27,7 +27,6 @@ dependencies = [
     # below version pins are some minimum sane versions that we tested against to make sure they are working
     "numpy>=1.24",
     "xarray>=2023.11",
-    "loguru>=0.7",
     "tqdm>=4.65",
     "pandas>=2.1",
     "shapely>=2",

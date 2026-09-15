@@ -93,7 +93,7 @@ ignore = [
     "G004",    # logging-f-string: allow usage of f-strings in logging calls
     "PLR2004", # magic-value-comparison: sometimes comparison with constants (e.g. 0) makes sense
     "TRY003",  # raise-vanilla-args: exceptions like this make sense in python
-    "TRY400",  # error-instead-of-exception: logger.error is ok with loguru
+    "TRY400",  # error-instead-of-exception: allow errors without a traceback
     "CPY001",  # missing-copyright-notice: we don't add copyright notices to our source files
     # disabled because of formatter
     "E501",   # line-too-long -> formatter takes care of this

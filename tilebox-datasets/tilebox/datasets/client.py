@@ -1,14 +1,12 @@
-import os
-import sys
 from typing import Any, Protocol, TypeVar
 from uuid import UUID
 
-from loguru import logger
 from promise import Promise
 
 from tilebox.datasets.data.datasets import Dataset, DatasetGroup, DatasetKind, FieldDict, ListDatasetsResponse
 from tilebox.datasets.group import Group
 from tilebox.datasets.message_pool import register_once
+from tilebox.datasets.notices import print_notice
 from tilebox.datasets.service import TileboxDatasetService
 from tilebox.datasets.uuid import as_uuid
 
@@ -86,7 +84,7 @@ class Client:
 
 def _log_server_message(response: ListDatasetsResponse) -> ListDatasetsResponse:
     if response.server_message:
-        logger.opt(colors=True).info(response.server_message + "\n")
+        print_notice(response.server_message + "\n")
     return response
 
 
@@ -123,21 +121,3 @@ def _construct_root_group(
 
 
 __all__ = ["Client"]
-
-
-def _init_logging(level: str = "INFO") -> None:
-    logger.remove()
-    logger.add(sys.stdout, level=level, format="{message}", catch=True)
-
-
-def _is_debug() -> bool:
-    try:
-        return bool(int(os.environ.get("TILEBOX_DEBUG") or 0))
-    except (TypeError, ValueError):
-        return False
-
-
-if _is_debug():
-    _init_logging("DEBUG")
-else:
-    _init_logging()
