@@ -18,10 +18,12 @@ from opentelemetry.trace import get_current_span
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from opentelemetry.util.types import Attributes
 
-from tilebox.workflows.observability.logging import (
-    _LOGGING_NAMESPACE,
-    _WORKFLOW_LOG_ATTRIBUTES,
+from tilebox.workflows.observability._logging import (
     _current_span_attributes,
+    _record_attributes,
+    root_logger,
+)
+from tilebox.workflows.observability.logging import (
     _get_default_resource,
     _parse_duration,
     _sanitize_otel_attributes,
@@ -185,10 +187,7 @@ class SpanEventLoggingHandler(logging.Handler):
         created_time = datetime.fromtimestamp(record.created, tz=timezone.utc)
 
         # add the log message as a span event
-        workflow_attributes = getattr(record, _WORKFLOW_LOG_ATTRIBUTES, {})
-        if not isinstance(workflow_attributes, dict):
-            workflow_attributes = {}
-        workflow_attributes = _current_span_attributes() | workflow_attributes
+        workflow_attributes = _current_span_attributes() | _record_attributes(record)
 
         attributes = cast(
             Attributes,
@@ -206,8 +205,6 @@ class SpanEventLoggingHandler(logging.Handler):
 
 
 def _ensure_span_event_logging_handler() -> None:
-    root_logger = logging.getLogger(_LOGGING_NAMESPACE)
-
     has_span_event_handler = False  # in case this is called multiple times, still only one handler
     for handler in root_logger.handlers:
         if isinstance(handler, SpanEventLoggingHandler):
@@ -229,6 +226,7 @@ def configure_otel_tracing(
 
     This will configure a global opentelemetry tracer provider that can be used to instantiate tracers that will
     send traces and spans to a specified endpoint using the open telemetry protocol for exporting traces and spans.
+    Each call adds an export, including for existing workflow tracers; Tilebox's API export remains installed.
 
     Additionally, this will also configure a logging handler that will add log messages to active spans as span events.
 

@@ -23,12 +23,11 @@ dev = [
     # DeprecationWarning: Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0)
     "pyarrow>=17.0.0",
     # some dev tooling
-    "ruff>=0.14.10",
+    "ruff",
+    "ty",
+    "prek",
     "types-protobuf>=6.30",
     "junitparser>=3.2.0",
-    # https://github.com/astral-sh/ty/issues/2759
-    "ty==0.0.14",
-    "prek>=0.2.27",
 ]
 
 [project.scripts]

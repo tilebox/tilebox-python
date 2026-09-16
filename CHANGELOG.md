@@ -7,9 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.62.0] - 2026-09-16
+
+### Added
+
+- `tilebox-workflows`: Log task-input values, including dataclasses, paths, and geospatial objects, as structured
+  attributes through `context.logger`. Unsupported values fall back to text instead of failing task execution.
+- `tilebox-workflows`: Disable local console output for direct runners with
+  `configure_console_logging(enabled=False)` while continuing to export logs to Tilebox and configured backends.
+
 ### Changed
 
-- `tilebox-datasets`, `tilebox-workflows`: Use `TILEBOX_API_URL` as the default API URL when no explicit client URL is provided, falling back to production when the environment variable is unset or empty.
+- `tilebox-datasets`, `tilebox-workflows`: Use `TILEBOX_API_URL` as the default API URL when no explicit client URL
+  is provided, falling back to production when the environment variable is unset or empty.
+- `tilebox-workflows`: Configure runner logging automatically, with release-runner logs available through the CLI
+  and direct-runner logs printed to stdout by default.
+- `tilebox-workflows`: Control task log verbosity independently of Tilebox diagnostics. Task logs default to `INFO`
+  and follow `TILEBOX_LOG_LEVEL` or the CLI's `--log-level`; diagnostics default to `ERROR`, with `TILEBOX_DEBUG=true`
+  enabling debug messages. Override both settings in Python with
+  `observability.logging.configure_log_level(level, tilebox_debug=False)`.
+- `tilebox-workflows`: Export logs to additional OpenTelemetry backends or customize console output without
+  interrupting logging to Tilebox or the CLI.
+- `tilebox-datasets`: Send user notices to stderr, keeping stdout available for program output. Disable colors
+  automatically when output is redirected or `NO_COLOR` is set.
+
+### Deprecated
+
+- `tilebox-workflows`: `Client.configure_logging()` is no longer needed and has no effect. Use
+  `observability.logging.configure_log_level()` to change log levels.
 
 ## [0.61.0] - 2026-09-04
 

@@ -31,6 +31,7 @@ from tests.proto.test_pb2 import SampleArgs
 from tilebox.datasets.data.data_access import SpatialFilter
 from tilebox.datasets.query.id_interval import IDInterval
 from tilebox.datasets.query.time_interval import TimeInterval
+from tilebox.workflows._serialization import encode_log_value
 from tilebox.workflows.task import Task, deserialize_task, serialize_task
 
 
@@ -84,6 +85,27 @@ def test_standard_types_round_trip() -> None:
     )
 
     assert deserialize_task(StandardTypesTask, serialize_task(task)) == task
+    logged = msgspec.json.decode(encode_log_value(task))
+    logged["values"].sort()
+    logged["frozen_values"].sort()
+    assert logged == {
+        "aware_datetime": "2024-01-02T03:04:05.006000+00:00",
+        "naive_datetime": "2024-02-03T04:05:06.007000",
+        "date_value": "2024-03-04",
+        "time_value": "05:06:07.008000",
+        "duration": "-P1DT86396.996S",
+        "identifier": str(task.identifier),
+        "decimal": "1234567890.123456789",
+        "enum": "value",
+        "binary": "AP9iaW5hcnk=",
+        "mutable_binary": "bXV0YWJsZQ==",
+        "path": "some/file.tif",
+        "pure_path": "another/file.tif",
+        "timezone": "Europe/Vienna",
+        "values": [1, 2, 3],
+        "frozen_values": ["a", "b"],
+        "nested": {"protobuf": "CgZuZXN0ZWQQKg==", "path": "nested.tif"},
+    }
 
 
 class RequiredIntTask(Task):

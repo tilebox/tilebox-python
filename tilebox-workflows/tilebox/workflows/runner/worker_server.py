@@ -4,8 +4,8 @@ from concurrent import futures
 from pathlib import Path
 
 import grpc
-from loguru import logger
 
+from tilebox.workflows.observability._logging import logger
 from tilebox.workflows.runner.runner import Runner
 from tilebox.workflows.runner.worker_service import WorkerServiceServicer
 from tilebox.workflows.workflows.v1 import worker_pb2_grpc

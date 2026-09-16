@@ -17,7 +17,7 @@ from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmission
 
 if TYPE_CHECKING:
     from tilebox.workflows.cache import JobCache
-    from tilebox.workflows.observability.logging import StructuredLogger
+    from tilebox.workflows.observability._logging import StructuredLogger
     from tilebox.workflows.observability.tracing import WorkflowTracer
 else:
     StructuredLogger = Any

@@ -18,7 +18,6 @@ try:
 except ImportError:  # Self is only available in Python 3.11+
     from typing_extensions import Self
 
-from loguru import logger
 from tenacity import retry, retry_if_exception_type, stop_when_event_set, wait_random_exponential
 from tenacity.stop import stop_base
 
@@ -26,7 +25,8 @@ from _tilebox.grpc.channel import open_channel
 from _tilebox.grpc.error import InternalServerError
 from tilebox.workflows.cache import JobCache
 from tilebox.workflows.data import ComputedTask, FailedTask, Idling, NextTaskToRun, Task, TaskLease
-from tilebox.workflows.observability.logging import StructuredLogger
+from tilebox.workflows.observability._logging import StructuredLogger, logger
+from tilebox.workflows.observability.logging import initialize_logging
 from tilebox.workflows.observability.tracing import WorkflowTracer
 from tilebox.workflows.runner.executor import ExecutionContext, TaskExecutor
 from tilebox.workflows.runner.runner import Runner
@@ -82,6 +82,9 @@ def _retry_backoff(func: Callable[..., WrappedFnReturnT], stop: stop_base) -> Ca
 def lease_renewer(
     url: str, token: str | None, new_leases: Queue[tuple[UUID, TaskLease]], done_tasks: Queue[UUID]
 ) -> None:
+    # The direct runner's spawned lease-renewal process needs its own stage-3 setup;
+    # it cannot inherit the parent's logging handlers or exporter thread.
+    initialize_logging(url=url, token=token)
     channel = open_channel(url, token)
     service = TaskService(channel)
 
