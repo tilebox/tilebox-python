@@ -52,11 +52,11 @@ def test_task_authoring_imports_are_lazy() -> None:
 
 
 def int_to_bytes(n: int) -> bytes:
-    return n.to_bytes(1, "big")  # python3.10 still requires arguments for length and byteorder
+    return n.to_bytes()
 
 
 def bytes_to_int(b: bytes) -> int:
-    return int.from_bytes(b, "big")  # python3.10 still requires argument for byteorder
+    return int.from_bytes(b)
 
 
 class FibonacciTask(Task):

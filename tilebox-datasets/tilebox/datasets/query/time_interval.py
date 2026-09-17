@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, TypeAlias
+from datetime import UTC, datetime, timedelta, timezone
+from typing import TYPE_CHECKING, Any, Self, TypeAlias
 
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from xarray import DataArray, Dataset
 
 _SMALLEST_POSSIBLE_TIMEDELTA = timedelta(microseconds=1)
-_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 # A type alias for the different types that can be used to specify a time interval
 TimeIntervalLike: TypeAlias = (
@@ -46,9 +46,9 @@ class TimeInterval:
 
         # in case datetime objects are timezone naive, we assume they are in UTC
         if self.start.tzinfo is None:
-            object.__setattr__(self, "start", self.start.replace(tzinfo=timezone.utc))  # since self is frozen
+            object.__setattr__(self, "start", self.start.replace(tzinfo=UTC))  # since self is frozen
         if self.end.tzinfo is None:
-            object.__setattr__(self, "end", self.end.replace(tzinfo=timezone.utc))  # since self is frozen
+            object.__setattr__(self, "end", self.end.replace(tzinfo=UTC))  # since self is frozen
 
     def to_half_open(self) -> "TimeInterval":
         """Convert the time interval to a half-open interval [start, end)"""
@@ -166,19 +166,17 @@ class TimeInterval:
         raise ValueError(f"Failed to convert {arg} ({type(arg)}) to TimeInterval)")
 
     @classmethod
-    def from_message(
-        cls, interval: query_pb2.TimeInterval
-    ) -> "TimeInterval":  # lets use typing.Self once we require python >= 3.11
+    def from_message(cls, interval: query_pb2.TimeInterval) -> Self:
         """Convert a TimeInterval protobuf message to a TimeInterval object."""
 
         start = timestamp_to_datetime(interval.start_time)
         end = timestamp_to_datetime(interval.end_time)
         if start == _EPOCH and end == _EPOCH and not interval.start_exclusive and not interval.end_inclusive:
-            return _EMPTY_TIME_INTERVAL
+            return cls(start, end, start_exclusive=True, end_inclusive=False)
 
         return cls(
-            start=timestamp_to_datetime(interval.start_time),
-            end=timestamp_to_datetime(interval.end_time),
+            start=start,
+            end=end,
             start_exclusive=interval.start_exclusive,
             end_inclusive=interval.end_inclusive,
         )
@@ -203,8 +201,8 @@ def _convert_to_datetime(arg: Any) -> datetime:
 
     dt: datetime = to_datetime(arg, utc=True).to_pydatetime()
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 def timestamp_to_datetime(timestamp: Timestamp) -> datetime:
@@ -218,9 +216,9 @@ def timestamp_to_datetime(timestamp: Timestamp) -> datetime:
 def datetime_to_timestamp(dt: datetime) -> Timestamp:
     """Convert a datetime object to a protobuf timestamp."""
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     # manual epoch offset calculation to avoid rounding errors and support negative timestamps (before 1970)
-    offset_us = datetime_to_us(dt.astimezone(timezone.utc))
+    offset_us = datetime_to_us(dt.astimezone(UTC))
     seconds, us = divmod(offset_us, 10**6)
     return Timestamp(seconds=seconds, nanos=us * 10**3)
 

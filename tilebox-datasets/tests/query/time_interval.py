@@ -2,7 +2,7 @@
 Hypothesis strategies for generating random test data for tests.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 import pandas as pd
 from hypothesis.strategies import DrawFn, booleans, composite, datetimes, just, sampled_from
@@ -15,7 +15,7 @@ from tilebox.datasets.query.time_interval import TimeInterval, datetime_to_us
 _MIN_TIME_NANO_I64 = datetime(1677, 9, 22)
 _MAX_TIME_NANO_I64 = datetime(2262, 4, 11)
 # datetimes in a range that fit into a 64 bit signed integer when converted to a nanoseconds timestamp
-i64_datetimes = datetimes(_MIN_TIME_NANO_I64, _MAX_TIME_NANO_I64, timezones=just(timezone.utc))
+i64_datetimes = datetimes(_MIN_TIME_NANO_I64, _MAX_TIME_NANO_I64, timezones=just(UTC))
 
 
 @composite

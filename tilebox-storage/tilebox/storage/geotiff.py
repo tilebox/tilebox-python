@@ -1,19 +1,10 @@
 """GeoTIFF coordinate helpers."""
 
 import math
-import sys
 
+from affine import TransformNotInvertibleError
+from async_geotiff import GeoTIFF, Window
 from pyproj import CRS, Proj, Transformer
-
-try:
-    from affine import TransformNotInvertibleError
-    from async_geotiff import GeoTIFF, Window
-except ImportError:
-    if sys.version_info < (3, 11):
-        raise ImportError(
-            "tilebox.storage.geotiff is unavailable on Python 3.10 because async-geotiff requires Python 3.11 or newer"
-        ) from None
-    raise ImportError("async-geotiff is required by tilebox-storage but could not be imported") from None
 
 Bounds = tuple[float, float, float, float]
 BoundsCRS = str | int | CRS | Proj

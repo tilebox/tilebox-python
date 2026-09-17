@@ -35,6 +35,8 @@ Python library for [Tilebox](https://tilebox.com), a lightweight space data mana
 
 ## Install
 
+Requires Python 3.11 or newer. Python 3.11 through 3.14 are supported and tested.
+
 ```bash
 pip install tilebox
 ```

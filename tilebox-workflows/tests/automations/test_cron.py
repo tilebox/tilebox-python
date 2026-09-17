@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from tests.proto.test_pb2 import SampleArgs
@@ -33,7 +33,7 @@ def test_cron_task_serialization_requires_trigger() -> None:
 
 def test_cron_task_de_serialization_roundtrip() -> None:
     task = ExampleCronTask("test", 42)
-    triggered_task = task.once(trigger_time=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
+    triggered_task = task.once(trigger_time=datetime(2021, 1, 1, 0, 0, 0, tzinfo=UTC))
 
     serialized = triggered_task._serialize()
     assert serialized == b'\n\x08\n\x06\x08\x80\xcc\xb9\xff\x05\x12\x1a{"name":"test","value":42}'
@@ -42,7 +42,7 @@ def test_cron_task_de_serialization_roundtrip() -> None:
 
 def test_cron_task_de_serialization_roundtrip_protobuf() -> None:
     task = ExampleProtoCronTask(SampleArgs(some_string="test", some_int=42))
-    triggered_task = task.once(trigger_time=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
+    triggered_task = task.once(trigger_time=datetime(2021, 1, 1, 0, 0, 0, tzinfo=UTC))
 
     serialized = triggered_task._serialize()
     assert serialized == b"\n\x08\n\x06\x08\x80\xcc\xb9\xff\x05\x12\x08\n\x04test\x10*"

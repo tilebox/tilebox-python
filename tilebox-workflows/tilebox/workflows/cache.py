@@ -1,5 +1,4 @@
 import contextlib
-import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from io import BytesIO
@@ -316,14 +315,11 @@ class AmazonS3Cache(JobCache):
             bucket: The Amazon S3 bucket to use for the cache.
             prefix: A path prefix to append to all objects stored in the cache. Defaults to "jobs".
         """
+        import boto3  # noqa: PLC0415
+
         self.bucket = bucket
         self.prefix = ObjectPath(prefix)
-        with warnings.catch_warnings():
-            import boto3  # noqa: PLC0415
-
-            # https://github.com/boto/boto3/issues/3889
-            warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*datetime.utcnow.*")
-            self._s3 = boto3.client("s3")
+        self._s3 = boto3.client("s3")
 
     def __contains__(self, key: str) -> bool:
         from botocore.exceptions import ClientError  # noqa: PLC0415

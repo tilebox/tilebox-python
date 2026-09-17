@@ -2,7 +2,7 @@ import asyncio
 import logging
 import socket
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import ClassVar
 from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
@@ -167,7 +167,7 @@ def _job() -> Job:
         name="concurrent worker test",
         trace_parent="00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
         state=JobState.RUNNING,
-        submitted_at=datetime.now(tz=timezone.utc),
+        submitted_at=datetime.now(tz=UTC),
         progress=[],
         execution_stats=ExecutionStats(None, None, timedelta(), timedelta(), 0, 1, {}),
     )

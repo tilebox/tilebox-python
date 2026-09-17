@@ -83,7 +83,9 @@ class Client:
                 from tilebox.workflows.workflows.v1.workflows_connect import WorkflowsServiceClientSync  # noqa: PLC0415
 
                 address = connect_address(url)
-                http_client = SyncClient(SyncHTTPTransport(http_version=HTTPVersion.HTTP1))
+                http_client = SyncClient(
+                    SyncHTTPTransport(http_version=HTTPVersion.HTTP1, tls_include_system_certs=True)
+                )
                 headers = None if token is None else {"authorization": f"Bearer {token}"}
                 self._job_service = ConnectStubAdapter(JobServiceClientSync(address, http_client=http_client), headers)
                 self._telemetry_service = ConnectStubAdapter(

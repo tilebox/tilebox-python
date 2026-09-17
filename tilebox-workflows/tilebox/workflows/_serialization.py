@@ -342,7 +342,7 @@ def _decode_union(members: list[Any], value: Any) -> Any:
     for member in members:
         try:
             return _decode_override(member, value)
-        except (TypeError, ValueError, msgspec.ValidationError) as error:  # noqa: PERF203
+        except (TypeError, ValueError, msgspec.ValidationError) as error:
             errors.append(error)
     raise msgspec.ValidationError(f"Value does not match any type in the union: {errors[-1]}")
 

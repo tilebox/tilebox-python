@@ -4,7 +4,7 @@ Hypothesis strategies for generating random test data for tests.
 
 import json
 import string
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from hypothesis.strategies import (
     DrawFn,
@@ -113,7 +113,7 @@ def workflow_releases(draw: DrawFn) -> WorkflowRelease:
         id=draw(uuids(version=4)),
         artifact=draw(artifacts() | none()),
         content=draw(release_contents() | none()),
-        created_at=draw(datetimes(timezones=just(timezone.utc)) | none()),
+        created_at=draw(datetimes(timezones=just(UTC)) | none()),
         clusters=draw(lists(clusters(), min_size=0, max_size=3)),
     )
 
@@ -200,9 +200,9 @@ def execution_stats(draw: DrawFn) -> ExecutionStats:
         last_task_stopped_at = draw(
             one_of(none(), datetimes(min_value=first_task_started_at, max_value=datetime(2024, 1, 1)))
         )
-        first_task_started_at = first_task_started_at.astimezone(timezone.utc)
+        first_task_started_at = first_task_started_at.astimezone(UTC)
     if last_task_stopped_at is not None:
-        last_task_stopped_at = last_task_stopped_at.astimezone(timezone.utc)
+        last_task_stopped_at = last_task_stopped_at.astimezone(UTC)
 
     elapsed_time = draw(timedeltas(min_value=timedelta(seconds=0), max_value=timedelta(days=1)))
     compute_time = draw(timedeltas(min_value=timedelta(seconds=0), max_value=timedelta(days=1)))
@@ -235,9 +235,7 @@ def jobs(draw: DrawFn) -> Job:
     name = draw(alphanumerical_text())
     trace_parent = draw(alphanumerical_text())
     state = draw(sampled_from(JobState))
-    submitted_at = draw(
-        datetimes(min_value=datetime(1990, 1, 1), max_value=datetime(2024, 1, 1), timezones=just(timezone.utc))
-    )
+    submitted_at = draw(datetimes(min_value=datetime(1990, 1, 1), max_value=datetime(2024, 1, 1), timezones=just(UTC)))
     progress = draw(lists(progress_indicators(), min_size=0, max_size=3))
     stats = draw(execution_stats())
 

@@ -81,7 +81,7 @@ class Client:
                 from tilebox.datasets.datasets.v1.datasets_connect import DatasetServiceClient  # noqa: PLC0415
 
                 address = connect_address(url, rpc_method_prefix)
-                http_client = HTTPClient(HTTPTransport(http_version=HTTPVersion.HTTP1))
+                http_client = HTTPClient(HTTPTransport(http_version=HTTPVersion.HTTP1, tls_include_system_certs=True))
                 headers = None if token is None else {"authorization": f"Bearer {token}"}
                 dataset_service_stub = AsyncConnectStubAdapter(
                     DatasetServiceClient(address, http_client=http_client),

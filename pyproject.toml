@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "Tilebox Python packages"
 authors = [{ name = "Tilebox, Inc.", email = "support@tilebox.com" }]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "tilebox-datasets>=0.56.0",
     "tilebox-grpc",
@@ -63,7 +63,7 @@ source = "uv-dynamic-versioning"
 [tool.ruff]
 # settings applying to all ruff subcommands, such as `ruff check` (lint) and `ruff format`
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 exclude = [
     "*/.venv/*",
     # it's auto generated, don't lint it

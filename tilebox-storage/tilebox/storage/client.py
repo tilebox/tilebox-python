@@ -1,7 +1,6 @@
 """Asset-oriented asynchronous storage access."""
 
 import os
-import sys
 import threading
 import uuid
 from collections.abc import AsyncIterator, Mapping
@@ -265,14 +264,8 @@ class Client:
         media_type = (asset.media_type or "").lower()
         if media_type and not media_type.startswith(("image/tiff", "image/geotiff", "application/geotiff")):
             raise ValueError(f"asset media type {asset.media_type!r} is not compatible with GeoTIFF")
-        try:
-            from async_geotiff import GeoTIFF  # noqa: PLC0415
-        except ImportError:
-            if sys.version_info < (3, 11):
-                raise ImportError(
-                    "open_geotiff is unavailable on Python 3.10 because async-geotiff requires Python 3.11 or newer"
-                ) from None
-            raise ImportError("async-geotiff is required by tilebox-storage but could not be imported") from None
+        from async_geotiff import GeoTIFF  # noqa: PLC0415
+
         resolved = self.resolve(asset)
         return await GeoTIFF.open(
             resolved.path,

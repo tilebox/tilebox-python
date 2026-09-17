@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -43,7 +43,7 @@ from tilebox.datasets.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 
 @pytest.mark.parametrize(("start", "end"), [(0, 86400), (-86400, 0), (0.5, 1)])
 def test_chunk_preserves_zero_second_timestamps(start: float, end: float) -> None:
-    interval = TimeInterval(datetime.fromtimestamp(start, timezone.utc), datetime.fromtimestamp(end, timezone.utc))
+    interval = TimeInterval(datetime.fromtimestamp(start, UTC), datetime.fromtimestamp(end, UTC))
     message = TimeseriesDatasetChunkMessage(
         dataset_id=uuid_to_uuid_message(uuid4()),
         collection_id=uuid_to_uuid_message(uuid4()),
@@ -55,7 +55,7 @@ def test_chunk_preserves_zero_second_timestamps(start: float, end: float) -> Non
 
 @pytest.mark.parametrize("missing_field", ["time_interval", "start_time", "end_time"])
 def test_chunk_missing_time_interval_fields(missing_field: str) -> None:
-    interval = TimeInterval(datetime(2026, 1, 1, tzinfo=timezone.utc), datetime(2026, 1, 2, tzinfo=timezone.utc))
+    interval = TimeInterval(datetime(2026, 1, 1, tzinfo=UTC), datetime(2026, 1, 2, tzinfo=UTC))
     message = TimeseriesDatasetChunkMessage(
         dataset_id=uuid_to_uuid_message(uuid4()),
         collection_id=uuid_to_uuid_message(uuid4()),

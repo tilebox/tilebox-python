@@ -12,28 +12,25 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-    # our version of the protobuf compiler generates code that requires grpcio 1.63.0 or higher
-    # grpcio 1.65.1 contains a bug that produces lots of logging noise: https://github.com/grpc/grpc/issues/37178
-    # grpcio 1.66 also has this bug on MacOS still: https://github.com/grpc/grpc/issues/37642
-    "grpcio>=1.70",
-    "grpcio-status>=1.70",
+    # Rate-limits the logging noise from https://github.com/grpc/grpc/issues/42293.
+    "grpcio>=1.84.0",
     # connectrpc 0.11 switches from Google's protobuf runtime to protobuf-py
     "connectrpc>=0.10.1,<0.11.0",
-    "pyqwest>=0.6.2",
-    "protobuf>=6",
+    "pyqwest>=0.7.0",
+    "protobuf>=6.31.0",  # FieldDescriptor.is_repeated
     # for the libraries below we specify a minimum, tested to be working version
     "lz4>=4",
     "anyio>=4",
-    "nest-asyncio>=1.5.0",
+    "nest-asyncio2>=1.7.2",
 ]
 
 [dependency-groups]

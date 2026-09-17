@@ -1,3 +1,4 @@
+import builtins
 from typing import Any
 from uuid import UUID
 
@@ -28,11 +29,11 @@ class AutomationService:
             with_pythonic_errors(AutomationServiceStub(channel)) if hasattr(channel, "unary_unary") else channel
         )
 
-    def list_storage_locations(self) -> list[StorageLocation]:
+    def list_storage_locations(self) -> builtins.list[StorageLocation]:
         response: StorageLocations = self.service.ListStorageLocations(Empty())
         return [StorageLocation.from_message(sl) for sl in response.locations]
 
-    def list(self) -> list[AutomationPrototype]:
+    def list(self) -> builtins.list[AutomationPrototype]:
         response: Automations = self.service.ListAutomations(Empty())
         return [AutomationPrototype.from_message(automation) for automation in response.automations]
 

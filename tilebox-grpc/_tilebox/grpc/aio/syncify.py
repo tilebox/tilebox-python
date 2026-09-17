@@ -14,10 +14,10 @@ import inspect
 from collections.abc import Callable, Coroutine
 from typing import Any, TypeVar
 
-import nest_asyncio
+import nest_asyncio2
 
 # this is a patch to enable syncify functionality also inside a running event loop, which is e.g. the case when
-# running in a Jupyter notebook or in a pytest session. In that case we need to use nest_asyncio to allow
+# running in a Jupyter notebook or in a pytest session. In that case we need to use nest_asyncio2 to allow
 # running nested event loops.
 
 
@@ -113,5 +113,5 @@ def _run_blocking(awaitable: Coroutine[Any, Any, Any]) -> Any:
     except RuntimeError:
         return asyncio.run(awaitable)
 
-    nest_asyncio.apply(running_loop)
+    nest_asyncio2.apply(running_loop)
     return running_loop.run_until_complete(awaitable)

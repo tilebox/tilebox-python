@@ -1,7 +1,7 @@
 import os
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -16,6 +16,17 @@ from tilebox.datasets.aio.client import Client as AsyncClient
 from tilebox.datasets.client import _TILEBOX_API_URL, _TILEBOX_DEV_API_URL
 from tilebox.datasets.data.datapoint import QueryResultPage
 from tilebox.datasets.query.time_interval import us_to_datetime
+
+
+@pytest.mark.parametrize(
+    ("client_type", "transport_type"), [(Client, "SyncHTTPTransport"), (AsyncClient, "HTTPTransport")]
+)
+def test_http1_trusts_system_certificates(client_type: type[Client] | type[AsyncClient], transport_type: str) -> None:
+    from pyqwest import HTTPVersion  # noqa: PLC0415
+
+    with patch(f"pyqwest.{transport_type}") as transport:
+        client_type(url="https://api.tilebox.com", transport="http1")
+        transport.assert_called_once_with(http_version=HTTPVersion.HTTP1, tls_include_system_certs=True)
 
 
 @pytest.mark.parametrize("client_type", [Client, AsyncClient])
@@ -172,7 +183,7 @@ def test_find_datapoint() -> None:
         assert isinstance(datapoint, xr.Dataset)
 
         assert datapoint.id.item() == "0181f4ef-2040-13e7-ba1f-d5575e2a32a4"
-        assert _dt(datapoint.time.item()) == datetime(2022, 7, 13, 0, 22, 1, 24000, tzinfo=timezone.utc)
+        assert _dt(datapoint.time.item()) == datetime(2022, 7, 13, 0, 22, 1, 24000, tzinfo=UTC)
 
         if not skip_data:
             assert datapoint.granule_name.item() == "S2A_MSIL1C_20220713T002201_N0400_R102_T08XNS_20220713T015332.SAFE"

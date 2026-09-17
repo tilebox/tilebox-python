@@ -12,27 +12,24 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "tilebox-grpc>=0.28.0",
-    # cftime is a dependency of xarray, and we need this version at least to support numpy v2.0
-    "cftime>=1.6.4",
     # below version pins are some minimum sane versions that we tested against to make sure they are working
-    "numpy>=1.24",
-    "xarray>=2023.11",
+    "numpy>=1.25",
+    "xarray>=2024.6",
     "tqdm>=4.65",
-    "pandas>=2.1",
-    "shapely>=2",
+    "pandas>=2.2.2",
+    "shapely>=2.0.6",
     "promise>=2.3",
-    "typing-extensions>=4.5",
-    "protobuf-py>=0.1.1",
+    "protobuf-py>=0.2.0",  # supports integer values in floating-point fields
 ]
 
 [dependency-groups]

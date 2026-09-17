@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
+from google.protobuf.timestamp_pb2 import Timestamp
 from hypothesis import given
 from hypothesis.strategies import datetimes
 from pandas.core.tools.datetimes import DatetimeScalar
@@ -15,6 +16,7 @@ from tilebox.datasets.query.time_interval import (
     timedelta_to_duration,
     timestamp_to_datetime,
 )
+from tilebox.datasets.tilebox.v1 import query_pb2
 
 _TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
@@ -72,14 +74,39 @@ def test_time_interval_repr(interval: TimeInterval) -> None:
 def test_time_interval_to_message_and_back(interval: TimeInterval) -> None:
     """Make sure converting an interval to a protobuf message and then back again ends up with the same interval."""
     # we always convert to UTC when converting to protobuf, so we loose the information of which timezone it was before
-    assert TimeInterval.from_message(interval.to_message()) == interval.astimezone(timezone.utc)
+    assert TimeInterval.from_message(interval.to_message()) == interval.astimezone(UTC)
+
+
+@pytest.mark.parametrize(
+    ("start_seconds", "end_seconds", "end_inclusive", "expected_start_exclusive"),
+    [(0, 0, False, True), (0, 0, True, False), (13, 79, False, False)],
+)
+def test_from_message_preserves_subclass(
+    start_seconds: int, end_seconds: int, end_inclusive: bool, expected_start_exclusive: bool
+) -> None:
+    class CustomInterval(TimeInterval):
+        pass
+
+    interval = CustomInterval.from_message(
+        query_pb2.TimeInterval(
+            start_time=Timestamp(seconds=start_seconds),
+            end_time=Timestamp(seconds=end_seconds),
+            end_inclusive=end_inclusive,
+        )
+    )
+
+    assert type(interval) is CustomInterval
+    assert interval.start == datetime.fromtimestamp(start_seconds, UTC)
+    assert interval.end == datetime.fromtimestamp(end_seconds, UTC)
+    assert interval.start_exclusive is expected_start_exclusive
+    assert interval.end_inclusive is end_inclusive
 
 
 @given(datetimes())
 def test_datetime_to_timestamp_and_back(dt: datetime) -> None:
     """Make sure converting a datetime to a protobuf timestamp and then back again ends up with the same timestamp."""
     # Naive datetimes are interpreted as UTC; timezone-aware datetimes are converted to UTC.
-    expected = dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+    expected = dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
     assert timestamp_to_datetime(datetime_to_timestamp(dt)) == expected
 
 

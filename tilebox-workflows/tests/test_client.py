@@ -5,6 +5,14 @@ import pytest
 from tilebox.workflows import Client
 
 
+def test_http1_trusts_system_certificates() -> None:
+    from pyqwest import HTTPVersion  # noqa: PLC0415
+
+    with patch("pyqwest.SyncHTTPTransport") as transport, patch("tilebox.workflows.client.WorkflowTracer"):
+        Client(url="https://api.tilebox.com", token="test-key", transport="http1")  # noqa: S106
+        transport.assert_called_once_with(http_version=HTTPVersion.HTTP1, tls_include_system_certs=True)
+
+
 @pytest.mark.parametrize(
     ("environment_url", "explicit_url", "expected_url"),
     [

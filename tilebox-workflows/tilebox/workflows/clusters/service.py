@@ -1,3 +1,4 @@
+import builtins
 from typing import Any
 
 from grpc import Channel
@@ -46,7 +47,7 @@ class ClusterService:
         request = DeleteClusterRequest(cluster_slug=cluster_slug)
         self.service.DeleteCluster(request)
 
-    def list(self) -> list[Cluster]:
+    def list(self) -> builtins.list[Cluster]:
         request = ListClustersRequest()
         response: ListClustersResponse = self.service.ListClusters(request)
         return [Cluster.from_message(cluster) for cluster in response.clusters]

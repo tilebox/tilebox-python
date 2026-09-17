@@ -93,7 +93,7 @@ class _PipeWriter:
                     _, writable, _ = select.select([], [self._fd], [], 0.05)
                     if writable:
                         view = view[os.write(self._fd, view) :]
-                except (BrokenPipeError, OSError, ValueError):  # noqa: PERF203 -- every write may break
+                except (BrokenPipeError, OSError, ValueError):
                     return
             if view:
                 # Never append another record after a partial timed-out write.

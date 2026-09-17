@@ -2,7 +2,7 @@ import logging
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, cast
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
@@ -185,7 +185,7 @@ class SpanEventLoggingHandler(logging.Handler):
 
         # support legacy % formatting usage in messages (even though it's discouraged)
         body = record.msg % record.args if isinstance(record.msg, str) and record.args else record.msg
-        created_time = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        created_time = datetime.fromtimestamp(record.created, tz=UTC)
 
         # add the log message as a span event
         workflow_attributes = _current_span_attributes() | _record_attributes(record)

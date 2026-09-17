@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -64,8 +64,8 @@ def test_query_filters_to_message_and_back(q: QueryFilters) -> None:
 def test_query_filters_expression_to_message_and_back() -> None:
     query_filter = QueryFilters(
         temporal_extent=TimeInterval(
-            datetime(2026, 7, 27, tzinfo=timezone.utc),
-            datetime(2026, 7, 28, tzinfo=timezone.utc),
+            datetime(2026, 7, 27, tzinfo=UTC),
+            datetime(2026, 7, 28, tzinfo=UTC),
         ),
         filter=(field("cloud_cover") < 20) | field("cloud_cover").is_null(),
     )
@@ -78,8 +78,8 @@ def test_query_filters_expression_to_message_and_back() -> None:
 def test_multiple_wire_expressions_are_combined_with_and() -> None:
     query_filter = QueryFilters(
         TimeInterval(
-            datetime.now(tz=timezone.utc),
-            datetime.now(tz=timezone.utc) + timedelta(days=1),
+            datetime.now(tz=UTC),
+            datetime.now(tz=UTC) + timedelta(days=1),
         )
     )
     message = query_filter.to_message()
@@ -100,8 +100,8 @@ def test_query_filters_reject_invalid_filter() -> None:
     with pytest.raises(TypeError, match="Expected a query expression"):
         QueryFilters(
             TimeInterval(
-                datetime(2026, 7, 27, tzinfo=timezone.utc),
-                datetime(2026, 7, 28, tzinfo=timezone.utc),
+                datetime(2026, 7, 27, tzinfo=UTC),
+                datetime(2026, 7, 28, tzinfo=UTC),
             ),
             filter="quality > 80",  # ty: ignore[invalid-argument-type]
         )
@@ -113,8 +113,8 @@ def test_query_filters_reject_invalid_interval_variants() -> None:
 
     message = QueryFilters(
         TimeInterval(
-            datetime(2026, 7, 27, tzinfo=timezone.utc),
-            datetime(2026, 7, 28, tzinfo=timezone.utc),
+            datetime(2026, 7, 27, tzinfo=UTC),
+            datetime(2026, 7, 28, tzinfo=UTC),
         )
     ).to_message()
     message.datapoint_interval.CopyFrom(IDInterval(uuid4(), uuid4(), False, False).to_message())

@@ -6,11 +6,8 @@ from collections.abc import Awaitable, Sequence
 from contextlib import suppress
 from dataclasses import Field, dataclass, field, fields, is_dataclass
 from types import NoneType, UnionType
-from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast, dataclass_transform, get_args, get_origin
 from uuid import UUID
-
-# from python 3.11 onwards this is available as typing.dataclass_transform:
-from typing_extensions import dataclass_transform
 
 from tilebox.workflows._serialization import decode_json, encode_json_field, encode_json_fields
 from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmissionGroup, TaskSubmissions

@@ -34,7 +34,12 @@ class JobWidget:
             return None
 
         if self.layout is None:  # initialize the widget the first time we want to interactively display it
-            from ipywidgets import HTML, VBox  # noqa: PLC0415
+            try:
+                from ipywidgets import HTML, VBox  # noqa: PLC0415
+            except ModuleNotFoundError as error:
+                if error.name != "ipywidgets":
+                    raise
+                return None  # IPython falls back to the plain-text job representation.
 
             self.widgets.append(HTML(_render_job_details_html(self.job)))
             self.widgets.append(HTML(_render_job_progress(self.job, False)))
@@ -290,9 +295,7 @@ def _render_job_details_html(job: Job) -> str:
 
 
 def _render_datetime(dt: datetime) -> str:
-    from dateutil.tz import tzlocal  # noqa: PLC0415
-
-    local = dt.astimezone(tzlocal())
+    local = dt.astimezone()
     time_part = local.strftime("%Y-%m-%d %H:%M:%S")
     tz_part = local.strftime("%z")
     tz_part = "(UTC)" if tz_part == "+0000" else f"(UTC{tz_part})"
@@ -302,9 +305,7 @@ def _render_datetime(dt: datetime) -> str:
 def _render_job_progress(job: Job, include_refresh_time: bool) -> str:
     refresh = ""
     if include_refresh_time:
-        from dateutil.tz import tzlocal  # noqa: PLC0415
-
-        current_time = datetime.now(tzlocal())
+        current_time = datetime.now().astimezone()
         refresh = f" <span class='tbx-detail-value-muted'>(refreshed at {current_time.strftime('%H:%M:%S')})</span> {_info_icon}"
 
     state_name = job.state.name

@@ -179,6 +179,9 @@ def test_asset_authoring_compiles_profiles_registries_and_custom_field_names() -
 def test_media_type_has_string_enum_semantics_and_compact_encoding() -> None:
     assert isinstance(MediaType.CLOUD_OPTIMIZED_GEOTIFF, str)
     assert str(MediaType.CLOUD_OPTIMIZED_GEOTIFF) == ("image/tiff; application=geotiff; profile=cloud-optimized")
+    assert MediaType.JSON == "application/json"
+    assert f"{MediaType.JSON}" == "application/json"
+    assert f"{MediaType.JSON:>20}" == "    application/json"
 
     assets = AssetCollection.from_assets(
         [

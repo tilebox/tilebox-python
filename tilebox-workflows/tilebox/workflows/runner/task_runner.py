@@ -11,13 +11,8 @@ from queue import Empty
 from threading import Event
 from time import sleep
 from types import FrameType, TracebackType
-from typing import Any, TypeAlias, TypeVar
+from typing import Any, Self, TypeAlias, TypeVar
 from uuid import UUID
-
-try:
-    from typing import Self  # ty: ignore[unresolved-import]
-except ImportError:  # Self is only available in Python 3.11+
-    from typing_extensions import Self
 
 from tenacity import retry, retry_if_exception_type, stop_when_event_set, wait_random_exponential
 from tenacity.stop import stop_base

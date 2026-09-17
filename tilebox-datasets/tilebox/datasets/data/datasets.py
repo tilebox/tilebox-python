@@ -2,12 +2,11 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Literal, TypeAlias, TypedDict, get_args, get_origin
+from typing import Literal, NotRequired, Required, TypeAlias, TypedDict, get_args, get_origin
 
 import numpy as np
 from google.protobuf import duration_pb2, timestamp_pb2
 from google.protobuf.descriptor_pb2 import FieldDescriptorProto, FileDescriptorSet
-from typing_extensions import NotRequired, Required
 
 from tilebox.datasets.datasets.v1 import core_pb2, dataset_type_pb2, datasets_pb2, well_known_types_pb2
 from tilebox.datasets.schema import UUID, Geometry, MessageFieldType, _wire_message_type

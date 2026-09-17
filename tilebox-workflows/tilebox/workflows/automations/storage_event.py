@@ -1,10 +1,6 @@
 from dataclasses import replace
+from typing import Self
 from uuid import UUID
-
-try:
-    from typing import Self  # ty: ignore[unresolved-import]
-except ImportError:  # Self is only available in Python 3.11+
-    from typing_extensions import Self
 
 from tilebox.workflows.data import (
     StorageEventType,

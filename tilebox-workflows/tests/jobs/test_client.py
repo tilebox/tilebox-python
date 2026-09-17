@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
@@ -56,7 +56,7 @@ def test_query_logs_paginates() -> None:
     next_page_start = uuid4()
     log_records = [
         LogRecord(
-            time=datetime.now(tz=timezone.utc),
+            time=datetime.now(tz=UTC),
             severity_number=9,
             severity_text="INFO",
             body="first",
@@ -66,7 +66,7 @@ def test_query_logs_paginates() -> None:
             runner_attributes={},
         ),
         LogRecord(
-            time=datetime.now(tz=timezone.utc),
+            time=datetime.now(tz=UTC),
             severity_number=9,
             severity_text="INFO",
             body="second",
@@ -124,8 +124,8 @@ def test_query_spans_paginates() -> None:
     next_page_start = uuid4()
     spans = [
         Span(
-            start_time=datetime.now(tz=timezone.utc),
-            end_time=datetime.now(tz=timezone.utc),
+            start_time=datetime.now(tz=UTC),
+            end_time=datetime.now(tz=UTC),
             trace_id="00" * 16,
             span_id="00" * 8,
             parent_span_id=None,
@@ -137,8 +137,8 @@ def test_query_spans_paginates() -> None:
             events=[],
         ),
         Span(
-            start_time=datetime.now(tz=timezone.utc),
-            end_time=datetime.now(tz=timezone.utc),
+            start_time=datetime.now(tz=UTC),
+            end_time=datetime.now(tz=UTC),
             trace_id="00" * 16,
             span_id="00" * 8,
             parent_span_id=None,
@@ -196,7 +196,7 @@ class MockJobService(JobServiceStub):
             name=req.job_name,
             trace_parent=req.trace_parent,
             state=JobStateEnum.JOB_STATE_SUBMITTED,
-            submitted_at=datetime_to_timestamp(datetime.now(tz=timezone.utc)),
+            submitted_at=datetime_to_timestamp(datetime.now(tz=UTC)),
         )
         self.jobs[job_id] = job
         return job
