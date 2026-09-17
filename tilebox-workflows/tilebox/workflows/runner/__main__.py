@@ -1,20 +1,15 @@
 import argparse
 import importlib
-import os
-import sys
 from collections.abc import Sequence
 from time import perf_counter
 from typing import Any
 
-from loguru import logger
-
+from tilebox.workflows.observability._logging import logger
 from tilebox.workflows.runner.runner import Runner
 from tilebox.workflows.runner.worker_server import serve_runner
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    _configure_logging()
-
     parser = argparse.ArgumentParser(
         prog="python -m tilebox.workflows.runner",
         description="Start a Tilebox workflow worker runtime.",
@@ -26,21 +21,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     runner = _import_runner(args.runner)
     logger.debug(f"Imported runner {args.runner!r}; starting worker server")
     serve_runner(runner)
-    logger.debug("Worker server stopped")
     return 0
-
-
-def _configure_logging() -> None:
-    level = "DEBUG" if _is_debug_enabled() else "INFO"
-    logger.remove()
-    logger.add(sys.stderr, level=level, format="{process}: {level}: {message}", catch=True)
-
-
-def _is_debug_enabled() -> bool:
-    value = os.environ.get("TILEBOX_DEBUG")
-    if value is None:
-        return False
-    return value.strip().lower() in {"", "1", "true", "yes", "on"}
 
 
 def _import_runner(import_path: str) -> Runner:

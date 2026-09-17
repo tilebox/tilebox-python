@@ -1,8 +1,6 @@
 import os
 from uuid import UUID
 
-from loguru import logger
-
 from _tilebox.grpc.aio.channel import open_channel
 from _tilebox.grpc.aio.error import with_pythonic_errors
 from _tilebox.grpc.channel import (
@@ -21,6 +19,7 @@ from tilebox.datasets.datasets.v1.data_access_pb2_grpc import DataAccessServiceS
 from tilebox.datasets.datasets.v1.data_ingestion_pb2_grpc import DataIngestionServiceStub
 from tilebox.datasets.datasets.v1.datasets_pb2_grpc import DatasetServiceStub
 from tilebox.datasets.group import Group
+from tilebox.datasets.notices import print_notice
 from tilebox.datasets.service import TileboxDatasetService
 
 
@@ -55,11 +54,11 @@ class Client:
 
         is_tilebox_deployment = url in (_TILEBOX_API_URL, _TILEBOX_DEV_API_URL)
         if token is None and is_tilebox_deployment and warn_if_unauthenticated:
-            logger.opt(colors=True).info(
-                "<yellow>"
-                "No Tilebox API key detected. Using <bold>anonymous open data access</bold> without authentication. "
+            print_notice(
+                "[yellow]"
+                "No Tilebox API key detected. Using [bold]anonymous open data access[/bold] without authentication. "
                 "For higher throughput and rate limits, sign up for a free account at https://console.tilebox.com."
-                "</yellow>"
+                "[/yellow]"
             )
 
         rpc_method_prefix = _PUBLIC_RPC_METHOD_PREFIX if (is_tilebox_deployment and token is None) else None

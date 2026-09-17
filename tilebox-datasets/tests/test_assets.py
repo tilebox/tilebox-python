@@ -275,12 +275,12 @@ def test_field_names_are_validated_at_runtime() -> None:
         ({"storage": "assets"}, "must be distinct"),
     ):
         with pytest.raises(ValueError, match=error):
-            assets.to_fields(fields=fields)  # type: ignore[arg-type]
+            assets.to_fields(fields=fields)  # ty: ignore[no-matching-overload]
         with pytest.raises(ValueError, match=error):
-            AssetCollection.from_datapoint(datapoint, fields=fields)  # type: ignore[arg-type]
+            AssetCollection.from_datapoint(datapoint, fields=fields)  # ty: ignore[invalid-argument-type]
 
     with pytest.raises(TypeError, match="must be a string"):
-        assets.to_fields(fields={"assets": 1})  # type: ignore[typeddict-item]
+        assets.to_fields(fields={"assets": 1})  # ty: ignore[no-matching-overload]
 
 
 def test_band_compilation_lifts_metadata_and_interns_profiles() -> None:
@@ -533,7 +533,7 @@ def test_locations_reuse_generated_storage_and_authentication_messages() -> None
     assert location.authentication_schemes["signed"] is authentication_scheme
     assert location.authentication_schemes["signed"].flows[0].signed_url == signed_url
     with pytest.raises(TypeError):
-        location.storage_schemes["new"] = scheme  # type: ignore[index]
+        location.storage_schemes["new"] = scheme  # ty: ignore[invalid-assignment]
 
 
 def test_alternate_href_absent_empty_and_nonempty_are_distinct() -> None:

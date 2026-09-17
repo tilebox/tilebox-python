@@ -1,11 +1,11 @@
 import typing
 from base64 import b64decode, b64encode
-from dataclasses import fields, is_dataclass
+from dataclasses import Field, fields, is_dataclass
 from datetime import datetime
 from functools import lru_cache
 from pathlib import PurePath
 from types import NoneType, UnionType
-from typing import Any, get_args, get_origin
+from typing import Any, ClassVar, Protocol, get_args, get_origin
 from zoneinfo import ZoneInfo
 
 import msgspec
@@ -14,13 +14,61 @@ from google.protobuf.message import Message
 from tilebox.workflows._codec import registry
 
 
-def encode_json_field(value: Any, owner_type: type, field_name: str) -> bytes:
+class DataclassInstance(Protocol):
+    __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
+
+
+def normalize_log_value(value: Any) -> Any:
+    """Convert a log value to JSON primitives, using task codecs and best-effort text fallbacks."""
+    if type(value) in (str, bool, int, float, NoneType):
+        return value
+    return _JSON_DECODER.decode(encode_log_value(value))
+
+
+def encode_log_value(value: Any) -> bytes:
+    """Encode task-compatible values for logs, falling back without failing task execution.
+
+    Unlike task submission, logging is best-effort: unsupported values, cycles, or
+    failing codecs become text. A failing __str__ becomes a type-name placeholder.
+    """
+    try:
+        return _JSON_ENCODER.encode(_prepare_log_value(value))
+    except Exception:  # noqa: BLE001 -- logging must contain user codec/serialization failures
+        try:
+            fallback = str(value)
+        except Exception:  # noqa: BLE001 -- even user __str__ can fail
+            fallback = f"<unserializable {type(value).__name__}>"
+        return msgspec.json.encode(fallback.encode("utf-8", errors="replace").decode("utf-8"))
+
+
+def _prepare_log_value(value: Any) -> Any:
+    # Runtime types replace task field annotations here. In particular, codecs for
+    # native containers (e.g. Affine) must run before msgspec sees a tuple/list.
+    codec = registry.find(type(value))
+    if codec is not None:
+        return _prepare_log_value(codec.encode(value))
+    if is_dataclass(value) and not isinstance(value, type):
+        return {
+            field.name: _prepare_log_value(getattr(value, field.name))
+            for field in fields(value)
+            if not field.metadata.get("skip_serialization", False)
+        }
+    if isinstance(value, dict):
+        return {str(key): _prepare_log_value(item) for key, item in value.items()}
+    if isinstance(value, list | tuple | set | frozenset):
+        return [_prepare_log_value(item) for item in value]
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return value
+
+
+def encode_json_field(value: Any, owner_type: type[DataclassInstance], field_name: str) -> bytes:
     field_type, requires_override = _encode_plan(owner_type)[field_name]
     prepared = _prepare_encode(field_type, value) if requires_override else value
     return _encode(prepared, value)
 
 
-def encode_json_fields(value: Any, included_fields: list[Any]) -> bytes:
+def encode_json_fields(value: DataclassInstance, included_fields: list[Any]) -> bytes:
     plan = _encode_plan(type(value))
     prepared = {
         field.name: (
@@ -53,7 +101,7 @@ def _type_hints(field_type: type) -> dict[str, Any]:
 
 
 @lru_cache
-def _encode_plan(field_type: type) -> dict[str, tuple[Any, bool]]:
+def _encode_plan(field_type: type[DataclassInstance]) -> dict[str, tuple[Any, bool]]:
     type_hints = _type_hints(field_type)
     return {
         field.name: (
@@ -271,7 +319,7 @@ def _decode_override(field_type: Any, value: Any) -> Any:  # noqa: C901, PLR0911
     return msgspec.convert(value, type=field_type, dec_hook=_decode_hook, strict=True)
 
 
-def _decode_dataclass(field_type: type, value: Any) -> Any:
+def _decode_dataclass(field_type: type[DataclassInstance], value: Any) -> Any:
     params = msgspec.convert(value, type=dict)
     type_hints = typing.get_type_hints(field_type, include_extras=True)
     known_fields = {field.name: field for field in fields(field_type)}

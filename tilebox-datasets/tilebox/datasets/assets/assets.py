@@ -464,12 +464,13 @@ def _validate_field_names(fields: AssetFieldNames | None) -> dict[str, str]:
     unknown = set(fields).difference(_ASSET_FIELD_DEFAULTS)
     if unknown:
         raise ValueError(f"unknown asset field names: {', '.join(sorted(unknown))}")
-    overrides = dict(fields)
-    for logical_name, physical_name in overrides.items():
+    overrides: dict[str, str] = {}
+    for logical_name, physical_name in fields.items():
         if not isinstance(physical_name, str):
             raise TypeError(f"field name for {logical_name!r} must be a string")
         if not physical_name:
             raise ValueError(f"field name for {logical_name!r} cannot be empty")
+        overrides[logical_name] = physical_name
     resolved = {**_ASSET_FIELD_DEFAULTS, **overrides}
     if len(set(resolved.values())) != len(resolved):
         raise ValueError("asset, storage, and authentication field names must be distinct")
@@ -899,7 +900,7 @@ def _lift_sar(bands: tuple[Band, ...], parent: SARProperties | None) -> SARPrope
     """
     if not bands:
         return parent
-    values = {}
+    values: dict[str, Any] = {}
     for field in _SAR_FIELDS:
         default = _SAR_ENUM_DEFAULTS.get(field)
         common = _common(_message_value(band.sar, field, default) for band in bands)
@@ -960,7 +961,7 @@ def _sparse_sar(child: SARProperties | None, parent: SARProperties | None) -> SA
     """
     if child is None:
         return None
-    values = {}
+    values: dict[str, Any] = {}
     for field in _SAR_FIELDS:
         default = _SAR_ENUM_DEFAULTS.get(field)
         value = _message_value(child, field, default)
@@ -1260,7 +1261,7 @@ def _discover_xarray_message(
         values = [value for value in _message_values(datapoint[variable_override]) if isinstance(value, message_type)]
         if len(values) != 1:
             raise ValueError(f"field {variable_override!r} does not contain exactly one {message_name} message")
-        return cast(_MessageT, values[0])
+        return values[0]
     candidates = []
     for name, data in datapoint.variables.items():
         values = [value for value in _message_values(data) if isinstance(value, message_type)]

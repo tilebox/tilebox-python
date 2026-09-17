@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -19,6 +19,7 @@ from tilebox.datasets import CollectionClient, DatasetClient, field
 from tilebox.datasets.data.collection import Collection, CollectionInfo
 from tilebox.datasets.data.datapoint import AnyMessage, QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
+from tilebox.datasets.data.timeseries import TimeseriesDatasetChunk
 from tilebox.datasets.datasets.v1.collections_pb2 import (
     CreateCollectionRequest,
     DeleteCollectionRequest,
@@ -29,6 +30,7 @@ from tilebox.datasets.datasets.v1.collections_pb2 import (
 from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceStub
 from tilebox.datasets.datasets.v1.core_pb2 import Collection as CollectionMessage
 from tilebox.datasets.datasets.v1.core_pb2 import CollectionInfo as CollectionInfoMessage
+from tilebox.datasets.datasets.v1.timeseries_pb2 import TimeseriesDatasetChunk as TimeseriesDatasetChunkMessage
 from tilebox.datasets.query.time_interval import (
     _EMPTY_TIME_INTERVAL,
     TimeInterval,
@@ -37,6 +39,34 @@ from tilebox.datasets.query.time_interval import (
 )
 from tilebox.datasets.service import TileboxDatasetService
 from tilebox.datasets.uuid import uuid_message_to_uuid, uuid_to_uuid_message
+
+
+@pytest.mark.parametrize(("start", "end"), [(0, 86400), (-86400, 0), (0.5, 1)])
+def test_chunk_preserves_zero_second_timestamps(start: float, end: float) -> None:
+    interval = TimeInterval(datetime.fromtimestamp(start, timezone.utc), datetime.fromtimestamp(end, timezone.utc))
+    message = TimeseriesDatasetChunkMessage(
+        dataset_id=uuid_to_uuid_message(uuid4()),
+        collection_id=uuid_to_uuid_message(uuid4()),
+        time_interval=interval.to_message(),
+    )
+
+    assert TimeseriesDatasetChunk.from_message(message).time_interval == interval
+
+
+@pytest.mark.parametrize("missing_field", ["time_interval", "start_time", "end_time"])
+def test_chunk_missing_time_interval_fields(missing_field: str) -> None:
+    interval = TimeInterval(datetime(2026, 1, 1, tzinfo=timezone.utc), datetime(2026, 1, 2, tzinfo=timezone.utc))
+    message = TimeseriesDatasetChunkMessage(
+        dataset_id=uuid_to_uuid_message(uuid4()),
+        collection_id=uuid_to_uuid_message(uuid4()),
+        time_interval=interval.to_message(),
+    )
+    if missing_field == "time_interval":
+        message.ClearField(missing_field)
+    else:
+        message.time_interval.ClearField(missing_field)
+
+    assert TimeseriesDatasetChunk.from_message(message).time_interval is None
 
 
 def _mocked_dataset() -> tuple[DatasetClient, MagicMock]:
@@ -286,7 +316,7 @@ def test_timeseries_dataset_query_rejects_invalid_filter_before_request() -> Non
         dataset.query(
             collections=["collection"],
             temporal_extent=interval,
-            filter="quality > 80",  # type: ignore[arg-type]
+            filter="quality > 80",  # ty: ignore[invalid-argument-type]
         )
 
     service.get_collections.assert_not_called()

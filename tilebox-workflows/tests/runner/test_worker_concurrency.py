@@ -16,6 +16,7 @@ from tilebox.workflows import ExecutionContext, Runner, Task
 from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.data import ExecutionStats, Job, JobState, RunnerContext, TaskState
 from tilebox.workflows.data import Task as TaskData
+from tilebox.workflows.observability._logging import StructuredLogger
 from tilebox.workflows.observability.tracing import NoopWorkflowTracer
 from tilebox.workflows.runner.executor import LazyStorageLocations
 from tilebox.workflows.runner.worker_server import serve_runner
@@ -25,7 +26,11 @@ from tilebox.workflows.workflows.v1 import core_pb2, worker_pb2, worker_pb2_grpc
 
 def test_worker_executes_tasks_concurrently_with_isolated_execution_state(
     caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Runtime identity is independent of the runner ID supplied by initialization.
+    monkeypatch.setenv("TILEBOX_RUNTIME_ID", str(uuid4()))
+
     class SharedRunnerContext(RunnerContext):
         instances: ClassVar[list["SharedRunnerContext"]] = []
 
@@ -58,8 +63,9 @@ def test_worker_executes_tasks_concurrently_with_isolated_execution_state(
     runner = Runner(tasks=[ConcurrentTask], cache=cache, context=SharedRunnerContext)
     fake_client = MagicMock()
     fake_client._tracer = NoopWorkflowTracer()
-    fake_client._task_logger = logging.getLogger("tilebox.workflows.tests.shared-worker")
-    caplog.set_level(logging.INFO, logger=fake_client._task_logger.name)
+    fake_client._auth = {"url": "https://worker.example", "token": "worker-key"}
+    fake_client._task_logger = StructuredLogger(logging.getLogger("tilebox.workflows.tests.shared-worker"))
+    caplog.set_level(logging.INFO, logger="tilebox.workflows.tests.shared-worker")
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as free_socket:
         free_socket.bind(("127.0.0.1", 0))
@@ -67,7 +73,10 @@ def test_worker_executes_tasks_concurrently_with_isolated_execution_state(
 
     server_thread = threading.Thread(target=serve_runner, args=(runner, address), daemon=True)
 
-    with patch("tilebox.workflows.runner.worker_service.Client", return_value=fake_client):
+    with (
+        patch("tilebox.workflows.runner.worker_service.Client", return_value=fake_client),
+        patch("tilebox.workflows.runner.worker_service.initialize_logging") as initialize_logging,
+    ):
         server_thread.start()
         channel = grpc.insecure_channel(address)
         grpc.channel_ready_future(channel).result(timeout=5)
@@ -76,6 +85,7 @@ def test_worker_executes_tasks_concurrently_with_isolated_execution_state(
             worker_pb2.InitializeRunnerRequest(runner_id=must_uuid_to_uuid_message(uuid4())),
             timeout=5,
         )
+        initialize_logging.assert_called_once_with(url="https://worker.example", token="worker-key")  # noqa: S106
 
         job = _job()
         tasks = [_task_message(ConcurrentTask(label), job) for label in ("first", "second")]

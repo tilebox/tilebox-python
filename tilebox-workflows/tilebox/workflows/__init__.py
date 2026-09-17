@@ -1,8 +1,5 @@
 import os
-import sys
 from typing import TYPE_CHECKING, Any
-
-from loguru import logger
 
 if TYPE_CHECKING:
     from tilebox.workflows.client import Client
@@ -48,19 +45,17 @@ def __dir__() -> list[str]:
     return sorted(set(globals()) | set(__all__))
 
 
-def _init_logging(level: str = "INFO") -> None:
-    logger.remove()
-    logger.add(sys.stdout, level=level, format="{process}: {level}: {message}", catch=True)
+def _initialize_logging_from_environment() -> None:
+    # Stage 1: current CLIs provide credentials before importing workflow code, so
+    # even import-time logs reach the API. Ordinary SDK imports stay lightweight.
+    url = os.environ.get("TILEBOX_API_URL")
+    token = os.environ.get("TILEBOX_API_KEY")
+    if not url or not token:
+        return
+
+    from tilebox.workflows.observability.logging import initialize_logging  # noqa: PLC0415
+
+    initialize_logging(url=url, token=token)
 
 
-def _is_debug() -> bool:
-    try:
-        return bool(int(os.environ.get("TILEBOX_DEBUG") or 0))
-    except (TypeError, ValueError):
-        return False
-
-
-if _is_debug():
-    _init_logging("DEBUG")
-else:
-    _init_logging()
+_initialize_logging_from_environment()

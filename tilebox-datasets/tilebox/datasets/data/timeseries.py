@@ -31,7 +31,11 @@ class TimeseriesDatasetChunk:
             datapoint_interval = IDInterval.from_message(chunk.datapoint_interval)
 
         time_interval = None
-        if chunk.time_interval and chunk.time_interval.start_time and chunk.time_interval.end_time:
+        if (
+            chunk.HasField("time_interval")
+            and chunk.time_interval.HasField("start_time")
+            and chunk.time_interval.HasField("end_time")
+        ):
             time_interval = TimeInterval.from_message(chunk.time_interval)
 
         return cls(

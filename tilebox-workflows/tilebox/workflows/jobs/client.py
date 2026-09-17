@@ -231,7 +231,7 @@ class JobClient:
         """
         return self._service.visualize(_to_uuid(job), direction, layout, sketchy)
 
-    def query(  # noqa: PLR0913, PLR0917
+    def query(  # noqa: C901, PLR0913, PLR0917
         self,
         temporal_extent: "TimeIntervalLike | IDIntervalLike | None" = None,
         automation_ids: UUID | list[UUID] | None = None,
@@ -288,13 +288,12 @@ class JobClient:
                         start_exclusive=dataset_time_interval.start_exclusive,
                         end_inclusive=dataset_time_interval.end_inclusive,
                     )
-            case IDInterval(_, _, _, _) | (UUID(), UUID()):
-                id_interval = IDInterval.parse(temporal_extent)
+            case IDInterval() as interval:
+                id_interval = interval
+            case (UUID() as start_id, UUID() as end_id):
+                id_interval = IDInterval.parse((start_id, end_id))
             case _:
-                # ty doesn't narrow types on match statements yet, once it does we can remove this cast
-                # because due to the match statement above we know that temporal_extent is a TimeIntervalLike
-                time_interval_like: TimeIntervalLike = temporal_extent  # ty: ignore[invalid-assignment]
-                dataset_time_interval = TimeInterval.parse(time_interval_like)
+                dataset_time_interval = TimeInterval.parse(temporal_extent)
                 time_interval = TimeInterval(
                     start=dataset_time_interval.start,
                     end=dataset_time_interval.end,

@@ -1,3 +1,8 @@
+from dataclasses import replace
+from itertools import product
+from uuid import UUID
+
+import pytest
 from hypothesis import given
 
 from tests.tasks_data import (
@@ -31,6 +36,7 @@ from tilebox.workflows.data import (
     FilesystemNode,
     Idling,
     Job,
+    JobState,
     ProgressIndicator,
     QueryFilters,
     ReleaseContent,
@@ -44,6 +50,7 @@ from tilebox.workflows.data import (
     Workflow,
     WorkflowRelease,
 )
+from tilebox.workflows.formatting.job import JobWidget, RichDisplayJob
 
 
 @given(task_identifiers())
@@ -74,6 +81,52 @@ def test_execution_stats_to_message_and_back(execution_stats: ExecutionStats) ->
 @given(jobs())
 def test_jobs_to_message_and_back(job: Job) -> None:
     assert Job.from_message(job.to_message()) == job
+
+
+@pytest.mark.parametrize(
+    ("left_key", "right_key", "order"),
+    [
+        ((1, JobState.FAILED, "z", 9), (2, JobState.SUBMITTED, "a", 1), -1),
+        ((1, JobState.RUNNING, "z", 9), (1, JobState.COMPLETED, "a", 1), -1),
+        ((1, JobState.RUNNING, "z", 1), (1, JobState.RUNNING, "a", 9), 1),
+        ((1, JobState.RUNNING, "a", 2), (1, JobState.RUNNING, "a", 7), -1),
+    ],
+)
+@given(left=jobs(), right=jobs())
+def test_job_ordering(
+    left: Job,
+    right: Job,
+    left_key: tuple[int, JobState, str, int],
+    right_key: tuple[int, JobState, str, int],
+    order: int,
+) -> None:
+    left = replace(
+        left,
+        id=UUID(int=left_key[0]),
+        state=left_key[1],
+        name=left_key[2],
+        execution_stats=replace(left.execution_stats, total_tasks=left_key[3]),
+    )
+    right = replace(
+        right,
+        id=UUID(int=right_key[0]),
+        state=right_key[1],
+        name=right_key[2],
+        execution_stats=replace(right.execution_stats, total_tasks=right_key[3]),
+    )
+    # Exercise all four class combinations and both operand directions.
+    left_variants = [left, RichDisplayJob(**vars(left), _widget=JobWidget(None))]
+    right_variants = [right, RichDisplayJob(**vars(right), _widget=JobWidget(None))]
+    for first, second in product(left_variants, right_variants):
+        assert (first < second) == (order < 0)
+        assert (first <= second) == (order <= 0)
+        assert (first > second) == (order > 0)
+        assert (first >= second) == (order >= 0)
+        assert (second < first) == (order > 0)
+        assert (second <= first) == (order >= 0)
+        assert (second > first) == (order < 0)
+        assert (second >= first) == (order <= 0)
+        assert first != second  # Ordering does not change full-value equality.
 
 
 @given(clusters())

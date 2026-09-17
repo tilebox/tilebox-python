@@ -1,10 +1,10 @@
 import re
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from functools import lru_cache
+from functools import lru_cache, total_ordering
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
 from uuid import UUID
@@ -254,7 +254,8 @@ class ExecutionStats:
         )
 
 
-@dataclass(order=True, frozen=True)
+@total_ordering
+@dataclass(frozen=True)
 class Job:
     id: UUID
     name: str
@@ -263,6 +264,16 @@ class Job:
     submitted_at: datetime
     progress: list[ProgressIndicator]
     execution_stats: ExecutionStats
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, Job):
+            return NotImplemented
+        return (self.id, self.state.value, self.name, self.execution_stats.total_tasks) < (
+            other.id,
+            other.state.value,
+            other.name,
+            other.execution_stats.total_tasks,
+        )
 
     @classmethod
     def from_message(
@@ -1060,7 +1071,7 @@ class TriggeredStorageEvent:
 
     @classmethod
     def from_message(
-        cls, event: automation_pb.TriggeredStorageEvent, locations: dict[UUID, StorageLocation]
+        cls, event: automation_pb.TriggeredStorageEvent, locations: Mapping[UUID, StorageLocation]
     ) -> "TriggeredStorageEvent":
         """Convert a TriggeredStorageEvent protobuf message to a TriggeredStorageEvent object."""
         storage_location_id = uuid_message_to_uuid(event.storage_location_id)
@@ -1163,7 +1174,7 @@ class RunnerContext:
 
             tracer = NoopWorkflowTracer()
         self.tracer = tracer
-        self.storage_locations = {
+        self.storage_locations: MutableMapping[UUID, StorageLocation] = {
             sl.id: sl._with_runner_context(self)  # noqa: SLF001
             for sl in storage_locations or []
         }

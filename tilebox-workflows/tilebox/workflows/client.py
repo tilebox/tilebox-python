@@ -1,6 +1,7 @@
 import logging
 import os
 import warnings
+from typing import TypedDict
 from uuid import UUID, uuid4
 
 from _tilebox.grpc.channel import ConnectStubAdapter, Transport, connect_address, open_channel, parse_channel_info
@@ -14,11 +15,9 @@ from tilebox.workflows.data import (
 from tilebox.workflows.jobs.client import JobClient
 from tilebox.workflows.jobs.service import JobService
 from tilebox.workflows.jobs.telemetry_service import TelemetryService
+from tilebox.workflows.observability._logging import StructuredLogger, internal_logger, task_logger
 from tilebox.workflows.observability.logging import (
-    OTELLoggingHandler,
-    StructuredLogger,
-    _create_tilebox_logger,
-    _create_tilebox_logger_provider,
+    initialize_logging,
 )
 from tilebox.workflows.observability.tracing import WorkflowTracer
 from tilebox.workflows.runner.executor import LazyStorageLocations
@@ -27,6 +26,11 @@ from tilebox.workflows.runner.task_service import TaskService
 from tilebox.workflows.task import Task
 from tilebox.workflows.workflows.client import WorkflowClient
 from tilebox.workflows.workflows.service import WorkflowService
+
+
+class _ClientAuth(TypedDict):
+    url: str
+    token: str | None
 
 
 class Client:
@@ -49,14 +53,14 @@ class Client:
             name: An optional name of the client, used as service.name for telemetry. If not set, defaults to
                 the service name provided by `tilebox.workflows.observability.tracing.configure_otel_tracing`,
                 or "tilebox-python" if no external tracer is configured.
-            client_id: An optional stable id used to scope internal loggers. Defaults to a random id.
+            client_id: An optional client identifier. Logging is shared across the process.
             transport: Network transport to use for API requests. Defaults to "grpc". Use "http1" to force
                 the Connect protocol over HTTP/1.1 for networks that do not support gRPC over HTTP/2 correctly.
         """
         if url is None:
             url = os.environ.get("TILEBOX_API_URL") or "https://api.tilebox.com"
         token = _token_from_env(url, token)
-        self._auth: dict[str, str] = {"token": token, "url": url}
+        self._auth: _ClientAuth = {"token": token, "url": url}
         match transport:
             case "grpc":
                 self._job_service = open_channel(url, token)
@@ -98,56 +102,21 @@ class Client:
             case _:
                 raise ValueError(f"Unsupported transport: {transport}")
 
-        # configure logging and tracing
-        self._client_id = client_id or uuid4()  # a random uuid to scope loggers to this client instance
-        self._logger_provider = _create_tilebox_logger_provider(service=name, url=url, token=token)
-
-        # task logger is the logger available for users to emit logs from within a Task.execute method, via
-        # context.logger
-        self._task_logger = _create_tilebox_logger(self._client_id, scope="tasks")
-        self._task_logger_handler = OTELLoggingHandler(level=logging.INFO, logger_provider=self._logger_provider)
-        self._task_logger.addHandler(self._task_logger_handler)
-
-        # runner logger is the logger used for logging internal events within a task runner, for example when a
-        # Tilebox API call fails, or when unexpected errors occur. This logger is not exposed to users,
-        # and is only used for logging internal events within the client and task runners.
-        self._runner_logger = _create_tilebox_logger(self._client_id, scope="runner")
-        self._runner_logger_handler = OTELLoggingHandler(level=logging.INFO, logger_provider=self._logger_provider)
-        self._runner_logger.addHandler(self._runner_logger_handler)
-
+        self._client_id = client_id or uuid4()
+        self._name = name
+        self._task_logger = StructuredLogger(task_logger)
+        self._runner_logger = StructuredLogger(internal_logger)
         self._tracer = WorkflowTracer(service=name, url=url, token=token)
 
-    def configure_logging(self, level: int | logging.Logger, runner_level: int | None = None) -> None:
-        """
-        Configure the logger to use for logging of internal events within workflow clients.
-
-        The logger will be used by all task runners created by this client.
-
-        Calling this method multiple times will replace the existing logger. However, task runners
-        that have already been created will not be affected by subsequent calls to this method.
-
-        Args:
-            logger: The logger to use for logging.
-        """
-        if not isinstance(level, int):
-            warning_message = (
-                "Configuring a logger instance directly on a client is deprecated and will be removed in a future "
-                "version. If you want to export logs to an external system, configure the tilebox root logger "
-                "instance, which you can get with `tilebox.workflows.observability.logging.get_logger()`."
-            )
-            warnings.warn(
-                warning_message,
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            # to preserve backwards compatibility with the old API where the first argument was a logger
-            self._runner_logger = level
-        else:
-            # always adjust the level of the handler, not the loggers themselves, to make sure that other logger
-            # handlers still receive the logs (for example, if the user configured the tilebox root logger to export
-            # all logs at DEBUG level to a file)
-            self._task_logger_handler.setLevel(level)
-            self._runner_logger_handler.setLevel(runner_level or level)
+    def configure_logging(self, level: int | logging.Logger, runner_level: int | None = None) -> None:  # noqa: ARG002
+        """Deprecated compatibility no-op. Runner logging is initialized automatically."""
+        warnings.warn(
+            "Client.configure_logging() is deprecated and no longer needed; logging is initialized automatically. "
+            "This call has no effect. Use tilebox.workflows.observability.logging.configure_log_level() "
+            "or TILEBOX_LOG_LEVEL / TILEBOX_DEBUG to change process-wide thresholds.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     def jobs(self) -> JobClient:
         """Get a client for the jobs service.
@@ -176,6 +145,9 @@ class Client:
         Returns:
             A task runner.
         """
+        # Stage 3: direct runners have no initialization RPC. Configure API + stdout
+        # logging here, before API calls or the lease-renewal process are started.
+        initialize_logging(**self._auth, service=self._name)
         if cache is None:
             cache = NoCache()  # a no-op cache that will raise an error if it's used
 
@@ -192,8 +164,8 @@ class Client:
             self._tracer,
             _LeaseRenewer(**self._auth),
             runner_context,
-            task_logger=StructuredLogger(self._task_logger, {}),
-            runner_logger=StructuredLogger(self._runner_logger, {}),
+            task_logger=self._task_logger,
+            runner_logger=self._runner_logger,
         )
 
         for task in tasks or []:

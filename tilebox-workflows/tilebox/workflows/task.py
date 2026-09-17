@@ -4,7 +4,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from collections import defaultdict
 from collections.abc import Awaitable, Sequence
 from contextlib import suppress
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import Field, dataclass, field, fields, is_dataclass
 from types import NoneType, UnionType
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast, get_args, get_origin
 from uuid import UUID
@@ -17,7 +17,7 @@ from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmission
 
 if TYPE_CHECKING:
     from tilebox.workflows.cache import JobCache
-    from tilebox.workflows.observability.logging import StructuredLogger
+    from tilebox.workflows.observability._logging import StructuredLogger
     from tilebox.workflows.observability.tracing import WorkflowTracer
 else:
     StructuredLogger = Any
@@ -95,9 +95,9 @@ class _ABCTaskify(ABCMeta, _Taskify):  # the order here is actually relevant: AB
 
 # This is a neat typing feature: If dataclass_transform is applied to a class, dataclass-like semantics will be
 # assumed for any class that directly or indirectly derives from the decorated class or uses the decorated class
-# as a metaclass. Attributes on the decorated class and its base classes are not considered to be fields.
-# See https://peps.python.org/pep-0681/
-@dataclass_transform()
+# as a metaclass. See https://peps.python.org/pep-0681/
+@dataclass_transform(field_specifiers=(Field, field))
+@dataclass
 class Task(metaclass=_ABCTaskify):
     """A Tilebox workflows task.
 
@@ -488,10 +488,10 @@ def serialize_task(task: Task) -> bytes:
     return encode_json_fields(task, task_fields)
 
 
-_T = TypeVar("_T", bound=Task)
+_TaskT = TypeVar("_TaskT", bound=Task)
 
 
-def deserialize_task(task_cls: type[_T], task_input: bytes) -> _T:
+def deserialize_task(task_cls: type[_TaskT], task_input: bytes) -> _TaskT:
     """Deserialize the input of a task from a buffer of bytes.
 
     The task_cls is expected to be a dataclass, containing an arbitrary number of fields.

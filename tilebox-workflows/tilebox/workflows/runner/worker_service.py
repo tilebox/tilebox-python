@@ -2,13 +2,13 @@ from collections.abc import Callable
 
 import grpc
 from google.protobuf.empty_pb2 import Empty
-from loguru import logger
 
 from tilebox.datasets.uuid import uuid_message_to_uuid
 from tilebox.workflows.cache import NoCache
 from tilebox.workflows.client import Client
 from tilebox.workflows.data import Cluster, ComputedTask, FailedTask, Task
-from tilebox.workflows.observability.logging import StructuredLogger
+from tilebox.workflows.observability._logging import logger
+from tilebox.workflows.observability.logging import initialize_logging
 from tilebox.workflows.runner.executor import LazyStorageLocations, TaskExecutor
 from tilebox.workflows.runner.runner import Runner
 from tilebox.workflows.task import RunnerContext
@@ -34,19 +34,25 @@ class WorkerServiceServicer(worker_pb2_grpc.WorkerServiceServicer):
     def InitializeWorker(  # noqa: N802
         self,
         request: worker_pb2.InitializeRunnerRequest,
-        context: grpc.ServicerContext,  # noqa: ARG002
+        context: grpc.ServicerContext,
     ) -> worker_pb2.InitializeRunnerResponse:
         logger.debug("InitializeWorker RPC called")
         runner_id = uuid_message_to_uuid(request.runner_id)
+        if self._executor is not None:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, "Worker is already initialized")
         cluster = Cluster.from_message(request.cluster) if request.HasField("cluster") else None
 
         api_connection = request.api_connection if request.HasField("api_connection") else None
-        api_url = api_connection.url if api_connection and api_connection.url else "https://api.tilebox.com"
+        api_url = api_connection.url if api_connection and api_connection.url else None
         api_token = api_connection.token if api_connection and api_connection.token else None
 
         client = Client(url=api_url, token=api_token, client_id=runner_id)
         tracer = client._tracer  # noqa: SLF001
-        task_logger = StructuredLogger(client._task_logger, {})  # noqa: SLF001
+        task_logger = client._task_logger  # noqa: SLF001
+
+        # Stage 2: older CLIs supply API credentials in InitializeWorker rather than
+        # startup environment variables. This is a no-op if stage 1 already ran.
+        initialize_logging(**client._auth)  # noqa: SLF001
 
         context_type = self._runner.context or RunnerContext
         runner_context = context_type(tracer)

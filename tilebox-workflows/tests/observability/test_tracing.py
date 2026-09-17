@@ -78,6 +78,25 @@ def test_workflow_tracers_copy_configured_span_processors_once(
     ]
 
 
+def test_adding_external_exports_after_client_preserves_api_export(
+    span_processors: list[RecordingSpanProcessor],
+) -> None:
+    tracer = tracing.WorkflowTracer(service=None, url="https://api.tilebox.com", token=None)
+    with tracer.span("before"):
+        pass
+    tracing.configure_otel_tracing(service="first", endpoint="https://first.example")
+    with tracer.span("after-first"):
+        pass
+    tracing.configure_otel_tracing(service="second", endpoint="https://second.example")
+    with tracer.span("after-second"):
+        pass
+    assert [processor.span_names for processor in span_processors] == [
+        ["before", "after-first", "after-second"],
+        ["after-first", "after-second"],
+        ["after-second"],
+    ]
+
+
 def test_workflow_tracer_propagates_task_id_to_sub_spans(
     span_processors: list[RecordingSpanProcessor],
 ) -> None:

@@ -11,7 +11,7 @@ from tilebox.workflows._codec import Codec, CodecRegistry
 
 def _encode_crs(crs: CRS) -> str:
     authority = crs.authority
-    return f"{authority[0]}:{authority[1]}" if authority and all(authority) else crs.wkt
+    return f"{authority[0]}:{authority[1]}" if all(authority) else crs.wkt
 
 
 def _encode_geometry(geometry: Geometry) -> dict[str, Any]:

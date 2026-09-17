@@ -27,11 +27,9 @@ def test_client_url_environment(
     monkeypatch.setenv("TILEBOX_API_KEY", "runner-key")
     with (
         patch("tilebox.workflows.client.open_channel") as open_channel_mock,
-        patch("tilebox.workflows.client._create_tilebox_logger_provider") as logger_provider_mock,
         patch("tilebox.workflows.client.WorkflowTracer") as tracer_mock,
     ):
         client = Client() if explicit_url is None else Client(url=explicit_url)
         open_channel_mock.assert_called_once_with(expected_url, "runner-key")
-        logger_provider_mock.assert_called_once_with(service=None, url=expected_url, token="runner-key")  # noqa: S106
         tracer_mock.assert_called_once_with(service=None, url=expected_url, token="runner-key")  # noqa: S106
         assert client._auth == {"url": expected_url, "token": "runner-key"}

@@ -1,6 +1,6 @@
 import json
 from collections.abc import Awaitable
-from dataclasses import dataclass
+from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Annotated
 
 import pytest
@@ -18,6 +18,29 @@ from tilebox.workflows.task import (
     merge_future_tasks_to_submissions,
     serialize_task,
 )
+
+
+def test_task_base_is_an_empty_dataclass() -> None:
+    assert is_dataclass(Task)
+    assert fields(Task) == ()
+    assert serialize_task(Task()) == b""
+    assert deserialize_task(Task, b"") == Task()
+
+
+def test_task_field_specifiers() -> None:
+    class TaskWithDefaults(Task):
+        name: str
+        values: list[int] = field(default_factory=list)
+        runtime_value: int = field(init=False, default=7)
+
+    first = TaskWithDefaults(name="first")
+    second = TaskWithDefaults(name="second", values=[2])
+    first.values.append(1)
+    assert first.values == [1]
+    assert second.values == [2]
+    assert TaskWithDefaults(name="third").values == []
+    assert first.runtime_value == 7
+    assert [f.name for f in fields(TaskWithDefaults)] == ["name", "values", "runtime_value"]
 
 
 def test_task_validation_simple_task() -> None:
@@ -64,7 +87,7 @@ def test_task_validation_execute_awaitable_with_value_return_type() -> None:
     with pytest.raises(TypeError, match="to not have a return value"):
 
         class InvalidAwaitableTask(Task):
-            def execute(self, context: ExecutionContext) -> Awaitable[int]:
+            def execute(self, context: ExecutionContext) -> Awaitable[int]:  # ty: ignore[invalid-method-override]
                 _ = context
 
                 async def execute_async() -> int:

@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any
 from uuid import UUID
 
 from grpc import Channel
@@ -11,7 +11,6 @@ from tilebox.workflows.data import (
     QueryJobSpansResponse,
     uuid_to_uuid_message,
 )
-from tilebox.workflows.workflows.v1 import telemetry_pb2
 from tilebox.workflows.workflows.v1.telemetry_pb2 import (
     LogQueryFilters,
     PaginatedLogsData,
@@ -46,9 +45,7 @@ class TelemetryService:
             job_id=uuid_to_uuid_message(job_id),
             page=page.to_message() if page is not None else None,
             task_id=uuid_to_uuid_message(task_id) if task_id is not None else None,
-            filters=LogQueryFilters(
-                severity_levels=[cast(telemetry_pb2.LogSeverityGroup, severity.value) for severity in severity_levels]
-            )
+            filters=LogQueryFilters(severity_levels=[severity.value for severity in severity_levels])
             if severity_levels
             else None,
         )

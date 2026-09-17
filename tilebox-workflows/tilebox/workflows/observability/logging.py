@@ -1,17 +1,19 @@
 # allow the logging module name which shadows the builtin:
+import atexit
 import contextlib
 import logging
 import os
 import platform
 import re
 import sys
+import threading
 import traceback
-from datetime import datetime, timedelta
-from functools import lru_cache
+from datetime import timedelta
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any, ClassVar, TextIO
 from uuid import UUID, uuid4
 
+import msgspec
 from opentelemetry.exporter.otlp.proto.http._log_exporter import (
     DEFAULT_LOGS_EXPORT_PATH,
     OTLPLogExporter,
@@ -32,12 +34,22 @@ from opentelemetry.sdk.resources import (
     Resource,
 )
 from opentelemetry.semconv.attributes import exception_attributes
-from opentelemetry.trace import get_current_span
 from opentelemetry.util.types import _ExtendedAttributes
+
+from tilebox.workflows._serialization import normalize_log_value
+from tilebox.workflows.observability._log_pipe import _PipeWriter, _StructuredHandler
+from tilebox.workflows.observability._logging import (
+    StructuredLogger as StructuredLogger,  # noqa: PLC0414 -- public compatibility alias
+)
+from tilebox.workflows.observability._logging import (
+    _record_attributes,
+    internal_logger,
+    root_logger,
+    task_logger,
+)
 
 # prefix for stdlib loggers
 _DEFAULT_SERVICE_NAME = "tilebox-python"
-_LOGGING_NAMESPACE = "tilebox.workflows"
 
 _AXIOM_ENDPOINT = "https://api.axiom.co/v1/logs"
 _AXIOM_LOGS_DATASET_ENV_VAR = "AXIOM_LOGS_DATASET"
@@ -46,10 +58,9 @@ _AXIOM_API_KEY_ENV_VAR = "AXIOM_API_KEY"
 _OTEL_LOGS_ENDPOINT_ENV_VAR = "OTEL_LOGS_ENDPOINT"
 _OTEL_EXPORT_INTERVAL_ENV_VAR = "OTEL_EXPORT_INTERVAL"
 
-_WORKFLOW_LOG_ATTRIBUTES = "tilebox_structured_log_attributes"
-
-# process-unique identifier to distinguish different instances of the same service running on the same host
-_instance_id = str(uuid4())
+# Use the CLI's runtime identity, or generate one per process for direct runners.
+_instance_id = os.environ.get("TILEBOX_RUNTIME_ID") or str(uuid4())
+_instance_id = str(UUID(_instance_id))
 
 
 def _get_default_resource(service: str | Resource | None = None) -> Resource:
@@ -81,60 +92,30 @@ def _get_default_resource(service: str | Resource | None = None) -> Resource:
     )
 
 
-@lru_cache
-def _root_logger() -> logging.Logger:
-    root_logger = logging.getLogger(_LOGGING_NAMESPACE)
-    # our root logger needs DEBUG level, otherwise it would always automatically
-    # discard all DEBUG messages and never forward them to any handler, even if they
-    # have a DEBUG level set
-    root_logger.setLevel(logging.DEBUG)
-    return root_logger
-
-
-def _current_span_attributes() -> dict[str, str]:
-    span_context = get_current_span().get_span_context()
-    if not span_context.is_valid:
-        return {}
-
-    return {
-        "trace_id": f"{span_context.trace_id:032x}",
-        "span_id": f"{span_context.span_id:016x}",
-    }
-
-
 def _sanitize_otel_attribute_value(
     value: Any,
 ) -> str | bool | int | float | bytes | list[str | bool | int | float | bytes]:
     if isinstance(value, str | bool | int | float | bytes):
         return value
 
-    if isinstance(value, datetime):
-        return value.isoformat()
-
-    if isinstance(value, tuple | list):
-        values = []
-        for item in value:
-            if isinstance(item, str | bool | int | float | bytes):
-                values.append(item)
-            else:
-                values.append(_sanitize_otel_attribute_value(item))
-        return values
-
-    return str(value)
+    if isinstance(value, list):
+        return [
+            item if isinstance(item, str | bool | int | float) else msgspec.json.encode(item).decode() for item in value
+        ]
+    # OTEL span attributes cannot contain mappings; retain their JSON representation.
+    return msgspec.json.encode(value).decode()
 
 
-def _sanitize_otel_attributes(attributes: dict[str, Any]) -> _ExtendedAttributes:
+def _sanitize_otel_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
     return {str(key): _sanitize_otel_attribute_value(value) for key, value in attributes.items()}
 
 
 class OTELLoggingHandler(LoggingHandler):
     def _get_attributes(self, record: logging.LogRecord) -> _ExtendedAttributes:
-        attributes: dict[str, Any] = {}
-        attributes.update(_current_span_attributes())
-
-        workflow_attributes = getattr(record, _WORKFLOW_LOG_ATTRIBUTES, None)
-        if isinstance(workflow_attributes, dict):
-            attributes.update(workflow_attributes)
+        cached = getattr(record, "_tilebox_otel_attributes", None)
+        if cached is not None:
+            return cached
+        attributes = _sanitize_otel_attributes(_record_attributes(record))
 
         # the default implementation returns attributes for the filepath, lineno and function of the log record
         # we don't want that by default, so we override it to return an empty dict
@@ -143,93 +124,103 @@ class OTELLoggingHandler(LoggingHandler):
             if exctype is not None:
                 attributes[exception_attributes.EXCEPTION_TYPE] = exctype.__name__
             if value is not None and value.args:
-                attributes[exception_attributes.EXCEPTION_MESSAGE] = value.args[0]
+                attributes[exception_attributes.EXCEPTION_MESSAGE] = _sanitize_otel_attribute_value(
+                    normalize_log_value(value.args[0])
+                )
             if tb is not None:
                 # https://github.com/open-telemetry/opentelemetry-specification/blob/9fa7c656b26647b27e485a6af7e38dc716eba98a/specification/trace/semantic_conventions/exceptions.md#stacktrace-representation
                 attributes[exception_attributes.EXCEPTION_STACKTRACE] = "".join(
                     traceback.format_exception(*record.exc_info)
                 )
-        return _sanitize_otel_attributes(attributes)
+        record._tilebox_otel_attributes = attributes  # noqa: SLF001 -- shared across OTEL handlers for this record
+        return attributes
 
 
-class StructuredLogger:
-    """A small structured logging wrapper for logs emitted during task execution."""
+_api_handler: OTELLoggingHandler | None = None
+_initialization_lock = threading.Lock()
+_writer: _PipeWriter | None = None
+_console_handlers: list[logging.Handler] = []
+_console_configured = False
 
-    def __init__(self, logger: logging.Logger, attributes: dict[str, Any] | None = None) -> None:
-        self._logger = logger
-        self._attributes = attributes or {}
 
-    def bind(self, **attributes: Any) -> "StructuredLogger":
-        """Return a new logger that includes the given attributes in every log record."""
-        return StructuredLogger(self._logger, self._attributes | attributes)
+def _remove_console_handlers() -> None:
+    for handler in _console_handlers:
+        root_logger.removeHandler(handler)
+        handler.close()
+    _console_handlers.clear()
 
-    def log(self, level: int, message: object, /, *args: Any, **attributes: Any) -> None:
-        """Log a message with structured attributes."""
-        self._log(level, message, args, attributes, exc_info=False)
 
-    def debug(self, message: object, /, *args: Any, **attributes: Any) -> None:
-        """Log a debug message with structured attributes."""
-        self._log(logging.DEBUG, message, args, attributes, exc_info=False)
+def _add_console_handler(level: int, stream: TextIO, formatter: logging.Formatter) -> None:
+    handler = logging.StreamHandler(stream)
+    handler.setLevel(level)
+    handler.setFormatter(formatter)
+    root_logger.addHandler(handler)
+    _console_handlers.append(handler)
 
-    def info(self, message: object, /, *args: Any, **attributes: Any) -> None:
-        """Log an info message with structured attributes."""
-        self._log(logging.INFO, message, args, attributes, exc_info=False)
 
-    def warning(self, message: object, /, *args: Any, **attributes: Any) -> None:
-        """Log a warning message with structured attributes."""
-        self._log(logging.WARNING, message, args, attributes, exc_info=False)
+def _configure_runtime_logging() -> _PipeWriter | None:
+    """Install the required CLI pipe, or an optional default console for direct runners.
 
-    def error(self, message: object, /, *args: Any, **attributes: Any) -> None:
-        """Log an error message with structured attributes."""
-        self._log(logging.ERROR, message, args, attributes, exc_info=False)
+    The CLI pipe is runtime-owned: public configuration can add outputs but cannot
+    disable or replace it. Console opt-out applies only to console handlers.
+    """
+    global _writer  # noqa: PLW0603 -- process-owned CLI pipe
+    with _initialization_lock:
+        fd_value = os.environ.get("TILEBOX_LOG_FD")
+        if fd_value is not None:
+            if _writer is None:
+                _writer = _PipeWriter(int(fd_value))
+                root_logger.addHandler(_StructuredHandler(_writer))
+                atexit.register(_writer.close)
+            if not _console_configured:
+                _remove_console_handlers()
+        elif not _console_configured and not _console_handlers:
+            _add_console_handler(
+                logging.NOTSET, sys.stdout, logging.Formatter("%(process)d: %(levelname)s: %(message)s")
+            )
+        return _writer
 
-    def exception(self, message: object, /, *args: Any, **attributes: Any) -> None:
-        """Log an error message with structured attributes and the current exception information."""
-        self._log(logging.ERROR, message, args, attributes, exc_info=True)
 
-    def critical(self, message: object, /, *args: Any, **attributes: Any) -> None:
-        """Log a critical message with structured attributes."""
-        self._log(logging.CRITICAL, message, args, attributes, exc_info=False)
+def configure_log_level(level: int = logging.INFO, *, tilebox_debug: bool = False) -> None:
+    """Override process-wide task and Tilebox diagnostic levels without changing outputs.
 
-    def _log(
-        self,
-        level: int,
-        message: object,
-        args: tuple[Any, ...],
-        attributes: dict[str, Any],
-        *,
-        exc_info: bool,
-    ) -> None:
-        if not self._logger.isEnabledFor(level):
+    Startup uses TILEBOX_LOG_LEVEL (INFO by default) and TILEBOX_DEBUG (false by default),
+    normally supplied by the CLI. This override is useful for direct Python runners or
+    notebooks, for example to enable task DEBUG messages without changing environment
+    variables. Lowering a handler's threshold alone cannot recover messages already
+    filtered out by the logger.
+
+    Every call overrides both startup settings: omitting tilebox_debug disables internal
+    DEBUG logging even if TILEBOX_DEBUG was enabled. Existing API exports, the CLI pipe,
+    and console handlers are unchanged and retain their own output thresholds.
+
+    Args:
+        level: Task log threshold, including context.logger. Defaults to logging.INFO.
+        tilebox_debug: Enable internal Tilebox diagnostics at DEBUG when True; otherwise
+            use ERROR. Defaults to False, independently of the task log level.
+    """
+    task_logger.setLevel(level)
+    internal_logger.setLevel(logging.DEBUG if tilebox_debug else logging.ERROR)
+
+
+def initialize_logging(url: str, token: str | None, service: str | None = None) -> None:
+    """Initialize process-wide API and local logging once; the first destination wins.
+
+    Both loggers propagate to one API handler at NOTSET. Thresholds belong to the
+    loggers, so every accepted record is exported regardless of its source.
+    """
+    global _api_handler  # noqa: PLW0603 -- process-wide initialization shared by all startup paths
+    _configure_runtime_logging()
+    with _initialization_lock:
+        if _api_handler is not None:
             return
 
-        workflow_attributes = self._attributes | attributes | _current_span_attributes()
-        self._logger.log(
-            level,
-            message,
-            *args,
-            exc_info=exc_info,
-            extra={_WORKFLOW_LOG_ATTRIBUTES: workflow_attributes},
-            stacklevel=3,
-        )
-
-
-@lru_cache(maxsize=16)  # reuse logger providers for the same credentials if possible
-def _create_tilebox_logger_provider(service: str | None, url: str, token: str | None) -> LoggerProvider:
-    provider = LoggerProvider(resource=_get_default_resource(service))
-    batch_exporter = _otel_log_exporter(
-        endpoint=url,
-        headers={"Authorization": f"Bearer {token}"} if token is not None else None,
-    )
-    provider.add_log_record_processor(batch_exporter)
-    return provider
-
-
-def _create_tilebox_logger(client_id: UUID, scope: str) -> logging.Logger:
-    logger = logging.getLogger(f"{_LOGGING_NAMESPACE}.clients.{client_id}.{scope}")
-    logger.setLevel(logging.DEBUG)  # always debug, so that other handlers can still filter by that level
-    logger.propagate = True
-    return logger
+        provider = LoggerProvider(resource=_get_default_resource(service))
+        processor = _otel_log_exporter(endpoint=url, headers={"Authorization": f"Bearer {token}"} if token else None)
+        provider.add_log_record_processor(processor)
+        handler = OTELLoggingHandler(level=logging.NOTSET, logger_provider=provider)
+        root_logger.addHandler(handler)
+        _api_handler = handler
 
 
 def _otel_log_exporter(
@@ -275,6 +266,7 @@ def configure_otel_logging(
     This will configure a logging handler that will send log messages to an OTLP compatible endpoint using the
     open telemetry protocol for exporting logs. The logging handler will be attached to the root tilebox logger.
     All loggers created using `get_logger()` will therefore inherit this handler configuration.
+    Each call adds an export; Tilebox's API export, the CLI pipe, and console outputs remain installed.
 
     Args:
         service: A string or a resource object to include in all traces. Used to identify the service being traced.
@@ -303,15 +295,6 @@ def configure_otel_logging(
     batch_exporter = _otel_log_exporter(endpoint, headers, export_interval)
     provider.add_log_record_processor(batch_exporter)
     handler = OTELLoggingHandler(level=level, logger_provider=provider)
-
-    root_logger = _root_logger()
-
-    # clean up the default handler if it exists
-    handlers_to_remove_indices = [
-        i for i, handler in enumerate(root_logger.handlers) if hasattr(handler, "_is_default")
-    ]
-    for i in reversed(handlers_to_remove_indices):  # reversed to avoid index shifting after deletion
-        root_logger.handlers.pop(i)
 
     root_logger.addHandler(handler)
 
@@ -397,7 +380,7 @@ class ColorfulConsoleFormatter(logging.Formatter):
 
 
 def configure_console_logging(
-    level: int = logging.INFO, stream: TextIO | None = None, reconfigure: bool = True
+    level: int = logging.INFO, stream: TextIO | None = None, reconfigure: bool = True, *, enabled: bool = True
 ) -> None:
     """
     Configure logging to the console (stdout).
@@ -413,32 +396,16 @@ def configure_console_logging(
         reconfigure: Only relevant if configure_console_logging is called multiple times. If True, any previously
             configured console logging handlers will be removed. If False, the existing handlers will be kept. Useful
             if you want to log to multiple consoles.
+        enabled: If False, remove Tilebox-managed console handlers and disable automatic console output, even if
+            called before runner startup. API exports, the CLI log pipe, and user-installed handlers are unaffected.
     """
-    if stream is None:
-        stream = sys.stdout
-
-    handler = logging.StreamHandler(stream)
-    handler.setLevel(level)
-    handler.setFormatter(ColorfulConsoleFormatter())
-
-    root_logger = _root_logger()
-
-    # clean up previous handlers:
-    # remove the default handler if it exists, and all other ConsoleHandlers if reconfigure is True
-    handlers_to_remove_indices = [
-        i
-        for i, handler in enumerate(root_logger.handlers)
-        if hasattr(handler, "_is_default")
-        or (
-            reconfigure
-            and isinstance(handler, logging.StreamHandler)
-            and isinstance(handler.formatter, ColorfulConsoleFormatter)
-        )
-    ]
-    for i in reversed(handlers_to_remove_indices):  # reversed to avoid index shifting after deletion
-        root_logger.handlers.pop(i)
-
-    root_logger.addHandler(handler)
+    global _console_configured  # noqa: PLW0603 -- explicit process-wide console policy
+    with _initialization_lock:
+        if reconfigure or not enabled or not _console_configured:
+            _remove_console_handlers()
+        _console_configured = True
+        if enabled:
+            _add_console_handler(level, sys.stdout if stream is None else stream, ColorfulConsoleFormatter())
 
 
 def get_logger(name: str | None = None, level: int = logging.NOTSET) -> logging.Logger:
@@ -456,8 +423,7 @@ def get_logger(name: str | None = None, level: int = logging.NOTSET) -> logging.
             explicitly specifying a name.
         level: The logging level to use for the logger. Only log messages with a level higher or equal to this will be
             sent to the logger. Only log messages with a level higher or equal to this will be sent by the logger to
-            configured handlers. Defaults to logging.NOTSET, which effectively means all messages will be forwarded
-            to the handlers.
+            configured handlers. Defaults to logging.NOTSET, inheriting the task logger's threshold (INFO by default).
 
     Returns:
         A logger capable of logging messages that will be sent to the configured handlers.
@@ -465,18 +431,10 @@ def get_logger(name: str | None = None, level: int = logging.NOTSET) -> logging.
     if name is None:
         name = f"unnamed_logger_{uuid4()}"
 
-    root_logger = _root_logger()
     if not root_logger.hasHandlers():
-        # no handlers are configured, so we add a standard console handler
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(level)
-        handler.setFormatter(ColorfulConsoleFormatter())
-        # we set a special attribute, which allows as to remove this handler again as soon
-        # as we configure an actual logging handler
-        handler._is_default = True  # ty: ignore[unresolved-attribute] # noqa: SLF001
-        root_logger.addHandler(handler)
+        _configure_runtime_logging()
 
-    logger = logging.getLogger(f"{_LOGGING_NAMESPACE}.{name}")
+    logger = logging.getLogger(f"{task_logger.name}.{name}")
     logger.setLevel(level)
     return logger
 

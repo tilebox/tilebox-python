@@ -103,7 +103,7 @@ def test_query_filters_reject_invalid_filter() -> None:
                 datetime(2026, 7, 27, tzinfo=timezone.utc),
                 datetime(2026, 7, 28, tzinfo=timezone.utc),
             ),
-            filter="quality > 80",  # type: ignore[arg-type]
+            filter="quality > 80",  # ty: ignore[invalid-argument-type]
         )
 
 

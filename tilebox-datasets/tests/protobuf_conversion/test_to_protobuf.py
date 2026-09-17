@@ -98,7 +98,7 @@ def test_dataframe_missing_values_leave_optional_fields_unset() -> None:
 
 def test_iterable_of_column_tuples_is_rejected_as_invalid_records() -> None:
     with pytest.raises(TypeError, match="record 0 is tuple"):
-        to_messages([("time", [datetime(2026, 7, 31, tzinfo=timezone.utc)])], ExampleDatapoint)  # type: ignore[arg-type]
+        to_messages([("time", [datetime(2026, 7, 31, tzinfo=timezone.utc)])], ExampleDatapoint)  # ty: ignore[invalid-argument-type]
 
 
 def test_ignored_columns_do_not_participate_in_shape_validation() -> None:

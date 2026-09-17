@@ -23,7 +23,7 @@ from tilebox.workflows.data import (
     StorageLocation,
     Task,
 )
-from tilebox.workflows.observability.logging import StructuredLogger
+from tilebox.workflows.observability._logging import StructuredLogger
 from tilebox.workflows.observability.tracing import NoopWorkflowTracer, WorkflowTracer, start_job_span
 from tilebox.workflows.runner.runner import Runner
 from tilebox.workflows.task import (

@@ -75,7 +75,9 @@ def test_negative_duration_values(value: object, seconds: int, nanos: int) -> No
 )
 def test_numpy_query_values_preserve_type_when_reflected(value: object) -> None:
     field_first = (field("value") == value).to_message().comparison.value
-    value_first = (value == field("value")).to_message().comparison.value
+    reflected = value == field("value")
+    assert isinstance(reflected, Expression)
+    value_first = reflected.to_message().comparison.value
     assert value_first == field_first
 
 
@@ -120,7 +122,7 @@ def test_invalid_query_operators() -> None:
         _ = field("enabled") < True
 
     with pytest.raises(TypeError, match="Expected a query expression"):
-        (field("quality") == 1) & 2  # type: ignore[operator]
+        (field("quality") == 1) & 2  # ty: ignore[unsupported-operator]
 
 
 def test_invalid_expression_message() -> None:

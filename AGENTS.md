@@ -66,7 +66,7 @@ Pre-commit hooks include YAML checks, EOF fixer, `sync-with-uv`, Ruff, and `ty`.
 - Type hints are used broadly across public APIs and internals.
 - Prefer dataclasses and explicit domain objects for request/response translation.
 - Service modules generally wrap generated gRPC stubs and convert to internal Pythonic types.
-- Logging uses `loguru` in several packages; workflows also supports explicit logger/tracer configuration.
+- Workflows uses a lightweight structured facade over stdlib logging, with separate internal and task channels;
 - Tests use `pytest`, with async coverage (`pytest-asyncio`) and property-based testing (`hypothesis`) in multiple packages.
 
 ### Import-Time Discipline
