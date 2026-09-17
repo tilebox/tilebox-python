@@ -1,17 +1,21 @@
 import typing
 from base64 import b64decode, b64encode
-from dataclasses import fields, is_dataclass
+from dataclasses import Field, fields, is_dataclass
 from datetime import datetime
 from functools import lru_cache
 from pathlib import PurePath
 from types import NoneType, UnionType
-from typing import Any, get_args, get_origin
+from typing import Any, ClassVar, Protocol, get_args, get_origin
 from zoneinfo import ZoneInfo
 
 import msgspec
 from google.protobuf.message import Message
 
 from tilebox.workflows._codec import registry
+
+
+class DataclassInstance(Protocol):
+    __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
 
 
 def normalize_log_value(value: Any) -> Any:
@@ -58,13 +62,13 @@ def _prepare_log_value(value: Any) -> Any:
     return value
 
 
-def encode_json_field(value: Any, owner_type: type, field_name: str) -> bytes:
+def encode_json_field(value: Any, owner_type: type[DataclassInstance], field_name: str) -> bytes:
     field_type, requires_override = _encode_plan(owner_type)[field_name]
     prepared = _prepare_encode(field_type, value) if requires_override else value
     return _encode(prepared, value)
 
 
-def encode_json_fields(value: Any, included_fields: list[Any]) -> bytes:
+def encode_json_fields(value: DataclassInstance, included_fields: list[Any]) -> bytes:
     plan = _encode_plan(type(value))
     prepared = {
         field.name: (
@@ -97,7 +101,7 @@ def _type_hints(field_type: type) -> dict[str, Any]:
 
 
 @lru_cache
-def _encode_plan(field_type: type) -> dict[str, tuple[Any, bool]]:
+def _encode_plan(field_type: type[DataclassInstance]) -> dict[str, tuple[Any, bool]]:
     type_hints = _type_hints(field_type)
     return {
         field.name: (
@@ -315,7 +319,7 @@ def _decode_override(field_type: Any, value: Any) -> Any:  # noqa: C901, PLR0911
     return msgspec.convert(value, type=field_type, dec_hook=_decode_hook, strict=True)
 
 
-def _decode_dataclass(field_type: type, value: Any) -> Any:
+def _decode_dataclass(field_type: type[DataclassInstance], value: Any) -> Any:
     params = msgspec.convert(value, type=dict)
     type_hints = typing.get_type_hints(field_type, include_extras=True)
     known_fields = {field.name: field for field in fields(field_type)}

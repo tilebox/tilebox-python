@@ -6,7 +6,8 @@ from contextlib import contextmanager
 from datetime import timedelta
 from multiprocessing import get_context
 from multiprocessing.context import SpawnProcess
-from queue import Empty, Queue
+from multiprocessing.queues import Queue
+from queue import Empty
 from threading import Event
 from time import sleep
 from types import FrameType, TracebackType
@@ -80,7 +81,7 @@ def _retry_backoff(func: Callable[..., WrappedFnReturnT], stop: stop_base) -> Ca
 
 
 def lease_renewer(
-    url: str, token: str | None, new_leases: Queue[tuple[UUID, TaskLease]], done_tasks: Queue[UUID]
+    url: str, token: str | None, new_leases: "Queue[tuple[UUID, TaskLease]]", done_tasks: "Queue[UUID]"
 ) -> None:
     # The direct runner's spawned lease-renewal process needs its own stage-3 setup;
     # it cannot inherit the parent's logging handlers or exporter thread.
@@ -98,7 +99,7 @@ def _extend_lease_while_task_is_running(
     service: TaskService,
     task_id: UUID,
     task_lease: TaskLease,
-    done_tasks: Queue[UUID],
+    done_tasks: "Queue[UUID]",
 ) -> UUID | None:
     while True:
         try:

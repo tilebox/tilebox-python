@@ -1,6 +1,7 @@
 import logging
 import os
 import warnings
+from typing import TypedDict
 from uuid import UUID, uuid4
 
 from _tilebox.grpc.channel import ConnectStubAdapter, Transport, connect_address, open_channel, parse_channel_info
@@ -25,6 +26,11 @@ from tilebox.workflows.runner.task_service import TaskService
 from tilebox.workflows.task import Task
 from tilebox.workflows.workflows.client import WorkflowClient
 from tilebox.workflows.workflows.service import WorkflowService
+
+
+class _ClientAuth(TypedDict):
+    url: str
+    token: str | None
 
 
 class Client:
@@ -54,7 +60,7 @@ class Client:
         if url is None:
             url = os.environ.get("TILEBOX_API_URL") or "https://api.tilebox.com"
         token = _token_from_env(url, token)
-        self._auth: dict[str, str] = {"token": token, "url": url}
+        self._auth: _ClientAuth = {"token": token, "url": url}
         match transport:
             case "grpc":
                 self._job_service = open_channel(url, token)

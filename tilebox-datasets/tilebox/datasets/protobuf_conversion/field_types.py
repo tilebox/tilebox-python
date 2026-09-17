@@ -178,7 +178,8 @@ class TimeDeltaField(ProtobufFieldType):
         if is_missing(value) or (isinstance(value, np.timedelta64) and np.isnat(value)):
             return None
         # we use pandas to_timedelta function to handle a variety of input types that can be coerced to timedeltas
-        seconds, nanos = divmod(to_timedelta(value).value, 10**9)
+        # pandas accepts np.timedelta64 at runtime, but its overloads omit it.
+        seconds, nanos = divmod(to_timedelta(value).value, 10**9)  # ty: ignore[no-matching-overload]
         return Duration(seconds=seconds, nanos=nanos)
 
 

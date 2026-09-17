@@ -245,7 +245,7 @@ class LocalFileSystemCache(JobCache):
     def __iter__(self) -> Iterator[str]:
         if not self.root.is_dir():
             # if the root directory doesn't exist or is not a directory, return an empty iterator
-            return iter(())
+            return
 
         yield from sorted([str(f.relative_to(self.root)) for f in self.root.iterdir() if f.is_file()])
 

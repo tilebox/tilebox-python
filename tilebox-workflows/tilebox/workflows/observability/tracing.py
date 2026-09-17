@@ -72,7 +72,8 @@ def _copy_configured_span_processors(source: TracerProvider, destination: Tracer
 
 
 class Job(Protocol):
-    trace_parent: str
+    @property
+    def trace_parent(self) -> str: ...
 
 
 class WorkflowTracer:

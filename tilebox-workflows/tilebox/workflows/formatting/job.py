@@ -99,7 +99,7 @@ class JobWidget:
                 return
 
 
-@dataclass(order=True, frozen=True)
+@dataclass(frozen=True)
 class RichDisplayJob(Job):
     _widget: JobWidget = field(compare=False, repr=False)
 

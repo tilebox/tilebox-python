@@ -7,6 +7,7 @@ from hypothesis.stateful import Bundle, RuleBasedStateMachine, consumes, rule
 from tests.tasks_data import jobs
 
 from _tilebox.grpc.error import NotFoundError
+from tilebox.datasets.query.id_interval import IDInterval
 from tilebox.datasets.query.pagination import Pagination
 from tilebox.datasets.query.time_interval import datetime_to_timestamp
 from tilebox.workflows.data import (
@@ -252,6 +253,25 @@ def test_query_filters_by_clusters() -> None:
     job_client.query((uuid4(), uuid4()), clusters=["cluster-a", "cluster-b"])
 
     assert list(mock_service.query_requests[-1].filters.cluster_slugs) == ["cluster-a", "cluster-b"]
+
+
+@pytest.mark.parametrize("use_interval", [False, True])
+def test_query_uuid_interval_preserves_bounds(use_interval: bool) -> None:
+    service = JobService(MagicMock())
+    mock_service = MockJobService()
+    service.service = mock_service
+    job_client = JobClient(service, MagicMock(), NoopWorkflowTracer())
+    start, end = UUID(int=17), UUID(int=93)
+    extent = IDInterval(start, end, start_exclusive=True, end_inclusive=False) if use_interval else (start, end)
+
+    job_client.query(extent)
+
+    filters = mock_service.query_requests[-1].filters
+    assert not filters.HasField("time_interval")
+    assert uuid_message_to_uuid(filters.id_interval.start_id) == start
+    assert uuid_message_to_uuid(filters.id_interval.end_id) == end
+    assert filters.id_interval.start_exclusive is use_interval
+    assert filters.id_interval.end_inclusive is not use_interval
 
 
 def test_query_empty_cluster_list_applies_no_cluster_filter() -> None:

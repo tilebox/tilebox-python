@@ -344,7 +344,7 @@ def _replace_call_details(
     client_call_details: ClientCallDetails,
     *,
     method: str | bytes | None = None,
-    metadata: list[tuple[str, str]] | None = None,
+    metadata: list[tuple[str, str | bytes]] | None = None,
 ) -> ClientCallDetails:
     return ClientCallDetails(
         client_call_details.method if method is None else method,

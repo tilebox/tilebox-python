@@ -2,6 +2,7 @@ import string
 from dataclasses import replace
 from datetime import datetime, timedelta
 from functools import lru_cache
+from typing import Literal
 from uuid import UUID
 
 import numpy as np
@@ -78,10 +79,11 @@ def field_dicts(draw: DrawFn) -> FieldDict:
         )
     )
     annotation = draw(field_annotations())
+    primary_title: Literal["primary_title"] = "primary_title"
     roles = draw(
         one_of(
             lists(sampled_from(FieldRole), unique=True),
-            lists(just("primary_title"), unique=True),
+            lists(just(primary_title), unique=True),
         )
     )
 

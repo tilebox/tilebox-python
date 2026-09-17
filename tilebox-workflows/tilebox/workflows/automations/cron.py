@@ -34,7 +34,7 @@ class CronTask(Task):
         return message.SerializeToString()
 
     @classmethod
-    def _deserialize(cls: "type[CronTask]", task_input: bytes, context: RunnerContext | None = None) -> Self:  # noqa: ARG003
+    def _deserialize(cls, task_input: bytes, context: RunnerContext | None = None) -> Self:  # noqa: ARG003
         message = AutomationMessage()
         message.ParseFromString(task_input)
 

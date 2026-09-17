@@ -95,10 +95,10 @@ class Field:
 
     __hash__ = None
 
-    def __eq__(self, value: object) -> Expression:  # type: ignore[override]
+    def __eq__(self, value: object) -> Expression:  # ty: ignore[invalid-method-override]
         return self._comparison(data_access_pb2.FIELD_COMPARISON_OPERATOR_EQUAL, value)
 
-    def __ne__(self, value: object) -> Expression:  # type: ignore[override]
+    def __ne__(self, value: object) -> Expression:  # ty: ignore[invalid-method-override]
         return self._comparison(data_access_pb2.FIELD_COMPARISON_OPERATOR_NOT_EQUAL, value)
 
     def __lt__(self, value: _QueryScalar) -> Expression:

@@ -76,7 +76,7 @@ def test_field_from_dict(field_dict: FieldDict) -> None:
 )
 def test_message_types_can_define_dataset_fields(message_type: type, message_name: str) -> None:
     scalar = Field.from_dict({"name": "metadata", "type": message_type})
-    repeated = Field.from_dict({"name": "metadata", "type": list[message_type]})  # type: ignore[typeddict-item,valid-type]
+    repeated = Field.from_dict({"name": "metadata", "type": list[message_type]})  # ty: ignore[invalid-type-form]
 
     assert scalar.descriptor.type == FieldDescriptorProto.TYPE_MESSAGE
     assert scalar.descriptor.type_name == f".{message_name}"
