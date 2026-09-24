@@ -17,7 +17,7 @@ jobs:
         with:
           lfs: true
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@v10.1.0
         with:
           python-version: "3.13"
           enable-cache: true
@@ -44,7 +44,7 @@ jobs:
         with:
           lfs: true
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@v10.1.0
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
@@ -68,7 +68,7 @@ jobs:
         with:
           lfs: true
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@v10.1.0
         with:
           python-version: "3.11"
       - name: Resolve lowest compatible direct dependencies
