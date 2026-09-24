@@ -1,18 +1,13 @@
 from dataclasses import replace
-from datetime import datetime, timezone
-
-try:
-    from typing import Self  # ty: ignore[unresolved-import]
-except ImportError:  # Self is only available in Python 3.11+
-    from typing_extensions import Self
-
+from datetime import UTC, datetime
+from typing import Self
 
 from tilebox.workflows.data import TriggeredCronEvent
 from tilebox.workflows.task import RunnerContext, Task, deserialize_task, serialize_task
 from tilebox.workflows.workflows.v1.automation_pb2 import Automation as AutomationMessage
 from tilebox.workflows.workflows.v1.automation_pb2 import TriggeredCronEvent as TriggeredCronEventMessage
 
-_NOT_TRIGGERED = TriggeredCronEvent(datetime.min.replace(tzinfo=timezone.utc))
+_NOT_TRIGGERED = TriggeredCronEvent(datetime.min.replace(tzinfo=UTC))
 
 
 class CronTask(Task):
@@ -47,7 +42,7 @@ class CronTask(Task):
         return task
 
     def once(self, trigger_time: datetime | None = None) -> Self:
-        trigger_time = datetime.now(tz=timezone.utc) if trigger_time is None else trigger_time.astimezone(timezone.utc)
+        trigger_time = datetime.now(tz=UTC) if trigger_time is None else trigger_time.astimezone(UTC)
         copy = replace(self)
         copy.trigger = TriggeredCronEvent(trigger_time)
         return copy

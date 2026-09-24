@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Support Python 3.14 across all packages.
+- Test the lowest compatible direct dependencies on Python 3.11 in CI.
+
+### Changed
+
+- Require Python 3.11 or newer across all packages, removing Python 3.10 compatibility code and typing backfills.
+- `tilebox-grpc`: Use `nest-asyncio2` for nested event-loop support on Python 3.14. Restart notebook kernels already
+  patched by `nest-asyncio` and apply `nest-asyncio2` before the old library to use the updated patch.
+- Raise dependency minimums to remove obsolete compatibility workarounds: boto3 1.40.2, OpenTelemetry 1.43.0
+  (logging instrumentation 0.64b0), grpcio 1.84.0, and pyqwest 0.7.0.
+- `tilebox-datasets`: Require NumPy 1.25, pandas 2.2.2, xarray 2024.6, and Shapely 2.0.6 or newer.
+- Require protobuf 6.31.0 for repeated-field descriptors and protobuf-py 0.2.0 for integer-to-float serialization.
+- `tilebox-workflows`: Make interactive notebook progress an optional `notebook` extra; without it, jobs display
+  as plain text. Move S3 type stubs to development dependencies and use standard-library local timezone conversion.
+- Remove unused runtime dependencies: `grpcio-status`, `cftime`, and storage's `folium` and redundant `shapely`
+  requirement. Install `cftime` separately if your own xarray processing uses non-standard calendars.
+
+### Fixed
+
+- Explicitly trust system certificates for Connect HTTP/1 transports with pyqwest 0.7 and newer.
+
 ## [0.62.0] - 2026-09-16
 
 ### Added

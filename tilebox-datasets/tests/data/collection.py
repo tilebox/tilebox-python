@@ -1,5 +1,5 @@
 import string
-from datetime import timezone
+from datetime import UTC
 
 from hypothesis.strategies import DrawFn, composite, integers, just, none, text, uuids
 
@@ -28,6 +28,6 @@ uint64s = integers(min_value=0, max_value=2**64 - 1)
 def collection_infos(draw: DrawFn) -> CollectionInfo:
     """A hypothesis strategy for generating random collection infos"""
     collection = draw(collections())
-    interval = draw(none() | just(_EMPTY_TIME_INTERVAL) | time_intervals(tzinfo=timezone.utc))
+    interval = draw(none() | just(_EMPTY_TIME_INTERVAL) | time_intervals(tzinfo=UTC))
     count = draw(none() | uint64s)
     return CollectionInfo(collection, interval, count)

@@ -4,15 +4,14 @@ from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, is_dataclass, replace
 from dataclasses import field as dataclass_field
 from dataclasses import fields as dataclass_fields
-from enum import Enum
+from enum import StrEnum
 from math import isnan
 from types import MappingProxyType
-from typing import Any, Literal, TypeVar, cast, overload
+from typing import Any, Literal, NotRequired, TypedDict, TypeVar, cast, overload
 
 import numpy as np
 import xarray as xr
 from protobuf import Message
-from typing_extensions import NotRequired, TypedDict
 
 from tilebox.datasets.datasets.stac.v1.asset_metadata_pb import (
     ClassificationClass,
@@ -60,8 +59,7 @@ _NO_COMMON = object()
 _MessageT = TypeVar("_MessageT", bound=Message[Any])
 
 
-# Replace this compatibility definition with enum.StrEnum once Python 3.10 support is dropped.
-class MediaType(str, Enum):
+class MediaType(StrEnum):
     """Common media types used by STAC assets and links."""
 
     GEOJSON = "application/geo+json"
@@ -90,10 +88,6 @@ class MediaType(str, Enum):
     PMTILES = "application/vnd.pmtiles"
     NITF = "application/vnd.nitf"
     OCTET_STREAM = "application/octet-stream"
-
-    def __str__(self) -> str:
-        """Return the media-type value, matching enum.StrEnum semantics."""
-        return self.value
 
 
 _MEDIA_TYPES = {known: MediaType[known.name] for known in KnownMediaType if known != KnownMediaType.UNSPECIFIED}

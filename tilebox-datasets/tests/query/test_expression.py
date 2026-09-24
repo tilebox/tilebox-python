@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum, IntEnum
 
 import numpy as np
@@ -38,7 +38,7 @@ def test_query_value_types(value: object, kind: str, expected: object) -> None:
 @pytest.mark.parametrize(
     "value",
     [
-        datetime(2026, 7, 27, 12, 30, tzinfo=timezone.utc),
+        datetime(2026, 7, 27, 12, 30, tzinfo=UTC),
         timedelta(days=-1, microseconds=123),
         np.datetime64("2026-07-27T12:30:00.123456789"),
         np.timedelta64(-123456789, "ns"),

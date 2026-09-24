@@ -61,7 +61,7 @@ Pre-commit hooks include YAML checks, EOF fixer, `sync-with-uv`, Ruff, and `ty`.
 
 ## Code Style And Paradigms
 
-- Python target: `>=3.10`.
+- Python target: `>=3.11`; supported versions are 3.11 through 3.14.
 - Linting/formatting is Ruff-based and fairly strict (`select = ["ALL"]`) with explicit ignores configured in root `pyproject.toml`.
 - Type hints are used broadly across public APIs and internals.
 - Prefer dataclasses and explicit domain objects for request/response translation.

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
@@ -218,7 +218,7 @@ def test_undeploy_release() -> None:
 def test_workflow_release_data_includes_release_content_and_clusters() -> None:
     release_id = uuid4()
     artifact_id = uuid4()
-    created_at = datetime.now(tz=timezone.utc).replace(microsecond=0)
+    created_at = datetime.now(tz=UTC).replace(microsecond=0)
     release = WorkflowRelease(
         id=release_id,
         artifact=Artifact(artifact_id, "a" * 64),

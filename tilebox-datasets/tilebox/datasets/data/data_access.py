@@ -1,12 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal, TypeAlias, TypedDict
+from typing import Literal, NotRequired, TypeAlias, TypedDict
 from warnings import warn
 
 from shapely import Geometry, from_wkb, to_wkb
-
-# from python 3.11 onwards this is available as typing.NotRequired:
-from typing_extensions import NotRequired
 
 from tilebox.datasets.datasets.v1 import data_access_pb2, well_known_types_pb2
 from tilebox.datasets.query.expression import Expression

@@ -12,23 +12,21 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "tilebox-datasets>=0.56.0",
     "niquests>=3.18",
     "aiofile>=3.8",
-    "folium>=0.15",
-    "shapely>=2",
     "obstore>=0.8.0",
-    "boto3>=1.37.0",  # required for the obstore Boto3CredentialProvider
-    "async-geotiff; python_version >= '3.11'",
+    "boto3>=1.40.2",
+    "async-geotiff",
     "pyproj>=3.4",
 ]
 

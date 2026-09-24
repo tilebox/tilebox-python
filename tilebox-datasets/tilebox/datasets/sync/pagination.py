@@ -1,6 +1,6 @@
 import time
 from collections.abc import Iterator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TypeVar
 
 from tqdm.auto import tqdm
@@ -80,7 +80,7 @@ def with_time_progressbar(
     # we have more pages, so lets set up a progress bar
     actual_interval = TimeInterval(
         start=max(interval.start, first_page.min_time),
-        end=min(interval.end, datetime.now(tz=timezone.utc)),
+        end=min(interval.end, datetime.now(tz=UTC)),
     )
 
     with TimeIntervalProgressBar(
@@ -133,7 +133,7 @@ def with_time_progress_callback(
     # we have more pages, so lets set up a progress bar
     actual_interval = TimeInterval(
         start=max(interval.start, first_page.min_time),
-        end=min(interval.end, datetime.now(tz=timezone.utc)),
+        end=min(interval.end, datetime.now(tz=UTC)),
     )
 
     total = (actual_interval.end - actual_interval.start).total_seconds()

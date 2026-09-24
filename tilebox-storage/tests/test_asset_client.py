@@ -122,7 +122,6 @@ async def test_read_stream_and_atomic_download(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="async-geotiff requires Python 3.11 or newer")
 async def test_open_geotiff_forwards_resolved_store_path_and_options(tmp_path: Path) -> None:
     path = tmp_path / "data.tif"
     path.touch()
@@ -140,7 +139,6 @@ async def test_open_geotiff_forwards_resolved_store_path_and_options(tmp_path: P
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="async-geotiff requires Python 3.11 or newer")
 async def test_open_geotiff_rejects_incompatible_media_type() -> None:
     asset = _asset(AssetLocation("file:///tmp/data.json"), media_type="application/json")
     with pytest.raises(ValueError, match="not compatible"):

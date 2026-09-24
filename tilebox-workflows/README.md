@@ -41,6 +41,10 @@ Install using `pip`:
 pip install tilebox-workflows
 ```
 
+For interactive job progress in Jupyter notebooks, install `tilebox-workflows[notebook]`.
+Without this extra, jobs use their plain-text representation.
+For S3 client type information, install `boto3-stubs[s3]` in your development environment.
+
 Create a task:
 
 ```python

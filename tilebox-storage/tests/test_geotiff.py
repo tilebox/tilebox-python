@@ -2,14 +2,10 @@ from types import SimpleNamespace
 from typing import cast
 
 import pytest
+from affine import Affine
+from async_geotiff import GeoTIFF, Window
 
-async_geotiff = pytest.importorskip("async_geotiff")
-from affine import Affine  # noqa: E402
-
-Window = async_geotiff.Window
-GeoTIFF = async_geotiff.GeoTIFF
-
-from tilebox.storage.geotiff import window_from_bounds  # noqa: E402
+from tilebox.storage.geotiff import window_from_bounds
 
 
 def _geotiff(transform: Affine = Affine(1, 0, 0, 0, -1, 10)) -> GeoTIFF:

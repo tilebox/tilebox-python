@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
@@ -46,7 +46,7 @@ def test_pandas_to_protobuf_messages(datapoints: list[pd.DataFrame]) -> None:
 
 
 def test_record_oriented_data_preserves_absent_fields_and_filters_missing_values() -> None:
-    time = datetime(2026, 7, 31, tzinfo=timezone.utc)
+    time = datetime(2026, 7, 31, tzinfo=UTC)
     converted = to_messages(
         [
             {
@@ -71,7 +71,7 @@ def test_record_oriented_data_preserves_absent_fields_and_filters_missing_values
 def test_record_oriented_data_requires_every_record_to_have_required_fields() -> None:
     with pytest.raises(ValueError, match=r"Record 1: Missing required field.*time"):
         to_messages(
-            [{"time": datetime(2026, 7, 31, tzinfo=timezone.utc)}, {"some_int": 1}],
+            [{"time": datetime(2026, 7, 31, tzinfo=UTC)}, {"some_int": 1}],
             ExampleDatapoint,
             required_fields=["time"],
         )
@@ -87,7 +87,7 @@ def test_record_oriented_data_rejects_required_values_that_convert_to_unset() ->
 
 
 def test_dataframe_missing_values_leave_optional_fields_unset() -> None:
-    time = datetime(2026, 7, 31, tzinfo=timezone.utc)
+    time = datetime(2026, 7, 31, tzinfo=UTC)
     dataframe = pd.DataFrame([{"time": time, "some_bool": True}, {"time": time}])
 
     converted = to_messages(dataframe, ExampleDatapoint, required_fields=["time"])
@@ -98,12 +98,12 @@ def test_dataframe_missing_values_leave_optional_fields_unset() -> None:
 
 def test_iterable_of_column_tuples_is_rejected_as_invalid_records() -> None:
     with pytest.raises(TypeError, match="record 0 is tuple"):
-        to_messages([("time", [datetime(2026, 7, 31, tzinfo=timezone.utc)])], ExampleDatapoint)  # ty: ignore[invalid-argument-type]
+        to_messages([("time", [datetime(2026, 7, 31, tzinfo=UTC)])], ExampleDatapoint)  # ty: ignore[invalid-argument-type]
 
 
 def test_ignored_columns_do_not_participate_in_shape_validation() -> None:
     converted = to_messages(
-        {"time": [datetime(2026, 7, 31, tzinfo=timezone.utc)], "id": []},
+        {"time": [datetime(2026, 7, 31, tzinfo=UTC)], "id": []},
         ExampleDatapoint,
         required_fields=["time"],
         ignore_fields=["id"],

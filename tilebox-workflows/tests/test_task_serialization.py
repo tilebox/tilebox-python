@@ -2,7 +2,7 @@ import json
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path, PurePosixPath
@@ -66,7 +66,7 @@ class StandardTypesTask(Task):
 
 def test_standard_types_round_trip() -> None:
     task = StandardTypesTask(
-        aware_datetime=datetime(2024, 1, 2, 3, 4, 5, 6000, tzinfo=timezone.utc),
+        aware_datetime=datetime(2024, 1, 2, 3, 4, 5, 6000, tzinfo=UTC),
         naive_datetime=datetime(2024, 2, 3, 4, 5, 6, 7000),
         date_value=date(2024, 3, 4),
         time_value=time(5, 6, 7, 8000),
@@ -134,7 +134,7 @@ def test_datetime_encoding_remains_compatible_with_the_old_decoder() -> None:
     class DatetimeTask(Task):
         value: datetime
 
-    task = DatetimeTask(datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc))
+    task = DatetimeTask(datetime(2024, 1, 2, 3, 4, 5, tzinfo=UTC))
     assert serialize_task(task) == b'"2024-01-02T03:04:05+00:00"'
 
 
@@ -293,8 +293,8 @@ class TimeIntervalTask(Task):
 def test_tilebox_types_round_trip_through_their_protobufs() -> None:
     task = TileboxTypesTask(
         TimeInterval(
-            datetime(2024, 1, 1, tzinfo=timezone.utc),
-            datetime(2024, 1, 2, tzinfo=timezone.utc),
+            datetime(2024, 1, 1, tzinfo=UTC),
+            datetime(2024, 1, 2, tzinfo=UTC),
             end_inclusive=True,
         ),
         IDInterval(uuid4(), uuid4(), start_exclusive=True, end_inclusive=False),
@@ -313,8 +313,8 @@ def test_legacy_time_interval_json_is_still_decodable() -> None:
         b'"start_exclusive":false,"end_inclusive":true}'
     )
     expected = TimeInterval(
-        datetime(2024, 1, 1, tzinfo=timezone.utc),
-        datetime(2024, 1, 2, tzinfo=timezone.utc),
+        datetime(2024, 1, 1, tzinfo=UTC),
+        datetime(2024, 1, 2, tzinfo=UTC),
         end_inclusive=True,
     )
     assert deserialize_task(TimeIntervalTask, legacy_payload) == TimeIntervalTask(expected)

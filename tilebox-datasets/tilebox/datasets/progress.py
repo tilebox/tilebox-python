@@ -1,12 +1,7 @@
 from collections.abc import Callable
 from datetime import datetime
 from types import TracebackType
-from typing import Any
-
-try:
-    from typing import Self  # ty: ignore[unresolved-import]
-except ImportError:  # Self is only available in Python 3.11+
-    from typing_extensions import Self
+from typing import Any, Self
 
 from tqdm.auto import tqdm
 

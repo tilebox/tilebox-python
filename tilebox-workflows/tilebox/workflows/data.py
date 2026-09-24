@@ -2,11 +2,11 @@ import re
 import warnings
 from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from functools import lru_cache, total_ordering
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Literal, Self, TypeAlias, cast
 from uuid import UUID
 
 from google.protobuf.duration_pb2 import Duration
@@ -60,15 +60,15 @@ class TaskIdentifier:
     name: str
     version: str
 
-    @classmethod  # lets use typing.Self once we require python >= 3.11
-    def from_message(cls, identifier: core_pb2.TaskIdentifier) -> "TaskIdentifier":
+    @classmethod
+    def from_message(cls, identifier: core_pb2.TaskIdentifier) -> Self:
         return cls(name=identifier.name, version=identifier.version)
 
     def to_message(self) -> core_pb2.TaskIdentifier:
         return core_pb2.TaskIdentifier(name=self.name, version=self.version)
 
     @classmethod
-    def from_name_and_version(cls, name: str, version: str) -> "TaskIdentifier":
+    def from_name_and_version(cls, name: str, version: str) -> Self:
         """
         Construct a TaskIdentifier object from a task name and version, and perform some client-side validation
         on those values.
@@ -143,7 +143,7 @@ class Task:
     retry_count: int = field(default=0)
 
     @classmethod
-    def from_message(cls, task: core_pb2.Task) -> "Task":  # lets use typing.Self once we require python >= 3.11
+    def from_message(cls, task: core_pb2.Task) -> Self:
         """Convert a Task protobuf message to a Task object."""
         return cls(
             id=uuid_message_to_uuid(task.id),
@@ -276,9 +276,7 @@ class Job:
         )
 
     @classmethod
-    def from_message(
-        cls, job: core_pb2.Job, **extra_kwargs: Any
-    ) -> "Job":  # lets use typing.Self once we require python >= 3.11
+    def from_message(cls, job: core_pb2.Job, **extra_kwargs: Any) -> Self:
         """Convert a Job protobuf message to a Job object."""
         return cls(
             id=uuid_message_to_uuid(job.id),
@@ -333,8 +331,8 @@ class Cluster:
     description: str | None = None
     deployed_workflows: list["Workflow"] = field(default_factory=list)
 
-    @classmethod  # lets use typing.Self once we require python >= 3.11
-    def from_message(cls, cluster: workflows_pb2.Cluster, *, include_deployed_workflows: bool = True) -> "Cluster":
+    @classmethod
+    def from_message(cls, cluster: workflows_pb2.Cluster, *, include_deployed_workflows: bool = True) -> Self:
         """Convert a Cluster protobuf message to a Cluster object."""
         return cls(
             slug=cluster.slug,
@@ -870,7 +868,7 @@ class Spans(list[Span]):
 
 
 def _datetime_from_unix_nanos(unix_nanos: int) -> datetime:
-    return datetime.fromtimestamp(unix_nanos / 1_000_000_000, tz=timezone.utc)
+    return datetime.fromtimestamp(unix_nanos / 1_000_000_000, tz=UTC)
 
 
 def _datetime_to_unix_nanos(value: datetime) -> int:
@@ -986,8 +984,8 @@ class StorageLocation:
     type: StorageType
     runner_context: "RunnerContext | None" = None
 
-    @classmethod  # lets use typing.Self once we require python >= 3.11
-    def from_message(cls, storage_location: automation_pb.StorageLocation) -> "StorageLocation":
+    @classmethod
+    def from_message(cls, storage_location: automation_pb.StorageLocation) -> Self:
         """Convert a StorageLocation protobuf message to a StorageLocation object."""
         return cls(
             id=uuid_message_to_uuid(storage_location.id),
@@ -1186,10 +1184,7 @@ class RunnerContext:
         import boto3  # noqa: PLC0415
 
         _ = location  # we always use the default s3 client, regardless of the location
-        with warnings.catch_warnings():
-            # https://github.com/boto/boto3/issues/3889
-            warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*datetime.utcnow.*")
-            return boto3.client("s3")
+        return boto3.client("s3")
 
     def local_path(self, location: str) -> Path:
         return Path(location)
