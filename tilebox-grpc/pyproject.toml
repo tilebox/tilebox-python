@@ -30,7 +30,6 @@ dependencies = [
     # for the libraries below we specify a minimum, tested to be working version
     "lz4>=4",
     "anyio>=4",
-    "nest-asyncio2>=1.7.2",
 ]
 
 [dependency-groups]

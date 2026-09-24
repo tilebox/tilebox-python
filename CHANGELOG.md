@@ -15,8 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Require Python 3.11 or newer across all packages, removing Python 3.10 compatibility code and typing backfills.
-- `tilebox-grpc`: Use `nest-asyncio2` for nested event-loop support on Python 3.14. Restart notebook kernels already
-  patched by `nest-asyncio` and apply `nest-asyncio2` before the old library to use the updated patch.
+- `tilebox-storage`: Replace legacy synchronous client patching with explicit wrappers using `asyncio.run()`.
+  When called inside a running event loop (including notebooks), run the operation in a worker thread instead.
+  Remove the internal `syncify` helper and the `nest-asyncio2` dependency from `tilebox-grpc`.
 - Raise dependency minimums to remove obsolete compatibility workarounds: boto3 1.40.2, OpenTelemetry 1.43.0
   (logging instrumentation 0.64b0), grpcio 1.84.0, and pyqwest 0.7.0.
 - `tilebox-datasets`: Require NumPy 1.25, pandas 2.2.2, xarray 2024.6, and Shapely 2.0.6 or newer.
