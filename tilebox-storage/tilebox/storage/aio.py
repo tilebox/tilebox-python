@@ -17,7 +17,6 @@ import anyio
 from aiofile import async_open
 
 from _tilebox.grpc.aio.producer_consumer import async_producer_consumer
-from _tilebox.grpc.aio.syncify import Syncifiable
 from tilebox.storage.client import (
     AssetAccessPolicy,
     Client,
@@ -102,7 +101,7 @@ def _boto3_credential_provider_class() -> type[Any]:
     return Boto3CredentialProvider
 
 
-class _HttpClient(Syncifiable):
+class _HttpClient:
     def __init__(self, auth: dict[str, tuple[str, str]]) -> None:
         """A tilebox storage client that directly downloads files from the storage provider to a given directory."""
         self._clients: dict[str, niquests.AsyncSession] = {}
@@ -320,7 +319,7 @@ def _display_quicklook(image_data: bytes | Path, width: int, height: int, image_
         display(HTML(image_caption))
 
 
-class StorageClient(Syncifiable):
+class StorageClient:
     """Base class for all storage clients."""
 
 

@@ -1424,15 +1424,6 @@ wheels = [
 ]
 
 [[package]]
-name = "nest-asyncio2"
-version = "1.7.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5e/a6/a2775b388a14b5ea0c894bbe513c0d3e04e65e8ae583e60f5357722b8e03/nest_asyncio2-1.7.3.tar.gz", hash = "sha256:2e9a84d5d1efe6d020c72988d21aec569bac42d98af2ff6b9de24640c5d22a34", size = 15642, upload-time = "2026-09-22T17:15:06.709Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/29/dd/a8bebc78975a7466932077a0973cbab4361a32368b1d28d40683ec19333c/nest_asyncio2-1.7.3-py3-none-any.whl", hash = "sha256:2bc87bdca654e719425145f5e84eaeb0080b013fdd47d65729a7d66243f4987c", size = 8364, upload-time = "2026-09-22T17:15:05.492Z" },
-]
-
-[[package]]
 name = "niquests"
 version = "3.21.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2765,7 +2756,6 @@ dependencies = [
     { name = "connectrpc" },
     { name = "grpcio" },
     { name = "lz4" },
-    { name = "nest-asyncio2" },
     { name = "protobuf" },
     { name = "pyqwest" },
 ]
@@ -2783,7 +2773,6 @@ requires-dist = [
     { name = "connectrpc", specifier = ">=0.10.1,<0.11.0" },
     { name = "grpcio", specifier = ">=1.84.0" },
     { name = "lz4", specifier = ">=4" },
-    { name = "nest-asyncio2", specifier = ">=1.7.2" },
     { name = "protobuf", specifier = ">=6.31.0" },
     { name = "pyqwest", specifier = ">=0.7.0" },
 ]
