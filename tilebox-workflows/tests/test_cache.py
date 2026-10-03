@@ -1,5 +1,6 @@
 from datetime import timedelta
 from pathlib import Path
+from typing import assert_type
 from unittest.mock import MagicMock, patch
 
 import boto3
@@ -170,11 +171,15 @@ def test_google_storage_credentials_and_groups() -> None:
     ):
         cache = GoogleStorageCache("cache-bucket")
         first = cache.group("folder")
+        assert_type(cache.bucket, str)
+        assert_type(first.bucket, str)
+        assert_type(first, GoogleStorageCache[str])
         first["one"] = b"first"
         cache.group("folder2")["two"] = b"second"
         assert list(first) == ["one"]
         assert first["one"] == b"first"
-        assert isinstance(first, ObstoreCache)
+        assert isinstance(first, GoogleStorageCache)
+        assert first.bucket == "cache-bucket"
         assert first.store is store
         assert store.get("jobs/folder/one").bytes() == b"first"
         default.assert_called_once_with(scopes=["https://www.googleapis.com/auth/devstorage.read_write"])

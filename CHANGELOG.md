@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `tilebox-workflows`: Restore `GoogleStorageCache` support for Google SDK bucket objects, preserving their
+  configured client, credentials, and request settings. Bucket-name strings continue to use obstore.
+
+## [0.63.0] - 2026-10-03
+
 ### Added
 
 - Support Python 3.14 across all packages.
@@ -568,7 +575,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.61.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.63.0...HEAD
+[0.63.0]: https://github.com/tilebox/tilebox-python/compare/v0.62.0...v0.63.0
 [0.61.0]: https://github.com/tilebox/tilebox-python/compare/v0.60.0...v0.61.0
 [0.60.0]: https://github.com/tilebox/tilebox-python/compare/v0.59.0...v0.60.0
 [0.59.0]: https://github.com/tilebox/tilebox-python/compare/v0.58.0...v0.59.0 

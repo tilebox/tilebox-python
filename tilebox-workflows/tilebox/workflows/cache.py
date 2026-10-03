@@ -1,10 +1,12 @@
 import contextlib
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
+from copy import copy
+from io import BytesIO
 from pathlib import Path
 from pathlib import PurePosixPath as ObjectPath
 from threading import RLock
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generic, Protocol, Self, TypeVar
 
 if TYPE_CHECKING:
     from obstore.store import ObjectStore
@@ -257,14 +259,37 @@ class LocalFileSystemCache(JobCache):
         return LocalFileSystemCache(self.root / key)
 
 
-class GoogleStorageCache(ObstoreCache):
-    def __init__(self, bucket: str, prefix: str | ObjectPath = "jobs") -> None:
+class _GoogleBlob(Protocol):
+    @property
+    def name(self) -> str: ...
+    def exists(self) -> bool: ...
+    def upload_from_file(self, stream: BytesIO, /) -> None: ...
+    def download_as_bytes(self) -> bytes: ...
+    def delete(self) -> None: ...
+
+
+class _GoogleBucket(Protocol):
+    def blob(self, name: str, /) -> _GoogleBlob: ...
+    def list_blobs(self, *, prefix: str, delimiter: str) -> Iterable[_GoogleBlob]: ...
+
+
+_BucketT = TypeVar("_BucketT", bound=str | _GoogleBucket)
+
+
+class GoogleStorageCache(ObstoreCache, Generic[_BucketT]):
+    def __init__(self, bucket: _BucketT, prefix: str | ObjectPath = "jobs") -> None:
         """A cache implementation that stores data in Google Cloud Storage.
 
         Args:
-            bucket: The Google Cloud Storage bucket name. Credentials come from Google Auth.
+            bucket: A bucket name or Google SDK Bucket. Names use obstore and Google Auth;
+                Bucket objects keep their existing client and its configuration.
             prefix: A path prefix to append to all objects stored in the cache. Defaults to "jobs".
         """
+        self.bucket = bucket
+        if not isinstance(bucket, str):
+            self.prefix = ObjectPath(prefix)
+            return
+
         import google.auth  # noqa: PLC0415
         from obstore.auth.google import GoogleCredentialProvider  # noqa: PLC0415
         from obstore.store import GCSStore  # noqa: PLC0415
@@ -272,6 +297,53 @@ class GoogleStorageCache(ObstoreCache):
         credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/devstorage.read_write"])
         store = GCSStore(bucket, credential_provider=GoogleCredentialProvider(credentials=credentials))
         super().__init__(store, prefix)
+
+    def __contains__(self, key: str) -> bool:
+        if isinstance(self.bucket, str):
+            return super().__contains__(key)
+        return self.bucket.blob(str(self.prefix / key)).exists()
+
+    def __setitem__(self, key: str, value: bytes) -> None:
+        if isinstance(self.bucket, str):
+            super().__setitem__(key, value)
+        else:
+            self.bucket.blob(str(self.prefix / key)).upload_from_file(BytesIO(value))
+
+    def __getitem__(self, key: str) -> bytes:
+        if isinstance(self.bucket, str):
+            return super().__getitem__(key)
+
+        from google.api_core.exceptions import NotFound  # noqa: PLC0415
+
+        try:
+            return self.bucket.blob(str(self.prefix / key)).download_as_bytes()
+        except NotFound:
+            raise KeyError(f"{key} is not cached!") from None
+
+    def __delitem__(self, key: str) -> None:
+        if isinstance(self.bucket, str):
+            super().__delitem__(key)
+            return
+
+        from google.api_core.exceptions import NotFound  # noqa: PLC0415
+
+        try:
+            self.bucket.blob(str(self.prefix / key)).delete()
+        except NotFound:
+            raise KeyError(f"{key} is not cached!") from None
+
+    def __iter__(self) -> Iterator[str]:
+        if isinstance(self.bucket, str):
+            yield from super().__iter__()
+            return
+        prefix = "" if self.prefix == ObjectPath(".") else str(self.prefix) + "/"
+        for blob in self.bucket.list_blobs(prefix=prefix, delimiter="/"):
+            yield str(ObjectPath(blob.name).relative_to(self.prefix))
+
+    def group(self, key: str) -> Self:
+        group = copy(self)
+        group.prefix = self.prefix / key
+        return group
 
 
 class AmazonS3Cache(ObstoreCache):
