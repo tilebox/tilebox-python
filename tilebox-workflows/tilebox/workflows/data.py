@@ -1,7 +1,9 @@
+import os
 import re
 import warnings
 from collections.abc import Callable, Mapping, MutableMapping
-from dataclasses import asdict, dataclass, field
+from contextlib import closing
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from functools import lru_cache, total_ordering
@@ -27,17 +29,15 @@ from tilebox.datasets.query.time_interval import (
 from tilebox.datasets.uuid import must_uuid_to_uuid_message, uuid_message_to_uuid, uuid_to_uuid_message
 
 if TYPE_CHECKING:
-    from google.cloud.storage.bucket import Bucket
-    from mypy_boto3_s3.client import S3Client
+    from obstore.store import AzureStore, GCSStore, S3Store
 
     from tilebox.workflows.observability.tracing import WorkflowTracer
 else:
-    Bucket = Any
-    S3Client = Any
     WorkflowTracer = Any
 
 from tilebox.workflows.workflows.v1 import automation_pb2 as automation_pb
 from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2, telemetry_pb2, workflows_pb2
+from tilebox.workflows.workflows.v1 import storage_location_pb2 as storage_pb
 
 _VERSION_PATTERN = re.compile(r"^v(\d+)\.(\d+)$")  # matches a version string in the format "v3.2"
 
@@ -969,65 +969,124 @@ class QueryJobSpansResponse:
 
 
 class StorageType(Enum):
-    GCS = automation_pb.STORAGE_TYPE_GCS  # Google Cloud Storage
-    S3 = automation_pb.STORAGE_TYPE_S3  # Amazon Web Services S3
-    FS = automation_pb.STORAGE_TYPE_FS  # Local Filesystem
+    GCS = storage_pb.STORAGE_TYPE_GCS_BUCKET  # Google Cloud Storage
+    S3 = storage_pb.STORAGE_TYPE_AWS_S3_BUCKET  # Amazon Web Services S3
+    FS = storage_pb.STORAGE_TYPE_FILESYSTEM  # Local Filesystem
+    AZURE = storage_pb.STORAGE_TYPE_AZURE_BLOB  # Azure Blob Storage
 
 
 _STORAGE_TYPE_TO_ENUM = {storage_type.value: storage_type for storage_type in StorageType}
 
 
-@dataclass(frozen=True, order=True)
+@total_ordering
+@dataclass(frozen=True)
 class StorageLocation:
     id: UUID
     location: str
     type: StorageType
     runner_context: "RunnerContext | None" = None
 
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, StorageLocation):
+            return NotImplemented
+        return (self.id, self.location, self.type.value) < (other.id, other.location, other.type.value)
+
     @classmethod
-    def from_message(cls, storage_location: automation_pb.StorageLocation) -> Self:
+    def from_message(cls, storage_location: storage_pb.StorageLocation) -> "StorageLocation":
         """Convert a StorageLocation protobuf message to a StorageLocation object."""
+        location = storage_location.location
+        storage_type = storage_location.type
+        if storage_location.HasField("reference"):
+            reference = storage_location.reference
+            storage_type = reference.type
+            match storage_type:
+                case storage_pb.STORAGE_TYPE_AZURE_BLOB:
+                    return AzureStorageLocation(
+                        id=uuid_message_to_uuid(storage_location.id),
+                        location=reference.azure_blob.container,
+                        type=StorageType.AZURE,
+                        storage_account_resource_id=reference.azure_blob.storage_account_resource_id,
+                    )
+                case storage_pb.STORAGE_TYPE_GCS_BUCKET:
+                    location = reference.gcs_bucket.bucket
+                case storage_pb.STORAGE_TYPE_AWS_S3_BUCKET:
+                    return S3StorageLocation(
+                        id=uuid_message_to_uuid(storage_location.id),
+                        location=reference.aws_s3_bucket.bucket,
+                        type=StorageType.S3,
+                        region=reference.aws_s3_bucket.region or None,
+                    )
+                case storage_pb.STORAGE_TYPE_FILESYSTEM:
+                    location = reference.filesystem.path
         return cls(
             id=uuid_message_to_uuid(storage_location.id),
-            location=storage_location.location,
-            type=_STORAGE_TYPE_TO_ENUM[storage_location.type],
+            location=location,
+            type=_STORAGE_TYPE_TO_ENUM[storage_type],
         )
 
     def _with_runner_context(self, runner_context: "RunnerContext") -> "StorageLocation":
-        return StorageLocation(
-            id=self.id,
-            location=self.location,
-            type=self.type,
-            runner_context=runner_context,
-        )
+        return replace(self, runner_context=runner_context)
 
-    def to_message(self) -> automation_pb.StorageLocation:
+    def to_message(self) -> storage_pb.StorageLocation:
         """Convert a StorageLocation object to a StorageLocation protobuf message."""
-        return automation_pb.StorageLocation(
+        return storage_pb.StorageLocation(
             id=uuid_to_uuid_message(self.id), location=self.location, type=self.type.value
         )
 
     def read(self, path: str) -> bytes:
         runner_context = self.runner_context or RunnerContext()
 
-        match self.type:
-            case StorageType.GCS:
-                with runner_context.tracer.span("gcs.read") as span:
+        with runner_context.tracer.span(f"{self.type.name.lower()}.read") as span:
+            span.set_attribute("path", path)
+            match self.type:
+                case StorageType.GCS:
                     span.set_attribute("bucket", self.location)
-                    span.set_attribute("path", path)
-                    # GCS library has some weird typing issues, so let's ignore them for now
-                    blob = runner_context.gcs_client(self.location).blob(path)
-                    return blob.download_as_bytes()
-            case StorageType.S3:
-                with runner_context.tracer.span("s3.read") as span:
+                    store = runner_context.gcs_client(self.location)
+                case StorageType.S3:
                     span.set_attribute("bucket", self.location)
-                    span.set_attribute("path", path)
-                return runner_context.s3_client(self.location).get_object(Bucket=self.location, Key=path)["Body"].read()
-            case StorageType.FS:
-                with runner_context.tracer.span("fs.read") as span:
+                    if isinstance(self, S3StorageLocation) and self.region:
+                        store = runner_context.s3_client(self.location, region=self.region)
+                    else:
+                        store = runner_context.s3_client(self.location)
+                case StorageType.AZURE:
+                    if not isinstance(self, AzureStorageLocation) or not self.storage_account_resource_id:
+                        raise ValueError("Azure storage location is missing its storage account resource ID")
+                    span.set_attribute("storage_account_resource_id", self.storage_account_resource_id)
+                    span.set_attribute("container", self.location)
+                    store = runner_context.azure_client(self.storage_account_resource_id, self.location)
+                case StorageType.FS:
                     span.set_attribute("root_directory", self.location)
-                    span.set_attribute("path", path)
-                return Path(self.location).joinpath(path).read_bytes()
+                    return Path(self.location).joinpath(path).read_bytes()
+
+            import obstore  # noqa: PLC0415
+
+            return bytes(obstore.get(store, path).bytes())
+
+
+@dataclass(frozen=True)
+class S3StorageLocation(StorageLocation):
+    region: str | None = field(default=None, kw_only=True)
+
+    def to_message(self) -> storage_pb.StorageLocation:
+        """Include the S3 bucket and its region in the storage reference."""
+        message = super().to_message()
+        message.reference.type = storage_pb.STORAGE_TYPE_AWS_S3_BUCKET
+        message.reference.aws_s3_bucket.bucket = self.location
+        message.reference.aws_s3_bucket.region = self.region or ""
+        return message
+
+
+@dataclass(frozen=True)
+class AzureStorageLocation(StorageLocation):
+    storage_account_resource_id: str = field(kw_only=True)
+
+    def to_message(self) -> storage_pb.StorageLocation:
+        """Include the Azure account and container in the storage reference."""
+        message = super().to_message()
+        message.reference.type = storage_pb.STORAGE_TYPE_AZURE_BLOB
+        message.reference.azure_blob.storage_account_resource_id = self.storage_account_resource_id
+        message.reference.azure_blob.container = self.location
+        return message
 
 
 @dataclass(order=True)
@@ -1055,7 +1114,7 @@ class StorageEventTrigger:
 
 
 class StorageEventType(Enum):
-    CREATED = automation_pb.STORAGE_EVENT_TYPE_CREATED
+    CREATED = storage_pb.STORAGE_EVENT_TYPE_CREATED
 
 
 _STORAGE_EVENT_TYPE_TO_ENUM = {storage_event_type.value: storage_event_type for storage_event_type in StorageEventType}
@@ -1069,7 +1128,7 @@ class TriggeredStorageEvent:
 
     @classmethod
     def from_message(
-        cls, event: automation_pb.TriggeredStorageEvent, locations: Mapping[UUID, StorageLocation]
+        cls, event: storage_pb.TriggeredStorageEvent, locations: Mapping[UUID, StorageLocation]
     ) -> "TriggeredStorageEvent":
         """Convert a TriggeredStorageEvent protobuf message to a TriggeredStorageEvent object."""
         storage_location_id = uuid_message_to_uuid(event.storage_location_id)
@@ -1085,9 +1144,9 @@ class TriggeredStorageEvent:
             location=event.location,
         )
 
-    def to_message(self) -> automation_pb.TriggeredStorageEvent:
+    def to_message(self) -> storage_pb.TriggeredStorageEvent:
         """Convert a TriggeredStorageEvent object to a TriggeredStorageEvent protobuf message."""
-        return automation_pb.TriggeredStorageEvent(
+        return storage_pb.TriggeredStorageEvent(
             storage_location_id=uuid_to_uuid_message(self.storage.id),
             type=self.type.value,
             location=self.location,
@@ -1177,25 +1236,90 @@ class RunnerContext:
             for sl in storage_locations or []
         }
 
-    def gcs_client(self, location: str) -> Bucket:
-        return _default_google_storage_client(location)
+    def gcs_client(self, location: str) -> "GCSStore":
+        return _default_gcs_storage_client(location)
 
-    def s3_client(self, location: str) -> S3Client:
-        import boto3  # noqa: PLC0415
-
-        _ = location  # we always use the default s3 client, regardless of the location
-        return boto3.client("s3")
+    def s3_client(self, location: str, region: str | None = None) -> "S3Store":
+        return _default_s3_storage_client(location, region)
 
     def local_path(self, location: str) -> Path:
         return Path(location)
 
+    def azure_client(self, storage_account_resource_id: str, container: str) -> "AzureStore":
+        return _default_azure_storage_client(storage_account_resource_id, container)
+
 
 @lru_cache
-def _default_google_storage_client(location: str) -> Bucket:
-    from google.cloud.storage import Client as GoogleStorageClient  # noqa: PLC0415
+def _default_gcs_storage_client(bucket: str) -> "GCSStore":
+    import google.auth  # noqa: PLC0415
+    from obstore.auth.google import GoogleCredentialProvider  # noqa: PLC0415
+    from obstore.store import GCSStore  # noqa: PLC0415
 
-    project, bucket = location.split(":")
-    return GoogleStorageClient(project=project).bucket(bucket)
+    credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/devstorage.read_only"])
+    return GCSStore(bucket, credential_provider=GoogleCredentialProvider(credentials=credentials))
+
+
+@lru_cache
+def _default_s3_storage_client(bucket: str, region: str | None = None) -> "S3Store":
+    return _s3_storage_client(bucket, region)
+
+
+def _s3_storage_client(bucket: str, region: str | None = None) -> "S3Store":
+    import boto3  # noqa: PLC0415
+    from botocore.exceptions import ClientError  # noqa: PLC0415
+    from obstore.auth.boto3 import Boto3CredentialProvider  # noqa: PLC0415
+    from obstore.store import S3Store  # noqa: PLC0415
+
+    session = boto3.DEFAULT_SESSION or boto3.Session()
+    if not region:
+        with closing(session.client("s3")) as client:
+            try:
+                response = client.head_bucket(Bucket=bucket)
+            except ClientError as error:
+                region = error.response.get("ResponseMetadata", {}).get("HTTPHeaders", {}).get("x-amz-bucket-region")
+                if not region:
+                    raise
+            else:
+                region = response.get("BucketRegion") or response.get("ResponseMetadata", {}).get(
+                    "HTTPHeaders", {}
+                ).get("x-amz-bucket-region")
+        if not region:
+            raise ValueError(f"S3 did not return a region for bucket {bucket!r}")
+    return S3Store(
+        bucket, region=region, credential_provider=Boto3CredentialProvider(session=session, ttl=timedelta(0))
+    )
+
+
+@lru_cache
+def _default_azure_storage_client(storage_account_resource_id: str, container: str) -> "AzureStore":
+    match = re.fullmatch(
+        r"/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\.Storage/storageAccounts/([^/]+)",
+        storage_account_resource_id,
+        flags=re.IGNORECASE,
+    )
+    if match is None:
+        raise ValueError(f"Invalid Azure storage account resource ID: {storage_account_resource_id!r}")
+    return _azure_storage_client(match[1], container)
+
+
+def _azure_storage_client(account_name: str, container: str) -> "AzureStore":
+    from obstore.store import AzureStore  # noqa: PLC0415
+
+    if any(
+        name in os.environ
+        for name in (
+            "AZURE_STORAGE_ACCOUNT_KEY",
+            "AZURE_STORAGE_ACCESS_KEY",
+            "AZURE_STORAGE_MASTER_KEY",
+            "AZURE_STORAGE_SAS_KEY",
+            "AZURE_STORAGE_SAS_TOKEN",
+        )
+    ):
+        return AzureStore(container, account_name=account_name)
+
+    from obstore.auth.azure import AzureCredentialProvider  # noqa: PLC0415
+
+    return AzureStore(container, account_name=account_name, credential_provider=AzureCredentialProvider())
 
 
 @dataclass(frozen=True)

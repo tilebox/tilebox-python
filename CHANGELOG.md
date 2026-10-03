@@ -11,15 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support Python 3.14 across all packages.
 - Test the lowest compatible direct dependencies on Python 3.11 in CI.
+- `tilebox-workflows`: Read Azure blobs in storage-event tasks. Use the account and container returned by the API.
+  Authenticate with Azure Identity, or use an account key or SAS token configured in the environment.
+- `tilebox-workflows`: Add `AzureBlobCache(account_name, container, prefix="jobs")` with the same authentication
+  as Azure automation reads. Cache groups share the store and credentials.
 
 ### Changed
 
+- `tilebox-workflows`: List storage locations through `StorageLocationService`. Read S3, GCS, and Azure objects
+  through obstore, with boto3, Google Auth, and Azure Identity handling credentials. Cloud reads now raise
+  obstore/Python exceptions instead of AWS/GCP SDK exceptions. Missing objects raise `FileNotFoundError`.
+- `tilebox-workflows`: Replace the Google storage SDK dependency with `google-auth[requests]` and add `azure-identity`.
+  Import cloud authentication libraries only when needed and reuse cloud storage clients between automation reads.
+- `tilebox-workflows`: Use obstore and Google Auth for `GoogleStorageCache`. Pass a bucket name instead of a
+  Google SDK bucket object. Cache groups share the same store and credentials.
+- `tilebox-workflows`: Use obstore for `AmazonS3Cache`, with the same boto3 session credentials as automation reads.
+  Cache groups share the store and credentials instead of creating new S3 clients.
 - Require Python 3.11 or newer across all packages, removing Python 3.10 compatibility code and typing backfills.
 - `tilebox-storage`: Replace legacy synchronous client patching with explicit wrappers using `asyncio.run()`.
   When called inside a running event loop (including notebooks), run the operation in a worker thread instead.
   Remove the internal `syncify` helper and the `nest-asyncio2` dependency from `tilebox-grpc`.
 - Raise dependency minimums to remove obsolete compatibility workarounds: boto3 1.40.2, OpenTelemetry 1.43.0
-  (logging instrumentation 0.64b0), grpcio 1.84.0, and pyqwest 0.7.0.
+  (logging instrumentation 0.64b0), and pyqwest 0.7.0.
 - `tilebox-datasets`: Require NumPy 1.25, pandas 2.2.2, xarray 2024.6, and Shapely 2.0.6 or newer.
 - Require protobuf 6.31.0 for repeated-field descriptors and protobuf-py 0.2.0 for integer-to-float serialization.
 - `tilebox-workflows`: Make interactive notebook progress an optional `notebook` extra; without it, jobs display
@@ -29,6 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `tilebox-workflows`: Use S3 bucket regions from API metadata or discover them with `HeadBucket`.
+  `AmazonS3Cache` also accepts `region=` to skip discovery. Let botocore refresh temporary credentials.
+- `tilebox-workflows`: Preserve cloud cache permission, network, and backend errors instead of reporting cache misses.
+- Require `grpcio>=1.84.0` for the memory-exhaustion fixes in
+  [GHSA-hf3w-6hpw-qp67](https://github.com/grpc/grpc/security/advisories/GHSA-hf3w-6hpw-qp67).
+  macOS CLI authentication may still emit native fork diagnostics during successful reads.
+- `tilebox-workflows`: Fix GCS automation reads when the API returns a bucket name without a project prefix.
 - Explicitly trust system certificates for Connect HTTP/1 transports with pyqwest 0.7 and newer.
 
 ## [0.62.0] - 2026-09-16

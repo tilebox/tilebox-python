@@ -19,26 +19,6 @@ class AutomationServiceStub:
         Args:
             channel: A grpc.Channel.
         """
-        self.ListStorageLocations = channel.unary_unary(
-                '/workflows.v1.AutomationService/ListStorageLocations',
-                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_automation__pb2.StorageLocations.FromString,
-                _registered_method=True)
-        self.GetStorageLocation = channel.unary_unary(
-                '/workflows.v1.AutomationService/GetStorageLocation',
-                request_serializer=tilebox_dot_v1_dot_id__pb2.ID.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.FromString,
-                _registered_method=True)
-        self.CreateStorageLocation = channel.unary_unary(
-                '/workflows.v1.AutomationService/CreateStorageLocation',
-                request_serializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.SerializeToString,
-                response_deserializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.FromString,
-                _registered_method=True)
-        self.DeleteStorageLocation = channel.unary_unary(
-                '/workflows.v1.AutomationService/DeleteStorageLocation',
-                request_serializer=tilebox_dot_v1_dot_id__pb2.ID.SerializeToString,
-                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-                _registered_method=True)
         self.ListAutomations = channel.unary_unary(
                 '/workflows.v1.AutomationService/ListAutomations',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
@@ -71,34 +51,6 @@ class AutomationServiceServicer:
     - Bucket triggers, which triggers tasks when an object is uploaded to a storage bucket that matches a glob pattern
     - Cron triggers, which triggers tasks on a schedule
     """
-
-    def ListStorageLocations(self, request, context):
-        """ListStorageLocations lists all the storage buckets that are available for use as bucket triggers.
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetStorageLocation(self, request, context):
-        """GetStorageLocation gets a storage location by its ID.
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def CreateStorageLocation(self, request, context):
-        """CreateStorageLocation creates a new storage bucket.
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def DeleteStorageLocation(self, request, context):
-        """DeleteStorageLocation deletes a storage location.
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
 
     def ListAutomations(self, request, context):
         """ListAutomations lists all the automations that are currently registered in a namespace.
@@ -138,26 +90,6 @@ class AutomationServiceServicer:
 
 def add_AutomationServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'ListStorageLocations': grpc.unary_unary_rpc_method_handler(
-                    servicer.ListStorageLocations,
-                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-                    response_serializer=workflows_dot_v1_dot_automation__pb2.StorageLocations.SerializeToString,
-            ),
-            'GetStorageLocation': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetStorageLocation,
-                    request_deserializer=tilebox_dot_v1_dot_id__pb2.ID.FromString,
-                    response_serializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.SerializeToString,
-            ),
-            'CreateStorageLocation': grpc.unary_unary_rpc_method_handler(
-                    servicer.CreateStorageLocation,
-                    request_deserializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.FromString,
-                    response_serializer=workflows_dot_v1_dot_automation__pb2.StorageLocation.SerializeToString,
-            ),
-            'DeleteStorageLocation': grpc.unary_unary_rpc_method_handler(
-                    servicer.DeleteStorageLocation,
-                    request_deserializer=tilebox_dot_v1_dot_id__pb2.ID.FromString,
-                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-            ),
             'ListAutomations': grpc.unary_unary_rpc_method_handler(
                     servicer.ListAutomations,
                     request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
@@ -196,114 +128,6 @@ class AutomationService:
     - Bucket triggers, which triggers tasks when an object is uploaded to a storage bucket that matches a glob pattern
     - Cron triggers, which triggers tasks on a schedule
     """
-
-    @staticmethod
-    def ListStorageLocations(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/workflows.v1.AutomationService/ListStorageLocations',
-            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-            workflows_dot_v1_dot_automation__pb2.StorageLocations.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetStorageLocation(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/workflows.v1.AutomationService/GetStorageLocation',
-            tilebox_dot_v1_dot_id__pb2.ID.SerializeToString,
-            workflows_dot_v1_dot_automation__pb2.StorageLocation.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def CreateStorageLocation(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/workflows.v1.AutomationService/CreateStorageLocation',
-            workflows_dot_v1_dot_automation__pb2.StorageLocation.SerializeToString,
-            workflows_dot_v1_dot_automation__pb2.StorageLocation.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def DeleteStorageLocation(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/workflows.v1.AutomationService/DeleteStorageLocation',
-            tilebox_dot_v1_dot_id__pb2.ID.SerializeToString,
-            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
 
     @staticmethod
     def ListAutomations(request,

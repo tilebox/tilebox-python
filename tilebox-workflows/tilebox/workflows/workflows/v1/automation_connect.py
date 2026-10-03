@@ -20,18 +20,6 @@ import tilebox.workflows.workflows.v1.automation_pb2 as workflows_dot_v1_dot_aut
 
 
 class AutomationService(Protocol):
-    async def list_storage_locations(self, request: google_dot_protobuf_dot_empty__pb2.Empty, ctx: RequestContext) -> workflows_dot_v1_dot_automation__pb2.StorageLocations:
-        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
-
-    async def get_storage_location(self, request: tilebox_dot_v1_dot_id__pb2.ID, ctx: RequestContext) -> workflows_dot_v1_dot_automation__pb2.StorageLocation:
-        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
-
-    async def create_storage_location(self, request: workflows_dot_v1_dot_automation__pb2.StorageLocation, ctx: RequestContext) -> workflows_dot_v1_dot_automation__pb2.StorageLocation:
-        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
-
-    async def delete_storage_location(self, request: tilebox_dot_v1_dot_id__pb2.ID, ctx: RequestContext) -> google_dot_protobuf_dot_empty__pb2.Empty:
-        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
-
     async def list_automations(self, request: google_dot_protobuf_dot_empty__pb2.Empty, ctx: RequestContext) -> workflows_dot_v1_dot_automation__pb2.Automations:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
@@ -53,46 +41,6 @@ class AutomationServiceASGIApplication(ConnectASGIApplication[AutomationService]
         super().__init__(
             service=service,
             endpoints=lambda svc: {
-                "/workflows.v1.AutomationService/ListStorageLocations": Endpoint.unary(
-                    method=MethodInfo(
-                        name="ListStorageLocations",
-                        service_name="workflows.v1.AutomationService",
-                        input=google_dot_protobuf_dot_empty__pb2.Empty,
-                        output=workflows_dot_v1_dot_automation__pb2.StorageLocations,
-                        idempotency_level=IdempotencyLevel.UNKNOWN,
-                    ),
-                    function=svc.list_storage_locations,
-                ),
-                "/workflows.v1.AutomationService/GetStorageLocation": Endpoint.unary(
-                    method=MethodInfo(
-                        name="GetStorageLocation",
-                        service_name="workflows.v1.AutomationService",
-                        input=tilebox_dot_v1_dot_id__pb2.ID,
-                        output=workflows_dot_v1_dot_automation__pb2.StorageLocation,
-                        idempotency_level=IdempotencyLevel.UNKNOWN,
-                    ),
-                    function=svc.get_storage_location,
-                ),
-                "/workflows.v1.AutomationService/CreateStorageLocation": Endpoint.unary(
-                    method=MethodInfo(
-                        name="CreateStorageLocation",
-                        service_name="workflows.v1.AutomationService",
-                        input=workflows_dot_v1_dot_automation__pb2.StorageLocation,
-                        output=workflows_dot_v1_dot_automation__pb2.StorageLocation,
-                        idempotency_level=IdempotencyLevel.UNKNOWN,
-                    ),
-                    function=svc.create_storage_location,
-                ),
-                "/workflows.v1.AutomationService/DeleteStorageLocation": Endpoint.unary(
-                    method=MethodInfo(
-                        name="DeleteStorageLocation",
-                        service_name="workflows.v1.AutomationService",
-                        input=tilebox_dot_v1_dot_id__pb2.ID,
-                        output=google_dot_protobuf_dot_empty__pb2.Empty,
-                        idempotency_level=IdempotencyLevel.UNKNOWN,
-                    ),
-                    function=svc.delete_storage_location,
-                ),
                 "/workflows.v1.AutomationService/ListAutomations": Endpoint.unary(
                     method=MethodInfo(
                         name="ListAutomations",
@@ -157,86 +105,6 @@ class AutomationServiceASGIApplication(ConnectASGIApplication[AutomationService]
 
 
 class AutomationServiceClient(ConnectClient):
-    async def list_storage_locations(
-        self,
-        request: google_dot_protobuf_dot_empty__pb2.Empty,
-        *,
-        headers: Headers | Mapping[str, str] | None = None,
-        timeout_ms: int | None = None,
-    ) -> workflows_dot_v1_dot_automation__pb2.StorageLocations:
-        return await self.execute_unary(
-            request=request,
-            method=MethodInfo(
-                name="ListStorageLocations",
-                service_name="workflows.v1.AutomationService",
-                input=google_dot_protobuf_dot_empty__pb2.Empty,
-                output=workflows_dot_v1_dot_automation__pb2.StorageLocations,
-                idempotency_level=IdempotencyLevel.UNKNOWN,
-            ),
-            headers=headers,
-            timeout_ms=timeout_ms,
-        )
-
-    async def get_storage_location(
-        self,
-        request: tilebox_dot_v1_dot_id__pb2.ID,
-        *,
-        headers: Headers | Mapping[str, str] | None = None,
-        timeout_ms: int | None = None,
-    ) -> workflows_dot_v1_dot_automation__pb2.StorageLocation:
-        return await self.execute_unary(
-            request=request,
-            method=MethodInfo(
-                name="GetStorageLocation",
-                service_name="workflows.v1.AutomationService",
-                input=tilebox_dot_v1_dot_id__pb2.ID,
-                output=workflows_dot_v1_dot_automation__pb2.StorageLocation,
-                idempotency_level=IdempotencyLevel.UNKNOWN,
-            ),
-            headers=headers,
-            timeout_ms=timeout_ms,
-        )
-
-    async def create_storage_location(
-        self,
-        request: workflows_dot_v1_dot_automation__pb2.StorageLocation,
-        *,
-        headers: Headers | Mapping[str, str] | None = None,
-        timeout_ms: int | None = None,
-    ) -> workflows_dot_v1_dot_automation__pb2.StorageLocation:
-        return await self.execute_unary(
-            request=request,
-            method=MethodInfo(
-                name="CreateStorageLocation",
-                service_name="workflows.v1.AutomationService",
-                input=workflows_dot_v1_dot_automation__pb2.StorageLocation,
-                output=workflows_dot_v1_dot_automation__pb2.StorageLocation,
-                idempotency_level=IdempotencyLevel.UNKNOWN,
-            ),
-            headers=headers,
-            timeout_ms=timeout_ms,
-        )
-
-    async def delete_storage_location(
-        self,
-        request: tilebox_dot_v1_dot_id__pb2.ID,
-        *,
-        headers: Headers | Mapping[str, str] | None = None,
-        timeout_ms: int | None = None,
-    ) -> google_dot_protobuf_dot_empty__pb2.Empty:
-        return await self.execute_unary(
-            request=request,
-            method=MethodInfo(
-                name="DeleteStorageLocation",
-                service_name="workflows.v1.AutomationService",
-                input=tilebox_dot_v1_dot_id__pb2.ID,
-                output=google_dot_protobuf_dot_empty__pb2.Empty,
-                idempotency_level=IdempotencyLevel.UNKNOWN,
-            ),
-            headers=headers,
-            timeout_ms=timeout_ms,
-        )
-
     async def list_automations(
         self,
         request: google_dot_protobuf_dot_empty__pb2.Empty,
@@ -342,14 +210,6 @@ class AutomationServiceClient(ConnectClient):
 
 
 class AutomationServiceSync(Protocol):
-    def list_storage_locations(self, request: google_dot_protobuf_dot_empty__pb2.Empty, ctx: RequestContext) -> workflows_dot_v1_dot_automation__pb2.StorageLocations:
-        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
-    def get_storage_location(self, request: tilebox_dot_v1_dot_id__pb2.ID, ctx: RequestContext) -> workflows_dot_v1_dot_automation__pb2.StorageLocation:
-        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
-    def create_storage_location(self, request: workflows_dot_v1_dot_automation__pb2.StorageLocation, ctx: RequestContext) -> workflows_dot_v1_dot_automation__pb2.StorageLocation:
-        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
-    def delete_storage_location(self, request: tilebox_dot_v1_dot_id__pb2.ID, ctx: RequestContext) -> google_dot_protobuf_dot_empty__pb2.Empty:
-        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def list_automations(self, request: google_dot_protobuf_dot_empty__pb2.Empty, ctx: RequestContext) -> workflows_dot_v1_dot_automation__pb2.Automations:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def get_automation(self, request: tilebox_dot_v1_dot_id__pb2.ID, ctx: RequestContext) -> workflows_dot_v1_dot_automation__pb2.AutomationPrototype:
@@ -366,46 +226,6 @@ class AutomationServiceWSGIApplication(ConnectWSGIApplication):
     def __init__(self, service: AutomationServiceSync, interceptors: Iterable[InterceptorSync]=(), read_max_bytes: int | None = None, compressions: Iterable[Compression] | None = None, codecs: Iterable[Codec] | None = None) -> None:
         super().__init__(
             endpoints={
-                "/workflows.v1.AutomationService/ListStorageLocations": EndpointSync.unary(
-                    method=MethodInfo(
-                        name="ListStorageLocations",
-                        service_name="workflows.v1.AutomationService",
-                        input=google_dot_protobuf_dot_empty__pb2.Empty,
-                        output=workflows_dot_v1_dot_automation__pb2.StorageLocations,
-                        idempotency_level=IdempotencyLevel.UNKNOWN,
-                    ),
-                    function=service.list_storage_locations,
-                ),
-                "/workflows.v1.AutomationService/GetStorageLocation": EndpointSync.unary(
-                    method=MethodInfo(
-                        name="GetStorageLocation",
-                        service_name="workflows.v1.AutomationService",
-                        input=tilebox_dot_v1_dot_id__pb2.ID,
-                        output=workflows_dot_v1_dot_automation__pb2.StorageLocation,
-                        idempotency_level=IdempotencyLevel.UNKNOWN,
-                    ),
-                    function=service.get_storage_location,
-                ),
-                "/workflows.v1.AutomationService/CreateStorageLocation": EndpointSync.unary(
-                    method=MethodInfo(
-                        name="CreateStorageLocation",
-                        service_name="workflows.v1.AutomationService",
-                        input=workflows_dot_v1_dot_automation__pb2.StorageLocation,
-                        output=workflows_dot_v1_dot_automation__pb2.StorageLocation,
-                        idempotency_level=IdempotencyLevel.UNKNOWN,
-                    ),
-                    function=service.create_storage_location,
-                ),
-                "/workflows.v1.AutomationService/DeleteStorageLocation": EndpointSync.unary(
-                    method=MethodInfo(
-                        name="DeleteStorageLocation",
-                        service_name="workflows.v1.AutomationService",
-                        input=tilebox_dot_v1_dot_id__pb2.ID,
-                        output=google_dot_protobuf_dot_empty__pb2.Empty,
-                        idempotency_level=IdempotencyLevel.UNKNOWN,
-                    ),
-                    function=service.delete_storage_location,
-                ),
                 "/workflows.v1.AutomationService/ListAutomations": EndpointSync.unary(
                     method=MethodInfo(
                         name="ListAutomations",
@@ -470,86 +290,6 @@ class AutomationServiceWSGIApplication(ConnectWSGIApplication):
 
 
 class AutomationServiceClientSync(ConnectClientSync):
-    def list_storage_locations(
-        self,
-        request: google_dot_protobuf_dot_empty__pb2.Empty,
-        *,
-        headers: Headers | Mapping[str, str] | None = None,
-        timeout_ms: int | None = None,
-    ) -> workflows_dot_v1_dot_automation__pb2.StorageLocations:
-        return self.execute_unary(
-            request=request,
-            method=MethodInfo(
-                name="ListStorageLocations",
-                service_name="workflows.v1.AutomationService",
-                input=google_dot_protobuf_dot_empty__pb2.Empty,
-                output=workflows_dot_v1_dot_automation__pb2.StorageLocations,
-                idempotency_level=IdempotencyLevel.UNKNOWN,
-            ),
-            headers=headers,
-            timeout_ms=timeout_ms,
-        )
-
-    def get_storage_location(
-        self,
-        request: tilebox_dot_v1_dot_id__pb2.ID,
-        *,
-        headers: Headers | Mapping[str, str] | None = None,
-        timeout_ms: int | None = None,
-    ) -> workflows_dot_v1_dot_automation__pb2.StorageLocation:
-        return self.execute_unary(
-            request=request,
-            method=MethodInfo(
-                name="GetStorageLocation",
-                service_name="workflows.v1.AutomationService",
-                input=tilebox_dot_v1_dot_id__pb2.ID,
-                output=workflows_dot_v1_dot_automation__pb2.StorageLocation,
-                idempotency_level=IdempotencyLevel.UNKNOWN,
-            ),
-            headers=headers,
-            timeout_ms=timeout_ms,
-        )
-
-    def create_storage_location(
-        self,
-        request: workflows_dot_v1_dot_automation__pb2.StorageLocation,
-        *,
-        headers: Headers | Mapping[str, str] | None = None,
-        timeout_ms: int | None = None,
-    ) -> workflows_dot_v1_dot_automation__pb2.StorageLocation:
-        return self.execute_unary(
-            request=request,
-            method=MethodInfo(
-                name="CreateStorageLocation",
-                service_name="workflows.v1.AutomationService",
-                input=workflows_dot_v1_dot_automation__pb2.StorageLocation,
-                output=workflows_dot_v1_dot_automation__pb2.StorageLocation,
-                idempotency_level=IdempotencyLevel.UNKNOWN,
-            ),
-            headers=headers,
-            timeout_ms=timeout_ms,
-        )
-
-    def delete_storage_location(
-        self,
-        request: tilebox_dot_v1_dot_id__pb2.ID,
-        *,
-        headers: Headers | Mapping[str, str] | None = None,
-        timeout_ms: int | None = None,
-    ) -> google_dot_protobuf_dot_empty__pb2.Empty:
-        return self.execute_unary(
-            request=request,
-            method=MethodInfo(
-                name="DeleteStorageLocation",
-                service_name="workflows.v1.AutomationService",
-                input=tilebox_dot_v1_dot_id__pb2.ID,
-                output=google_dot_protobuf_dot_empty__pb2.Empty,
-                idempotency_level=IdempotencyLevel.UNKNOWN,
-            ),
-            headers=headers,
-            timeout_ms=timeout_ms,
-        )
-
     def list_automations(
         self,
         request: google_dot_protobuf_dot_empty__pb2.Empty,

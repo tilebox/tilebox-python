@@ -20,6 +20,12 @@ from tilebox.workflows.runner.executor import ExecutionContext as RunnerExecutio
 from tilebox.workflows.runner.task_runner import TaskRunner
 
 
+@pytest.fixture(autouse=True)
+def offline_logging(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Offline runner tests must not start background network log exporters.
+    monkeypatch.setattr("tilebox.workflows.client.initialize_logging", MagicMock())
+
+
 def test_public_execution_context_attributes() -> None:
     class RenameTask(Task):
         def execute(self, context: ExecutionContext) -> None:
@@ -40,7 +46,7 @@ def test_task_authoring_imports_are_lazy() -> None:
     code = (
         "import sys\n"
         "import tilebox.workflows as workflows\n"
-        "heavy = {'pandas', 'xarray', 'boto3', 'google.cloud.storage', 'ipywidgets', 'opentelemetry.sdk'}\n"
+        "heavy = {'pandas', 'xarray', 'boto3', 'google.cloud.storage', 'google.auth', 'azure.identity', 'obstore', 'ipywidgets', 'opentelemetry.sdk'}\n"
         "assert not heavy & sys.modules.keys()\n"
         "assert set(workflows.__all__) <= set(dir(workflows))\n"
         "task = workflows.Task\n"
@@ -195,7 +201,10 @@ def replay_client(replay_file: str, assert_request_matches: bool = True) -> Clie
     replay = Path(__file__).parent / "testdata" / "recordings" / replay_file
     replay_channel = open_replay_channel(replay, assert_request_matches)
 
-    with patch("tilebox.workflows.client.open_channel") as open_channel_mock:
+    with (
+        patch("tilebox.workflows.client.open_channel") as open_channel_mock,
+        patch("tilebox.workflows.client.WorkflowTracer", return_value=NoopWorkflowTracer()),
+    ):
         open_channel_mock.return_value = replay_channel
         # url/token doesn't matter since its a mocked channel
         client = Client(

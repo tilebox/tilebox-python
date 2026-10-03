@@ -1,18 +1,14 @@
 import contextlib
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from io import BytesIO
 from pathlib import Path
 from pathlib import PurePosixPath as ObjectPath
 from threading import RLock
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from google.cloud.storage import Blob, Bucket
     from obstore.store import ObjectStore
 else:
-    Blob = Any
-    Bucket = Any
     ObjectStore = Any
 
 
@@ -91,7 +87,7 @@ class ObstoreCache(JobCache):
         self.prefix = ObjectPath(prefix)
 
     def __contains__(self, key: str) -> bool:
-        with contextlib.suppress(OSError):
+        with contextlib.suppress(FileNotFoundError, NotADirectoryError):
             self.store.get(str(self.prefix / key))
             return True  # if get is successful, we know the key is in the cache
 
@@ -103,19 +99,28 @@ class ObstoreCache(JobCache):
     def __delitem__(self, key: str) -> None:
         try:
             self.store.delete(str(self.prefix / key))
-        except OSError:
+        except (FileNotFoundError, NotADirectoryError):
             raise KeyError(f"{key} is not cached!") from None
 
     def __getitem__(self, key: str) -> bytes:
         from obstore.exceptions import GenericError  # noqa: PLC0415
+        from obstore.store import LocalStore  # noqa: PLC0415
 
         try:
             entry = self.store.get(str(self.prefix / key))
             return bytes(entry.bytes())
-        except (OSError, GenericError):
-            # GenericError is raised if the key contains separator characters, but one of the parents is a file
-            # instead of a directory
+        except (FileNotFoundError, NotADirectoryError):
             raise KeyError(f"{key} is not cached!") from None
+        except GenericError:
+            # LocalStore wraps a file used as a parent directory in GenericError.
+            if isinstance(self.store, LocalStore) and self.store.prefix is not None:
+                try:
+                    (self.store.prefix / self.prefix / key).stat()
+                except NotADirectoryError:
+                    raise KeyError(f"{key} is not cached!") from None
+                except OSError:
+                    pass
+            raise
 
     def __iter__(self) -> Iterator[str]:
         prefix = "" if self.prefix == ObjectPath(".") else str(self.prefix)
@@ -252,113 +257,47 @@ class LocalFileSystemCache(JobCache):
         return LocalFileSystemCache(self.root / key)
 
 
-class GoogleStorageCache(JobCache):
-    def __init__(self, bucket: Bucket, prefix: str | ObjectPath = "jobs") -> None:
+class GoogleStorageCache(ObstoreCache):
+    def __init__(self, bucket: str, prefix: str | ObjectPath = "jobs") -> None:
         """A cache implementation that stores data in Google Cloud Storage.
 
         Args:
-            bucket: The Google Cloud Storage bucket to use for the cache.
+            bucket: The Google Cloud Storage bucket name. Credentials come from Google Auth.
             prefix: A path prefix to append to all objects stored in the cache. Defaults to "jobs".
         """
-        self.bucket = bucket
-        self.prefix = ObjectPath(
-            prefix
-        )  # we still use pathlib here, because it's easier to work with when joining paths
+        import google.auth  # noqa: PLC0415
+        from obstore.auth.google import GoogleCredentialProvider  # noqa: PLC0415
+        from obstore.store import GCSStore  # noqa: PLC0415
 
-    def _blob(self, key: str) -> Blob:
-        return self.bucket.blob(str(self.prefix / key))
-
-    def __contains__(self, key: str) -> bool:
-        # GCS library has some weird typing issues, so let's ignore them for now
-        return self._blob(key).exists()
-
-    def __setitem__(self, key: str, value: bytes) -> None:
-        # GCS library has some weird typing issues, so let's ignore them for now
-        self._blob(key).upload_from_file(BytesIO(value))
-
-    def __getitem__(self, key: str) -> bytes:
-        from google.cloud.exceptions import NotFound  # noqa: PLC0415
-
-        try:
-            # GCS library has some weird typing issues, so let's ignore them for now
-            return self._blob(key).download_as_bytes()
-        except NotFound:
-            raise KeyError(f"{key} is not cached!") from None
-
-    def __iter__(self) -> Iterator[str]:
-        # we need to add the trailing slash, to avoid listing other blobs that start with the same prefix, e.g.
-        # consider the following blobs:
-        #   jobs/folder/some_file.txt
-        #   jobs/folder2/other_file.txt
-        # if we just list all blobs with prefix "jobs/folder", we would get both of them, but we only want the
-        # ones in the folder, so we add the trailing slash to only get the blobs in the folder
-        prefix = str(self.prefix) + "/"
-        # by specifying the delimiter as "/", we can emulate a directory structure, and only get the blobs directly
-        # in the "folder", and not the ones in subfolders
-
-        # GCS library has some weird typing issues, so let's ignore them for now
-        blobs = self.bucket.list_blobs(prefix=prefix, delimiter="/")
-
-        # make the names relative to the cache prefix (but including the key in the name)
-        for blob in blobs:
-            yield str(ObjectPath(blob.name).relative_to(self.prefix))
-
-    def group(self, key: str) -> "GoogleStorageCache":
-        return GoogleStorageCache(self.bucket, prefix=str(self.prefix / key))
+        credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/devstorage.read_write"])
+        store = GCSStore(bucket, credential_provider=GoogleCredentialProvider(credentials=credentials))
+        super().__init__(store, prefix)
 
 
-class AmazonS3Cache(JobCache):
-    def __init__(self, bucket: str, prefix: str | ObjectPath = "jobs") -> None:
+class AmazonS3Cache(ObstoreCache):
+    def __init__(self, bucket: str, prefix: str | ObjectPath = "jobs", *, region: str | None = None) -> None:
         """A cache implementation that stores data in Amazon S3.
 
         Args:
-            bucket: The Amazon S3 bucket to use for the cache.
+            bucket: The Amazon S3 bucket name. Credentials come from the boto3 session.
             prefix: A path prefix to append to all objects stored in the cache. Defaults to "jobs".
+            region: The bucket region. If omitted, discover it with HeadBucket.
         """
-        import boto3  # noqa: PLC0415
+        from tilebox.workflows.data import _s3_storage_client  # noqa: PLC0415
 
-        self.bucket = bucket
-        self.prefix = ObjectPath(prefix)
-        self._s3 = boto3.client("s3")
+        super().__init__(_s3_storage_client(bucket, region), prefix)
 
-    def __contains__(self, key: str) -> bool:
-        from botocore.exceptions import ClientError  # noqa: PLC0415
 
-        try:
-            self._s3.head_object(Bucket=self.bucket, Key=str(self.prefix / key))
-        except ClientError as e:
-            err = e.response.get("Error", {})
-            if err.get("Code", "") == "404":
-                return False
-            raise  # not a 404, re-raise the exception
-        else:
-            return True
+class AzureBlobCache(ObstoreCache):
+    def __init__(self, account_name: str, container: str, prefix: str | ObjectPath = "jobs") -> None:
+        """Store cached data in Azure Blob Storage.
 
-    def __setitem__(self, key: str, value: bytes) -> None:
-        self._s3.upload_fileobj(BytesIO(value), self.bucket, str(self.prefix / key))
+        Args:
+            account_name: The storage account name. Credentials come from Azure Identity,
+                or an account key or SAS token configured in the environment.
+            container: The Azure Blob Storage container name.
+            prefix: A path prefix for cached objects. Defaults to "jobs".
+        """
+        from tilebox.workflows.data import _azure_storage_client  # noqa: PLC0415
 
-    def __getitem__(self, key: str) -> bytes:
-        from botocore.exceptions import ClientError  # noqa: PLC0415
-
-        item = BytesIO()
-        try:
-            self._s3.download_fileobj(self.bucket, str(self.prefix / key), item)
-        except ClientError as e:
-            err = e.response.get("Error", {})
-            if err.get("Code", "") == "404":
-                raise KeyError(f"{key} is not cached!") from None
-            raise  # not a 404, re-raise the exception
-        else:
-            return item.getvalue()
-
-    def __iter__(self) -> Iterator[str]:
-        paginator = self._s3.get_paginator("list_objects_v2")
-        prefix = str(self.prefix) + "/" if self.prefix != Path() else ""
-        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix, Delimiter="/"):
-            for item in page.get("Contents", []):
-                bucket = str(Path(item.get("Key", "")).relative_to(self.prefix))
-                if "/" not in bucket:  # only yield files directly in the prefix
-                    yield bucket
-
-    def group(self, key: str) -> "AmazonS3Cache":
-        return AmazonS3Cache(self.bucket, prefix=str(self.prefix / key))
+        super().__init__(_azure_storage_client(account_name, container), prefix)
