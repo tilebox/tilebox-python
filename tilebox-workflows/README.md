@@ -90,6 +90,19 @@ unless the cache implementation explicitly provides that guarantee.
 Concurrency in one runtime avoids repeated process initialization and allows overlapping I/O or native code that
 releases Python's GIL. CPU-bound Python code still needs multiple runtime processes for parallel execution.
 
+## Reading automation objects
+
+Storage-event tasks can read objects from Amazon S3, Google Cloud Storage, Azure Blob Storage, or the local filesystem:
+
+```python
+content = self.trigger.storage.read(self.trigger.location)
+```
+
+The method returns bytes. Cloud reads use the credentials configured for the runner.
+
+On macOS, GCS or Azure CLI authentication can emit [gRPC fork diagnostics](https://github.com/grpc/grpc/issues/42293)
+even when a read succeeds. These messages alone do not indicate a failed read; do not downgrade gRPC to hide them.
+
 ## Documentation
 
 Check out the [Tilebox Workflows documentation](https://docs.tilebox.com/workflows/introduction) for more information.

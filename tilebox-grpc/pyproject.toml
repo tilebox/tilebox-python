@@ -21,7 +21,7 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    # Rate-limits the logging noise from https://github.com/grpc/grpc/issues/42293.
+    # Includes fixes for https://github.com/grpc/grpc/security/advisories/GHSA-hf3w-6hpw-qp67.
     "grpcio>=1.84.0",
     # connectrpc 0.11 switches from Google's protobuf runtime to protobuf-py
     "connectrpc>=0.10.1,<0.11.0",

@@ -24,6 +24,7 @@ from grpc import (
 from grpc.aio import (
     AioRpcError,
     ClientCallDetails,  # import from aio, since grpc.ClientCallDetails is an empty base class
+    Metadata,
 )
 
 RequestType = TypeVar("RequestType")
@@ -163,7 +164,7 @@ class _ReplayChannel:
 
         if recorded_status != StatusCode.OK.value[0]:  # the recorded call was an error, so raise it again
             code = _STATUS_CODES[recorded_status]
-            error = AioRpcError(code, None, None, recorded_response.decode())
+            error = AioRpcError(code, Metadata(), Metadata(), recorded_response.decode())
             raise error
 
         return response_deserializer(base64.b64decode(recorded_response))

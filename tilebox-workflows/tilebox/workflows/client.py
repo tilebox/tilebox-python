@@ -68,6 +68,7 @@ class Client:
                 self._cluster_service = self._job_service
                 self._workflow_service = self._job_service
                 self._automation_service = self._job_service
+                self._storage_location_service = self._job_service
                 self._task_service = self._job_service
             case "http1":
                 from pyqwest import HTTPVersion, SyncClient, SyncHTTPTransport  # noqa: PLC0415
@@ -76,6 +77,9 @@ class Client:
                     AutomationServiceClientSync,
                 )
                 from tilebox.workflows.workflows.v1.job_connect import JobServiceClientSync  # noqa: PLC0415
+                from tilebox.workflows.workflows.v1.storage_location_connect import (  # noqa: PLC0415
+                    StorageLocationServiceClientSync,
+                )
                 from tilebox.workflows.workflows.v1.task_connect import TaskServiceClientSync  # noqa: PLC0415
                 from tilebox.workflows.workflows.v1.telemetry_connect import (  # noqa: PLC0415
                     TelemetryQueryServiceClientSync,
@@ -97,6 +101,9 @@ class Client:
                 self._workflow_service = self._cluster_service
                 self._automation_service = ConnectStubAdapter(
                     AutomationServiceClientSync(address, http_client=http_client), headers
+                )
+                self._storage_location_service = ConnectStubAdapter(
+                    StorageLocationServiceClientSync(address, http_client=http_client), headers
                 )
                 self._task_service = ConnectStubAdapter(
                     TaskServiceClientSync(address, http_client=http_client), headers
@@ -200,7 +207,7 @@ class Client:
         Returns:
             A client for the automations service.
         """
-        return AutomationClient(AutomationService(self._automation_service))
+        return AutomationClient(AutomationService(self._automation_service, self._storage_location_service))
 
 
 def _token_from_env(url: str, token: str | None) -> str | None:
