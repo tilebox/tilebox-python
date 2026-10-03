@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.63.2] - 2026-10-04
+
+### Fixed
+
+- `tilebox-datasets`: Display the dataset kind in sync and async dataset clients instead of always showing
+  "Timeseries Dataset". Preserve the kind returned by the API; use "Dataset" when the kind is unspecified.
+
+## [0.63.1] - 2026-10-03
+
 ### Fixed
 
 - `tilebox-workflows`: Restore `GoogleStorageCache` support for Google SDK bucket objects, preserving their
@@ -575,7 +584,9 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.63.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.63.2...HEAD
+[0.63.2]: https://github.com/tilebox/tilebox-python/compare/v0.63.1...v0.63.2
+[0.63.1]: https://github.com/tilebox/tilebox-python/compare/v0.63.0...v0.63.1
 [0.63.0]: https://github.com/tilebox/tilebox-python/compare/v0.62.0...v0.63.0
 [0.61.0]: https://github.com/tilebox/tilebox-python/compare/v0.60.0...v0.61.0
 [0.60.0]: https://github.com/tilebox/tilebox-python/compare/v0.59.0...v0.60.0

@@ -262,7 +262,9 @@ class DatasetClient:
         return collection_ids
 
     def __repr__(self) -> str:
-        return f"{self.name} [Timeseries Dataset]: {self._dataset.summary}"
+        kind = self._dataset.type.kind
+        label = f"{kind.name.title()} Dataset" if kind else "Dataset"
+        return f"{self.name} [{label}]: {self._dataset.summary}"
 
 
 # always ingest / delete in batches, to avoid timeout issues for very large datasets

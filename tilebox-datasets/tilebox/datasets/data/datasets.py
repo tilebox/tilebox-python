@@ -202,6 +202,7 @@ class AnnotatedType:
     descriptor_set: FileDescriptorSet
     type_url: str
     field_annotations: list[FieldAnnotation]
+    kind: DatasetKind | None = None
 
     @classmethod
     def from_message(cls, annotated_type: dataset_type_pb2.AnnotatedType) -> "AnnotatedType":
@@ -209,6 +210,7 @@ class AnnotatedType:
             descriptor_set=annotated_type.descriptor_set,
             type_url=annotated_type.type_url,
             field_annotations=[FieldAnnotation.from_message(a) for a in annotated_type.field_annotations],
+            kind=_dataset_kind_int_to_enum.get(annotated_type.kind),
         )
 
     def to_message(self) -> dataset_type_pb2.AnnotatedType:
@@ -216,6 +218,7 @@ class AnnotatedType:
             descriptor_set=self.descriptor_set,
             type_url=self.type_url,
             field_annotations=[a.to_message() for a in self.field_annotations],
+            kind=self.kind.value if self.kind else dataset_type_pb2.DATASET_KIND_UNSPECIFIED,
         )
 
 
