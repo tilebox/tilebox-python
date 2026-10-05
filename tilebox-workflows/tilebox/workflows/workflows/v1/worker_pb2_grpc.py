@@ -3,6 +3,7 @@
 import grpc
 
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
+from opentelemetry.proto.logs.v1 import logs_pb2 as opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as workflows_dot_v1_dot_core__pb2
 from tilebox.workflows.workflows.v1 import worker_pb2 as workflows_dot_v1_dot_worker__pb2
 
@@ -31,6 +32,11 @@ class WorkerServiceStub:
                 '/workflows.v1.WorkerService/ExecuteTask',
                 request_serializer=workflows_dot_v1_dot_core__pb2.Task.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_worker__pb2.ExecuteTaskResponse.FromString,
+                _registered_method=True)
+        self.WatchLogs = channel.unary_stream(
+                '/workflows.v1.WorkerService/WatchLogs',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2.LogRecord.FromString,
                 _registered_method=True)
         self.ShutdownWorker = channel.unary_unary(
                 '/workflows.v1.WorkerService/ShutdownWorker',
@@ -68,9 +74,27 @@ class WorkerServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def WatchLogs(self, request, context):
+        """WatchLogs streams structured runtime logs to the local runner, independently of API log exports and raw
+        stdout/stderr. It is available before workflow import completes and before InitializeWorker is called.
+        The runner sends one request; the worker sends buffered startup records followed by live records in enqueue
+        order. The stream stays open until shutdown, cancellation, or a connection failure, even while no tasks run.
+        Only one subscriber is allowed per runtime; concurrent subscriptions fail with ALREADY_EXISTS.
+        Delivery is best-effort with bounded buffering: slow or disconnected subscribers must not block tasks.
+        Buffer overflow is reported as a warning record when delivery resumes. There is no acknowledgement or replay
+        of delivered records. Canceling this stream does not shut down the worker or disable its API log exports.
+        Messages use the log body, severity, trace/span IDs, and attributes from the OpenTelemetry log model;
+        exception details use exception.type, exception.message, and exception.stacktrace attributes.
+        buf:lint:ignore RPC_NO_SERVER_STREAMING
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ShutdownWorker(self, request, context):
         """Gracefully shuts down the worker runtime. After receiving this request, the worker runtime will
-        cleanly shut down.
+        finish task cleanup, flush API logs, and drain buffered WatchLogs records within a bounded deadline.
+        The log stream ends before the worker stops its RPC server; an open subscription must not prevent shutdown.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -93,6 +117,11 @@ def add_WorkerServiceServicer_to_server(servicer, server):
                     servicer.ExecuteTask,
                     request_deserializer=workflows_dot_v1_dot_core__pb2.Task.FromString,
                     response_serializer=workflows_dot_v1_dot_worker__pb2.ExecuteTaskResponse.SerializeToString,
+            ),
+            'WatchLogs': grpc.unary_stream_rpc_method_handler(
+                    servicer.WatchLogs,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2.LogRecord.SerializeToString,
             ),
             'ShutdownWorker': grpc.unary_unary_rpc_method_handler(
                     servicer.ShutdownWorker,
@@ -182,6 +211,33 @@ class WorkerService:
             '/workflows.v1.WorkerService/ExecuteTask',
             workflows_dot_v1_dot_core__pb2.Task.SerializeToString,
             workflows_dot_v1_dot_worker__pb2.ExecuteTaskResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def WatchLogs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/workflows.v1.WorkerService/WatchLogs',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2.LogRecord.FromString,
             options,
             channel_credentials,
             insecure,
