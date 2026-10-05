@@ -27,7 +27,7 @@ class WorkerServer:
     def __init__(self, runner: Runner | None = None, address: str | None = None) -> None:
         # Older CLIs and direct serve_runner() callers use the configured address
         # without runtime-token authentication, endpoint discovery, or live log streaming.
-        self._managed = bool(os.environ.get(RUNTIME_DIR_ENV) and os.environ.get(RUNTIME_TOKEN_ENV))
+        self._legacy_cli = not (os.environ.get(RUNTIME_DIR_ENV) and os.environ.get(RUNTIME_TOKEN_ENV))
         configured_address = address or os.environ.get(WORKER_ADDRESS_ENV)
         if not configured_address:
             raise RuntimeError(
@@ -40,7 +40,7 @@ class WorkerServer:
         if bool(runtime_dir) != bool(runtime_token):
             raise RuntimeError(f"{RUNTIME_DIR_ENV} and {RUNTIME_TOKEN_ENV} must be set together")
         self._bind_address = _normalize_grpc_address(configured_address)
-        if self._managed and not configured_address.startswith("unix://"):
+        if not self._legacy_cli and not configured_address.startswith("unix://"):
             host, _, port = configured_address.rpartition(":")
             if host != "127.0.0.1" or not port.isdecimal() or int(port) > 65535:
                 raise RuntimeError("Managed worker TCP addresses must use the 127.0.0.1 loopback interface")
@@ -49,8 +49,8 @@ class WorkerServer:
         self._service = WorkerServiceServicer(
             runner,
             self.shutdown,
-            managed_log_queue if self._managed else None,
-            os.environ.get(RUNTIME_TOKEN_ENV) if self._managed else None,
+            None if self._legacy_cli else managed_log_queue,
+            None if self._legacy_cli else os.environ.get(RUNTIME_TOKEN_ENV),
         )
         worker_pb2_grpc.add_WorkerServiceServicer_to_server(self._service, self._server)
         self._port = self._server.add_insecure_port(self._bind_address)
@@ -62,7 +62,7 @@ class WorkerServer:
     def start(self) -> None:
         self._server.start()
         try:
-            if self._managed:
+            if not self._legacy_cli:
                 self._announce()
         except BaseException:
             self._server.stop(0).wait()
@@ -85,7 +85,7 @@ class WorkerServer:
         try:
             flush_api_logging()
         finally:
-            if self._managed and managed_log_queue is not None:
+            if not self._legacy_cli and managed_log_queue is not None:
                 managed_log_queue.seal()
                 managed_log_queue.wait_empty(timeout=1.0)
             self._server.stop(5).wait()
