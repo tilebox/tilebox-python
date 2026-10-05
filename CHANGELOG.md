@@ -7,9 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.64.0] - 2026-10-05
+
+### Added
+
+- `tilebox-workflows`: Enable live workflow logs in the Windows CLI and improve local worker startup on Windows and Unix.
+
+### Changed
+
+- `tilebox-workflows`: Remove the legacy CLI log pipe. Older Unix CLIs can still execute workflows, but require an upgrade to receive structured live logs.
+
 ### Fixed
 
 - `tilebox-workflows`: Fix logging initialization and workflow startup with OpenTelemetry 1.45 and newer.
+- `tilebox-workflows`: Bound the final API log flush so stalled log exports do not delay CLI worker shutdown.
+- `tilebox-workflows`: Preserve large integer attributes in live CLI logs as strings instead of dropping the log record.
 
 ## [0.63.2] - 2026-10-04
 
@@ -588,7 +600,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.63.2...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.64.0...HEAD
+[0.64.0]: https://github.com/tilebox/tilebox-python/compare/v0.63.2...v0.64.0
 [0.63.2]: https://github.com/tilebox/tilebox-python/compare/v0.63.1...v0.63.2
 [0.63.1]: https://github.com/tilebox/tilebox-python/compare/v0.63.0...v0.63.1
 [0.63.0]: https://github.com/tilebox/tilebox-python/compare/v0.62.0...v0.63.0

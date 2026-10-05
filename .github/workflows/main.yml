@@ -60,6 +60,34 @@ jobs:
           paths: "test-report.xml"
         if: always()
 
+  windows-runtime:
+    name: Test Windows worker runtime
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.14"]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: true
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-python: true
+          cache-dependency-glob: "uv.lock"
+      - name: Sync
+        run: uv sync --package tilebox-workflows --frozen
+      - name: Test worker lifecycle and logging
+        run: >-
+          uv run --frozen --package tilebox-workflows pytest
+          tilebox-workflows/tests/runner/test_worker_server.py
+          tilebox-workflows/tests/runner/test_worker_concurrency.py
+          tilebox-workflows/tests/runner/test_runtime_logging.py
+          tilebox-workflows/tests/runner/test_log_stream.py
+          tilebox-workflows/tests/observability/test_logging.py
+
   minimum-dependencies:
     name: Test minimum dependencies
     runs-on: ubuntu-latest

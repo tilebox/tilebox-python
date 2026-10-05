@@ -1,5 +1,4 @@
 # allow the logging module name which shadows the builtin:
-import atexit
 import contextlib
 import logging
 import os
@@ -38,7 +37,7 @@ from opentelemetry.sdk.resources import (
 from opentelemetry.semconv.attributes import exception_attributes
 
 from tilebox.workflows._serialization import normalize_log_value
-from tilebox.workflows.observability._log_pipe import _PipeWriter, _StructuredHandler
+from tilebox.workflows.observability._log_stream import _OTLPQueueHandler, managed_log_queue
 from tilebox.workflows.observability._logging import (
     StructuredLogger as StructuredLogger,  # noqa: PLC0414 -- public compatibility alias
 )
@@ -138,7 +137,8 @@ class OTELLoggingHandler(logging.Handler):
     def flush(self) -> None:
         if callable(force_flush := getattr(self._logger_provider, "force_flush", None)):
             # Match OTEL's handler: flushing under the logging lock can deadlock.
-            threading.Thread(target=force_flush).start()
+            # Do not prolong process exit after a runtime's bounded final flush.
+            threading.Thread(target=force_flush, daemon=True).start()
 
     def _get_attributes(self, record: logging.LogRecord) -> dict[str, Any]:
         cached = getattr(record, "_tilebox_otel_attributes", None)
@@ -166,9 +166,11 @@ class OTELLoggingHandler(logging.Handler):
 
 _api_handler: OTELLoggingHandler | None = None
 _initialization_lock = threading.Lock()
-_writer: _PipeWriter | None = None
 _console_handlers: list[logging.Handler] = []
 _console_configured = False
+
+if managed_log_queue is not None:
+    root_logger.addHandler(_OTLPQueueHandler(managed_log_queue))
 
 
 def _remove_console_handlers() -> None:
@@ -186,27 +188,13 @@ def _add_console_handler(level: int, stream: TextIO, formatter: logging.Formatte
     _console_handlers.append(handler)
 
 
-def _configure_runtime_logging() -> _PipeWriter | None:
-    """Install the required CLI pipe, or an optional default console for direct runners.
-
-    The CLI pipe is runtime-owned: public configuration can add outputs but cannot
-    disable or replace it. Console opt-out applies only to console handlers.
-    """
-    global _writer  # noqa: PLW0603 -- process-owned CLI pipe
+def _configure_runtime_logging() -> None:
+    """Add an optional default console when logs aren't streamed to a managed CLI."""
     with _initialization_lock:
-        fd_value = os.environ.get("TILEBOX_LOG_FD")
-        if fd_value is not None:
-            if _writer is None:
-                _writer = _PipeWriter(int(fd_value))
-                root_logger.addHandler(_StructuredHandler(_writer))
-                atexit.register(_writer.close)
-            if not _console_configured:
-                _remove_console_handlers()
-        elif not _console_configured and not _console_handlers:
+        if managed_log_queue is None and not _console_configured and not _console_handlers:
             _add_console_handler(
                 logging.NOTSET, sys.stdout, logging.Formatter("%(process)d: %(levelname)s: %(message)s")
             )
-        return _writer
 
 
 def configure_log_level(level: int = logging.INFO, *, tilebox_debug: bool = False) -> None:
@@ -219,7 +207,7 @@ def configure_log_level(level: int = logging.INFO, *, tilebox_debug: bool = Fals
     filtered out by the logger.
 
     Every call overrides both startup settings: omitting tilebox_debug disables internal
-    DEBUG logging even if TILEBOX_DEBUG was enabled. Existing API exports, the CLI pipe,
+    DEBUG logging even if TILEBOX_DEBUG was enabled. Existing API exports, the CLI stream,
     and console handlers are unchanged and retain their own output thresholds.
 
     Args:
@@ -243,12 +231,31 @@ def initialize_logging(url: str, token: str | None, service: str | None = None) 
         if _api_handler is not None:
             return
 
-        provider = LoggerProvider(resource=_get_default_resource(service))
+        # CLI runtimes own the final, bounded flush. An additional OTEL atexit
+        # shutdown could wait indefinitely on an exporter after that deadline.
+        provider = LoggerProvider(
+            resource=_get_default_resource(service),
+            shutdown_on_exit=not bool(os.environ.get("TILEBOX_WORKER_ADDRESS")),
+        )
         processor = _otel_log_exporter(endpoint=url, headers={"Authorization": f"Bearer {token}"} if token else None)
         provider.add_log_record_processor(processor)
         handler = OTELLoggingHandler(level=logging.NOTSET, logger_provider=provider)
         root_logger.addHandler(handler)
         _api_handler = handler
+
+
+def flush_api_logging(timeout_millis: int = 1000) -> None:
+    """Flush the managed API exporter without waiting indefinitely."""
+    handler = _api_handler
+    if handler is None:
+        return
+    force_flush = getattr(handler._logger_provider, "force_flush", None)  # noqa: SLF001
+    if callable(force_flush):
+        # BatchLogRecordProcessor currently ignores its timeout argument.
+        # Bound our wait without making the export thread block process exit.
+        flush = threading.Thread(target=force_flush, kwargs={"timeout_millis": timeout_millis}, daemon=True)
+        flush.start()
+        flush.join(timeout=timeout_millis / 1000)
 
 
 def _otel_log_exporter(
@@ -294,7 +301,7 @@ def configure_otel_logging(
     This will configure a logging handler that will send log messages to an OTLP compatible endpoint using the
     open telemetry protocol for exporting logs. The logging handler will be attached to the root tilebox logger.
     All loggers created using `get_logger()` will therefore inherit this handler configuration.
-    Each call adds an export; Tilebox's API export, the CLI pipe, and console outputs remain installed.
+    Each call adds an export; Tilebox's API export, the CLI stream, and console outputs remain installed.
 
     Args:
         service: A string or a resource object to include in all traces. Used to identify the service being traced.
@@ -425,7 +432,7 @@ def configure_console_logging(
             configured console logging handlers will be removed. If False, the existing handlers will be kept. Useful
             if you want to log to multiple consoles.
         enabled: If False, remove Tilebox-managed console handlers and disable automatic console output, even if
-            called before runner startup. API exports, the CLI log pipe, and user-installed handlers are unaffected.
+            called before runner startup. API exports, the CLI log stream, and user-installed handlers are unaffected.
     """
     global _console_configured  # noqa: PLW0603 -- explicit process-wide console policy
     with _initialization_lock:

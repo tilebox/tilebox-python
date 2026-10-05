@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import subprocess
@@ -12,8 +11,8 @@ import pytest
 from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter, SimpleLogRecordProcessor
 
 from tilebox.workflows import Client, Runner
-from tilebox.workflows.observability import _log_pipe as runtime_logging
 from tilebox.workflows.observability import logging as observability
+from tilebox.workflows.observability._log_stream import _LogQueue, _OTLPQueueHandler
 from tilebox.workflows.observability._logging import internal_logger, logger, root_logger, task_logger
 from tilebox.workflows.observability.logging import _configure_runtime_logging, configure_console_logging
 from tilebox.workflows.runner.worker_service import WorkerServiceServicer
@@ -26,8 +25,7 @@ def isolated_handlers(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCapture
     monkeypatch.setattr(observability, "_api_handler", None)
     monkeypatch.setattr(observability, "_console_handlers", [])
     monkeypatch.setattr(observability, "_console_configured", False)
-    monkeypatch.setattr(observability, "_writer", None)
-    monkeypatch.delenv("TILEBOX_LOG_FD", raising=False)
+    monkeypatch.setattr(observability, "managed_log_queue", None)
     caplog.set_level(logging.INFO, logger=task_logger.name)
     caplog.set_level(logging.ERROR, logger=internal_logger.name)
 
@@ -73,10 +71,65 @@ def test_direct_runner_initializes_on_connect_not_client_creation(capsys: pytest
     assert [line.split(": ", 2)[2] for line in capsys.readouterr().out.splitlines()] == expected
 
 
-def test_absent_fd_adds_one_console_handler(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    monkeypatch.delenv("TILEBOX_LOG_FD", raising=False)
+@pytest.mark.parametrize("mode", ["runtime", "blocked-runtime", "direct"])
+def test_api_flush_and_process_exit(mode: str) -> None:
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("TILEBOX_")}
+    if mode != "direct":
+        environment["TILEBOX_WORKER_ADDRESS"] = "127.0.0.1:0"
+    result = subprocess.run(  # noqa: S603 -- interpreter, script, and mode are controlled by this test
+        [
+            sys.executable,
+            "-c",
+            """
+import sys
+import threading
+from unittest.mock import patch
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, InMemoryLogRecordExporter
+from tilebox.workflows.observability import logging as logs
+
+mode = sys.argv[1]
+started = threading.Event()
+
+class Exporter(InMemoryLogRecordExporter):
+    def export(self, batch):
+        started.set()
+        if mode == "blocked-runtime":
+            threading.Event().wait(30)
+        print("exported", flush=True)
+        return super().export(batch)
+
+exporter = Exporter()
+processor = BatchLogRecordProcessor(exporter, schedule_delay_millis=60000)
+with patch.object(logs, '_otel_log_exporter', return_value=processor):
+    logs.initialize_logging('http://unused.example', None)
+logs.get_logger().warning('queued')
+if mode != "direct":
+    logs.flush_api_logging(timeout_millis=100)
+    assert started.wait(timeout=1)
+    if mode == "runtime":
+        assert [item.log_record.body for item in exporter.get_finished_logs()] == ['queued']
+print("main exited", flush=True)
+""",
+            mode,
+        ],
+        env=environment,
+        capture_output=True,
+        text=True,
+        # Also catches a second, unbounded flush from OTEL/logging exit hooks.
+        timeout=10,
+        check=True,
+    )
+    assert "main exited" in result.stdout
+    assert result.stderr == ""
+    if mode == "blocked-runtime":
+        assert "exported" not in result.stdout
+    elif mode == "direct":
+        assert result.stdout.index("main exited") < result.stdout.index("exported")
+    else:
+        assert result.stdout.index("exported") < result.stdout.index("main exited")
+
+
+def test_unmanaged_runtime_adds_one_console_handler(capsys: pytest.CaptureFixture[str]) -> None:
     handler = logging.NullHandler()
     root_logger.addHandler(handler)
     assert _configure_runtime_logging() is None
@@ -86,8 +139,7 @@ def test_absent_fd_adds_one_console_handler(
     assert capsys.readouterr().out.endswith(": INFO: console message\n")
 
 
-def test_existing_console_is_reused(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    monkeypatch.delenv("TILEBOX_LOG_FD", raising=False)
+def test_existing_console_is_reused(capsys: pytest.CaptureFixture[str]) -> None:
     output = StringIO()
     configure_console_logging(stream=output)
     handlers = root_logger.handlers[:]
@@ -134,43 +186,37 @@ def test_console_opt_out_persists(before_startup: bool, capsys: pytest.CaptureFi
 
 
 @pytest.mark.parametrize(("debug", "level"), [("false", "debug"), ("true", "error")])
-def test_independent_pipe_levels(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, debug: str, level: str
-) -> None:
-    read_fd, write_fd = os.pipe()
-    monkeypatch.setenv("TILEBOX_LOG_FD", str(write_fd))
+def test_independent_stream_levels(caplog: pytest.LogCaptureFixture, debug: str, level: str) -> None:
     caplog.set_level(level.upper(), logger=task_logger.name)
     caplog.set_level(logging.DEBUG if debug == "true" else logging.ERROR, logger=internal_logger.name)
-    writer = _configure_runtime_logging()
-    assert writer is not None
-    assert _configure_runtime_logging() is writer
+    records = _LogQueue()
+    root_logger.addHandler(_OTLPQueueHandler(records))
+    assert _configure_runtime_logging() is None
     workflow = task_logger
     for severity in (logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR):
         logger.log(severity, f"internal-{severity}", task_id="preserved")
         workflow.log(severity, f"workflow-{severity}")
-    writer.close()
-    records = [json.loads(line) for line in os.read(read_fd, 65536).decode().splitlines()]
-    os.close(read_fd)
+    records.seal()
+    exported = list(records.subscribe())
     expected_internal = (
         {"internal-10", "internal-20", "internal-30", "internal-40"} if debug == "true" else {"internal-40"}
     )
     expected_workflow = (
         {"workflow-10", "workflow-20", "workflow-30", "workflow-40"} if level == "debug" else {"workflow-40"}
     )
-    assert {r["message"] for r in records} == expected_internal | expected_workflow
-    assert len(records) == len(expected_internal | expected_workflow)
-    assert all(r["attributes"]["task_id"] == "preserved" for r in records if r["message"].startswith("internal-"))
+    assert {record.body.string_value for record in exported} == expected_internal | expected_workflow
+    assert len(exported) == len(expected_internal | expected_workflow)
+    internal = [record for record in exported if record.body.string_value.startswith("internal-")]
+    assert all(
+        {item.key: item.value.string_value for item in record.attributes}["task_id"] == "preserved"
+        for record in internal
+    )
 
 
-def test_structured_pipe_is_ndjson_across_threads(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    read_fd, write_fd = os.pipe()
-    monkeypatch.setenv("TILEBOX_LOG_FD", str(write_fd))
+def test_structured_stream_preserves_threaded_records(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.WARNING, logger=task_logger.name)
-    writer = _configure_runtime_logging()
-    assert writer is not None
-    assert not os.get_inheritable(write_fd)
+    records = _LogQueue()
+    root_logger.addHandler(_OTLPQueueHandler(records))
 
     local_logger = task_logger
     local_logger.info("filtered")
@@ -188,74 +234,17 @@ def test_structured_pipe_is_ndjson_across_threads(
     except ValueError:
         local_logger.exception("failed", extra={"tilebox_structured_log_attributes": {"task": 1}})
 
-    writer.close()
-    data = os.read(read_fd, 1_000_000).decode()
-    os.close(read_fd)
-    records = [json.loads(line) for line in data.splitlines()]
-    assert {record["message"] for record in records} == {*(f"message-{index}" for index in range(20)), "failed"}
-    failure = next(record for record in records if record["message"] == "failed")
-    assert failure["level"] == "error"
-    assert "ValueError: first line\nsecond line" in failure["exception"]
-    assert failure["attributes"] == {"task": 1}
-
-
-def test_idle_writer_shutdown_wakes_blocking_get() -> None:
-    read_fd, write_fd = os.pipe()
-    waiting = threading.Event()
-    original_drain = runtime_logging._PipeWriter._drain
-
-    def observe_get(writer: runtime_logging._PipeWriter) -> None:
-        original_get = writer._records.get
-
-        def get() -> bytes | None:
-            waiting.set()
-            return original_get()
-
-        with patch.object(writer._records, "get", side_effect=get):
-            original_drain(writer)
-
-    with patch.object(runtime_logging._PipeWriter, "_drain", observe_get):
-        writer = runtime_logging._PipeWriter(write_fd)
-        try:
-            assert waiting.wait(timeout=2)
-            writer.close()
-            writer.close()
-            assert not writer._thread.is_alive()
-        finally:
-            writer.close()
-            os.close(read_fd)
-
-
-@pytest.mark.parametrize("count", [3, 256])
-def test_shutdown_drains_queued_records_even_when_full(count: int) -> None:
-    read_fd, write_fd = os.pipe()
-    release = threading.Event()
-    original_drain = runtime_logging._PipeWriter._drain
-
-    def delayed_drain(writer: runtime_logging._PipeWriter) -> None:
-        release.wait()
-        original_drain(writer)
-
-    with (
-        patch.object(runtime_logging._PipeWriter, "_drain", delayed_drain),
-        patch.object(runtime_logging.os, "write", wraps=os.write) as write,
-    ):
-        writer = runtime_logging._PipeWriter(write_fd)
-        try:
-            for index in range(count):
-                writer.submit({"i": index})
-            # Keep draining paused until close has attempted to enqueue its sentinel.
-            writer.close()
-            release.set()
-            writer.close()
-            assert not writer._thread.is_alive()
-            records = [json.loads(line) for line in os.read(read_fd, 65536).splitlines()]
-            assert records == [{"i": index} for index in range(count)]
-            assert write.call_count == 1
-        finally:
-            release.set()
-            writer.close()
-            os.close(read_fd)
+    records.seal()
+    exported = list(records.subscribe())
+    assert {record.body.string_value for record in exported} == {
+        *(f"message-{index}" for index in range(20)),
+        "failed",
+    }
+    failure = next(record for record in exported if record.body.string_value == "failed")
+    assert failure.severity_text == "ERROR"
+    attributes = {item.key: item.value for item in failure.attributes}
+    assert "ValueError: first line\nsecond line" in attributes["exception.stacktrace"].string_value
+    assert attributes["task"].int_value == 1
 
 
 @pytest.mark.parametrize("level", ["info", "error"])
@@ -269,119 +258,57 @@ def test_bootstrap_before_import(tmp_path: Path, level: str) -> None:
         "get_logger().error('import-error')\n"
         "runner = Runner(tasks=[])\n"
     )
-    read_fd, write_fd = os.pipe()
-    try:
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                """
-from unittest.mock import patch
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            """
+from unittest.mock import MagicMock, patch
 from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter
 exporter = InMemoryLogRecordExporter()
 with patch('opentelemetry.exporter.otlp.proto.http._log_exporter.OTLPLogExporter', return_value=exporter) as factory:
     from tilebox.workflows.runner import __main__ as m
     from tilebox.workflows.observability import logging as logs
+    from tilebox.workflows.observability._log_stream import managed_log_queue
     from tilebox.workflows.observability._logging import task_logger, internal_logger
     import os
     assert task_logger.level == (20 if os.environ['TILEBOX_LOG_LEVEL'] == 'info' else 40)
     assert internal_logger.level == 40
-    m.serve_runner = lambda _: None
-    m.main(['sample_runner:runner'])
+    server = MagicMock()
+    with patch.object(m, 'WorkerServer', return_value=server):
+        m.main(['sample_runner:runner'])
+    server.start.assert_called_once_with()
+    server.set_runner.assert_called_once()
+    assert server.wait.call_count == 2
+    server.shutdown.assert_called_once_with()
     logs.initialize_logging('https://ignored.example', 'ignored-key')
-    logs._api_handler.flush()
+    logs._api_handler._logger_provider.force_flush()
     factory.assert_called_once()
     assert [item.log_record.body for item in exporter.get_finished_logs()] == (
         ['import-info', 'import-error'] if task_logger.level == 20 else ['import-error']
     )
+    managed_log_queue.seal()
+    assert [record.body.string_value for record in managed_log_queue.subscribe()] == (
+        ['import-info', 'import-error'] if task_logger.level == 20 else ['import-error']
+    )
 """,
-            ],
-            env=os.environ
-            | {
-                "TILEBOX_LOG_FD": str(write_fd),
-                "TILEBOX_RUNTIME_ID": runtime_id,
-                "TILEBOX_API_URL": "https://startup.example",
-                "TILEBOX_API_KEY": "startup-key",
-                "TILEBOX_LOG_LEVEL": level,
-                "TILEBOX_DEBUG": "false",
-                "PYTHONPATH": str(tmp_path),
-            },
-            pass_fds=(write_fd,),
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=True,
-        )
-        records = [json.loads(line) for line in os.read(read_fd, 65536).decode().splitlines()]
-    finally:
-        os.close(write_fd)
-        os.close(read_fd)
+        ],
+        env=os.environ
+        | {
+            "TILEBOX_RUNTIME_DIR": str(tmp_path),
+            "TILEBOX_RUNTIME_TOKEN": "runtime-token",
+            "TILEBOX_WORKER_ADDRESS": f"unix://{tmp_path / 'worker.sock'}",
+            "TILEBOX_RUNTIME_ID": runtime_id,
+            "TILEBOX_API_URL": "https://startup.example",
+            "TILEBOX_API_KEY": "startup-key",
+            "TILEBOX_LOG_LEVEL": level,
+            "TILEBOX_DEBUG": "false",
+            "PYTHONPATH": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=True,
+    )
     assert result.stdout == runtime_id + "\n"
     assert result.stderr == ""
-    assert [record["message"] for record in records] == (
-        ["import-info", "import-error"] if level == "info" else ["import-error"]
-    )
-
-
-def test_full_queue_skips_encoding_and_reports_drops() -> None:
-    read_fd, write_fd = os.pipe()
-    release = threading.Event()
-    original_drain = runtime_logging._PipeWriter._drain
-
-    def delayed_drain(writer: runtime_logging._PipeWriter) -> None:
-        release.wait()
-        original_drain(writer)
-
-    with patch.object(runtime_logging._PipeWriter, "_drain", delayed_drain):
-        writer = runtime_logging._PipeWriter(write_fd)
-        try:
-            for index in range(256):
-                writer.submit({"i": index})
-            with patch.object(runtime_logging.msgspec.json, "encode") as encode:
-                writer.submit({"discarded": 1})
-                writer.submit({"discarded": 2})
-                encode.assert_not_called()
-            assert writer._records.qsize() == 256
-            assert writer._records.get_nowait() == b'{"i":0}\n'
-            assert writer._records.get_nowait() == b'{"i":1}\n'
-            writer.submit({"resumed": True})
-            release.set()
-            writer.close()
-            assert not writer._thread.is_alive()
-            records = [json.loads(line) for line in os.read(read_fd, 65536).splitlines()]
-            assert records == [
-                *({"i": index} for index in range(2, 256)),
-                {"level": "warning", "message": "Dropped 2 local log records"},
-                {"resumed": True},
-            ]
-        finally:
-            release.set()
-            writer.close()
-            os.close(read_fd)
-
-
-@pytest.mark.parametrize("disconnected", [False, True])
-def test_failed_pipe_releases_queue_and_skips_future_encoding(*, disconnected: bool) -> None:
-    read_fd, write_fd = os.pipe()
-    if disconnected:
-        os.close(read_fd)
-    writer = runtime_logging._PipeWriter(write_fd)
-    try:
-        # Larger than the pipe buffer: a stalled reader forces a partial write.
-        writer.submit({"message": "x" * (512 * 1024)})
-        for index in range(8):
-            writer.submit({"i": index})
-        writer._thread.join(timeout=2)
-        assert not writer._thread.is_alive()
-        assert writer._records.empty()
-        with patch.object(runtime_logging.msgspec.json, "encode") as encode:
-            writer.submit({"after_failure": True})
-            encode.assert_not_called()
-        if not disconnected:
-            data = os.read(read_fd, 1024 * 1024)
-            assert data.startswith(b'{"message":"xxx')
-            assert b"\n" not in data  # No later records appended to a truncated one.
-    finally:
-        writer.close()
-        if not disconnected:
-            os.close(read_fd)
