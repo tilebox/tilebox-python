@@ -8,18 +8,20 @@ import re
 import sys
 import threading
 import traceback
+from contextvars import ContextVar
 from datetime import timedelta
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any, ClassVar, TextIO
 from uuid import UUID, uuid4
 
 import msgspec
+from opentelemetry._logs import LogRecord, get_logger_provider
+from opentelemetry._logs import get_logger as get_otel_logger
 from opentelemetry.exporter.otlp.proto.http._log_exporter import (
     DEFAULT_LOGS_EXPORT_PATH,
     OTLPLogExporter,
-    _append_logs_path,
 )
-from opentelemetry.instrumentation.logging.handler import LoggingHandler
+from opentelemetry.instrumentation.log_utils import std_to_otel
 from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.resources import (
@@ -34,7 +36,6 @@ from opentelemetry.sdk.resources import (
     Resource,
 )
 from opentelemetry.semconv.attributes import exception_attributes
-from opentelemetry.util.types import _ExtendedAttributes
 
 from tilebox.workflows._serialization import normalize_log_value
 from tilebox.workflows.observability._log_pipe import _PipeWriter, _StructuredHandler
@@ -110,15 +111,42 @@ def _sanitize_otel_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
     return {str(key): _sanitize_otel_attribute_value(value) for key, value in attributes.items()}
 
 
-class OTELLoggingHandler(LoggingHandler):
-    def _get_attributes(self, record: logging.LogRecord) -> _ExtendedAttributes:
+class OTELLoggingHandler(logging.Handler):
+    def __init__(self, level: int = logging.NOTSET, logger_provider: LoggerProvider | None = None) -> None:
+        super().__init__(level)
+        self._logger_provider = logger_provider or get_logger_provider()
+        self._emitting = ContextVar("tilebox_otel_emitting", default=False)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        # Export processors can log themselves; do not recursively export those records.
+        if self._emitting.get():
+            return
+        token = self._emitting.set(True)
+        try:
+            get_otel_logger(record.name, logger_provider=self._logger_provider).emit(
+                LogRecord(
+                    timestamp=int(record.created * 1e9),
+                    severity_number=std_to_otel(record.levelno),
+                    severity_text={"WARNING": "WARN", "CRITICAL": "FATAL"}.get(record.levelname, record.levelname),
+                    body=self.format(record) if self.formatter else record.getMessage(),
+                    attributes=self._get_attributes(record),
+                )
+            )
+        finally:
+            self._emitting.reset(token)
+
+    def flush(self) -> None:
+        if callable(force_flush := getattr(self._logger_provider, "force_flush", None)):
+            # Match OTEL's handler: flushing under the logging lock can deadlock.
+            threading.Thread(target=force_flush).start()
+
+    def _get_attributes(self, record: logging.LogRecord) -> dict[str, Any]:
         cached = getattr(record, "_tilebox_otel_attributes", None)
         if cached is not None:
             return cached
         attributes = _sanitize_otel_attributes(_record_attributes(record))
 
-        # the default implementation returns attributes for the filepath, lineno and function of the log record
-        # we don't want that by default, so we override it to return an empty dict
+        # Export only task context and exception details, not stdlib logging metadata.
         if record.exc_info:
             exctype, value, tb = record.exc_info
             if exctype is not None:
@@ -237,7 +265,7 @@ def _otel_log_exporter(
         )
 
     if not endpoint.endswith(DEFAULT_LOGS_EXPORT_PATH):
-        endpoint = _append_logs_path(endpoint)
+        endpoint = f"{endpoint.rstrip('/')}/{DEFAULT_LOGS_EXPORT_PATH}"
 
     if export_interval is None:
         export_interval_env = os.environ.get(_OTEL_EXPORT_INTERVAL_ENV_VAR, None)

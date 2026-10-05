@@ -8,7 +8,6 @@ from typing import Any, Protocol, cast
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
     DEFAULT_TRACES_EXPORT_PATH,
     OTLPSpanExporter,
-    _append_trace_path,
 )
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -159,7 +158,7 @@ def _otel_span_exporter(
         )
 
     if not endpoint.endswith(DEFAULT_TRACES_EXPORT_PATH):
-        endpoint = _append_trace_path(endpoint)
+        endpoint = f"{endpoint.rstrip('/')}/{DEFAULT_TRACES_EXPORT_PATH}"
 
     if export_interval is None:
         export_interval_env = os.environ.get(_OTEL_EXPORT_INTERVAL_ENV_VAR, None)

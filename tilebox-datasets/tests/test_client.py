@@ -59,10 +59,17 @@ def test_client_url_environment(
         open_channel_mock.assert_called_once_with(expected_url, "runner-key", rpc_method_prefix=None)
 
 
-def test_heavy_imports_are_lazy() -> None:
+@pytest.mark.parametrize("grpc_verbosity", [None, "DEBUG"])
+def test_heavy_imports_are_lazy(monkeypatch: pytest.MonkeyPatch, grpc_verbosity: str | None) -> None:
+    monkeypatch.delenv("GRPC_VERBOSITY", raising=False)
+    if grpc_verbosity is not None:
+        monkeypatch.setenv("GRPC_VERBOSITY", grpc_verbosity)
     code = (
+        "import os\n"
         "import sys\n"
         "import tilebox.datasets as datasets\n"
+        f"assert os.environ['GRPC_VERBOSITY'] == {grpc_verbosity or 'ERROR'!r}\n"
+        "assert 'grpc' not in sys.modules\n"
         "assert not {'pandas', 'xarray'} & sys.modules.keys()\n"
         "assert set(datasets.__all__) <= set(dir(datasets))\n"
         "from tilebox.datasets.query.time_interval import TimeInterval\n"

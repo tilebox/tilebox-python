@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `tilebox-workflows`: Fix logging initialization and workflow startup with OpenTelemetry 1.45 and newer.
+
 ## [0.63.2] - 2026-10-04
 
 ### Fixed

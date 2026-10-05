@@ -1,6 +1,9 @@
 import os
 from typing import TYPE_CHECKING, Any
 
+# Apply native logging defaults before any submodule can initialize gRPC.
+import _tilebox.grpc  # noqa: F401
+
 if TYPE_CHECKING:
     from tilebox.workflows.client import Client
     from tilebox.workflows.data import Job
