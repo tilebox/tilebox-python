@@ -1,5 +1,8 @@
 from typing import TYPE_CHECKING, Any
 
+# Apply native logging defaults before any submodule can initialize gRPC.
+import _tilebox.grpc  # noqa: F401
+
 if TYPE_CHECKING:
     from tilebox.datasets.aio.timeseries import TimeseriesCollection, TimeseriesDataset
     from tilebox.datasets.datapoints import iter_datapoints

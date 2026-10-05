@@ -2,9 +2,10 @@
 
 Run on macOS to check RPCs and report the known fork-log issue:
 
-uv run --isolated --no-project --with grpcio==1.84.0 --with pytest pytest -c /dev/null -p no:cacheprovider -rx tilebox-grpc/tests/test_fork_logging.py
+uv run --isolated --no-project --with-editable ./tilebox-grpc --with grpcio==1.84.0 --with pytest pytest -c /dev/null -p no:cacheprovider -rx tilebox-grpc/tests/test_fork_logging.py
 
-RPC failures fail the test. Known fork diagnostics produce XFAIL after the RPC checks pass.
+RPC failures or diagnostics with Tilebox's default verbosity fail the test.
+With explicit INFO verbosity, known fork diagnostics produce XFAIL after the RPC checks pass.
 Linux may use vfork and not reproduce the diagnostics. This check uses no cloud credentials.
 """
 
@@ -18,7 +19,11 @@ import pytest
 
 # RPCs must survive CLI subprocess launches; known fork-log noise is reported separately.
 @pytest.mark.skipif(sys.platform == "win32", reason="Windows does not use POSIX fork handlers")
-def test_cli_spawn_during_rpcs() -> None:
+@pytest.mark.parametrize("grpc_verbosity", [None, "INFO"])
+def test_cli_spawn_during_rpcs(grpc_verbosity: str | None) -> None:
+    env = {key: value for key, value in os.environ.items() if key != "GRPC_VERBOSITY"}
+    if grpc_verbosity is not None:
+        env["GRPC_VERBOSITY"] = grpc_verbosity
     result = subprocess.run(  # noqa: S603
         [
             sys.executable,
@@ -29,6 +34,7 @@ def test_cli_spawn_during_rpcs() -> None:
                 from concurrent.futures import ThreadPoolExecutor
                 from threading import Event
 
+                import _tilebox.grpc
                 import grpc
 
                 with ThreadPoolExecutor(max_workers=4) as executor:
@@ -65,9 +71,11 @@ def test_cli_spawn_during_rpcs() -> None:
         capture_output=True,
         text=True,
         timeout=60,
-        env={**os.environ, "GRPC_VERBOSITY": "INFO"},
+        env=env,
         check=False,
     )
     assert result.returncode == 0, result.stderr
+    if grpc_verbosity is None:
+        assert "FD from fork parent still in poll list" not in result.stderr, result.stderr
     if "FD from fork parent still in poll list" in result.stderr:
         pytest.xfail("Known gRPC fork diagnostics: https://github.com/grpc/grpc/issues/42293")
