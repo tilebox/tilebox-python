@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 import msgspec
 import pytest
 from affine import Affine
+from opentelemetry._logs import SeverityNumber
 from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.trace import Span, TracerProvider
 
@@ -35,6 +36,70 @@ def isolated_logging(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureF
     monkeypatch.delenv("TILEBOX_LOG_FD", raising=False)
     caplog.set_level(logging.INFO, logger=task_logger.name)
     caplog.set_level(logging.ERROR, logger=internal_logger.name)
+
+
+@pytest.mark.parametrize("from_environment", [False, True])
+@pytest.mark.parametrize(
+    ("endpoint", "expected"),
+    [
+        ("https://collector.example", "https://collector.example/v1/logs"),
+        ("https://collector.example/tenant", "https://collector.example/tenant/v1/logs"),
+        ("https://collector.example/tenant/", "https://collector.example/tenant/v1/logs"),
+        ("https://collector.example/tenant/v1/logs", "https://collector.example/tenant/v1/logs"),
+    ],
+)
+def test_otel_log_exporter_endpoint(
+    monkeypatch: pytest.MonkeyPatch, endpoint: str, expected: str, from_environment: bool
+) -> None:
+    monkeypatch.setenv("OTEL_LOGS_ENDPOINT", endpoint if from_environment else "https://ignored.example")
+    headers = {"Authorization": "Bearer test-key"}
+    with patch.object(observability, "OTLPLogExporter", return_value=InMemoryLogRecordExporter()) as factory:
+        processor = observability._otel_log_exporter(None if from_environment else endpoint, headers=headers)
+        try:
+            factory.assert_called_once_with(endpoint=expected, headers=headers)
+        finally:
+            processor.shutdown()
+
+
+@pytest.mark.parametrize("formatted", [False, True])
+@pytest.mark.parametrize(
+    ("level", "severity", "text"),
+    [(logging.WARNING, SeverityNumber.WARN, "WARN"), (logging.CRITICAL, SeverityNumber.FATAL, "FATAL")],
+)
+def test_otel_handler_preserves_record_fields(formatted: bool, level: int, severity: SeverityNumber, text: str) -> None:
+    exporter = InMemoryLogRecordExporter()
+    provider = observability.LoggerProvider()
+    provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+    handler = observability.OTELLoggingHandler(logger_provider=provider)
+    if formatted:
+        handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
+    record = logging.LogRecord("task.example", level, "workflow.py", 42, "task %s", ("started",), None)
+    record.created = 1234.5
+    try:
+        handler.handle(record)
+        (exported,) = exporter.get_finished_logs()
+        assert exported.instrumentation_scope is not None
+        assert exported.instrumentation_scope.name == "task.example"
+        assert exported.log_record.timestamp == 1_234_500_000_000
+        assert exported.log_record.observed_timestamp is not None
+        assert exported.log_record.severity_number == severity
+        assert exported.log_record.severity_text == text
+        assert exported.log_record.body == ("task.example: task started" if formatted else "task started")
+        assert not exported.log_record.attributes
+    finally:
+        provider.shutdown()
+
+
+def test_otel_handler_suppresses_recursive_exports() -> None:
+    handler = observability.OTELLoggingHandler(logger_provider=observability.LoggerProvider())
+    record = logging.LogRecord("task.example", logging.INFO, __file__, 0, "outer", (), None)
+    recursive_record = logging.LogRecord("task.example", logging.WARNING, __file__, 0, "exporter diagnostic", (), None)
+    with patch.object(observability, "get_otel_logger") as get_logger:
+        emit = get_logger.return_value.emit
+        emit.side_effect = lambda _: handler.emit(recursive_record)
+        handler.emit(record)
+        handler.emit(record)
+        assert [call.args[0].body for call in emit.call_args_list] == ["outer", "outer"]
 
 
 @pytest.mark.usefixtures("isolated_logging")

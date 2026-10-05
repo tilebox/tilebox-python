@@ -1,11 +1,36 @@
 from collections.abc import Iterator
+from unittest.mock import patch
 
 import pytest
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan, Span, TracerProvider
 from opentelemetry.sdk.trace.export import SpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from tilebox.workflows.observability import tracing
+
+
+@pytest.mark.parametrize("from_environment", [False, True])
+@pytest.mark.parametrize(
+    ("endpoint", "expected"),
+    [
+        ("https://collector.example", "https://collector.example/v1/traces"),
+        ("https://collector.example/tenant", "https://collector.example/tenant/v1/traces"),
+        ("https://collector.example/tenant/", "https://collector.example/tenant/v1/traces"),
+        ("https://collector.example/tenant/v1/traces", "https://collector.example/tenant/v1/traces"),
+    ],
+)
+def test_otel_span_exporter_endpoint(
+    monkeypatch: pytest.MonkeyPatch, endpoint: str, expected: str, from_environment: bool
+) -> None:
+    monkeypatch.setenv("OTEL_TRACES_ENDPOINT", endpoint if from_environment else "https://ignored.example")
+    headers = {"Authorization": "Bearer test-key"}
+    with patch.object(tracing, "OTLPSpanExporter", return_value=InMemorySpanExporter()) as factory:
+        processor = tracing._otel_span_exporter(None if from_environment else endpoint, headers=headers)
+        try:
+            factory.assert_called_once_with(endpoint=expected, headers=headers)
+        finally:
+            processor.shutdown()
 
 
 class RecordingSpanProcessor(SpanProcessor):
