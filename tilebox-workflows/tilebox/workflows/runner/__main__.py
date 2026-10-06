@@ -6,7 +6,7 @@ from typing import Any
 
 from tilebox.workflows.observability._logging import logger
 from tilebox.workflows.runner.runner import Runner
-from tilebox.workflows.runner.worker_server import serve_runner
+from tilebox.workflows.runner.worker_server import WorkerServer
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -17,10 +17,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("runner", help="Runner object import path, for example 'my_workflow.runner:runner'.")
     args = parser.parse_args(argv)
 
-    logger.debug(f"Starting Tilebox workflow runtime for runner {args.runner!r}")
-    runner = _import_runner(args.runner)
-    logger.debug(f"Imported runner {args.runner!r}; starting worker server")
-    serve_runner(runner)
+    server = WorkerServer()
+    server.start()
+    try:
+        runner = _import_runner(args.runner)
+        server.set_runner(runner)
+        server.wait()
+    finally:
+        server.shutdown()
+        server.wait()
     return 0
 
 

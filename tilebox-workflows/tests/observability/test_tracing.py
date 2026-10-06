@@ -1,12 +1,19 @@
+import json
+import os
+import subprocess
+import sys
 from collections.abc import Iterator
+from importlib.metadata import version
 from unittest.mock import patch
 
 import pytest
 from opentelemetry.context import Context
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, Span, TracerProvider
-from opentelemetry.sdk.trace.export import SpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
+from tilebox.workflows.observability import logging as observability_logging
 from tilebox.workflows.observability import tracing
 
 
@@ -54,11 +61,12 @@ class RecordingSpanProcessor(SpanProcessor):
 
 @pytest.fixture(autouse=True)
 def reset_tilebox_tracing() -> Iterator[None]:
-    tracing._set_tilebox_tracer_provider(TracerProvider())
+    original_provider = tracing._get_tilebox_tracer_provider()
     tracing._workflow_tracers.clear()
+    tracing._set_tilebox_tracer_provider(TracerProvider(resource=observability_logging._get_default_resource()))
     yield
-    tracing._set_tilebox_tracer_provider(TracerProvider())
     tracing._workflow_tracers.clear()
+    tracing._set_tilebox_tracer_provider(original_provider)
 
 
 @pytest.fixture
@@ -72,6 +80,80 @@ def span_processors(monkeypatch: pytest.MonkeyPatch) -> list[RecordingSpanProces
 
     monkeypatch.setattr(tracing, "_otel_span_exporter", create_processor)
     return processors
+
+
+@pytest.mark.parametrize("otel_service_name", ["unknown_service:python", "unknown_service:python.exe", "other-default"])
+def test_exported_traces_use_tilebox_resource_defaults(otel_service_name: str) -> None:
+    # Exercise actual module initialization, independent of OTEL's platform-specific defaults.
+    instance_id = "66d615f3-7d53-4a31-bc94-94cbb9d9ffa2"
+    environment = {key: value for key, value in os.environ.items() if not key.startswith(("TILEBOX_", "OTEL_"))}
+    environment.update(
+        TILEBOX_RUNTIME_ID=instance_id,
+        OTEL_SERVICE_NAME=otel_service_name,
+        OTEL_RESOURCE_ATTRIBUTES="service.instance.id=otel-generated",
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            """
+import json
+from unittest.mock import patch
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from tilebox.workflows.observability import tracing
+from tilebox.workflows.observability.logging import _get_default_resource
+
+exporter = InMemorySpanExporter()
+with patch.object(tracing, "_otel_span_exporter", return_value=SimpleSpanProcessor(exporter)):
+    tracer = tracing.WorkflowTracer(service=None, url="https://api.tilebox.com", token=None)
+    with tracer.span("task"):
+        pass
+[span] = exporter.get_finished_spans()
+print(json.dumps([dict(span.resource.attributes), dict(_get_default_resource().attributes)]))
+""",
+        ],
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    expected = {
+        "service.name": "tilebox-python",
+        "service.namespace": "tilebox.workflows",
+        "service.version": version("tilebox-workflows"),
+        "service.instance.id": instance_id,
+    }
+    trace_resource, log_resource = json.loads(result.stdout)
+    assert {key: trace_resource.get(key) for key in expected} == expected
+    assert {key: log_resource.get(key) for key in expected} == expected
+
+
+@pytest.mark.parametrize("service_name", [None, "custom-worker", "unknown_service:python.exe"])
+@pytest.mark.parametrize("explicit_resource", [False, True])
+def test_exported_traces_preserve_configured_resources(service_name: str | None, explicit_resource: bool) -> None:
+    attributes = {"service.instance.id": "custom-instance", "deployment": "test"}
+    if service_name is not None:
+        attributes["service.name"] = service_name
+    resource = Resource(attributes, schema_url="https://example.com/schema")
+    if not explicit_resource:
+        tracing._set_tilebox_tracer_provider(TracerProvider(resource=resource))
+    exporter = InMemorySpanExporter()
+    with patch.object(tracing, "_otel_span_exporter", return_value=SimpleSpanProcessor(exporter)):
+        tracer = tracing.WorkflowTracer(
+            service=resource if explicit_resource else None, url="https://api.tilebox.com", token=None
+        )
+        with tracer.span("task"):
+            pass
+
+    [span] = exporter.get_finished_spans()
+    for result in (span.resource, observability_logging._get_default_resource(resource)):
+        assert {key: result.attributes.get(key) for key in attributes} == attributes
+        assert result.attributes["service.name"] == (service_name or "tilebox-python")
+        assert result.attributes["service.namespace"] == "tilebox.workflows"
+        assert result.attributes["service.version"] == version("tilebox-workflows")
+        assert result.schema_url == resource.schema_url
 
 
 def test_workflow_tracers_do_not_share_client_span_processors(

@@ -51,8 +51,17 @@ def __dir__() -> list[str]:
 def _initialize_logging_from_environment() -> None:
     # Stage 1: current CLIs provide credentials before importing workflow code, so
     # even import-time logs reach the API. Ordinary SDK imports stay lightweight.
+    runtime_dir = os.environ.get("TILEBOX_RUNTIME_DIR")
+    runtime_token = os.environ.get("TILEBOX_RUNTIME_TOKEN")
+    if bool(runtime_dir) != bool(runtime_token):
+        raise RuntimeError("TILEBOX_RUNTIME_DIR and TILEBOX_RUNTIME_TOKEN must be set together")
+
     url = os.environ.get("TILEBOX_API_URL")
     token = os.environ.get("TILEBOX_API_KEY")
+    if runtime_dir and runtime_token:
+        # Importing installs the managed local stream before workflow modules can log.
+        from tilebox.workflows.observability import logging as _runtime_logging  # noqa: F401, PLC0415
+
     if not url or not token:
         return
 

@@ -21,6 +21,7 @@ from tilebox.workflows._codec import registry
 from tilebox.workflows.observability import _logging as structured_logging
 from tilebox.workflows.observability import logging as observability
 from tilebox.workflows.observability import tracing
+from tilebox.workflows.observability._log_stream import _LogQueue, _OTLPQueueHandler
 from tilebox.workflows.observability._logging import StructuredLogger, internal_logger, logger, root_logger, task_logger
 
 
@@ -32,8 +33,7 @@ def isolated_logging(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureF
     monkeypatch.setattr(observability, "_api_handler", None)
     monkeypatch.setattr(observability, "_console_handlers", [])
     monkeypatch.setattr(observability, "_console_configured", False)
-    monkeypatch.setattr(observability, "_writer", None)
-    monkeypatch.delenv("TILEBOX_LOG_FD", raising=False)
+    monkeypatch.setattr(observability, "managed_log_queue", None)
     caplog.set_level(logging.INFO, logger=task_logger.name)
     caplog.set_level(logging.ERROR, logger=internal_logger.name)
 
@@ -190,20 +190,20 @@ def test_export_attributes_capture_context_once_without_mutating_record(structur
 
 
 @pytest.mark.parametrize("stdlib", [False, True])
-@pytest.mark.parametrize("pipe_first", [False, True])
-def test_codecs_run_once_per_record_across_handlers(stdlib: bool, pipe_first: bool) -> None:
+@pytest.mark.parametrize("stream_first", [False, True])
+def test_codecs_run_once_per_record_across_handlers(stdlib: bool, stream_first: bool) -> None:
     codec = registry.find(Affine)
     assert codec is not None
     encode = MagicMock(wraps=codec.encode)
     target = logging.Logger("normalized-records", logging.INFO)  # noqa: LOG001 -- isolated from process-wide loggers
-    writer = MagicMock(spec=observability._PipeWriter)
+    queue = _LogQueue()
     exporters = [InMemoryLogRecordExporter(), InMemoryLogRecordExporter()]
     providers = [observability.LoggerProvider() for _ in exporters]
-    handlers: list[logging.Handler] = [observability._StructuredHandler(writer), tracing.SpanEventLoggingHandler()]
+    handlers: list[logging.Handler] = [_OTLPQueueHandler(queue), tracing.SpanEventLoggingHandler()]
     for provider, exporter in zip(providers, exporters, strict=True):
         provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
         handlers.append(observability.OTELLoggingHandler(logger_provider=provider))
-    for handler in handlers if pipe_first else reversed(handlers):
+    for handler in handlers if stream_first else reversed(handlers):
         target.addHandler(handler)
     tracer_provider = TracerProvider()
     value = {"transform": Affine(2, 3, 5, 7, 11, 13)}
@@ -226,9 +226,14 @@ def test_codecs_run_once_per_record_across_handlers(stdlib: bool, pipe_first: bo
                     assert event.attributes["input"] == '{"transform":[2.0,3.0,5.0,7.0,11.0,13.0]}'
         # Records hold snapshots, not references to task-owned mutable containers.
         value.clear()
-        for call in writer.submit.call_args_list:
-            assert call.args[0]["attributes"]["input"] == {"transform": [2, 3, 5, 7, 11, 13]}
-        assert writer.submit.call_count == 2
+        queue.seal()
+        stream_records = list(queue.subscribe())
+        assert [record.body.string_value for record in stream_records] == ["record-0", "record-1"]
+        for record in stream_records:
+            attributes = {item.key: item.value for item in record.attributes}
+            transform = attributes["input"].kvlist_value.values[0]
+            assert transform.key == "transform"
+            assert [item.double_value for item in transform.value.array_value.values] == [2, 3, 5, 7, 11, 13]
         for exporter in exporters:
             records = [item.log_record for item in exporter.get_finished_logs()]
             assert [record.body for record in records] == ["record-0", "record-1"]
@@ -243,43 +248,34 @@ def test_codecs_run_once_per_record_across_handlers(stdlib: bool, pipe_first: bo
 
 @pytest.mark.usefixtures("isolated_logging")
 @pytest.mark.parametrize("external_first", [False, True])
-def test_external_exports_and_console_do_not_replace_api_or_pipe(
-    monkeypatch: pytest.MonkeyPatch, external_first: bool
-) -> None:
-    read_fd, write_fd = os.pipe()
-    monkeypatch.setenv("TILEBOX_LOG_FD", str(write_fd))
+def test_external_exports_and_console_do_not_replace_api_or_stream(external_first: bool) -> None:
+    queue = _LogQueue()
+    root_logger.addHandler(_OTLPQueueHandler(queue))
     api, external = InMemoryLogRecordExporter(), InMemoryLogRecordExporter()
     first, second = StringIO(), StringIO()
-    try:
-        with patch.object(observability, "_otel_log_exporter", return_value=SimpleLogRecordProcessor(external)):
-            if external_first:
-                observability.configure_otel_logging(endpoint="https://external.example")
-                observability.configure_console_logging(stream=first)
-        with patch.object(observability, "_otel_log_exporter", return_value=SimpleLogRecordProcessor(api)):
-            observability.initialize_logging("https://api.tilebox.com", "test-key")
-        with patch.object(observability, "_otel_log_exporter", return_value=SimpleLogRecordProcessor(external)):
-            if not external_first:
-                observability.configure_otel_logging(endpoint="https://external.example")
-                observability.configure_console_logging(stream=first)
-        observability.configure_console_logging(stream=second, reconfigure=False)
-        observability.configure_log_level(logging.DEBUG)
-        assert internal_logger.level == logging.ERROR
-        task_logger.info("all outputs")
-        observability.configure_console_logging(enabled=False)
-        observability.initialize_logging("https://ignored.example", "ignored-key")
-        task_logger.debug("exports only")
-        assert first.getvalue().count("all outputs") == second.getvalue().count("all outputs") == 1
-        assert "exports only" not in first.getvalue() + second.getvalue()
-        for exporter in (api, external):
-            assert [item.log_record.body for item in exporter.get_finished_logs()] == ["all outputs", "exports only"]
-        assert observability._writer is not None
-        observability._writer.close()
-        records = [msgspec.json.decode(line) for line in os.read(read_fd, 65536).splitlines()]
-        assert [record["message"] for record in records] == ["all outputs", "exports only"]
-    finally:
-        if observability._writer is not None:
-            observability._writer.close()
-        os.close(read_fd)
+    with patch.object(observability, "_otel_log_exporter", return_value=SimpleLogRecordProcessor(external)):
+        if external_first:
+            observability.configure_otel_logging(endpoint="https://external.example")
+            observability.configure_console_logging(stream=first)
+    with patch.object(observability, "_otel_log_exporter", return_value=SimpleLogRecordProcessor(api)):
+        observability.initialize_logging("https://api.tilebox.com", "test-key")
+    with patch.object(observability, "_otel_log_exporter", return_value=SimpleLogRecordProcessor(external)):
+        if not external_first:
+            observability.configure_otel_logging(endpoint="https://external.example")
+            observability.configure_console_logging(stream=first)
+    observability.configure_console_logging(stream=second, reconfigure=False)
+    observability.configure_log_level(logging.DEBUG)
+    assert internal_logger.level == logging.ERROR
+    task_logger.info("all outputs")
+    observability.configure_console_logging(enabled=False)
+    observability.initialize_logging("https://ignored.example", "ignored-key")
+    task_logger.debug("exports only")
+    assert first.getvalue().count("all outputs") == second.getvalue().count("all outputs") == 1
+    assert "exports only" not in first.getvalue() + second.getvalue()
+    for exporter in (api, external):
+        assert [item.log_record.body for item in exporter.get_finished_logs()] == ["all outputs", "exports only"]
+    queue.seal()
+    assert [record.body.string_value for record in queue.subscribe()] == ["all outputs", "exports only"]
 
 
 @pytest.mark.usefixtures("isolated_logging")
@@ -320,40 +316,42 @@ def test_task_values_and_unserializable_attributes_reach_both_outputs(monkeypatc
 
     cyclic: list[Any] = []
     cyclic.append(cyclic)
-    read_fd, write_fd = os.pipe()
-    monkeypatch.setenv("TILEBOX_LOG_FD", str(write_fd))
+    queue = _LogQueue()
+    monkeypatch.setattr(observability, "managed_log_queue", queue)
+    root_logger.addHandler(_OTLPQueueHandler(queue))
     exporter = InMemoryLogRecordExporter()
-    try:
-        with patch.object(observability, "_otel_log_exporter", return_value=SimpleLogRecordProcessor(exporter)):
-            observability.initialize_logging("https://api.tilebox.com", "test-key")
-        StructuredLogger(task_logger).info(
-            "input",
-            input=Input(Affine(2, 3, 5, 7, 11, 13), Path("image.tif")),
-            counts={date(2026, 9, 16): 3},
-            cyclic=cyclic,
-            unsupported=Broken(),
-        )
-        assert observability._writer is not None
-        observability._writer.close()
-        record = msgspec.json.decode(os.read(read_fd, 65536))
-        assert record["attributes"] == {
-            "input": {"transform": [2, 3, 5, 7, 11, 13], "path": "image.tif"},
-            "counts": {"2026-09-16": 3},
-            "cyclic": "[[...]]",
-            "unsupported": "<unserializable Broken>",
-        }
-        attributes = exporter.get_finished_logs()[0].log_record.attributes
-        assert attributes is not None
-        assert isinstance(attributes["input"], str)
-        assert isinstance(attributes["counts"], str)
-        assert msgspec.json.decode(attributes["input"]) == record["attributes"]["input"]
-        assert msgspec.json.decode(attributes["counts"]) == record["attributes"]["counts"]
-        assert attributes["cyclic"] == "[[...]]"
-        assert attributes["unsupported"] == "<unserializable Broken>"
-    finally:
-        if observability._writer is not None:
-            observability._writer.close()
-        os.close(read_fd)
+    with patch.object(observability, "_otel_log_exporter", return_value=SimpleLogRecordProcessor(exporter)):
+        observability.initialize_logging("https://api.tilebox.com", "test-key")
+    StructuredLogger(task_logger).info(
+        "input",
+        input=Input(Affine(2, 3, 5, 7, 11, 13), Path("image.tif")),
+        counts={date(2026, 9, 16): 3},
+        cyclic=cyclic,
+        unsupported=Broken(),
+    )
+    queue.seal()
+    [record] = queue.subscribe()
+    stream_attributes = {item.key: item.value for item in record.attributes}
+    input_attributes = {item.key: item.value for item in stream_attributes["input"].kvlist_value.values}
+    assert [item.double_value for item in input_attributes["transform"].array_value.values] == [2, 3, 5, 7, 11, 13]
+    assert input_attributes["path"].string_value == "image.tif"
+    counts = stream_attributes["counts"].kvlist_value.values
+    assert len(counts) == 1
+    assert counts[0].key == "2026-09-16"
+    assert counts[0].value.int_value == 3
+    assert stream_attributes["cyclic"].string_value == "[[...]]"
+    assert stream_attributes["unsupported"].string_value == "<unserializable Broken>"
+    attributes = exporter.get_finished_logs()[0].log_record.attributes
+    assert attributes is not None
+    assert isinstance(attributes["input"], str)
+    assert isinstance(attributes["counts"], str)
+    assert msgspec.json.decode(attributes["input"]) == {
+        "transform": [2, 3, 5, 7, 11, 13],
+        "path": "image.tif",
+    }
+    assert msgspec.json.decode(attributes["counts"]) == {"2026-09-16": 3}
+    assert attributes["cyclic"] == "[[...]]"
+    assert attributes["unsupported"] == "<unserializable Broken>"
 
 
 @pytest.mark.parametrize("without_otel", [False, True])

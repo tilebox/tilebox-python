@@ -15,6 +15,7 @@ from connectrpc.method import IdempotencyLevel, MethodInfo
 from connectrpc.request import Headers, RequestContext
 from connectrpc.server import ConnectASGIApplication, ConnectWSGIApplication, Endpoint, EndpointSync
 import google.protobuf.empty_pb2 as google_dot_protobuf_dot_empty__pb2
+import opentelemetry.proto.logs.v1.logs_pb2 as opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2
 import tilebox.workflows.workflows.v1.core_pb2 as workflows_dot_v1_dot_core__pb2
 import tilebox.workflows.workflows.v1.worker_pb2 as workflows_dot_v1_dot_worker__pb2
 
@@ -27,6 +28,9 @@ class WorkerService(Protocol):
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
     async def execute_task(self, request: workflows_dot_v1_dot_core__pb2.Task, ctx: RequestContext) -> workflows_dot_v1_dot_worker__pb2.ExecuteTaskResponse:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+
+    def watch_logs(self, request: google_dot_protobuf_dot_empty__pb2.Empty, ctx: RequestContext) -> AsyncIterator[opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2.LogRecord]:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
     async def shutdown_worker(self, request: google_dot_protobuf_dot_empty__pb2.Empty, ctx: RequestContext) -> google_dot_protobuf_dot_empty__pb2.Empty:
@@ -67,6 +71,16 @@ class WorkerServiceASGIApplication(ConnectASGIApplication[WorkerService]):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=svc.execute_task,
+                ),
+                "/workflows.v1.WorkerService/WatchLogs": Endpoint.server_stream(
+                    method=MethodInfo(
+                        name="WatchLogs",
+                        service_name="workflows.v1.WorkerService",
+                        input=google_dot_protobuf_dot_empty__pb2.Empty,
+                        output=opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2.LogRecord,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.watch_logs,
                 ),
                 "/workflows.v1.WorkerService/ShutdownWorker": Endpoint.unary(
                     method=MethodInfo(
@@ -152,6 +166,26 @@ class WorkerServiceClient(ConnectClient):
             timeout_ms=timeout_ms,
         )
 
+    def watch_logs(
+        self,
+        request: google_dot_protobuf_dot_empty__pb2.Empty,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> AsyncIterator[opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2.LogRecord]:
+        return self.execute_server_stream(
+            request=request,
+            method=MethodInfo(
+                name="WatchLogs",
+                service_name="workflows.v1.WorkerService",
+                input=google_dot_protobuf_dot_empty__pb2.Empty,
+                output=opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2.LogRecord,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
     async def shutdown_worker(
         self,
         request: google_dot_protobuf_dot_empty__pb2.Empty,
@@ -182,6 +216,8 @@ class WorkerServiceSync(Protocol):
     def initialize_worker(self, request: workflows_dot_v1_dot_worker__pb2.InitializeRunnerRequest, ctx: RequestContext) -> workflows_dot_v1_dot_worker__pb2.InitializeRunnerResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def execute_task(self, request: workflows_dot_v1_dot_core__pb2.Task, ctx: RequestContext) -> workflows_dot_v1_dot_worker__pb2.ExecuteTaskResponse:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+    def watch_logs(self, request: google_dot_protobuf_dot_empty__pb2.Empty, ctx: RequestContext) -> Iterator[opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2.LogRecord]:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def shutdown_worker(self, request: google_dot_protobuf_dot_empty__pb2.Empty, ctx: RequestContext) -> google_dot_protobuf_dot_empty__pb2.Empty:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
@@ -220,6 +256,16 @@ class WorkerServiceWSGIApplication(ConnectWSGIApplication):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=service.execute_task,
+                ),
+                "/workflows.v1.WorkerService/WatchLogs": EndpointSync.server_stream(
+                    method=MethodInfo(
+                        name="WatchLogs",
+                        service_name="workflows.v1.WorkerService",
+                        input=google_dot_protobuf_dot_empty__pb2.Empty,
+                        output=opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2.LogRecord,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.watch_logs,
                 ),
                 "/workflows.v1.WorkerService/ShutdownWorker": EndpointSync.unary(
                     method=MethodInfo(
@@ -299,6 +345,26 @@ class WorkerServiceClientSync(ConnectClientSync):
                 service_name="workflows.v1.WorkerService",
                 input=workflows_dot_v1_dot_core__pb2.Task,
                 output=workflows_dot_v1_dot_worker__pb2.ExecuteTaskResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    def watch_logs(
+        self,
+        request: google_dot_protobuf_dot_empty__pb2.Empty,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> Iterator[opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2.LogRecord]:
+        return self.execute_server_stream(
+            request=request,
+            method=MethodInfo(
+                name="WatchLogs",
+                service_name="workflows.v1.WorkerService",
+                input=google_dot_protobuf_dot_empty__pb2.Empty,
+                output=opentelemetry_dot_proto_dot_logs_dot_v1_dot_logs__pb2.LogRecord,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,
