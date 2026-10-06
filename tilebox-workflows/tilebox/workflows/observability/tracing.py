@@ -45,7 +45,7 @@ _OTEL_EXPORT_INTERVAL_ENV_VAR = "OTEL_EXPORT_INTERVAL"
 # to extract trace_ids and spans, in case other runners / workflow clients have tracing configured.
 # So instead we use a tracer provider without any exporters, which will still create traces and spans,
 # but will not send them anywhere.
-_tilebox_tracer_provider = TracerProvider()
+_tilebox_tracer_provider = TracerProvider(resource=_get_default_resource())
 _workflow_tracers = []
 
 
@@ -231,11 +231,9 @@ def configure_otel_tracing(
     Additionally, this will also configure a logging handler that will add log messages to active spans as span events.
 
     Args:
-        service: A string or a resource object to include in all traces. Used to identify the service being traced.
-            If a string is provided, it will be used as the service name. If a resource object is provided, it will be
-            used as the resource. Defaults to a resource with the service name set to "tilebox.workflows-{process_id}",
-            the version set to the version of the package, and the service instance id set to a combination
-            of hostname and process id.
+        service: A service name or resource whose attributes override the Tilebox defaults.
+            Defaults to service name "tilebox-python", namespace "tilebox.workflows", the installed package version,
+            and the CLI runtime ID or a process-local UUID shared by logs and traces.
         endpoint: The URL of the OTLP compatible endpoint to send traces and spans to. If not provided, the environment
             variable OTEL_TRACES_ENDPOINT will be used. If that is not set either, an error will be raised.
             OTLP compatible endpoints typically have the path name "/v1/traces". If the specified endpoint does not
@@ -279,11 +277,9 @@ def configure_otel_tracing_axiom(
     send traces and spans to Axiom.
 
     Args:
-        service: A string or a resource object to include in all traces. Used to identify the service being traced.
-            If a string is provided, it will be used as the service name. If a resource object is provided, it will be
-            used as the resource. Defaults to a resource with the service name set to "tilebox.workflows-{process_id}",
-            the version set to the version of the package, and the service instance id set to a combination
-            of hostname and process id.
+        service: A service name or resource whose attributes override the Tilebox defaults.
+            Defaults to service name "tilebox-python", namespace "tilebox.workflows", the installed package version,
+            and the CLI runtime ID or a process-local UUID shared by logs and traces.
         dataset: The name of the Axiom dataset to ingest traces into. If not provided, the environment variable
             AXIOM_TRACES_DATASET will be used. If that is not set either, an error will be raised.
         api_key: The API key to use for authentication. If not provided, the environment variable AXIOM_API_KEY will be

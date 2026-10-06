@@ -64,13 +64,7 @@ _instance_id = str(UUID(_instance_id))
 
 
 def _get_default_resource(service: str | Resource | None = None) -> Resource:
-    if isinstance(service, Resource):  # already a resource object
-        service_name = service.attributes.get(SERVICE_NAME)
-        if service_name is not None and service_name != "unknown_service":
-            # default value of SERVICE_NAME is "unknown_service", so if we have anything other than that we
-            # know it's already configured
-            return service
-
+    """Build Tilebox defaults, then apply explicitly configured resource attributes."""
     service_name = service if isinstance(service, str) else _DEFAULT_SERVICE_NAME
 
     workflows_version = "dev"
@@ -78,7 +72,7 @@ def _get_default_resource(service: str | Resource | None = None) -> Resource:
         workflows_version = version("tilebox-workflows")
 
     uname = platform.uname()
-    return Resource.create(
+    resource = Resource.create(
         attributes={
             SERVICE_NAMESPACE: "tilebox.workflows",
             SERVICE_NAME: service_name,
@@ -90,6 +84,7 @@ def _get_default_resource(service: str | Resource | None = None) -> Resource:
             OS_TYPE: uname.system.lower(),
         }
     )
+    return resource.merge(service) if isinstance(service, Resource) else resource
 
 
 def _sanitize_otel_attribute_value(
@@ -304,11 +299,9 @@ def configure_otel_logging(
     Each call adds an export; Tilebox's API export, the CLI stream, and console outputs remain installed.
 
     Args:
-        service: A string or a resource object to include in all traces. Used to identify the service being traced.
-            If a string is provided, it will be used as the service name. If a resource object is provided, it will be
-            used as the resource. Defaults to a resource with the service name set to "tilebox.workflows-{process_id}",
-            the version set to the version of the package, and the service instance id set to a combination
-            of hostname and process id.
+        service: A service name or resource whose attributes override the Tilebox defaults.
+            Defaults to service name "tilebox-python", namespace "tilebox.workflows", the installed package version,
+            and the CLI runtime ID or a process-local UUID shared by logs and traces.
         level: The logging level to use for the OTEL handler. Only log messages with a level higher or equal to
             this will be sent to the endpoint. Defaults to logging.DEBUG. It is typically recommended to keep this at a
             lower level, since actual filtering of log messages to higher levels is typically done by the logger itself.
@@ -348,11 +341,9 @@ def configure_otel_logging_axiom(
     configuration.
 
     Args:
-        service: A string or a resource object to include in all traces. Used to identify the service being traced.
-            If a string is provided, it will be used as the service name. If a resource object is provided, it will be
-            used as the resource. Defaults to a resource with the service name set to "tilebox.workflows-{process_id}",
-            the version set to the version of the package, and the service instance id set to a combination
-            of hostname and process id.
+        service: A service name or resource whose attributes override the Tilebox defaults.
+            Defaults to service name "tilebox-python", namespace "tilebox.workflows", the installed package version,
+            and the CLI runtime ID or a process-local UUID shared by logs and traces.
         level: The logging level to use for the Axiom log handler. Only log messages with a level higher or equal to
             this will be sent to the endpoint. Defaults to logging.DEBUG. It is typically recommended to keep this at a
             lower level, since actual filtering of log messages to higher levels is typically done by the logger itself.

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.64.0] - 2026-10-05
+## [0.64.0] - 2026-10-06
 
 ### Added
 
@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `tilebox-workflows`: Fix logging initialization and workflow startup with OpenTelemetry 1.45 and newer.
+- `tilebox-workflows`: Always apply Tilebox service metadata to logs and traces, with explicit resource attributes overriding those defaults. Initialize tracing with the same runtime identity as logging instead of relying on OpenTelemetry's defaults.
 - `tilebox-workflows`: Bound the final API log flush so stalled log exports do not delay CLI worker shutdown.
 - `tilebox-workflows`: Preserve large integer attributes in live CLI logs as strings instead of dropping the log record.
 

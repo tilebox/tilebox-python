@@ -87,6 +87,7 @@ jobs:
           tilebox-workflows/tests/runner/test_runtime_logging.py
           tilebox-workflows/tests/runner/test_log_stream.py
           tilebox-workflows/tests/observability/test_logging.py
+          tilebox-workflows/tests/observability/test_tracing.py
 
   minimum-dependencies:
     name: Test minimum dependencies
