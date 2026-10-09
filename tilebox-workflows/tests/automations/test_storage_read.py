@@ -23,9 +23,9 @@ from tilebox.workflows.automations import StorageEventTask
 from tilebox.workflows.cache import AmazonS3Cache
 from tilebox.workflows.client import Client
 from tilebox.workflows.data import (
-    AzureStorageLocation,
+    AWSS3StorageLocation,
+    AzureBlobStorageLocation,
     RunnerContext,
-    S3StorageLocation,
     StorageLocation,
     StorageType,
     _default_azure_storage_client,
@@ -110,8 +110,6 @@ def test_gcs_discovery_error_is_not_hidden_or_cached() -> None:
 def _azure_message() -> storage_pb.StorageLocation:
     return storage_pb.StorageLocation(
         id=uuid_to_uuid_message(_ID),
-        location="container-only",
-        type=storage_pb.STORAGE_TYPE_AZURE_BLOB,
         reference=storage_pb.StorageLocationReference(
             type=storage_pb.STORAGE_TYPE_AZURE_BLOB,
             azure_blob=storage_pb.AzureBlobReference(storage_account_resource_id=_ACCOUNT, container="sourcecontainer"),
@@ -119,11 +117,11 @@ def _azure_message() -> storage_pb.StorageLocation:
     )
 
 
-@pytest.mark.parametrize("storage_type", [StorageType.GCS, StorageType.S3, StorageType.FS])
+@pytest.mark.parametrize("storage_type", [StorageType.GCS, StorageType.AWS_S3, StorageType.LOCAL])
 def test_mixed_storage_location_ordering(storage_type: StorageType) -> None:
     # Azure and other storage locations sort together by ID before their bucket or container names.
     plain = StorageLocation(UUID(int=1), "z", storage_type)
-    azure = AzureStorageLocation(UUID(int=2), "a", StorageType.AZURE, storage_account_resource_id=_ACCOUNT)
+    azure = AzureBlobStorageLocation(UUID(int=2), "a", StorageType.AZURE_BLOB, storage_account_resource_id=_ACCOUNT)
     assert plain < azure
     assert azure > plain
     assert sorted([azure, plain]) == [plain, azure]
@@ -132,8 +130,8 @@ def test_mixed_storage_location_ordering(storage_type: StorageType) -> None:
 def test_azure_trigger_read() -> None:
     # Deserialized Azure tasks read from the account and container supplied by the runner context.
     location = StorageLocation.from_message(_azure_message())
-    assert isinstance(location, AzureStorageLocation)
-    assert location.type == StorageType.AZURE
+    assert isinstance(location, AzureBlobStorageLocation)
+    assert location.type == StorageType.AZURE_BLOB
     assert location.location == "sourcecontainer"
     assert location.storage_account_resource_id == _ACCOUNT
     assert StorageLocation.from_message(location.to_message()) == location
@@ -145,7 +143,7 @@ def test_azure_trigger_read() -> None:
     context = RunnerContext(storage_locations=[location])
     task = StorageEventTask().once(location, key)
     restored = StorageEventTask._deserialize(task._serialize(), context)
-    assert isinstance(restored.trigger.storage, AzureStorageLocation)
+    assert isinstance(restored.trigger.storage, AzureBlobStorageLocation)
     assert restored.trigger.storage.storage_account_resource_id == _ACCOUNT
     assert restored.trigger.storage.runner_context is context
     with patch.object(context, "azure_client", return_value=store) as client:
@@ -211,24 +209,23 @@ def test_azure_explicit_credentials(variable: str, value: str, monkeypatch: pyte
 
 def test_azure_read_requires_account_metadata() -> None:
     # Missing or malformed Azure account resource IDs raise a clear error before a cloud request.
-    location = StorageLocation(_ID, "container-only", StorageType.AZURE)
+    location = StorageLocation(_ID, "container-only", StorageType.AZURE_BLOB)
     with pytest.raises(ValueError, match="missing its storage account resource ID"):
         location.read("file.txt")
     with pytest.raises(ValueError, match="Invalid Azure storage account resource ID"):
         RunnerContext().azure_client("https://sourceaccount.blob.core.windows.net", "container")
 
 
-@pytest.mark.parametrize("metadata", ["bare", "reference"])
-def test_gcs_trigger_read(metadata: str) -> None:
-    # GCS tasks read bare bucket names using scoped google-auth credentials from either API metadata form.
+def test_gcs_trigger_read() -> None:
+    # GCS tasks read the referenced bucket using scoped google-auth credentials.
     bucket = "storage-automation-test-gcp-2aa460e"
     message = storage_pb.StorageLocation(
-        id=uuid_to_uuid_message(_ID), location=bucket, type=storage_pb.STORAGE_TYPE_GCS_BUCKET
+        id=uuid_to_uuid_message(_ID),
+        reference=storage_pb.StorageLocationReference(
+            type=storage_pb.STORAGE_TYPE_GCS,
+            gcs_bucket=storage_pb.GCSBucketReference(project_id="test-project", bucket=bucket),
+        ),
     )
-    if metadata == "reference":
-        message.reference.type = storage_pb.STORAGE_TYPE_GCS_BUCKET
-        message.reference.gcs_bucket.project_id = "test-project"
-        message.reference.gcs_bucket.bucket = bucket
     location = StorageLocation.from_message(message)
     context = RunnerContext(storage_locations=[location])
     key = "nested/hello + %20 ü.txt"
@@ -281,7 +278,7 @@ def test_s3_read_preserves_aws_profile(monkeypatch: pytest.MonkeyPatch, tmp_path
     expected = b"S3 blob contents\n"
     obstore.put(store, key, expected)
     with patch("obstore.store.S3Store", return_value=store) as constructor:
-        assert S3StorageLocation(_ID, "aws-bucket", StorageType.S3, region="eu-west-2").read(key) == expected
+        assert AWSS3StorageLocation(_ID, "aws-bucket", StorageType.AWS_S3, region="eu-west-2").read(key) == expected
         assert constructor.call_args.args == ("aws-bucket",)
         provider = constructor.call_args.kwargs["credential_provider"]
         assert provider()["access_key_id"] == "profile-key"
@@ -301,7 +298,7 @@ def test_s3_read_preserves_default_session(monkeypatch: pytest.MonkeyPatch) -> N
     obstore.put(store, "file.txt", b"configured session")
     with patch("obstore.store.S3Store", return_value=store) as constructor:
         assert (
-            S3StorageLocation(_ID, "aws-bucket", StorageType.S3, region="eu-west-2").read("file.txt")
+            AWSS3StorageLocation(_ID, "aws-bucket", StorageType.AWS_S3, region="eu-west-2").read("file.txt")
             == b"configured session"
         )
         provider = constructor.call_args.kwargs["credential_provider"]
@@ -316,12 +313,12 @@ def test_s3_reference_region_and_store_cache(monkeypatch: pytest.MonkeyPatch) ->
     message = storage_pb.StorageLocation(
         id=uuid_to_uuid_message(_ID),
         reference=storage_pb.StorageLocationReference(
-            type=storage_pb.STORAGE_TYPE_AWS_S3_BUCKET,
+            type=storage_pb.STORAGE_TYPE_AWS_S3,
             aws_s3_bucket=storage_pb.AWSS3BucketReference(bucket="source-bucket", region="eu-west-2"),
         ),
     )
     location = StorageLocation.from_message(message)
-    assert isinstance(location, S3StorageLocation)
+    assert isinstance(location, AWSS3StorageLocation)
     assert StorageLocation.from_message(location.to_message()) == location
     context = RunnerContext(storage_locations=[location])
     task = StorageEventTask().once(location, "file.txt")
@@ -447,13 +444,49 @@ def test_s3_temporary_credentials_refresh(cache: bool, monkeypatch: pytest.Monke
     assert all("/eu-west-2/s3/" in authorization for authorization in authorizations)
 
 
-def test_filesystem_read(tmp_path: Path) -> None:
-    # Filesystem reads return the contents of the file under the configured root directory.
-    key = "file.txt"
+def test_local_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    working_directory = tmp_path / "work"
+    working_directory.mkdir()
+    monkeypatch.chdir(working_directory)
+    key = "nested/hello + %20 ü.txt"
     expected = b"existing provider content"
-    storage = StorageLocation(_ID, str(tmp_path), StorageType.FS)
+    storage = StorageLocation.from_message(
+        storage_pb.StorageLocation(
+            id=uuid_to_uuid_message(_ID),
+            reference=storage_pb.StorageLocationReference(
+                type=storage_pb.STORAGE_TYPE_LOCAL,
+                local=storage_pb.LocalReference(path=str(tmp_path)),
+            ),
+        )
+    )
+    (tmp_path / "nested").mkdir()
     (tmp_path / key).write_bytes(expected)
-    assert storage.read(key) == expected
+    context = RunnerContext(storage_locations=[storage])
+    task = StorageEventTask().once(storage, key)
+    restored = StorageEventTask._deserialize(task._serialize(), context)
+    assert restored.trigger.storage.read(restored.trigger.location) == expected
+    with pytest.raises(FileNotFoundError):
+        storage.read("missing.txt")
+
+
+@pytest.mark.parametrize("root_kind", ["empty_path", "missing", "file"])
+def test_local_read_requires_available_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, root_kind: str) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "file.txt").write_bytes(b"must not fall back to the current directory")
+    root = tmp_path / "root"
+    if root_kind == "file":
+        root.write_bytes(b"not a directory")
+    storage = StorageLocation(_ID, "" if root_kind == "empty_path" else str(root), StorageType.LOCAL)
+    with pytest.raises(ValueError, match="Local storage location root is not available"):
+        storage.read("file.txt")
+    if root_kind == "missing":
+        assert not root.exists()
+
+
+def test_local_read_accepts_empty_directory(tmp_path: Path) -> None:
+    storage = StorageLocation(_ID, str(tmp_path), StorageType.LOCAL)
+    with pytest.raises(FileNotFoundError):
+        storage.read("missing.txt")
 
 
 @pytest.mark.parametrize(
@@ -461,7 +494,7 @@ def test_filesystem_read(tmp_path: Path) -> None:
     [
         (
             storage_pb.StorageLocationReference(
-                type=storage_pb.STORAGE_TYPE_GCS_BUCKET,
+                type=storage_pb.STORAGE_TYPE_GCS,
                 gcs_bucket=storage_pb.GCSBucketReference(project_id="project", bucket="bucket"),
             ),
             StorageType.GCS,
@@ -469,17 +502,17 @@ def test_filesystem_read(tmp_path: Path) -> None:
         ),
         (
             storage_pb.StorageLocationReference(
-                type=storage_pb.STORAGE_TYPE_AWS_S3_BUCKET,
+                type=storage_pb.STORAGE_TYPE_AWS_S3,
                 aws_s3_bucket=storage_pb.AWSS3BucketReference(bucket="bucket"),
             ),
-            StorageType.S3,
+            StorageType.AWS_S3,
             "bucket",
         ),
         (
             storage_pb.StorageLocationReference(
-                type=storage_pb.STORAGE_TYPE_FILESYSTEM, filesystem=storage_pb.FilesystemReference(path="/data")
+                type=storage_pb.STORAGE_TYPE_LOCAL, local=storage_pb.LocalReference(path="/data")
             ),
-            StorageType.FS,
+            StorageType.LOCAL,
             "/data",
         ),
     ],
@@ -503,8 +536,8 @@ def test_grpc_storage_location_service_route() -> None:
         patch("tilebox.workflows.client.open_channel", return_value=channel),
         patch("tilebox.workflows.client.WorkflowTracer", return_value=NoopWorkflowTracer()),
     ):
-        locations = Client(token="test-key").automations().storage_locations()  # noqa: S106
-    assert isinstance(locations[0], AzureStorageLocation)
+        locations = Client(token="test-key").storage_locations().all()  # noqa: S106
+    assert isinstance(locations[0], AzureBlobStorageLocation)
     assert locations[0].storage_account_resource_id == _ACCOUNT
     assert "/workflows.v1.StorageLocationService/ListStorageLocations" in [
         call.args[0] for call in channel.unary_unary.call_args_list
@@ -520,7 +553,7 @@ def test_http1_storage_location_service_route() -> None:
         ) as list_locations,
         patch("tilebox.workflows.client.WorkflowTracer", return_value=NoopWorkflowTracer()),
     ):
-        locations = Client(token="test-key", transport="http1").automations().storage_locations()  # noqa: S106
-    assert isinstance(locations[0], AzureStorageLocation)
+        locations = Client(token="test-key", transport="http1").storage_locations().all()  # noqa: S106
+    assert isinstance(locations[0], AzureBlobStorageLocation)
     assert locations[0].storage_account_resource_id == _ACCOUNT
     list_locations.assert_called_once()

@@ -135,7 +135,7 @@ def test_lazy_storage_locations_are_loaded_once_during_concurrent_access() -> No
         return [storage_location]
 
     client = MagicMock()
-    client.automations.return_value.storage_locations.side_effect = storage_locations
+    client.storage_locations.return_value.all.side_effect = storage_locations
     locations = LazyStorageLocations(client, RunnerContext())
 
     first = threading.Thread(target=len, args=(locations,))
@@ -157,7 +157,7 @@ def test_lazy_storage_locations_are_loaded_once_during_concurrent_access() -> No
 
     assert not first.is_alive()
     assert not second.is_alive()
-    client.automations.return_value.storage_locations.assert_called_once_with()
+    client.storage_locations.return_value.all.assert_called_once_with()
     assert list(locations) == [storage_location.id]
 
 

@@ -15,9 +15,9 @@ DESCRIPTOR: _descriptor.FileDescriptor
 class StorageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     STORAGE_TYPE_UNSPECIFIED: _ClassVar[StorageType]
-    STORAGE_TYPE_GCS_BUCKET: _ClassVar[StorageType]
-    STORAGE_TYPE_AWS_S3_BUCKET: _ClassVar[StorageType]
-    STORAGE_TYPE_FILESYSTEM: _ClassVar[StorageType]
+    STORAGE_TYPE_GCS: _ClassVar[StorageType]
+    STORAGE_TYPE_AWS_S3: _ClassVar[StorageType]
+    STORAGE_TYPE_LOCAL: _ClassVar[StorageType]
     STORAGE_TYPE_AZURE_BLOB: _ClassVar[StorageType]
 
 class StorageSubscriptionType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -26,20 +26,22 @@ class StorageSubscriptionType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper)
     STORAGE_SUBSCRIPTION_TYPE_AWS_SNS: _ClassVar[StorageSubscriptionType]
     STORAGE_SUBSCRIPTION_TYPE_GOOGLE_PUBSUB: _ClassVar[StorageSubscriptionType]
     STORAGE_SUBSCRIPTION_TYPE_AZURE_EVENT_GRID: _ClassVar[StorageSubscriptionType]
+    STORAGE_SUBSCRIPTION_TYPE_TILEBOX_CLI: _ClassVar[StorageSubscriptionType]
 
 class StorageEventType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     STORAGE_EVENT_TYPE_UNSPECIFIED: _ClassVar[StorageEventType]
     STORAGE_EVENT_TYPE_CREATED: _ClassVar[StorageEventType]
 STORAGE_TYPE_UNSPECIFIED: StorageType
-STORAGE_TYPE_GCS_BUCKET: StorageType
-STORAGE_TYPE_AWS_S3_BUCKET: StorageType
-STORAGE_TYPE_FILESYSTEM: StorageType
+STORAGE_TYPE_GCS: StorageType
+STORAGE_TYPE_AWS_S3: StorageType
+STORAGE_TYPE_LOCAL: StorageType
 STORAGE_TYPE_AZURE_BLOB: StorageType
 STORAGE_SUBSCRIPTION_TYPE_UNSPECIFIED: StorageSubscriptionType
 STORAGE_SUBSCRIPTION_TYPE_AWS_SNS: StorageSubscriptionType
 STORAGE_SUBSCRIPTION_TYPE_GOOGLE_PUBSUB: StorageSubscriptionType
 STORAGE_SUBSCRIPTION_TYPE_AZURE_EVENT_GRID: StorageSubscriptionType
+STORAGE_SUBSCRIPTION_TYPE_TILEBOX_CLI: StorageSubscriptionType
 STORAGE_EVENT_TYPE_UNSPECIFIED: StorageEventType
 STORAGE_EVENT_TYPE_CREATED: StorageEventType
 
@@ -58,18 +60,18 @@ class StorageLocation(_message.Message):
     def __init__(self, id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., location: _Optional[str] = ..., type: _Optional[_Union[StorageType, str]] = ..., name: _Optional[str] = ..., reference: _Optional[_Union[StorageLocationReference, _Mapping]] = ...) -> None: ...
 
 class StorageLocationReference(_message.Message):
-    __slots__ = ("aws_s3_bucket", "gcs_bucket", "azure_blob", "filesystem", "type")
+    __slots__ = ("aws_s3_bucket", "gcs_bucket", "azure_blob", "local", "type")
     AWS_S3_BUCKET_FIELD_NUMBER: _ClassVar[int]
     GCS_BUCKET_FIELD_NUMBER: _ClassVar[int]
     AZURE_BLOB_FIELD_NUMBER: _ClassVar[int]
-    FILESYSTEM_FIELD_NUMBER: _ClassVar[int]
+    LOCAL_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     aws_s3_bucket: AWSS3BucketReference
     gcs_bucket: GCSBucketReference
     azure_blob: AzureBlobReference
-    filesystem: FilesystemReference
+    local: LocalReference
     type: StorageType
-    def __init__(self, aws_s3_bucket: _Optional[_Union[AWSS3BucketReference, _Mapping]] = ..., gcs_bucket: _Optional[_Union[GCSBucketReference, _Mapping]] = ..., azure_blob: _Optional[_Union[AzureBlobReference, _Mapping]] = ..., filesystem: _Optional[_Union[FilesystemReference, _Mapping]] = ..., type: _Optional[_Union[StorageType, str]] = ...) -> None: ...
+    def __init__(self, aws_s3_bucket: _Optional[_Union[AWSS3BucketReference, _Mapping]] = ..., gcs_bucket: _Optional[_Union[GCSBucketReference, _Mapping]] = ..., azure_blob: _Optional[_Union[AzureBlobReference, _Mapping]] = ..., local: _Optional[_Union[LocalReference, _Mapping]] = ..., type: _Optional[_Union[StorageType, str]] = ...) -> None: ...
 
 class AWSS3BucketReference(_message.Message):
     __slots__ = ("bucket", "region")
@@ -99,7 +101,7 @@ class AzureBlobReference(_message.Message):
     region: str
     def __init__(self, storage_account_resource_id: _Optional[str] = ..., container: _Optional[str] = ..., region: _Optional[str] = ...) -> None: ...
 
-class FilesystemReference(_message.Message):
+class LocalReference(_message.Message):
     __slots__ = ("path",)
     PATH_FIELD_NUMBER: _ClassVar[int]
     path: str
@@ -138,10 +140,12 @@ class UpdateStorageLocationRequest(_message.Message):
     def __init__(self, storage_location_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., name: _Optional[str] = ...) -> None: ...
 
 class AWSSNSStorageSubscription(_message.Message):
-    __slots__ = ("topic_arn",)
+    __slots__ = ("topic_arn", "message_format")
     TOPIC_ARN_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FORMAT_FIELD_NUMBER: _ClassVar[int]
     topic_arn: str
-    def __init__(self, topic_arn: _Optional[str] = ...) -> None: ...
+    message_format: str
+    def __init__(self, topic_arn: _Optional[str] = ..., message_format: _Optional[str] = ...) -> None: ...
 
 class GooglePubSubStorageSubscription(_message.Message):
     __slots__ = ("subscription", "service_account_email", "audience")

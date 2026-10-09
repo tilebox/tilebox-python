@@ -30,12 +30,14 @@ from tilebox.datasets.query.time_interval import TimeInterval
 from tilebox.workflows.data import (
     Artifact,
     AutomationPrototype,
-    AzureStorageLocation,
+    AWSS3StorageLocation,
+    AzureBlobStorageLocation,
     Cluster,
     ComputedTask,
     CronTrigger,
     ExecutionStats,
     FilesystemNode,
+    GCSStorageLocation,
     Idling,
     Job,
     JobState,
@@ -332,14 +334,18 @@ def storage_locations(draw: DrawFn) -> StorageLocation:
     location = draw(alphanumerical_text(min_size=4, max_size=30))
     storage_type = draw(sampled_from(StorageType))
 
-    if storage_type == StorageType.AZURE:
+    if storage_type == StorageType.AZURE_BLOB:
         account = draw(alphanumerical_text(min_size=3, max_size=24))
         account_resource_id = (
             f"/subscriptions/example/resourceGroups/storage/providers/Microsoft.Storage/storageAccounts/{account}"
         )
-        return AzureStorageLocation(
+        return AzureBlobStorageLocation(
             storage_location_id, location, storage_type, storage_account_resource_id=account_resource_id
         )
+    if storage_type == StorageType.AWS_S3:
+        return AWSS3StorageLocation(storage_location_id, location, storage_type)
+    if storage_type == StorageType.GCS:
+        return GCSStorageLocation(storage_location_id, location, storage_type)
     return StorageLocation(storage_location_id, location, storage_type)
 
 

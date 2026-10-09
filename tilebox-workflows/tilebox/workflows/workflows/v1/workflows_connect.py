@@ -39,6 +39,9 @@ class WorkflowsService(Protocol):
     async def list_workflows(self, request: workflows_dot_v1_dot_workflows__pb2.ListWorkflowsRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.ListWorkflowsResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
+    async def list_public_workflows(self, request: workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsResponse:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+
     async def get_workflow(self, request: workflows_dot_v1_dot_workflows__pb2.GetWorkflowRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.Workflow:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
@@ -135,6 +138,16 @@ class WorkflowsServiceASGIApplication(ConnectASGIApplication[WorkflowsService]):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=svc.list_workflows,
+                ),
+                "/workflows.v1.WorkflowsService/ListPublicWorkflows": Endpoint.unary(
+                    method=MethodInfo(
+                        name="ListPublicWorkflows",
+                        service_name="workflows.v1.WorkflowsService",
+                        input=workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsRequest,
+                        output=workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.list_public_workflows,
                 ),
                 "/workflows.v1.WorkflowsService/GetWorkflow": Endpoint.unary(
                     method=MethodInfo(
@@ -360,6 +373,26 @@ class WorkflowsServiceClient(ConnectClient):
             timeout_ms=timeout_ms,
         )
 
+    async def list_public_workflows(
+        self,
+        request: workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsResponse:
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="ListPublicWorkflows",
+                service_name="workflows.v1.WorkflowsService",
+                input=workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsRequest,
+                output=workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
     async def get_workflow(
         self,
         request: workflows_dot_v1_dot_workflows__pb2.GetWorkflowRequest,
@@ -519,6 +552,8 @@ class WorkflowsServiceSync(Protocol):
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def list_workflows(self, request: workflows_dot_v1_dot_workflows__pb2.ListWorkflowsRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.ListWorkflowsResponse:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+    def list_public_workflows(self, request: workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsResponse:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def get_workflow(self, request: workflows_dot_v1_dot_workflows__pb2.GetWorkflowRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.Workflow:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def update_workflow(self, request: workflows_dot_v1_dot_workflows__pb2.UpdateWorkflowRequest, ctx: RequestContext) -> workflows_dot_v1_dot_workflows__pb2.Workflow:
@@ -608,6 +643,16 @@ class WorkflowsServiceWSGIApplication(ConnectWSGIApplication):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=service.list_workflows,
+                ),
+                "/workflows.v1.WorkflowsService/ListPublicWorkflows": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="ListPublicWorkflows",
+                        service_name="workflows.v1.WorkflowsService",
+                        input=workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsRequest,
+                        output=workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.list_public_workflows,
                 ),
                 "/workflows.v1.WorkflowsService/GetWorkflow": EndpointSync.unary(
                     method=MethodInfo(
@@ -827,6 +872,26 @@ class WorkflowsServiceClientSync(ConnectClientSync):
                 service_name="workflows.v1.WorkflowsService",
                 input=workflows_dot_v1_dot_workflows__pb2.ListWorkflowsRequest,
                 output=workflows_dot_v1_dot_workflows__pb2.ListWorkflowsResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    def list_public_workflows(
+        self,
+        request: workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsResponse:
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="ListPublicWorkflows",
+                service_name="workflows.v1.WorkflowsService",
+                input=workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsRequest,
+                output=workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsResponse,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,

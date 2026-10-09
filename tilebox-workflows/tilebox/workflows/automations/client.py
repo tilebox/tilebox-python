@@ -18,14 +18,6 @@ class AutomationClient:
     def __init__(self, service: AutomationService) -> None:
         self._service = service
 
-    def storage_locations(self) -> list[StorageLocation]:
-        """List all available storage locations that can potentially be used as storage event triggers.
-
-        Returns:
-            A list of all available storage locations.
-        """
-        return self._service.list_storage_locations()
-
     def all(self) -> list[AutomationPrototype]:
         """List all registered automations.
 

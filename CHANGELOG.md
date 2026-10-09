@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.65.0] - 2026-10-09
+
+### Added
+
+- `tilebox-workflows`: Add `client.storage_locations()` to find, list, create, and rename AWS S3, GCS,
+  Azure Blob, and local storage locations.
+- `tilebox-workflows`: Format `str(storage_location)` as an S3 or GCS URL, Azure container resource ID,
+  or local path.
+
+### Changed
+
+- `tilebox-workflows`: Replace `client.automations().storage_locations()` with `client.storage_locations().all()`.
+- `tilebox-workflows`: Rename `StorageType.S3` to `AWS_S3`, `FS` to `LOCAL`, and `AZURE` to `AZURE_BLOB`.
+  Rename `S3StorageLocation` to `AWSS3StorageLocation`
+  and `AzureStorageLocation` to `AzureBlobStorageLocation`.
+- `tilebox-workflows`: Local storage reads raise `ValueError` if the root path is an empty string, missing,
+  or not a directory. Empty directories are valid; missing files raise `FileNotFoundError`.
+
 ## [0.64.0] - 2026-10-06
 
 ### Added
@@ -601,7 +619,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.64.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.65.0...HEAD
+[0.65.0]: https://github.com/tilebox/tilebox-python/compare/v0.64.0...v0.65.0
 [0.64.0]: https://github.com/tilebox/tilebox-python/compare/v0.63.2...v0.64.0
 [0.63.2]: https://github.com/tilebox/tilebox-python/compare/v0.63.1...v0.63.2
 [0.63.1]: https://github.com/tilebox/tilebox-python/compare/v0.63.0...v0.63.1

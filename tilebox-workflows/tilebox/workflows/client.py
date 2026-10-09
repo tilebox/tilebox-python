@@ -23,6 +23,8 @@ from tilebox.workflows.observability.tracing import WorkflowTracer
 from tilebox.workflows.runner.executor import LazyStorageLocations
 from tilebox.workflows.runner.task_runner import TaskRunner, _LeaseRenewer
 from tilebox.workflows.runner.task_service import TaskService
+from tilebox.workflows.storage_locations.client import StorageLocationClient
+from tilebox.workflows.storage_locations.service import StorageLocationService
 from tilebox.workflows.task import Task
 from tilebox.workflows.workflows.client import WorkflowClient
 from tilebox.workflows.workflows.service import WorkflowService
@@ -207,7 +209,11 @@ class Client:
         Returns:
             A client for the automations service.
         """
-        return AutomationClient(AutomationService(self._automation_service, self._storage_location_service))
+        return AutomationClient(AutomationService(self._automation_service))
+
+    def storage_locations(self) -> StorageLocationClient:
+        """Get a client for storage locations."""
+        return StorageLocationClient(StorageLocationService(self._storage_location_service))
 
 
 def _token_from_env(url: str, token: str | None) -> str | None:

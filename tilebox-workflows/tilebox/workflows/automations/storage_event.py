@@ -13,7 +13,7 @@ from tilebox.workflows.workflows.v1.automation_pb2 import Automation as Automati
 from tilebox.workflows.workflows.v1.storage_location_pb2 import TriggeredStorageEvent as TriggeredStorageEventMessage
 
 _NOT_TRIGGERED = TriggeredStorageEvent(
-    StorageLocation(UUID(int=0), "", StorageType.FS),
+    StorageLocation(UUID(int=0), "", StorageType.LOCAL),
     StorageEventType.CREATED,
     "",
 )

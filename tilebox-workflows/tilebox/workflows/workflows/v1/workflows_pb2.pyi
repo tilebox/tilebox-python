@@ -1,5 +1,6 @@
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from tilebox.datasets.tilebox.v1 import id_pb2 as _id_pb2
+from tilebox.datasets.tilebox.v1 import query_pb2 as _query_pb2
 from tilebox.workflows.workflows.v1 import core_pb2 as _core_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -118,14 +119,32 @@ class UnpublishWorkflowReleaseResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class ListWorkflowsRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("page",)
+    PAGE_FIELD_NUMBER: _ClassVar[int]
+    page: _query_pb2.Pagination
+    def __init__(self, page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ...) -> None: ...
 
 class ListWorkflowsResponse(_message.Message):
-    __slots__ = ("workflows",)
+    __slots__ = ("workflows", "next_page")
     WORKFLOWS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_FIELD_NUMBER: _ClassVar[int]
     workflows: _containers.RepeatedCompositeFieldContainer[Workflow]
-    def __init__(self, workflows: _Optional[_Iterable[_Union[Workflow, _Mapping]]] = ...) -> None: ...
+    next_page: _query_pb2.Pagination
+    def __init__(self, workflows: _Optional[_Iterable[_Union[Workflow, _Mapping]]] = ..., next_page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ...) -> None: ...
+
+class ListPublicWorkflowsRequest(_message.Message):
+    __slots__ = ("page",)
+    PAGE_FIELD_NUMBER: _ClassVar[int]
+    page: _query_pb2.Pagination
+    def __init__(self, page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ...) -> None: ...
+
+class ListPublicWorkflowsResponse(_message.Message):
+    __slots__ = ("workflows", "next_page")
+    WORKFLOWS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_FIELD_NUMBER: _ClassVar[int]
+    workflows: _containers.RepeatedCompositeFieldContainer[Workflow]
+    next_page: _query_pb2.Pagination
+    def __init__(self, workflows: _Optional[_Iterable[_Union[Workflow, _Mapping]]] = ..., next_page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ...) -> None: ...
 
 class CreateWorkflowRequest(_message.Message):
     __slots__ = ("name", "description")
