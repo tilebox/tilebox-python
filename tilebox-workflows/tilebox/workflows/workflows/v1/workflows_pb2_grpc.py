@@ -50,6 +50,11 @@ class WorkflowsServiceStub:
                 request_serializer=workflows_dot_v1_dot_workflows__pb2.ListWorkflowsRequest.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_workflows__pb2.ListWorkflowsResponse.FromString,
                 _registered_method=True)
+        self.ListPublicWorkflows = channel.unary_unary(
+                '/workflows.v1.WorkflowsService/ListPublicWorkflows',
+                request_serializer=workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsRequest.SerializeToString,
+                response_deserializer=workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsResponse.FromString,
+                _registered_method=True)
         self.GetWorkflow = channel.unary_unary(
                 '/workflows.v1.WorkflowsService/GetWorkflow',
                 request_serializer=workflows_dot_v1_dot_workflows__pb2.GetWorkflowRequest.SerializeToString,
@@ -128,6 +133,12 @@ class WorkflowsServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def ListWorkflows(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListPublicWorkflows(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -212,6 +223,11 @@ def add_WorkflowsServiceServicer_to_server(servicer, server):
                     servicer.ListWorkflows,
                     request_deserializer=workflows_dot_v1_dot_workflows__pb2.ListWorkflowsRequest.FromString,
                     response_serializer=workflows_dot_v1_dot_workflows__pb2.ListWorkflowsResponse.SerializeToString,
+            ),
+            'ListPublicWorkflows': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListPublicWorkflows,
+                    request_deserializer=workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsRequest.FromString,
+                    response_serializer=workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsResponse.SerializeToString,
             ),
             'GetWorkflow': grpc.unary_unary_rpc_method_handler(
                     servicer.GetWorkflow,
@@ -439,6 +455,33 @@ class WorkflowsService:
             '/workflows.v1.WorkflowsService/ListWorkflows',
             workflows_dot_v1_dot_workflows__pb2.ListWorkflowsRequest.SerializeToString,
             workflows_dot_v1_dot_workflows__pb2.ListWorkflowsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListPublicWorkflows(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.WorkflowsService/ListPublicWorkflows',
+            workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsRequest.SerializeToString,
+            workflows_dot_v1_dot_workflows__pb2.ListPublicWorkflowsResponse.FromString,
             options,
             channel_credentials,
             insecure,

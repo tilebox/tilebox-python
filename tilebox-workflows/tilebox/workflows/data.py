@@ -969,13 +969,67 @@ class QueryJobSpansResponse:
 
 
 class StorageType(Enum):
-    GCS = storage_pb.STORAGE_TYPE_GCS_BUCKET  # Google Cloud Storage
-    S3 = storage_pb.STORAGE_TYPE_AWS_S3_BUCKET  # Amazon Web Services S3
-    FS = storage_pb.STORAGE_TYPE_FILESYSTEM  # Local Filesystem
-    AZURE = storage_pb.STORAGE_TYPE_AZURE_BLOB  # Azure Blob Storage
+    GCS = storage_pb.STORAGE_TYPE_GCS  # Google Cloud Storage
+    AWS_S3 = storage_pb.STORAGE_TYPE_AWS_S3  # Amazon Web Services S3
+    LOCAL = storage_pb.STORAGE_TYPE_LOCAL  # Local Filesystem
+    AZURE_BLOB = storage_pb.STORAGE_TYPE_AZURE_BLOB  # Azure Blob Storage
 
 
-_STORAGE_TYPE_TO_ENUM = {storage_type.value: storage_type for storage_type in StorageType}
+@dataclass(frozen=True)
+class AWSS3BucketReference:
+    bucket: str
+    region: str = ""
+
+    def to_message(self) -> storage_pb.StorageLocationReference:
+        return storage_pb.StorageLocationReference(
+            type=storage_pb.STORAGE_TYPE_AWS_S3,
+            aws_s3_bucket=storage_pb.AWSS3BucketReference(bucket=self.bucket, region=self.region),
+        )
+
+
+@dataclass(frozen=True)
+class GCSBucketReference:
+    bucket: str
+    project_id: str = ""
+    location: str = ""
+
+    def to_message(self) -> storage_pb.StorageLocationReference:
+        return storage_pb.StorageLocationReference(
+            type=storage_pb.STORAGE_TYPE_GCS,
+            gcs_bucket=storage_pb.GCSBucketReference(
+                bucket=self.bucket, project_id=self.project_id, location=self.location
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class AzureBlobReference:
+    storage_account_resource_id: str
+    container: str
+    region: str = ""
+
+    def to_message(self) -> storage_pb.StorageLocationReference:
+        return storage_pb.StorageLocationReference(
+            type=storage_pb.STORAGE_TYPE_AZURE_BLOB,
+            azure_blob=storage_pb.AzureBlobReference(
+                storage_account_resource_id=self.storage_account_resource_id,
+                container=self.container,
+                region=self.region,
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class LocalReference:
+    path: str
+
+    def to_message(self) -> storage_pb.StorageLocationReference:
+        return storage_pb.StorageLocationReference(
+            type=storage_pb.STORAGE_TYPE_LOCAL, local=storage_pb.LocalReference(path=self.path)
+        )
+
+
+StorageLocationReference: TypeAlias = AWSS3BucketReference | GCSBucketReference | AzureBlobReference | LocalReference
 
 
 @total_ordering
@@ -985,53 +1039,81 @@ class StorageLocation:
     location: str
     type: StorageType
     runner_context: "RunnerContext | None" = None
+    name: str = field(default="", kw_only=True)
 
     def __lt__(self, other: object) -> bool:
         if not isinstance(other, StorageLocation):
             return NotImplemented
         return (self.id, self.location, self.type.value) < (other.id, other.location, other.type.value)
 
+    def __str__(self) -> str:
+        match self.type:
+            case StorageType.AWS_S3:
+                return f"s3://{self.location}"
+            case StorageType.GCS:
+                return f"gs://{self.location}"
+            case StorageType.LOCAL:
+                return self.location
+            case _:
+                return self.type.name.lower().replace("_", "-")
+
     @classmethod
     def from_message(cls, storage_location: storage_pb.StorageLocation) -> "StorageLocation":
         """Convert a StorageLocation protobuf message to a StorageLocation object."""
-        location = storage_location.location
-        storage_type = storage_location.type
-        if storage_location.HasField("reference"):
-            reference = storage_location.reference
-            storage_type = reference.type
-            match storage_type:
-                case storage_pb.STORAGE_TYPE_AZURE_BLOB:
-                    return AzureStorageLocation(
-                        id=uuid_message_to_uuid(storage_location.id),
-                        location=reference.azure_blob.container,
-                        type=StorageType.AZURE,
-                        storage_account_resource_id=reference.azure_blob.storage_account_resource_id,
-                    )
-                case storage_pb.STORAGE_TYPE_GCS_BUCKET:
-                    location = reference.gcs_bucket.bucket
-                case storage_pb.STORAGE_TYPE_AWS_S3_BUCKET:
-                    return S3StorageLocation(
-                        id=uuid_message_to_uuid(storage_location.id),
-                        location=reference.aws_s3_bucket.bucket,
-                        type=StorageType.S3,
-                        region=reference.aws_s3_bucket.region or None,
-                    )
-                case storage_pb.STORAGE_TYPE_FILESYSTEM:
-                    location = reference.filesystem.path
-        return cls(
-            id=uuid_message_to_uuid(storage_location.id),
-            location=location,
-            type=_STORAGE_TYPE_TO_ENUM[storage_type],
-        )
+        reference = storage_location.reference
+        match reference.type:
+            case storage_pb.STORAGE_TYPE_AZURE_BLOB:
+                return AzureBlobStorageLocation(
+                    id=uuid_message_to_uuid(storage_location.id),
+                    name=storage_location.name,
+                    location=reference.azure_blob.container,
+                    type=StorageType.AZURE_BLOB,
+                    storage_account_resource_id=reference.azure_blob.storage_account_resource_id,
+                    region=reference.azure_blob.region,
+                )
+            case storage_pb.STORAGE_TYPE_GCS:
+                return GCSStorageLocation(
+                    id=uuid_message_to_uuid(storage_location.id),
+                    name=storage_location.name,
+                    location=reference.gcs_bucket.bucket,
+                    type=StorageType.GCS,
+                    project_id=reference.gcs_bucket.project_id,
+                    bucket_location=reference.gcs_bucket.location,
+                )
+            case storage_pb.STORAGE_TYPE_AWS_S3:
+                return AWSS3StorageLocation(
+                    id=uuid_message_to_uuid(storage_location.id),
+                    name=storage_location.name,
+                    location=reference.aws_s3_bucket.bucket,
+                    type=StorageType.AWS_S3,
+                    region=reference.aws_s3_bucket.region or None,
+                )
+            case storage_pb.STORAGE_TYPE_LOCAL:
+                return cls(
+                    id=uuid_message_to_uuid(storage_location.id),
+                    name=storage_location.name,
+                    location=reference.local.path,
+                    type=StorageType.LOCAL,
+                )
+            case _:
+                raise ValueError(f"Unsupported storage reference type: {reference.type}")
 
     def _with_runner_context(self, runner_context: "RunnerContext") -> "StorageLocation":
         return replace(self, runner_context=runner_context)
 
     def to_message(self) -> storage_pb.StorageLocation:
         """Convert a StorageLocation object to a StorageLocation protobuf message."""
-        return storage_pb.StorageLocation(
-            id=uuid_to_uuid_message(self.id), location=self.location, type=self.type.value
-        )
+        reference = storage_pb.StorageLocationReference(type=self.type.value)
+        match self.type:
+            case StorageType.AWS_S3:
+                reference.aws_s3_bucket.bucket = self.location
+            case StorageType.GCS:
+                reference.gcs_bucket.bucket = self.location
+            case StorageType.AZURE_BLOB:
+                reference.azure_blob.container = self.location
+            case StorageType.LOCAL:
+                reference.local.path = self.location
+        return storage_pb.StorageLocation(id=uuid_to_uuid_message(self.id), name=self.name, reference=reference)
 
     def read(self, path: str) -> bytes:
         runner_context = self.runner_context or RunnerContext()
@@ -1042,21 +1124,26 @@ class StorageLocation:
                 case StorageType.GCS:
                     span.set_attribute("bucket", self.location)
                     store = runner_context.gcs_client(self.location)
-                case StorageType.S3:
+                case StorageType.AWS_S3:
                     span.set_attribute("bucket", self.location)
-                    if isinstance(self, S3StorageLocation) and self.region:
+                    if isinstance(self, AWSS3StorageLocation) and self.region:
                         store = runner_context.s3_client(self.location, region=self.region)
                     else:
                         store = runner_context.s3_client(self.location)
-                case StorageType.AZURE:
-                    if not isinstance(self, AzureStorageLocation) or not self.storage_account_resource_id:
+                case StorageType.AZURE_BLOB:
+                    if not isinstance(self, AzureBlobStorageLocation) or not self.storage_account_resource_id:
                         raise ValueError("Azure storage location is missing its storage account resource ID")
                     span.set_attribute("storage_account_resource_id", self.storage_account_resource_id)
                     span.set_attribute("container", self.location)
                     store = runner_context.azure_client(self.storage_account_resource_id, self.location)
-                case StorageType.FS:
+                case StorageType.LOCAL:
+                    from obstore.store import LocalStore  # noqa: PLC0415
+
                     span.set_attribute("root_directory", self.location)
-                    return Path(self.location).joinpath(path).read_bytes()
+                    root = runner_context.local_path(self.location)
+                    if not self.location or not root.is_dir():
+                        raise ValueError(f"Local storage location root is not available: {self.location!r}")
+                    store = LocalStore(root)
 
             import obstore  # noqa: PLC0415
 
@@ -1064,28 +1151,41 @@ class StorageLocation:
 
 
 @dataclass(frozen=True)
-class S3StorageLocation(StorageLocation):
+class AWSS3StorageLocation(StorageLocation):
     region: str | None = field(default=None, kw_only=True)
 
     def to_message(self) -> storage_pb.StorageLocation:
         """Include the S3 bucket and its region in the storage reference."""
         message = super().to_message()
-        message.reference.type = storage_pb.STORAGE_TYPE_AWS_S3_BUCKET
-        message.reference.aws_s3_bucket.bucket = self.location
         message.reference.aws_s3_bucket.region = self.region or ""
         return message
 
 
 @dataclass(frozen=True)
-class AzureStorageLocation(StorageLocation):
+class GCSStorageLocation(StorageLocation):
+    project_id: str = field(default="", kw_only=True)
+    bucket_location: str = field(default="", kw_only=True)
+
+    def to_message(self) -> storage_pb.StorageLocation:
+        message = super().to_message()
+        message.reference.gcs_bucket.project_id = self.project_id
+        message.reference.gcs_bucket.location = self.bucket_location
+        return message
+
+
+@dataclass(frozen=True)
+class AzureBlobStorageLocation(StorageLocation):
     storage_account_resource_id: str = field(kw_only=True)
+    region: str = field(default="", kw_only=True)
+
+    def __str__(self) -> str:
+        return f"{self.storage_account_resource_id}/containers/{self.location}"
 
     def to_message(self) -> storage_pb.StorageLocation:
         """Include the Azure account and container in the storage reference."""
         message = super().to_message()
-        message.reference.type = storage_pb.STORAGE_TYPE_AZURE_BLOB
         message.reference.azure_blob.storage_account_resource_id = self.storage_account_resource_id
-        message.reference.azure_blob.container = self.location
+        message.reference.azure_blob.region = self.region
         return message
 
 

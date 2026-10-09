@@ -257,7 +257,7 @@ class LazyStorageLocations(MutableMapping[UUID, StorageLocation]):
                 return
             self._locations = {
                 location.id: location._with_runner_context(self._runner_context)  # noqa: SLF001
-                for location in self._client.automations().storage_locations()
+                for location in self._client.storage_locations().all()
             }
             self._loaded = True
 
