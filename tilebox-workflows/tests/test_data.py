@@ -48,9 +48,11 @@ from tilebox.workflows.data import (
     TaskSubmissionGroup,
     TaskSubmissions,
     Workflow,
+    WorkflowPresentation,
     WorkflowRelease,
 )
 from tilebox.workflows.formatting.job import JobWidget, RichDisplayJob
+from tilebox.workflows.workflows.v1 import workflows_pb2
 
 
 @given(task_identifiers())
@@ -163,6 +165,36 @@ def test_workflow_releases_to_message_and_back(release: WorkflowRelease) -> None
 @given(workflows())
 def test_workflows_to_message_and_back(workflow: Workflow) -> None:
     assert Workflow.from_message(workflow.to_message()) == workflow
+
+
+@pytest.mark.parametrize(
+    "presentation",
+    [
+        None,
+        WorkflowPresentation(),
+        WorkflowPresentation(
+            image_url="https://example.com/preview.png",
+            image_alt="Flood extent",
+            imagery_type=["SAR", "optical"],
+            use_case=["flood monitoring"],
+            dataset_label=["Sentinel-1", "Sentinel-2"],
+        ),
+    ],
+)
+def test_workflow_summary_and_presentation(presentation: WorkflowPresentation | None) -> None:
+    message = workflows_pb2.Workflow(
+        slug="flood-extent",
+        name="Flood extent",
+        summary="Map flooded areas",
+        description="A longer description of the workflow.",
+        presentation=workflows_pb2.WorkflowPresentation(**vars(presentation)) if presentation is not None else None,
+    )
+    workflow = Workflow.from_message(message)
+    assert workflow.summary == "Map flooded areas"
+    assert workflow.description == "A longer description of the workflow."
+    assert workflow.presentation == presentation
+    assert workflow.to_message() == message
+    assert workflow.to_message().HasField("presentation") == (presentation is not None)
 
 
 @given(task_submissions())

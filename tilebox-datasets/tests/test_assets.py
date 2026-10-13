@@ -13,6 +13,8 @@ from tilebox.datasets.assets import (
     MediaType,
 )
 from tilebox.datasets.datasets.stac.v1.asset_metadata_pb import (
+    ClassificationBitField,
+    ClassificationClass,
     EOCommonName,
     EOProperties,
     RasterProperties,
@@ -28,6 +30,7 @@ from tilebox.datasets.datasets.stac.v1.asset_pb import (
 )
 from tilebox.datasets.datasets.stac.v1.asset_pb import AssetLocation as ProtoAssetLocation
 from tilebox.datasets.datasets.stac.v1.asset_pb import Band as ProtoBand
+from tilebox.datasets.datasets.stac.v1.asset_pb2 import Assets as AssetsWire
 from tilebox.datasets.datasets.stac.v1.authentication_pb import (
     Authentication,
     AuthenticationFlow,
@@ -316,6 +319,60 @@ def test_band_compilation_lifts_metadata_and_interns_profiles() -> None:
     assert decoded == assets
     assert decoded["red-a"] == assets["red-a"]
     assert decoded["red-b"] == assets["red-b"]
+
+
+@pytest.mark.parametrize("placement", ["asset", "inherited", "shared", "override", "distinct"])
+def test_classification_bitfields_round_trip(placement: str) -> None:
+    cloud = ClassificationBitField(
+        offset=0,
+        length=2,
+        name="cloud",
+        description="Cloud confidence",
+        roles=["cloud", "quality"],
+        classes=[ClassificationClass(value=0, name="clear"), ClassificationClass(value=3, name="high")],
+    )
+    snow = ClassificationBitField(
+        offset=5,
+        length=1,
+        name="snow",
+        classes=[ClassificationClass(value=0, name="absent"), ClassificationClass(value=1, name="present")],
+    )
+    defaults = (cloud, snow)
+    asset_bitfields = defaults if placement in {"asset", "inherited", "override"} else ()
+    bands = {
+        "asset": (),
+        "inherited": (Band(name="qa"), Band(name="qa2")),
+        "shared": (Band(name="qa", bitfields=defaults), Band(name="qa2", bitfields=defaults)),
+        "override": (Band(name="qa"), Band(name="qa2", bitfields=(snow,))),
+        "distinct": (Band(name="qa", bitfields=(cloud,)), Band(name="qa", bitfields=(snow,))),
+    }[placement]
+    expected_bands = {
+        "asset": (),
+        "inherited": (defaults, defaults),
+        "shared": (defaults, defaults),
+        "override": (defaults, (snow,)),
+        "distinct": ((cloud,), (snow,)),
+    }[placement]
+    expected_asset = () if placement == "distinct" else defaults
+    authored = AssetCollection.from_assets(
+        [Asset(key="qa", primary=AssetLocation("https://example.com/qa.tif"), bitfields=asset_bitfields, bands=bands)]
+    )
+    assert tuple(band.bitfields for band in authored["qa"].bands) == expected_bands
+
+    compiled = authored.to_fields()["assets"]
+    assert tuple(compiled.assets[0].bitfields) == expected_asset
+    sparse_bitfields = [compiled.band_profiles[index].bitfields for index in compiled.assets[0].band_profile_indices]
+    assert sparse_bitfields == [list(bits) if bits != expected_asset else [] for bits in expected_bands]
+
+    wire = AssetsWire.FromString(compiled.to_binary())
+    if placement != "distinct":
+        assert wire.assets[0].bitfields[0].HasField("offset")
+        assert wire.assets[0].bitfields[0].offset == 0
+        assert wire.assets[0].bitfields[0].classes[0].HasField("value")
+    decoded = AssetCollection.from_datapoint(_scalar(assets=Assets.from_binary(wire.SerializeToString())))
+    assert decoded["qa"].bitfields == expected_asset
+    assert tuple(band.bitfields for band in decoded["qa"].bands) == expected_bands
+    assert decoded == authored
 
 
 def test_sar_metadata_is_lifted_field_by_field_and_round_trips() -> None:

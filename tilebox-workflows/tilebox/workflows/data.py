@@ -425,11 +425,41 @@ class ReleaseContent:
 
 
 @dataclass(order=True, frozen=True)
+class WorkflowPresentation:
+    image_url: str = ""
+    image_alt: str = ""
+    imagery_type: list[str] = field(default_factory=list)
+    use_case: list[str] = field(default_factory=list)
+    dataset_label: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_message(cls, presentation: workflows_pb2.WorkflowPresentation) -> "WorkflowPresentation":
+        return cls(
+            image_url=presentation.image_url,
+            image_alt=presentation.image_alt,
+            imagery_type=list(presentation.imagery_type),
+            use_case=list(presentation.use_case),
+            dataset_label=list(presentation.dataset_label),
+        )
+
+    def to_message(self) -> workflows_pb2.WorkflowPresentation:
+        return workflows_pb2.WorkflowPresentation(
+            image_url=self.image_url,
+            image_alt=self.image_alt,
+            imagery_type=self.imagery_type,
+            use_case=self.use_case,
+            dataset_label=self.dataset_label,
+        )
+
+
+@dataclass(order=True, frozen=True)
 class Workflow:
     slug: str
     name: str
     description: str
     releases: list["WorkflowRelease"] = field(default_factory=list)
+    summary: str = ""
+    presentation: WorkflowPresentation | None = field(default=None, compare=False)
 
     @classmethod
     def from_message(cls, workflow: workflows_pb2.Workflow) -> "Workflow":
@@ -439,6 +469,10 @@ class Workflow:
             name=workflow.name,
             description=workflow.description,
             releases=[WorkflowRelease.from_message(release) for release in workflow.releases],
+            summary=workflow.summary,
+            presentation=WorkflowPresentation.from_message(workflow.presentation)
+            if workflow.HasField("presentation")
+            else None,
         )
 
     def to_message(self) -> workflows_pb2.Workflow:
@@ -448,6 +482,8 @@ class Workflow:
             name=self.name,
             description=self.description,
             releases=[release.to_message() for release in self.releases],
+            summary=self.summary,
+            presentation=self.presentation.to_message() if self.presentation is not None else None,
         )
 
 

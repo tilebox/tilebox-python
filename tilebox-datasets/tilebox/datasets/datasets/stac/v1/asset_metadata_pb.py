@@ -121,7 +121,7 @@ _ClassificationClassFields: TypeAlias = Literal["value", "description", "name", 
 
 class ClassificationClass(Message[_ClassificationClassFields]):
     """
-    ClassificationClass contains all Classification 2.0 class fields. Bit-field definitions are intentionally deferred.
+    ClassificationClass contains all Classification 2.0 class fields.
 
     ```proto
     message datasets.stac.v1.ClassificationClass
@@ -188,6 +188,67 @@ class ClassificationClass(Message[_ClassificationClassFields]):
         nodata: bool
         percentage: float
         count: int
+
+_ClassificationBitFieldFields: TypeAlias = Literal["offset", "length", "classes", "name", "description", "roles"]
+
+class ClassificationBitField(Message[_ClassificationBitFieldFields]):
+    """
+    ClassificationBitField describes classes encoded in a contiguous range of bits, following Classification 2.0.
+    Offset zero denotes the least significant bit; class values apply after extracting this bit range.
+
+    ```proto
+    message datasets.stac.v1.ClassificationBitField
+    ```
+
+    Attributes:
+        offset:
+            ```proto
+            optional uint32 offset = 1;
+            ```
+        length:
+            ```proto
+            optional uint32 length = 2;
+            ```
+        classes:
+            ```proto
+            repeated datasets.stac.v1.ClassificationClass classes = 3;
+            ```
+        name:
+            ```proto
+            optional string name = 4;
+            ```
+        description:
+            ```proto
+            optional string description = 5;
+            ```
+        roles:
+            ```proto
+            repeated string roles = 6;
+            ```
+    """
+
+    __slots__ = ("offset", "length", "classes", "name", "description", "roles")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            offset: int | None = None,
+            length: int | None = None,
+            classes: list[ClassificationClass] | None = None,
+            name: str | None = None,
+            description: str | None = None,
+            roles: list[str] | None = None,
+        ) -> None:
+            pass
+
+        offset: int
+        length: int
+        classes: list[ClassificationClass]
+        name: str
+        description: str
+        roles: list[str]
 
 _ProjectionFields: TypeAlias = Literal["code", "bbox", "shape", "transform"]
 
@@ -471,12 +532,13 @@ class RasterSampling(Enum):
 
 
 _DESC = file_desc(
-    b'\n%datasets/stac/v1/asset_metadata.proto\x12\x10datasets.stac.v1"\xef\x01\n\x0cEOProperties\x12?\n\x0bcommon_name\x18\x01 \x01(\x0e2\x1e.datasets.stac.v1.EOCommonNameR\ncommonName\x122\n\x11center_wavelength\x18\x02 \x01(\x01R\x10centerWavelengthB\x05\xaa\x01\x02\x08\x01\x124\n\x13full_width_half_max\x18\x03 \x01(\x01R\x10fullWidthHalfMaxB\x05\xaa\x01\x02\x08\x01\x124\n\x12solar_illumination\x18\x04 \x01(\x01R\x11solarIlluminationB\x05\xaa\x01\x02\x08\x01"\xc2\x01\n\x10RasterProperties\x12<\n\x08sampling\x18\x01 \x01(\x0e2 .datasets.stac.v1.RasterSamplingR\x08sampling\x12\x1b\n\x05scale\x18\x02 \x01(\x01R\x05scaleB\x05\xaa\x01\x02\x08\x01\x12\x1d\n\x06offset\x18\x03 \x01(\x01R\x06offsetB\x05\xaa\x01\x02\x08\x01\x124\n\x12spatial_resolution\x18\x04 \x01(\x01R\x11spatialResolutionB\x05\xaa\x01\x02\x08\x01"\x9c\x02\n\x13ClassificationClass\x12\x1b\n\x05value\x18\x01 \x01(\x03R\x05valueB\x05\xaa\x01\x02\x08\x01\x12\'\n\x0bdescription\x18\x02 \x01(\tR\x0bdescriptionB\x05\xaa\x01\x02\x08\x01\x12\x19\n\x04name\x18\x03 \x01(\tR\x04nameB\x05\xaa\x01\x02\x08\x01\x12\x1b\n\x05title\x18\x04 \x01(\tR\x05titleB\x05\xaa\x01\x02\x08\x01\x12$\n\ncolor_hint\x18\x05 \x01(\tR\tcolorHintB\x05\xaa\x01\x02\x08\x01\x12\x1d\n\x06nodata\x18\x06 \x01(\x08R\x06nodataB\x05\xaa\x01\x02\x08\x01\x12%\n\npercentage\x18\x07 \x01(\x01R\npercentageB\x05\xaa\x01\x02\x08\x01\x12\x1b\n\x05count\x18\x08 \x01(\x04R\x05countB\x05\xaa\x01\x02\x08\x01"o\n\nProjection\x12\x19\n\x04code\x18\x01 \x01(\tR\x04codeB\x05\xaa\x01\x02\x08\x01\x12\x12\n\x04bbox\x18\x02 \x03(\x01R\x04bbox\x12\x14\n\x05shape\x18\x03 \x03(\x03R\x05shape\x12\x1c\n\ttransform\x18\x04 \x03(\x01R\ttransform"W\n\x04View\x12.\n\x0fincidence_angle\x18\x01 \x01(\x01R\x0eincidenceAngleB\x05\xaa\x01\x02\x08\x01\x12\x1f\n\x07azimuth\x18\x02 \x01(\x01R\x07azimuthB\x05\xaa\x01\x02\x08\x01"j\n\x04File\x12!\n\x08checksum\x18\x01 \x01(\x0cR\x08checksumB\x05\xaa\x01\x02\x08\x01\x12\x19\n\x04size\x18\x02 \x01(\x04R\x04sizeB\x05\xaa\x01\x02\x08\x01\x12$\n\nlocal_path\x18\x03 \x01(\tR\tlocalPathB\x05\xaa\x01\x02\x08\x01*\xc9\x04\n\x0cEOCommonName\x12\x1e\n\x1aEO_COMMON_NAME_UNSPECIFIED\x10\x00\x12\x16\n\x12EO_COMMON_NAME_PAN\x10\x01\x12\x1a\n\x16EO_COMMON_NAME_COASTAL\x10\x02\x12\x17\n\x13EO_COMMON_NAME_BLUE\x10\x03\x12\x18\n\x14EO_COMMON_NAME_GREEN\x10\x04\x12\x1a\n\x16EO_COMMON_NAME_GREEN05\x10\x05\x12\x19\n\x15EO_COMMON_NAME_YELLOW\x10\x06\x12\x16\n\x12EO_COMMON_NAME_RED\x10\x07\x12\x1a\n\x16EO_COMMON_NAME_REDEDGE\x10\x08\x12\x1d\n\x19EO_COMMON_NAME_REDEDGE071\x10\t\x12\x1d\n\x19EO_COMMON_NAME_REDEDGE075\x10\n\x12\x1d\n\x19EO_COMMON_NAME_REDEDGE078\x10\x0b\x12\x16\n\x12EO_COMMON_NAME_NIR\x10\x0c\x12\x18\n\x14EO_COMMON_NAME_NIR08\x10\r\x12\x18\n\x14EO_COMMON_NAME_NIR09\x10\x0e\x12\x19\n\x15EO_COMMON_NAME_CIRRUS\x10\x0f\x12\x19\n\x15EO_COMMON_NAME_SWIR16\x10\x10\x12\x19\n\x15EO_COMMON_NAME_SWIR22\x10\x11\x12\x17\n\x13EO_COMMON_NAME_LWIR\x10\x12\x12\x19\n\x15EO_COMMON_NAME_LWIR11\x10\x13\x12\x19\n\x15EO_COMMON_NAME_LWIR12\x10\x14*f\n\x0eRasterSampling\x12\x1f\n\x1bRASTER_SAMPLING_UNSPECIFIED\x10\x00\x12\x18\n\x14RASTER_SAMPLING_AREA\x10\x01\x12\x19\n\x15RASTER_SAMPLING_POINT\x10\x02B\x05\x92\x03\x02\x08\x02b\x08editionsp\xe8\x07',
+    b'\n%datasets/stac/v1/asset_metadata.proto\x12\x10datasets.stac.v1"\xef\x01\n\x0cEOProperties\x12?\n\x0bcommon_name\x18\x01 \x01(\x0e2\x1e.datasets.stac.v1.EOCommonNameR\ncommonName\x122\n\x11center_wavelength\x18\x02 \x01(\x01R\x10centerWavelengthB\x05\xaa\x01\x02\x08\x01\x124\n\x13full_width_half_max\x18\x03 \x01(\x01R\x10fullWidthHalfMaxB\x05\xaa\x01\x02\x08\x01\x124\n\x12solar_illumination\x18\x04 \x01(\x01R\x11solarIlluminationB\x05\xaa\x01\x02\x08\x01"\xc2\x01\n\x10RasterProperties\x12<\n\x08sampling\x18\x01 \x01(\x0e2 .datasets.stac.v1.RasterSamplingR\x08sampling\x12\x1b\n\x05scale\x18\x02 \x01(\x01R\x05scaleB\x05\xaa\x01\x02\x08\x01\x12\x1d\n\x06offset\x18\x03 \x01(\x01R\x06offsetB\x05\xaa\x01\x02\x08\x01\x124\n\x12spatial_resolution\x18\x04 \x01(\x01R\x11spatialResolutionB\x05\xaa\x01\x02\x08\x01"\x9c\x02\n\x13ClassificationClass\x12\x1b\n\x05value\x18\x01 \x01(\x03R\x05valueB\x05\xaa\x01\x02\x08\x01\x12\'\n\x0bdescription\x18\x02 \x01(\tR\x0bdescriptionB\x05\xaa\x01\x02\x08\x01\x12\x19\n\x04name\x18\x03 \x01(\tR\x04nameB\x05\xaa\x01\x02\x08\x01\x12\x1b\n\x05title\x18\x04 \x01(\tR\x05titleB\x05\xaa\x01\x02\x08\x01\x12$\n\ncolor_hint\x18\x05 \x01(\tR\tcolorHintB\x05\xaa\x01\x02\x08\x01\x12\x1d\n\x06nodata\x18\x06 \x01(\x08R\x06nodataB\x05\xaa\x01\x02\x08\x01\x12%\n\npercentage\x18\x07 \x01(\x01R\npercentageB\x05\xaa\x01\x02\x08\x01\x12\x1b\n\x05count\x18\x08 \x01(\x04R\x05countB\x05\xaa\x01\x02\x08\x01"\xf1\x01\n\x16ClassificationBitField\x12\x1d\n\x06offset\x18\x01 \x01(\rR\x06offsetB\x05\xaa\x01\x02\x08\x01\x12\x1d\n\x06length\x18\x02 \x01(\rR\x06lengthB\x05\xaa\x01\x02\x08\x01\x12?\n\x07classes\x18\x03 \x03(\x0b2%.datasets.stac.v1.ClassificationClassR\x07classes\x12\x19\n\x04name\x18\x04 \x01(\tR\x04nameB\x05\xaa\x01\x02\x08\x01\x12\'\n\x0bdescription\x18\x05 \x01(\tR\x0bdescriptionB\x05\xaa\x01\x02\x08\x01\x12\x14\n\x05roles\x18\x06 \x03(\tR\x05roles"o\n\nProjection\x12\x19\n\x04code\x18\x01 \x01(\tR\x04codeB\x05\xaa\x01\x02\x08\x01\x12\x12\n\x04bbox\x18\x02 \x03(\x01R\x04bbox\x12\x14\n\x05shape\x18\x03 \x03(\x03R\x05shape\x12\x1c\n\ttransform\x18\x04 \x03(\x01R\ttransform"W\n\x04View\x12.\n\x0fincidence_angle\x18\x01 \x01(\x01R\x0eincidenceAngleB\x05\xaa\x01\x02\x08\x01\x12\x1f\n\x07azimuth\x18\x02 \x01(\x01R\x07azimuthB\x05\xaa\x01\x02\x08\x01"j\n\x04File\x12!\n\x08checksum\x18\x01 \x01(\x0cR\x08checksumB\x05\xaa\x01\x02\x08\x01\x12\x19\n\x04size\x18\x02 \x01(\x04R\x04sizeB\x05\xaa\x01\x02\x08\x01\x12$\n\nlocal_path\x18\x03 \x01(\tR\tlocalPathB\x05\xaa\x01\x02\x08\x01*\xc9\x04\n\x0cEOCommonName\x12\x1e\n\x1aEO_COMMON_NAME_UNSPECIFIED\x10\x00\x12\x16\n\x12EO_COMMON_NAME_PAN\x10\x01\x12\x1a\n\x16EO_COMMON_NAME_COASTAL\x10\x02\x12\x17\n\x13EO_COMMON_NAME_BLUE\x10\x03\x12\x18\n\x14EO_COMMON_NAME_GREEN\x10\x04\x12\x1a\n\x16EO_COMMON_NAME_GREEN05\x10\x05\x12\x19\n\x15EO_COMMON_NAME_YELLOW\x10\x06\x12\x16\n\x12EO_COMMON_NAME_RED\x10\x07\x12\x1a\n\x16EO_COMMON_NAME_REDEDGE\x10\x08\x12\x1d\n\x19EO_COMMON_NAME_REDEDGE071\x10\t\x12\x1d\n\x19EO_COMMON_NAME_REDEDGE075\x10\n\x12\x1d\n\x19EO_COMMON_NAME_REDEDGE078\x10\x0b\x12\x16\n\x12EO_COMMON_NAME_NIR\x10\x0c\x12\x18\n\x14EO_COMMON_NAME_NIR08\x10\r\x12\x18\n\x14EO_COMMON_NAME_NIR09\x10\x0e\x12\x19\n\x15EO_COMMON_NAME_CIRRUS\x10\x0f\x12\x19\n\x15EO_COMMON_NAME_SWIR16\x10\x10\x12\x19\n\x15EO_COMMON_NAME_SWIR22\x10\x11\x12\x17\n\x13EO_COMMON_NAME_LWIR\x10\x12\x12\x19\n\x15EO_COMMON_NAME_LWIR11\x10\x13\x12\x19\n\x15EO_COMMON_NAME_LWIR12\x10\x14*f\n\x0eRasterSampling\x12\x1f\n\x1bRASTER_SAMPLING_UNSPECIFIED\x10\x00\x12\x18\n\x14RASTER_SAMPLING_AREA\x10\x01\x12\x19\n\x15RASTER_SAMPLING_POINT\x10\x02B\x05\x92\x03\x02\x08\x02b\x08editionsp\xe8\x07',
     [],
     {
         "EOProperties": EOProperties,
         "RasterProperties": RasterProperties,
         "ClassificationClass": ClassificationClass,
+        "ClassificationBitField": ClassificationBitField,
         "Projection": Projection,
         "View": View,
         "File": File,

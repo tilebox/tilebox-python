@@ -77,14 +77,16 @@ class GetWorkflowRequest(_message.Message):
     def __init__(self, workflow_slug: _Optional[str] = ...) -> None: ...
 
 class UpdateWorkflowRequest(_message.Message):
-    __slots__ = ("workflow_slug", "name", "description")
+    __slots__ = ("workflow_slug", "name", "summary", "description")
     WORKFLOW_SLUG_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     workflow_slug: str
     name: str
+    summary: str
     description: str
-    def __init__(self, workflow_slug: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+    def __init__(self, workflow_slug: _Optional[str] = ..., name: _Optional[str] = ..., summary: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
 
 class DeleteWorkflowRequest(_message.Message):
     __slots__ = ("workflow_slug",)
@@ -147,24 +149,44 @@ class ListPublicWorkflowsResponse(_message.Message):
     def __init__(self, workflows: _Optional[_Iterable[_Union[Workflow, _Mapping]]] = ..., next_page: _Optional[_Union[_query_pb2.Pagination, _Mapping]] = ...) -> None: ...
 
 class CreateWorkflowRequest(_message.Message):
-    __slots__ = ("name", "description")
+    __slots__ = ("name", "summary", "description")
     NAME_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     name: str
+    summary: str
     description: str
-    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., summary: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
 
 class Workflow(_message.Message):
-    __slots__ = ("slug", "name", "description", "releases")
+    __slots__ = ("slug", "name", "summary", "description", "releases", "presentation")
     SLUG_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     RELEASES_FIELD_NUMBER: _ClassVar[int]
+    PRESENTATION_FIELD_NUMBER: _ClassVar[int]
     slug: str
     name: str
+    summary: str
     description: str
     releases: _containers.RepeatedCompositeFieldContainer[WorkflowRelease]
-    def __init__(self, slug: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., releases: _Optional[_Iterable[_Union[WorkflowRelease, _Mapping]]] = ...) -> None: ...
+    presentation: WorkflowPresentation
+    def __init__(self, slug: _Optional[str] = ..., name: _Optional[str] = ..., summary: _Optional[str] = ..., description: _Optional[str] = ..., releases: _Optional[_Iterable[_Union[WorkflowRelease, _Mapping]]] = ..., presentation: _Optional[_Union[WorkflowPresentation, _Mapping]] = ...) -> None: ...
+
+class WorkflowPresentation(_message.Message):
+    __slots__ = ("image_url", "image_alt", "imagery_type", "use_case", "dataset_label")
+    IMAGE_URL_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_ALT_FIELD_NUMBER: _ClassVar[int]
+    IMAGERY_TYPE_FIELD_NUMBER: _ClassVar[int]
+    USE_CASE_FIELD_NUMBER: _ClassVar[int]
+    DATASET_LABEL_FIELD_NUMBER: _ClassVar[int]
+    image_url: str
+    image_alt: str
+    imagery_type: _containers.RepeatedScalarFieldContainer[str]
+    use_case: _containers.RepeatedScalarFieldContainer[str]
+    dataset_label: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, image_url: _Optional[str] = ..., image_alt: _Optional[str] = ..., imagery_type: _Optional[_Iterable[str]] = ..., use_case: _Optional[_Iterable[str]] = ..., dataset_label: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class WorkflowRelease(_message.Message):
     __slots__ = ("id", "artifact", "content", "created_at", "clusters")

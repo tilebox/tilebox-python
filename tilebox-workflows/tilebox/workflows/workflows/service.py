@@ -37,8 +37,8 @@ class WorkflowService:
             with_pythonic_errors(WorkflowsServiceStub(channel)) if hasattr(channel, "unary_unary") else channel
         )
 
-    def create(self, name: str, description: str = "") -> Workflow:
-        request = CreateWorkflowRequest(name=name, description=description)
+    def create(self, name: str, summary: str, description: str = "") -> Workflow:
+        request = CreateWorkflowRequest(name=name, summary=summary, description=description)
         return Workflow.from_message(self.service.CreateWorkflow(request))
 
     def list_all(self) -> list[Workflow]:
@@ -50,8 +50,16 @@ class WorkflowService:
         request = GetWorkflowRequest(workflow_slug=workflow_slug)
         return Workflow.from_message(self.service.GetWorkflow(request))
 
-    def update(self, workflow_slug: str, name: str | None = None, description: str | None = None) -> Workflow:
-        request = UpdateWorkflowRequest(workflow_slug=workflow_slug, name=name, description=description)
+    def update(
+        self,
+        workflow_slug: str,
+        name: str | None = None,
+        summary: str | None = None,
+        description: str | None = None,
+    ) -> Workflow:
+        request = UpdateWorkflowRequest(
+            workflow_slug=workflow_slug, name=name, summary=summary, description=description
+        )
         return Workflow.from_message(self.service.UpdateWorkflow(request))
 
     def delete(self, workflow_slug: str) -> None:

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-datasets`: Support STAC classification bitfields on assets and bands, including inheritance,
+  shared metadata lifting, and protobuf round trips.
+- `tilebox-workflows`: Add workflow summaries and optional presentation metadata.
+
+### Changed
+
+- Update generated protobuf code to the latest API.
+- `tilebox-workflows`: Change workflow creation to `create(name, summary, description="")`, with a required summary.
+  Change updates to `update(workflow_or_slug, name=None, summary=None, description=None)`.
+  The positional order is now name, summary, description. For summary and description updates,
+  `None` leaves the value unchanged and `""` clears it.
+
 ## [0.65.0] - 2026-10-09
 
 ### Added

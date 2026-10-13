@@ -16,7 +16,7 @@ from . import asset_metadata_pb, core_pb, product_pb, sar_pb, satellite_pb
 if TYPE_CHECKING:
     from protobuf import DescFile
 
-    from .asset_metadata_pb import ClassificationClass, EOProperties, File, Projection, RasterProperties, View
+    from .asset_metadata_pb import ClassificationBitField, ClassificationClass, EOProperties, File, Projection, RasterProperties, View
     from .core_pb import MediaType
     from .product_pb import ProductProperties
     from .sar_pb import SARProperties
@@ -174,7 +174,7 @@ class AssetLocation(Message[_AssetLocationFields]):
         href: str
         alternate_name: str
 
-_BandFields: TypeAlias = Literal["name", "description", "data_type", "nodata", "unit", "eo", "raster", "classes", "sar"]
+_BandFields: TypeAlias = Literal["name", "description", "data_type", "nodata", "unit", "eo", "raster", "classes", "sar", "bitfields"]
 
 class Band(Message[_BandFields]):
     """
@@ -224,9 +224,13 @@ class Band(Message[_BandFields]):
             ```proto
             optional datasets.stac.v1.SARProperties sar = 9;
             ```
+        bitfields:
+            ```proto
+            repeated datasets.stac.v1.ClassificationBitField bitfields = 10;
+            ```
     """
 
-    __slots__ = ("name", "description", "data_type", "nodata", "unit", "eo", "raster", "classes", "sar")
+    __slots__ = ("name", "description", "data_type", "nodata", "unit", "eo", "raster", "classes", "sar", "bitfields")
 
     if TYPE_CHECKING:
 
@@ -242,6 +246,7 @@ class Band(Message[_BandFields]):
             raster: RasterProperties | None = None,
             classes: list[ClassificationClass] | None = None,
             sar: SARProperties | None = None,
+            bitfields: list[ClassificationBitField] | None = None,
         ) -> None:
             pass
 
@@ -254,8 +259,9 @@ class Band(Message[_BandFields]):
         raster: RasterProperties | None
         classes: list[ClassificationClass]
         sar: SARProperties | None
+        bitfields: list[ClassificationBitField]
 
-_AssetFields: TypeAlias = Literal["key", "primary", "alternates", "media_type", "title", "description", "roles", "custom_roles", "gsd", "band_profile_indices", "data_type", "nodata", "statistics", "unit", "eo", "raster", "projection", "view", "classes", "file", "sar", "satellite", "product"]
+_AssetFields: TypeAlias = Literal["key", "primary", "alternates", "media_type", "title", "description", "roles", "custom_roles", "gsd", "band_profile_indices", "data_type", "nodata", "statistics", "unit", "eo", "raster", "projection", "view", "classes", "file", "sar", "satellite", "product", "bitfields"]
 
 class Asset(Message[_AssetFields]):
     """
@@ -366,9 +372,13 @@ class Asset(Message[_AssetFields]):
             ```proto
             optional datasets.stac.v1.ProductProperties product = 23;
             ```
+        bitfields:
+            ```proto
+            repeated datasets.stac.v1.ClassificationBitField bitfields = 24;
+            ```
     """
 
-    __slots__ = ("key", "primary", "alternates", "media_type", "title", "description", "roles", "custom_roles", "gsd", "band_profile_indices", "data_type", "nodata", "statistics", "unit", "eo", "raster", "projection", "view", "classes", "file", "sar", "satellite", "product")
+    __slots__ = ("key", "primary", "alternates", "media_type", "title", "description", "roles", "custom_roles", "gsd", "band_profile_indices", "data_type", "nodata", "statistics", "unit", "eo", "raster", "projection", "view", "classes", "file", "sar", "satellite", "product", "bitfields")
 
     if TYPE_CHECKING:
 
@@ -398,6 +408,7 @@ class Asset(Message[_AssetFields]):
             sar: SARProperties | None = None,
             satellite: SatelliteProperties | None = None,
             product: ProductProperties | None = None,
+            bitfields: list[ClassificationBitField] | None = None,
         ) -> None:
             pass
 
@@ -424,6 +435,7 @@ class Asset(Message[_AssetFields]):
         sar: SARProperties | None
         satellite: SatelliteProperties | None
         product: ProductProperties | None
+        bitfields: list[ClassificationBitField]
 
 _AssetsFields: TypeAlias = Literal["access_profiles", "band_profiles", "assets"]
 
@@ -737,7 +749,7 @@ class DataType(Enum):
 
 
 _DESC = file_desc(
-    b'\n\x1cdatasets/stac/v1/asset.proto\x12\x10datasets.stac.v1\x1a%datasets/stac/v1/asset_metadata.proto\x1a\x1bdatasets/stac/v1/core.proto\x1a\x1edatasets/stac/v1/product.proto\x1a\x1adatasets/stac/v1/sar.proto\x1a datasets/stac/v1/satellite.proto"N\n\nStatistics\x12\x1f\n\x07minimum\x18\x01 \x01(\x01R\x07minimumB\x05\xaa\x01\x02\x08\x01\x12\x1f\n\x07maximum\x18\x02 \x01(\x01R\x07maximumB\x05\xaa\x01\x02\x08\x01"\xd3\x01\n\x12AssetAccessProfile\x12#\n\ralternate_key\x18\x01 \x01(\tR\x0calternateKey\x12;\n\x16default_alternate_name\x18\x02 \x01(\tR\x14defaultAlternateNameB\x05\xaa\x01\x02\x08\x01\x12\x1b\n\tbase_href\x18\x03 \x01(\tR\x08baseHref\x12!\n\x0cstorage_refs\x18\x04 \x03(\tR\x0bstorageRefs\x12\x1b\n\tauth_refs\x18\x05 \x03(\tR\x08authRefs"\x91\x01\n\rAssetLocation\x127\n\x14access_profile_index\x18\x01 \x01(\rR\x12accessProfileIndexB\x05\xaa\x01\x02\x08\x01\x12\x19\n\x04href\x18\x02 \x01(\tR\x04hrefB\x05\xaa\x01\x02\x08\x01\x12,\n\x0ealternate_name\x18\x03 \x01(\tR\ralternateNameB\x05\xaa\x01\x02\x08\x01"\x9d\x03\n\x04Band\x12\x19\n\x04name\x18\x01 \x01(\tR\x04nameB\x05\xaa\x01\x02\x08\x01\x12\'\n\x0bdescription\x18\x02 \x01(\tR\x0bdescriptionB\x05\xaa\x01\x02\x08\x01\x127\n\tdata_type\x18\x03 \x01(\x0e2\x1a.datasets.stac.v1.DataTypeR\x08dataType\x12\x1d\n\x06nodata\x18\x04 \x01(\x01R\x06nodataB\x05\xaa\x01\x02\x08\x01\x12\x19\n\x04unit\x18\x05 \x01(\tR\x04unitB\x05\xaa\x01\x02\x08\x01\x12.\n\x02eo\x18\x06 \x01(\x0b2\x1e.datasets.stac.v1.EOPropertiesR\x02eo\x12:\n\x06raster\x18\x07 \x01(\x0b2".datasets.stac.v1.RasterPropertiesR\x06raster\x12?\n\x07classes\x18\x08 \x03(\x0b2%.datasets.stac.v1.ClassificationClassR\x07classes\x121\n\x03sar\x18\t \x01(\x0b2\x1f.datasets.stac.v1.SARPropertiesR\x03sar"\xe8\x08\n\x05Asset\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x129\n\x07primary\x18\x02 \x01(\x0b2\x1f.datasets.stac.v1.AssetLocationR\x07primary\x12?\n\nalternates\x18\x03 \x03(\x0b2\x1f.datasets.stac.v1.AssetLocationR\nalternates\x12:\n\nmedia_type\x18\x04 \x01(\x0b2\x1b.datasets.stac.v1.MediaTypeR\tmediaType\x12\x1b\n\x05title\x18\x05 \x01(\tR\x05titleB\x05\xaa\x01\x02\x08\x01\x12\'\n\x0bdescription\x18\x06 \x01(\tR\x0bdescriptionB\x05\xaa\x01\x02\x08\x01\x126\n\x05roles\x18\x07 \x03(\x0e2 .datasets.stac.v1.KnownAssetRoleR\x05roles\x12!\n\x0ccustom_roles\x18\x08 \x03(\tR\x0bcustomRoles\x12\x17\n\x03gsd\x18\t \x01(\x01R\x03gsdB\x05\xaa\x01\x02\x08\x01\x120\n\x14band_profile_indices\x18\n \x03(\rR\x12bandProfileIndices\x127\n\tdata_type\x18\x0b \x01(\x0e2\x1a.datasets.stac.v1.DataTypeR\x08dataType\x12\x1d\n\x06nodata\x18\x0c \x01(\x01R\x06nodataB\x05\xaa\x01\x02\x08\x01\x12<\n\nstatistics\x18\r \x01(\x0b2\x1c.datasets.stac.v1.StatisticsR\nstatistics\x12\x19\n\x04unit\x18\x0e \x01(\tR\x04unitB\x05\xaa\x01\x02\x08\x01\x12.\n\x02eo\x18\x0f \x01(\x0b2\x1e.datasets.stac.v1.EOPropertiesR\x02eo\x12:\n\x06raster\x18\x10 \x01(\x0b2".datasets.stac.v1.RasterPropertiesR\x06raster\x12<\n\nprojection\x18\x11 \x01(\x0b2\x1c.datasets.stac.v1.ProjectionR\nprojection\x12*\n\x04view\x18\x12 \x01(\x0b2\x16.datasets.stac.v1.ViewR\x04view\x12?\n\x07classes\x18\x13 \x03(\x0b2%.datasets.stac.v1.ClassificationClassR\x07classes\x12*\n\x04file\x18\x14 \x01(\x0b2\x16.datasets.stac.v1.FileR\x04file\x121\n\x03sar\x18\x15 \x01(\x0b2\x1f.datasets.stac.v1.SARPropertiesR\x03sar\x12C\n\tsatellite\x18\x16 \x01(\x0b2%.datasets.stac.v1.SatellitePropertiesR\tsatellite\x12=\n\x07product\x18\x17 \x01(\x0b2#.datasets.stac.v1.ProductPropertiesR\x07product"\xc5\x01\n\x06Assets\x12M\n\x0faccess_profiles\x18\x01 \x03(\x0b2$.datasets.stac.v1.AssetAccessProfileR\x0eaccessProfiles\x12;\n\rband_profiles\x18\x02 \x03(\x0b2\x16.datasets.stac.v1.BandR\x0cbandProfiles\x12/\n\x06assets\x18\x03 \x03(\x0b2\x17.datasets.stac.v1.AssetR\x06assets*\xbe\x07\n\x0eKnownAssetRole\x12 \n\x1cKNOWN_ASSET_ROLE_UNSPECIFIED\x10\x00\x12\x19\n\x15KNOWN_ASSET_ROLE_DATA\x10\x01\x12\x1d\n\x19KNOWN_ASSET_ROLE_METADATA\x10\x02\x12\x1e\n\x1aKNOWN_ASSET_ROLE_THUMBNAIL\x10\x03\x12\x1d\n\x19KNOWN_ASSET_ROLE_OVERVIEW\x10\x04\x12\x1b\n\x17KNOWN_ASSET_ROLE_VISUAL\x10\x05\x12\x19\n\x15KNOWN_ASSET_ROLE_DATE\x10\x06\x12\x1c\n\x18KNOWN_ASSET_ROLE_GRAPHIC\x10\x07\x12\x1e\n\x1aKNOWN_ASSET_ROLE_DATA_MASK\x10\x08\x12\x1d\n\x19KNOWN_ASSET_ROLE_SNOW_ICE\x10\t\x12\x1f\n\x1bKNOWN_ASSET_ROLE_LAND_WATER\x10\n\x12\x1f\n\x1bKNOWN_ASSET_ROLE_WATER_MASK\x10\x0b\x12\x1e\n\x1aKNOWN_ASSET_ROLE_ISO_19115\x10\x0c\x12 \n\x1cKNOWN_ASSET_ROLE_REFLECTANCE\x10d\x12 \n\x1cKNOWN_ASSET_ROLE_TEMPERATURE\x10e\x12\x1f\n\x1bKNOWN_ASSET_ROLE_SATURATION\x10f\x12\x1a\n\x16KNOWN_ASSET_ROLE_CLOUD\x10g\x12!\n\x1dKNOWN_ASSET_ROLE_CLOUD_SHADOW\x10h\x12+\n&KNOWN_ASSET_ROLE_LOCAL_INCIDENCE_ANGLE\x10\xc8\x01\x12/\n*KNOWN_ASSET_ROLE_ELLIPSOID_INCIDENCE_ANGLE\x10\xc9\x01\x12!\n\x1cKNOWN_ASSET_ROLE_NOISE_POWER\x10\xca\x01\x12\x1f\n\x1aKNOWN_ASSET_ROLE_AMPLITUDE\x10\xcb\x01\x12\x1f\n\x1aKNOWN_ASSET_ROLE_MAGNITUDE\x10\xcc\x01\x12\x1c\n\x17KNOWN_ASSET_ROLE_SIGMA0\x10\xcd\x01\x12\x1b\n\x16KNOWN_ASSET_ROLE_BETA0\x10\xce\x01\x12\x1c\n\x17KNOWN_ASSET_ROLE_GAMMA0\x10\xcf\x01\x12!\n\x1cKNOWN_ASSET_ROLE_DATE_OFFSET\x10\xd0\x01\x12\x1c\n\x17KNOWN_ASSET_ROLE_COVMAT\x10\xd1\x01\x12\x19\n\x14KNOWN_ASSET_ROLE_PRD\x10\xd2\x01*\x85\x03\n\x08DataType\x12\x19\n\x15DATA_TYPE_UNSPECIFIED\x10\x00\x12\x12\n\x0eDATA_TYPE_INT8\x10\x01\x12\x13\n\x0fDATA_TYPE_INT16\x10\x02\x12\x13\n\x0fDATA_TYPE_INT32\x10\x03\x12\x13\n\x0fDATA_TYPE_INT64\x10\x04\x12\x13\n\x0fDATA_TYPE_UINT8\x10\x05\x12\x14\n\x10DATA_TYPE_UINT16\x10\x06\x12\x14\n\x10DATA_TYPE_UINT32\x10\x07\x12\x14\n\x10DATA_TYPE_UINT64\x10\x08\x12\x15\n\x11DATA_TYPE_FLOAT16\x10\t\x12\x15\n\x11DATA_TYPE_FLOAT32\x10\n\x12\x15\n\x11DATA_TYPE_FLOAT64\x10\x0b\x12\x14\n\x10DATA_TYPE_CINT16\x10\x0c\x12\x14\n\x10DATA_TYPE_CINT32\x10\r\x12\x16\n\x12DATA_TYPE_CFLOAT32\x10\x0e\x12\x16\n\x12DATA_TYPE_CFLOAT64\x10\x0f\x12\x13\n\x0fDATA_TYPE_OTHER\x10\x10B\x05\x92\x03\x02\x08\x02b\x08editionsp\xe8\x07',
+    b'\n\x1cdatasets/stac/v1/asset.proto\x12\x10datasets.stac.v1\x1a%datasets/stac/v1/asset_metadata.proto\x1a\x1bdatasets/stac/v1/core.proto\x1a\x1edatasets/stac/v1/product.proto\x1a\x1adatasets/stac/v1/sar.proto\x1a datasets/stac/v1/satellite.proto"N\n\nStatistics\x12\x1f\n\x07minimum\x18\x01 \x01(\x01R\x07minimumB\x05\xaa\x01\x02\x08\x01\x12\x1f\n\x07maximum\x18\x02 \x01(\x01R\x07maximumB\x05\xaa\x01\x02\x08\x01"\xd3\x01\n\x12AssetAccessProfile\x12#\n\ralternate_key\x18\x01 \x01(\tR\x0calternateKey\x12;\n\x16default_alternate_name\x18\x02 \x01(\tR\x14defaultAlternateNameB\x05\xaa\x01\x02\x08\x01\x12\x1b\n\tbase_href\x18\x03 \x01(\tR\x08baseHref\x12!\n\x0cstorage_refs\x18\x04 \x03(\tR\x0bstorageRefs\x12\x1b\n\tauth_refs\x18\x05 \x03(\tR\x08authRefs"\x91\x01\n\rAssetLocation\x127\n\x14access_profile_index\x18\x01 \x01(\rR\x12accessProfileIndexB\x05\xaa\x01\x02\x08\x01\x12\x19\n\x04href\x18\x02 \x01(\tR\x04hrefB\x05\xaa\x01\x02\x08\x01\x12,\n\x0ealternate_name\x18\x03 \x01(\tR\ralternateNameB\x05\xaa\x01\x02\x08\x01"\xe5\x03\n\x04Band\x12\x19\n\x04name\x18\x01 \x01(\tR\x04nameB\x05\xaa\x01\x02\x08\x01\x12\'\n\x0bdescription\x18\x02 \x01(\tR\x0bdescriptionB\x05\xaa\x01\x02\x08\x01\x127\n\tdata_type\x18\x03 \x01(\x0e2\x1a.datasets.stac.v1.DataTypeR\x08dataType\x12\x1d\n\x06nodata\x18\x04 \x01(\x01R\x06nodataB\x05\xaa\x01\x02\x08\x01\x12\x19\n\x04unit\x18\x05 \x01(\tR\x04unitB\x05\xaa\x01\x02\x08\x01\x12.\n\x02eo\x18\x06 \x01(\x0b2\x1e.datasets.stac.v1.EOPropertiesR\x02eo\x12:\n\x06raster\x18\x07 \x01(\x0b2".datasets.stac.v1.RasterPropertiesR\x06raster\x12?\n\x07classes\x18\x08 \x03(\x0b2%.datasets.stac.v1.ClassificationClassR\x07classes\x121\n\x03sar\x18\t \x01(\x0b2\x1f.datasets.stac.v1.SARPropertiesR\x03sar\x12F\n\tbitfields\x18\n \x03(\x0b2(.datasets.stac.v1.ClassificationBitFieldR\tbitfields"\xb0\t\n\x05Asset\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x129\n\x07primary\x18\x02 \x01(\x0b2\x1f.datasets.stac.v1.AssetLocationR\x07primary\x12?\n\nalternates\x18\x03 \x03(\x0b2\x1f.datasets.stac.v1.AssetLocationR\nalternates\x12:\n\nmedia_type\x18\x04 \x01(\x0b2\x1b.datasets.stac.v1.MediaTypeR\tmediaType\x12\x1b\n\x05title\x18\x05 \x01(\tR\x05titleB\x05\xaa\x01\x02\x08\x01\x12\'\n\x0bdescription\x18\x06 \x01(\tR\x0bdescriptionB\x05\xaa\x01\x02\x08\x01\x126\n\x05roles\x18\x07 \x03(\x0e2 .datasets.stac.v1.KnownAssetRoleR\x05roles\x12!\n\x0ccustom_roles\x18\x08 \x03(\tR\x0bcustomRoles\x12\x17\n\x03gsd\x18\t \x01(\x01R\x03gsdB\x05\xaa\x01\x02\x08\x01\x120\n\x14band_profile_indices\x18\n \x03(\rR\x12bandProfileIndices\x127\n\tdata_type\x18\x0b \x01(\x0e2\x1a.datasets.stac.v1.DataTypeR\x08dataType\x12\x1d\n\x06nodata\x18\x0c \x01(\x01R\x06nodataB\x05\xaa\x01\x02\x08\x01\x12<\n\nstatistics\x18\r \x01(\x0b2\x1c.datasets.stac.v1.StatisticsR\nstatistics\x12\x19\n\x04unit\x18\x0e \x01(\tR\x04unitB\x05\xaa\x01\x02\x08\x01\x12.\n\x02eo\x18\x0f \x01(\x0b2\x1e.datasets.stac.v1.EOPropertiesR\x02eo\x12:\n\x06raster\x18\x10 \x01(\x0b2".datasets.stac.v1.RasterPropertiesR\x06raster\x12<\n\nprojection\x18\x11 \x01(\x0b2\x1c.datasets.stac.v1.ProjectionR\nprojection\x12*\n\x04view\x18\x12 \x01(\x0b2\x16.datasets.stac.v1.ViewR\x04view\x12?\n\x07classes\x18\x13 \x03(\x0b2%.datasets.stac.v1.ClassificationClassR\x07classes\x12*\n\x04file\x18\x14 \x01(\x0b2\x16.datasets.stac.v1.FileR\x04file\x121\n\x03sar\x18\x15 \x01(\x0b2\x1f.datasets.stac.v1.SARPropertiesR\x03sar\x12C\n\tsatellite\x18\x16 \x01(\x0b2%.datasets.stac.v1.SatellitePropertiesR\tsatellite\x12=\n\x07product\x18\x17 \x01(\x0b2#.datasets.stac.v1.ProductPropertiesR\x07product\x12F\n\tbitfields\x18\x18 \x03(\x0b2(.datasets.stac.v1.ClassificationBitFieldR\tbitfields"\xc5\x01\n\x06Assets\x12M\n\x0faccess_profiles\x18\x01 \x03(\x0b2$.datasets.stac.v1.AssetAccessProfileR\x0eaccessProfiles\x12;\n\rband_profiles\x18\x02 \x03(\x0b2\x16.datasets.stac.v1.BandR\x0cbandProfiles\x12/\n\x06assets\x18\x03 \x03(\x0b2\x17.datasets.stac.v1.AssetR\x06assets*\xbe\x07\n\x0eKnownAssetRole\x12 \n\x1cKNOWN_ASSET_ROLE_UNSPECIFIED\x10\x00\x12\x19\n\x15KNOWN_ASSET_ROLE_DATA\x10\x01\x12\x1d\n\x19KNOWN_ASSET_ROLE_METADATA\x10\x02\x12\x1e\n\x1aKNOWN_ASSET_ROLE_THUMBNAIL\x10\x03\x12\x1d\n\x19KNOWN_ASSET_ROLE_OVERVIEW\x10\x04\x12\x1b\n\x17KNOWN_ASSET_ROLE_VISUAL\x10\x05\x12\x19\n\x15KNOWN_ASSET_ROLE_DATE\x10\x06\x12\x1c\n\x18KNOWN_ASSET_ROLE_GRAPHIC\x10\x07\x12\x1e\n\x1aKNOWN_ASSET_ROLE_DATA_MASK\x10\x08\x12\x1d\n\x19KNOWN_ASSET_ROLE_SNOW_ICE\x10\t\x12\x1f\n\x1bKNOWN_ASSET_ROLE_LAND_WATER\x10\n\x12\x1f\n\x1bKNOWN_ASSET_ROLE_WATER_MASK\x10\x0b\x12\x1e\n\x1aKNOWN_ASSET_ROLE_ISO_19115\x10\x0c\x12 \n\x1cKNOWN_ASSET_ROLE_REFLECTANCE\x10d\x12 \n\x1cKNOWN_ASSET_ROLE_TEMPERATURE\x10e\x12\x1f\n\x1bKNOWN_ASSET_ROLE_SATURATION\x10f\x12\x1a\n\x16KNOWN_ASSET_ROLE_CLOUD\x10g\x12!\n\x1dKNOWN_ASSET_ROLE_CLOUD_SHADOW\x10h\x12+\n&KNOWN_ASSET_ROLE_LOCAL_INCIDENCE_ANGLE\x10\xc8\x01\x12/\n*KNOWN_ASSET_ROLE_ELLIPSOID_INCIDENCE_ANGLE\x10\xc9\x01\x12!\n\x1cKNOWN_ASSET_ROLE_NOISE_POWER\x10\xca\x01\x12\x1f\n\x1aKNOWN_ASSET_ROLE_AMPLITUDE\x10\xcb\x01\x12\x1f\n\x1aKNOWN_ASSET_ROLE_MAGNITUDE\x10\xcc\x01\x12\x1c\n\x17KNOWN_ASSET_ROLE_SIGMA0\x10\xcd\x01\x12\x1b\n\x16KNOWN_ASSET_ROLE_BETA0\x10\xce\x01\x12\x1c\n\x17KNOWN_ASSET_ROLE_GAMMA0\x10\xcf\x01\x12!\n\x1cKNOWN_ASSET_ROLE_DATE_OFFSET\x10\xd0\x01\x12\x1c\n\x17KNOWN_ASSET_ROLE_COVMAT\x10\xd1\x01\x12\x19\n\x14KNOWN_ASSET_ROLE_PRD\x10\xd2\x01*\x85\x03\n\x08DataType\x12\x19\n\x15DATA_TYPE_UNSPECIFIED\x10\x00\x12\x12\n\x0eDATA_TYPE_INT8\x10\x01\x12\x13\n\x0fDATA_TYPE_INT16\x10\x02\x12\x13\n\x0fDATA_TYPE_INT32\x10\x03\x12\x13\n\x0fDATA_TYPE_INT64\x10\x04\x12\x13\n\x0fDATA_TYPE_UINT8\x10\x05\x12\x14\n\x10DATA_TYPE_UINT16\x10\x06\x12\x14\n\x10DATA_TYPE_UINT32\x10\x07\x12\x14\n\x10DATA_TYPE_UINT64\x10\x08\x12\x15\n\x11DATA_TYPE_FLOAT16\x10\t\x12\x15\n\x11DATA_TYPE_FLOAT32\x10\n\x12\x15\n\x11DATA_TYPE_FLOAT64\x10\x0b\x12\x14\n\x10DATA_TYPE_CINT16\x10\x0c\x12\x14\n\x10DATA_TYPE_CINT32\x10\r\x12\x16\n\x12DATA_TYPE_CFLOAT32\x10\x0e\x12\x16\n\x12DATA_TYPE_CFLOAT64\x10\x0f\x12\x13\n\x0fDATA_TYPE_OTHER\x10\x10B\x05\x92\x03\x02\x08\x02b\x08editionsp\xe8\x07',
     [
         asset_metadata_pb.desc(),
         core_pb.desc(),
