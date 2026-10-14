@@ -23,8 +23,9 @@ requires-python = ">=3.11"
 dependencies = [
     "tilebox-datasets>=0.56.0",
     "niquests>=3.18",
+    "tenacity>=8",
     "aiofile>=3.8",
-    "obstore>=0.8.0",
+    "obstore>=0.11.1",
     "boto3>=1.40.2",
     "async-geotiff",
     "pyproj>=3.4",

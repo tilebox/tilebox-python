@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.66.0] - 2026-10-14
+
 ### Added
 
 - `tilebox-datasets`: Support STAC classification bitfields on assets and bands, including inheritance,
   shared metadata lifting, and protobuf round trips.
 - `tilebox-workflows`: Add workflow summaries and optional presentation metadata.
+- `tilebox-storage`: Read Planetary Computer assets with automatic, lazily fetched Azure SAS credentials.
+  Reuse container-scoped credentials across assets and refresh them on demand without changing asset URLs.
+- `tilebox-storage`: Support Azure `abfs` and `abfss` asset locations alongside `az`, `azure`, and Azure HTTPS locations.
 
 ### Changed
 
@@ -20,6 +25,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Change updates to `update(workflow_or_slug, name=None, summary=None, description=None)`.
   The positional order is now name, summary, description. For summary and description updates,
   `None` leaves the value unchanged and `""` clears it.
+- `tilebox-storage`: Require explicitly configured credential providers through `Client(s3_credentials=...)`
+  for S3-authenticated asset locations.
+  Asset locations without authentication metadata use unsigned cloud requests, including Azure.
+- `tilebox-storage`: Reuse asset stores by backend, namespace, effective options, and credential identity,
+  rather than authentication descriptions or other unused metadata.
+- `tilebox-storage`: Require obstore 0.11.1 or newer and add Tenacity for bounded asynchronous signing retries.
+
+### Fixed
+
+- `tilebox-storage`: Preserve HTTP query parameters in request URLs instead of encoding them into object keys.
+- `tilebox-storage`: Filter unsupported storage, authentication, and signing-flow combinations before checking
+  for ambiguous asset access. Reject authentication schemes that are incompatible with the selected backend.
 
 ## [0.65.0] - 2026-10-09
 

@@ -84,6 +84,86 @@ for content in downloaded_data.iterdir():
     print(f" - {content.relative_to(downloaded_data)}")
 ```
 
+## Planetary Computer assets
+
+The asynchronous asset client reads Planetary Computer assets through the same API as public assets:
+
+```python
+from tilebox.datasets.assets import AssetCollection
+from tilebox.storage.aio import Client
+
+assets = AssetCollection.from_datapoint(datapoint)
+storage = Client()
+
+resolved = storage.resolve(assets["red"])  # Local metadata validation only; no network requests.
+geotiff = await storage.open_geotiff(assets["red"])
+metadata = await storage.read_bytes(assets["mtl.json"], max_bytes=1_000_000)
+await storage.download(assets["red"], "data/red.tif")
+```
+
+The asset must declare the Planetary Computer `signedUrl` flow for
+`https://planetarycomputer.microsoft.com/api/sas/v1/sign` (GET, an `href` query parameter,
+and an `href` response field). HTTPS locations also need Microsoft Azure storage metadata.
+The client checks the account and container against any supplied storage metadata.
+Planetary Computer is the only built-in signing service; unknown APIs are rejected.
+
+The first read fetches a container-scoped SAS token automatically. Assets with the same account,
+container, and credential binding share an object store. Descriptions and unused flows do not
+split the cache. Obstore caches credentials and
+refreshes them on demand near expiry. `resolved.href` stays unsigned; callers do not need to manage
+tokens or close a session. Token requests use `niquests` and bounded async Tenacity retries.
+
+Use async obstore operations if accessing `resolved.store` directly. Download NetCDF and HDF assets
+with `download()` before opening them locally; `open_geotiff()` only supports GeoTIFF assets.
+
+## Asset locations and credentials
+
+The asset client supports local paths and `file`, `s3`, `gs`/`gcs`, `az`/`azure`, `abfs`/`abfss`,
+and HTTP(S) locations. Azure forms are:
+
+- `az://account/container/key` (also `azure`)
+- `abfs://container@account.dfs.core.windows.net/key` (also `abfss`)
+- `abfs://container/key` with the account in storage metadata (also `abfss`)
+- `https://account.blob.core.windows.net/container/key` with Azure storage metadata
+
+These Azure forms share stores and signing credentials. A resolved `path` can be an object key
+or dataset prefix; it is never a full URL. This permits multi-key readers such as a future
+`open_zarr()` without putting the prefix into the store cache key. No Zarr reader is included yet.
+
+Locations without authentication metadata use unsigned cloud requests, even when credentials
+are present in the environment. Obstore still reads environment configuration when constructing
+stores; `skip_signature` disables request authentication, not environment configuration parsing.
+Declared but unsupported authentication fails resolution rather than falling back to anonymous
+access. The client tries supported alternate locations during resolution, not after read failures.
+
+S3 authentication requires an explicitly supplied provider, keyed by the location's authentication
+scheme name. For example, this opts into boto3's credential discovery on the first read:
+
+```python
+import asyncio
+from obstore.auth.boto3 import Boto3CredentialProvider
+from tilebox.storage.aio import Client
+
+
+async def aws_credentials():
+    def fetch():
+        return Boto3CredentialProvider()()
+
+    return await asyncio.to_thread(fetch)
+
+
+storage = Client(s3_credentials={"aws": aws_credentials})
+```
+
+HTTP query parameters remain part of the request URL and store identity, rather than being
+encoded into the object key. They cannot be discarded: a parameter such as `versionId` may
+select different data. Prefer normalized native locations in datapoints for cloud-specific
+authentication; the client does not infer S3 or GCS bucket layouts from arbitrary HTTPS URLs.
+
+Resolution uses an internal registry of supported backends and authentication flows; there is no
+public plugin registration API. Unsupported combinations are filtered before ambiguity is checked.
+Two supported combinations or signing flows require the caller to disambiguate the metadata.
+
 ## License
 
 Distributed under the MIT License (`The MIT License`).
