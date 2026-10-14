@@ -207,6 +207,16 @@ class ListStorageSubscriptionsRequest(_message.Message):
     storage_location_id: _id_pb2.ID
     def __init__(self, storage_location_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ...) -> None: ...
 
+class NotifyObjectCreatedRequest(_message.Message):
+    __slots__ = ("storage_subscription_id", "object_path", "event_time")
+    STORAGE_SUBSCRIPTION_ID_FIELD_NUMBER: _ClassVar[int]
+    OBJECT_PATH_FIELD_NUMBER: _ClassVar[int]
+    EVENT_TIME_FIELD_NUMBER: _ClassVar[int]
+    storage_subscription_id: _id_pb2.ID
+    object_path: str
+    event_time: _timestamp_pb2.Timestamp
+    def __init__(self, storage_subscription_id: _Optional[_Union[_id_pb2.ID, _Mapping]] = ..., object_path: _Optional[str] = ..., event_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+
 class StorageSubscriptions(_message.Message):
     __slots__ = ("subscriptions",)
     SUBSCRIPTIONS_FIELD_NUMBER: _ClassVar[int]

@@ -18,17 +18,18 @@ class WorkflowClient:
         """
         self._service = service
 
-    def create(self, name: str, description: str = "") -> Workflow:
+    def create(self, name: str, summary: str, description: str = "") -> Workflow:
         """Create a new workflow with the given name.
 
         Args:
             name: The name of the workflow to create.
-            description: The description of the workflow to create.
+            summary: The short summary of the workflow to create.
+            description: The description of the workflow to create. Defaults to an empty string.
 
         Returns:
             The created workflow.
         """
-        return self._service.create(name, description)
+        return self._service.create(name, summary, description)
 
     def all(self) -> list[Workflow]:
         """List all available workflows.
@@ -53,6 +54,7 @@ class WorkflowClient:
         self,
         workflow_or_slug: WorkflowSlugLike,
         name: str | None = None,
+        summary: str | None = None,
         description: str | None = None,
     ) -> Workflow:
         """Update a workflow by slug.
@@ -60,12 +62,13 @@ class WorkflowClient:
         Args:
             workflow_or_slug: The workflow or slug of the workflow to update.
             name: The new display name for the workflow. If not provided, the name is left unchanged.
-            description: The new description for the workflow. If not provided, the description is left unchanged.
+            summary: The new short summary. ``None`` leaves it unchanged; ``""`` clears it.
+            description: The new description. ``None`` leaves it unchanged; ``""`` clears it.
 
         Returns:
             The updated workflow.
         """
-        return self._service.update(to_workflow_slug(workflow_or_slug), name, description)
+        return self._service.update(to_workflow_slug(workflow_or_slug), name, summary, description)
 
     def delete(self, workflow_or_slug: WorkflowSlugLike) -> None:
         """Delete a workflow by slug.

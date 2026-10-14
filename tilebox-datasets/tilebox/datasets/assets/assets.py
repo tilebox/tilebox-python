@@ -14,6 +14,7 @@ import xarray as xr
 from protobuf import Message
 
 from tilebox.datasets.datasets.stac.v1.asset_metadata_pb import (
+    ClassificationBitField,
     ClassificationClass,
     EOCommonName,
     EOProperties,
@@ -170,6 +171,7 @@ class Band:
         raster: Generated Raster extension metadata.
         classes: Generated Classification extension classes.
         sar: Generated Synthetic-Aperture Radar metadata.
+        bitfields: Generated Classification extension bitfields, or empty to inherit them.
     """
 
     name: str | None = None
@@ -181,6 +183,7 @@ class Band:
     raster: RasterProperties | None = None
     classes: tuple[ClassificationClass, ...] = ()
     sar: SARProperties | None = None
+    bitfields: tuple[ClassificationBitField, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,6 +234,7 @@ class Asset:
         sar: Generated Synthetic-Aperture Radar metadata.
         satellite: Generated Satellite extension metadata.
         product: Generated Product extension metadata.
+        bitfields: Generated Classification extension bitfields.
     """
 
     key: str
@@ -255,6 +259,7 @@ class Asset:
     sar: SARProperties | None = None
     satellite: SatelliteProperties | None = None
     product: ProductProperties | None = None
+    bitfields: tuple[ClassificationBitField, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -711,6 +716,7 @@ def _compile_assets(
                 sar=asset.sar,
                 satellite=asset.satellite,
                 product=asset.product,
+                bitfields=list(asset.bitfields),
             )
         )
     band_profiles = sorted(unsorted_band_profiles.values(), key=_band_profile_sort_key)
@@ -801,6 +807,7 @@ def _compile_band_profile(band: Band, asset: Asset) -> ProtoBand:
         raster=_sparse_raster(band.raster, asset.raster),
         classes=[] if _semantic_equal(band.classes, asset.classes) else list(band.classes),
         sar=_sparse_sar(band.sar, asset.sar),
+        bitfields=[] if _semantic_equal(band.bitfields, asset.bitfields) else list(band.bitfields),
     )
 
 
@@ -816,6 +823,7 @@ def _effective_band(band: Band, asset: Asset) -> Band:
         raster=_inherit_raster(band.raster, asset.raster),
         classes=band.classes or asset.classes,
         sar=_inherit_sar(band.sar, asset.sar),
+        bitfields=band.bitfields or asset.bitfields,
     )
 
 
@@ -835,6 +843,7 @@ def _normalize_asset(asset: Asset) -> Asset:
     common_nodata = _common(band.nodata for band in bands)
     common_unit = _common(band.unit for band in bands)
     common_classes = _common(band.classes for band in bands)
+    common_bitfields = _common(band.bitfields for band in bands)
     return replace(
         asset,
         roles=roles,
@@ -845,6 +854,7 @@ def _normalize_asset(asset: Asset) -> Asset:
         raster=_lift_raster(bands, asset.raster),
         classes=asset.classes if common_classes is _NO_COMMON else common_classes,
         sar=_lift_sar(bands, asset.sar),
+        bitfields=asset.bitfields if common_bitfields is _NO_COMMON else common_bitfields,
     )
 
 
@@ -1154,6 +1164,7 @@ def _resolve_band(source: ProtoBand, asset: Asset) -> Band:
         raster=_inherit_raster(source.raster, asset.raster),
         classes=tuple(source.classes or asset.classes),
         sar=_inherit_sar(source.sar, asset.sar),
+        bitfields=tuple(source.bitfields or asset.bitfields),
     )
 
 
@@ -1224,6 +1235,7 @@ def _resolve_assets(
             sar=source.sar,
             satellite=source.satellite,
             product=source.product,
+            bitfields=tuple(source.bitfields),
         )
         bands = []
         for index in source.band_profile_indices:

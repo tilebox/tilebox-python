@@ -7,12 +7,14 @@ from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-from urllib.parse import unquote, urlsplit
+from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
+
+from tilebox.storage._registry import Registry, StoreSpec
 
 if TYPE_CHECKING:
     from async_geotiff import GeoTIFF
-    from obstore.store import ObjectStore
+    from obstore.store import ObjectStore, S3CredentialProvider
 
     from tilebox.datasets.assets.assets import Asset, AssetLocation
     from tilebox.datasets.datasets.stac.v1.authentication_pb import AuthenticationScheme
@@ -23,7 +25,7 @@ if TYPE_CHECKING:
 class AssetAccessPolicy:
     """Policy controlling deterministic asset-location selection."""
 
-    preferred_schemes: tuple[str, ...] = ("file", "s3", "gs", "az", "https", "http")
+    preferred_schemes: tuple[str, ...] = ("file", "s3", "gs", "gcs", "az", "azure", "abfs", "abfss", "https", "http")
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,25 +34,39 @@ class ResolvedAsset:
 
     asset: "Asset"
     location: "AssetLocation"
-    href: str
     store: "ObjectStore"
     path: str
     storage_scheme: "StorageScheme | None"
     authentication_scheme: "AuthenticationScheme | None"
 
+    @property
+    def href(self) -> str:
+        """The original selected location, never a refreshed signed URL."""
+        return self.location.href
+
 
 class Client:
     """Resolve and access dataset assets using reusable object stores."""
 
-    def __init__(self, *, policy: AssetAccessPolicy | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        policy: AssetAccessPolicy | None = None,
+        s3_credentials: Mapping[str, "S3CredentialProvider"] | None = None,
+    ) -> None:
         """Create an asset storage client.
 
         Args:
             policy: Location-selection policy. By default local, S3, Google Cloud,
                 Azure, and HTTP locations are preferred in that order.
+            s3_credentials: Explicit S3 credential providers keyed by the location's
+                authentication scheme name. The mapping is copied at construction;
+                providers are invoked on reads, not during resolution. Locations
+                without authentication metadata always use unsigned cloud requests.
         """
         self.policy = policy or AssetAccessPolicy()
-        self._stores: dict[tuple[Any, ...], ObjectStore] = {}
+        self._registry = Registry.default(s3_credentials=s3_credentials)
+        self._stores: dict[StoreSpec, ObjectStore] = {}
         self._stores_lock = threading.RLock()
 
     def resolve(self, asset: "Asset") -> ResolvedAsset:
@@ -72,94 +88,22 @@ class Client:
         rejected = []
         for label, location in candidates:
             try:
-                storage = _select_scheme(location.storage_schemes, "storage")
-                authentication = _select_scheme(location.authentication_schemes, "authentication")
-                store, path = self._store_for(location.href, storage, authentication)
+                spec, path, storage, authentication = self._registry.resolve(location)
+                store = self._store_for(spec)
             except (TypeError, ValueError) as error:
-                rejected.append(f"{label} ({location.href!r}): {error}")
+                rejected.append(f"{label}: {error}")
                 continue
-            return ResolvedAsset(asset, location, location.href, store, path, storage, authentication)
+            return ResolvedAsset(asset, location, store, path, storage, authentication)
         details = "; ".join(rejected) or "asset has no locations"
         raise ValueError(f"unable to resolve asset {asset.key!r}: {details}")
 
-    def _store_for(  # noqa: C901, PLR0912, PLR0915
-        self,
-        href: str,
-        storage: "StorageScheme | None",
-        authentication: "AuthenticationScheme | None",
-    ) -> "tuple[ObjectStore, str]":
-        from obstore.store import AzureStore, GCSStore, HTTPStore, LocalStore, S3Store  # noqa: PLC0415
-
-        parsed = urlsplit(href)
-        scheme = _uri_scheme(href)
-        authentication_type = _authentication_type(authentication)
-        if authentication is not None and authentication_type != "s3":
-            raise ValueError(f"authentication type {authentication_type!r} is unsupported")
-
-        if scheme == "file":
-            identity = ("file", "/")
-            constructor = lambda: LocalStore("/")  # noqa: E731
-            path = unquote(parsed.path if parsed.scheme else href).lstrip("/")
-        elif scheme == "s3":
-            storage_type = _storage_type(storage)
-            if storage is not None and storage_type not in {"aws_s3", "custom_s3", "unspecified"}:
-                raise ValueError(f"storage type {storage_type!r} is incompatible with s3")
-            authenticated = authentication is not None
-            options = (
-                storage.region if storage and storage.has_field("region") else None,
-                storage.requester_pays if storage and storage.has_field("requester_pays") else None,
-                not authenticated,
-                storage.platform if storage and storage_type == "custom_s3" and storage.platform else None,
-            )
-            identity = ("s3", parsed.netloc, *options, repr(authentication))
-            constructor = lambda: S3Store(  # noqa: E731
-                parsed.netloc,
-                **{
-                    key: value
-                    for key, value in {
-                        "region": options[0],
-                        "request_payer": options[1],
-                        "skip_signature": options[2],
-                        "endpoint": options[3],
-                    }.items()
-                    if value is not None
-                },
-            )
-            path = parsed.path.lstrip("/")
-        elif scheme in {"gs", "gcs"}:
-            storage_type = _storage_type(storage)
-            if storage is not None and storage_type not in {"google_cloud_storage", "unspecified"}:
-                raise ValueError(f"storage type {storage_type!r} is incompatible with Google Cloud Storage")
-            anonymous = authentication is None
-            identity = ("gs", parsed.netloc, anonymous, repr(authentication))
-            constructor = lambda: GCSStore(parsed.netloc, skip_signature=anonymous)  # noqa: E731
-            path = parsed.path.lstrip("/")
-        elif scheme in {"az", "azure"}:
-            segments = parsed.path.lstrip("/").split("/", 1)
-            if not parsed.netloc or not segments[0]:
-                raise ValueError("Azure href must have the form az://account/container/path")
-            container = segments[0]
-            path = segments[1] if len(segments) == 2 else ""
-            identity = ("az", parsed.netloc, container, repr(authentication))
-            constructor = lambda: AzureStore(container, account_name=parsed.netloc)  # noqa: E731
-        elif scheme in {"http", "https"}:
-            if authentication is not None:
-                raise ValueError("authenticated HTTP locations are not supported yet")
-            origin = f"{scheme}://{parsed.netloc}"
-            identity = (scheme, origin)
-            constructor = lambda: HTTPStore(origin)  # noqa: E731
-            path = parsed.path.lstrip("/")
-            if parsed.query:
-                path = f"{path}?{parsed.query}"
-        else:
-            raise ValueError(f"unsupported URI scheme {scheme!r}")
-
+    def _store_for(self, spec: StoreSpec) -> "ObjectStore":
         with self._stores_lock:
-            store = self._stores.get(identity)
+            store = self._stores.get(spec)
             if store is None:
-                store = constructor()
-                self._stores[identity] = store
-        return store, path
+                store = self._registry.create_store(spec)
+                self._stores[spec] = store
+        return store
 
     async def read_bytes(
         self,
@@ -277,47 +221,6 @@ class Client:
 
 def _uri_scheme(href: str) -> str:
     return urlsplit(href).scheme.lower() or "file"
-
-
-def _storage_type(storage: "StorageScheme | None") -> str | None:
-    if storage is None:
-        return None
-    if storage.has_field("custom_type"):
-        return storage.custom_type
-    from tilebox.datasets.datasets.stac.v1.storage_pb import KnownStorageType  # noqa: PLC0415
-
-    return {
-        KnownStorageType.UNSPECIFIED: "unspecified",
-        KnownStorageType.AWS_S3: "aws_s3",
-        KnownStorageType.CUSTOM_S3: "custom_s3",
-        KnownStorageType.MICROSOFT_AZURE: "microsoft_azure",
-        KnownStorageType.GOOGLE_CLOUD_STORAGE: "google_cloud_storage",
-    }[storage.known_type]
-
-
-def _authentication_type(authentication: "AuthenticationScheme | None") -> str | None:
-    if authentication is None:
-        return None
-    if authentication.has_field("custom_type"):
-        return authentication.custom_type
-    from tilebox.datasets.datasets.stac.v1.authentication_pb import KnownAuthenticationType  # noqa: PLC0415
-
-    return {
-        KnownAuthenticationType.UNSPECIFIED: "unspecified",
-        KnownAuthenticationType.HTTP: "http",
-        KnownAuthenticationType.S3: "s3",
-        KnownAuthenticationType.SIGNED_URL: "signed_url",
-        KnownAuthenticationType.OAUTH2: "oauth2",
-        KnownAuthenticationType.API_KEY: "api_key",
-        KnownAuthenticationType.OPEN_ID_CONNECT: "open_id_connect",
-    }[authentication.known_type]
-
-
-def _select_scheme(schemes: Mapping[str, Any], kind: str) -> Any | None:
-    if len(schemes) > 1:
-        keys = ", ".join(repr(key) for key in schemes)
-        raise ValueError(f"multiple {kind} schemes are applicable ({keys})")
-    return next(iter(schemes.values()), None)
 
 
 _default_client = Client()

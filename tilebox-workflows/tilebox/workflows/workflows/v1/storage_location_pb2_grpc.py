@@ -67,6 +67,11 @@ class StorageLocationServiceStub:
                 request_serializer=workflows_dot_v1_dot_storage__location__pb2.ListStorageSubscriptionEventsRequest.SerializeToString,
                 response_deserializer=workflows_dot_v1_dot_storage__location__pb2.StorageSubscriptionEvents.FromString,
                 _registered_method=True)
+        self.NotifyObjectCreated = channel.unary_unary(
+                '/workflows.v1.StorageLocationService/NotifyObjectCreated',
+                request_serializer=workflows_dot_v1_dot_storage__location__pb2.NotifyObjectCreatedRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
 
 
 class StorageLocationServiceServicer:
@@ -143,6 +148,14 @@ class StorageLocationServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def NotifyObjectCreated(self, request, context):
+        """NotifyObjectCreated delivers a storage event of a local storage location. Typically called by the Tilebox CLI
+        during the `tilebox storage-location watch` command. The subscription must be of type TILEBOX_CLI.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_StorageLocationServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -195,6 +208,11 @@ def add_StorageLocationServiceServicer_to_server(servicer, server):
                     servicer.ListStorageSubscriptionEvents,
                     request_deserializer=workflows_dot_v1_dot_storage__location__pb2.ListStorageSubscriptionEventsRequest.FromString,
                     response_serializer=workflows_dot_v1_dot_storage__location__pb2.StorageSubscriptionEvents.SerializeToString,
+            ),
+            'NotifyObjectCreated': grpc.unary_unary_rpc_method_handler(
+                    servicer.NotifyObjectCreated,
+                    request_deserializer=workflows_dot_v1_dot_storage__location__pb2.NotifyObjectCreatedRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -468,6 +486,33 @@ class StorageLocationService:
             '/workflows.v1.StorageLocationService/ListStorageSubscriptionEvents',
             workflows_dot_v1_dot_storage__location__pb2.ListStorageSubscriptionEventsRequest.SerializeToString,
             workflows_dot_v1_dot_storage__location__pb2.StorageSubscriptionEvents.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def NotifyObjectCreated(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/workflows.v1.StorageLocationService/NotifyObjectCreated',
+            workflows_dot_v1_dot_storage__location__pb2.NotifyObjectCreatedRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,

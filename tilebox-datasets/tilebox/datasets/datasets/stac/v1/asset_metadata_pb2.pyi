@@ -2,7 +2,7 @@ from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from collections.abc import Iterable as _Iterable
+from collections.abc import Iterable as _Iterable, Mapping as _Mapping
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
@@ -104,6 +104,22 @@ class ClassificationClass(_message.Message):
     percentage: float
     count: int
     def __init__(self, value: _Optional[int] = ..., description: _Optional[str] = ..., name: _Optional[str] = ..., title: _Optional[str] = ..., color_hint: _Optional[str] = ..., nodata: bool = ..., percentage: _Optional[float] = ..., count: _Optional[int] = ...) -> None: ...
+
+class ClassificationBitField(_message.Message):
+    __slots__ = ("offset", "length", "classes", "name", "description", "roles")
+    OFFSET_FIELD_NUMBER: _ClassVar[int]
+    LENGTH_FIELD_NUMBER: _ClassVar[int]
+    CLASSES_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    ROLES_FIELD_NUMBER: _ClassVar[int]
+    offset: int
+    length: int
+    classes: _containers.RepeatedCompositeFieldContainer[ClassificationClass]
+    name: str
+    description: str
+    roles: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, offset: _Optional[int] = ..., length: _Optional[int] = ..., classes: _Optional[_Iterable[_Union[ClassificationClass, _Mapping]]] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., roles: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class Projection(_message.Message):
     __slots__ = ("code", "bbox", "shape", "transform")

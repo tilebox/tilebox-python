@@ -53,7 +53,7 @@ class MockWorkflowService(WorkflowsServiceStub):
 
     def CreateWorkflow(self, req: CreateWorkflowRequest) -> WorkflowMessage:  # noqa: N802
         slug = req.name.lower().replace(" ", "-")
-        workflow = WorkflowMessage(slug=slug, name=req.name, description=req.description)
+        workflow = WorkflowMessage(slug=slug, name=req.name, description=req.description, summary=req.summary)
         self.workflows[workflow.slug] = workflow
         return workflow
 
@@ -76,6 +76,8 @@ class MockWorkflowService(WorkflowsServiceStub):
             workflow.name = req.name
         if req.HasField("description"):
             workflow.description = req.description
+        if req.HasField("summary"):
+            workflow.summary = req.summary
         self.workflows[workflow.slug] = workflow
         return workflow
 
@@ -108,11 +110,12 @@ def test_create_workflow() -> None:
     service.service = MockWorkflowService()
     workflow_client = WorkflowClient(service)
 
-    workflow = workflow_client.create("Agentic Workflow", description="Description")
+    workflow = workflow_client.create("Agentic Workflow", "Short summary", "Description")
 
     assert workflow.slug == "agentic-workflow"
     assert workflow.name == "Agentic Workflow"
     assert workflow.description == "Description"
+    assert workflow.summary == "Short summary"
 
 
 def test_list_find_and_delete_workflows() -> None:
@@ -120,8 +123,9 @@ def test_list_find_and_delete_workflows() -> None:
     mock_service = MockWorkflowService()
     service.service = mock_service
     workflow_client = WorkflowClient(service)
-    workflow = workflow_client.create("Agentic Workflow")
+    workflow = workflow_client.create("Agentic Workflow", "Short summary")
 
+    assert workflow.description == ""
     assert workflow_client.all() == [workflow]
     assert workflow_client.find(workflow.slug) == workflow
 
@@ -135,9 +139,9 @@ def test_update_workflow() -> None:
     mock_service = MockWorkflowService()
     service.service = mock_service
     workflow_client = WorkflowClient(service)
-    workflow = workflow_client.create("Agentic Workflow", description="Description")
+    workflow = workflow_client.create("Agentic Workflow", "Short summary", "Description")
 
-    updated_workflow = workflow_client.update(workflow, name="Updated Workflow", description="Updated description")
+    updated_workflow = workflow_client.update(workflow, "Updated Workflow", "Updated summary", "Updated description")
 
     request = mock_service.update_requests[-1]
     assert request.workflow_slug == workflow.slug
@@ -146,6 +150,7 @@ def test_update_workflow() -> None:
     assert request.name == "Updated Workflow"
     assert request.description == "Updated description"
     assert updated_workflow.name == "Updated Workflow"
+    assert updated_workflow.summary == "Updated summary"
     assert updated_workflow.description == "Updated description"
 
 
@@ -154,19 +159,35 @@ def test_update_workflow_preserves_optional_presence() -> None:
     mock_service = MockWorkflowService()
     service.service = mock_service
     workflow_client = WorkflowClient(service)
-    workflow = workflow_client.create("Agentic Workflow", description="Description")
+    workflow = workflow_client.create("Agentic Workflow", description="Description", summary="Short summary")
 
-    workflow_client.update(workflow.slug)
+    unchanged = workflow_client.update(workflow.slug)
+    assert unchanged == workflow
     request = mock_service.update_requests[-1]
     assert not request.HasField("name")
     assert not request.HasField("description")
+    assert not request.HasField("summary")
 
-    updated_workflow = workflow_client.update(workflow.slug, description="")
+    unchanged = workflow_client.update(workflow.slug, name=None, summary=None, description=None)
+    assert unchanged == workflow
+
+    updated_workflow = workflow_client.update(workflow.slug, summary=None, description="")
     request = mock_service.update_requests[-1]
     assert not request.HasField("name")
+    assert not request.HasField("summary")
     assert request.HasField("description")
     assert request.description == ""
     assert updated_workflow.description == ""
+    assert updated_workflow.summary == "Short summary"
+
+    updated_workflow = workflow_client.update(workflow.slug, summary="Updated summary")
+    assert updated_workflow.summary == "Updated summary"
+    assert updated_workflow.description == ""
+    updated_workflow = workflow_client.update(workflow.slug, description="Restored description")
+    updated_workflow = workflow_client.update(workflow.slug, summary="", description=None)
+    assert updated_workflow.summary == ""
+    assert updated_workflow.description == "Restored description"
+    assert workflow_client.find(workflow.slug) == updated_workflow
 
 
 def test_unpublish_release() -> None:

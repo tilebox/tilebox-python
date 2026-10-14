@@ -50,6 +50,9 @@ class StorageLocationService(Protocol):
     async def list_storage_subscription_events(self, request: workflows_dot_v1_dot_storage__location__pb2.ListStorageSubscriptionEventsRequest, ctx: RequestContext) -> workflows_dot_v1_dot_storage__location__pb2.StorageSubscriptionEvents:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
+    async def notify_object_created(self, request: workflows_dot_v1_dot_storage__location__pb2.NotifyObjectCreatedRequest, ctx: RequestContext) -> google_dot_protobuf_dot_empty__pb2.Empty:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+
 
 class StorageLocationServiceASGIApplication(ConnectASGIApplication[StorageLocationService]):
     def __init__(self, service: StorageLocationService | AsyncGenerator[StorageLocationService], *, interceptors: Iterable[Interceptor]=(), read_max_bytes: int | None = None, compressions: Iterable[Compression] | None = None, codecs: Iterable[Codec] | None = None) -> None:
@@ -155,6 +158,16 @@ class StorageLocationServiceASGIApplication(ConnectASGIApplication[StorageLocati
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=svc.list_storage_subscription_events,
+                ),
+                "/workflows.v1.StorageLocationService/NotifyObjectCreated": Endpoint.unary(
+                    method=MethodInfo(
+                        name="NotifyObjectCreated",
+                        service_name="workflows.v1.StorageLocationService",
+                        input=workflows_dot_v1_dot_storage__location__pb2.NotifyObjectCreatedRequest,
+                        output=google_dot_protobuf_dot_empty__pb2.Empty,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.notify_object_created,
                 ),
             },
             interceptors=interceptors,
@@ -370,6 +383,26 @@ class StorageLocationServiceClient(ConnectClient):
             timeout_ms=timeout_ms,
         )
 
+    async def notify_object_created(
+        self,
+        request: workflows_dot_v1_dot_storage__location__pb2.NotifyObjectCreatedRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> google_dot_protobuf_dot_empty__pb2.Empty:
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="NotifyObjectCreated",
+                service_name="workflows.v1.StorageLocationService",
+                input=workflows_dot_v1_dot_storage__location__pb2.NotifyObjectCreatedRequest,
+                output=google_dot_protobuf_dot_empty__pb2.Empty,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
 
 
 
@@ -394,6 +427,8 @@ class StorageLocationServiceSync(Protocol):
     def delete_storage_subscription(self, request: tilebox_dot_v1_dot_id__pb2.ID, ctx: RequestContext) -> google_dot_protobuf_dot_empty__pb2.Empty:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
     def list_storage_subscription_events(self, request: workflows_dot_v1_dot_storage__location__pb2.ListStorageSubscriptionEventsRequest, ctx: RequestContext) -> workflows_dot_v1_dot_storage__location__pb2.StorageSubscriptionEvents:
+        raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
+    def notify_object_created(self, request: workflows_dot_v1_dot_storage__location__pb2.NotifyObjectCreatedRequest, ctx: RequestContext) -> google_dot_protobuf_dot_empty__pb2.Empty:
         raise ConnectError(Code.UNIMPLEMENTED, "Not implemented")
 
 
@@ -500,6 +535,16 @@ class StorageLocationServiceWSGIApplication(ConnectWSGIApplication):
                         idempotency_level=IdempotencyLevel.UNKNOWN,
                     ),
                     function=service.list_storage_subscription_events,
+                ),
+                "/workflows.v1.StorageLocationService/NotifyObjectCreated": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="NotifyObjectCreated",
+                        service_name="workflows.v1.StorageLocationService",
+                        input=workflows_dot_v1_dot_storage__location__pb2.NotifyObjectCreatedRequest,
+                        output=google_dot_protobuf_dot_empty__pb2.Empty,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.notify_object_created,
                 ),
             },
             interceptors=interceptors,
@@ -709,6 +754,26 @@ class StorageLocationServiceClientSync(ConnectClientSync):
                 service_name="workflows.v1.StorageLocationService",
                 input=workflows_dot_v1_dot_storage__location__pb2.ListStorageSubscriptionEventsRequest,
                 output=workflows_dot_v1_dot_storage__location__pb2.StorageSubscriptionEvents,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
+    def notify_object_created(
+        self,
+        request: workflows_dot_v1_dot_storage__location__pb2.NotifyObjectCreatedRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None,
+        timeout_ms: int | None = None,
+    ) -> google_dot_protobuf_dot_empty__pb2.Empty:
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="NotifyObjectCreated",
+                service_name="workflows.v1.StorageLocationService",
+                input=workflows_dot_v1_dot_storage__location__pb2.NotifyObjectCreatedRequest,
+                output=google_dot_protobuf_dot_empty__pb2.Empty,
                 idempotency_level=IdempotencyLevel.UNKNOWN,
             ),
             headers=headers,

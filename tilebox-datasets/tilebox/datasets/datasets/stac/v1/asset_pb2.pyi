@@ -143,7 +143,7 @@ class AssetLocation(_message.Message):
     def __init__(self, access_profile_index: _Optional[int] = ..., href: _Optional[str] = ..., alternate_name: _Optional[str] = ...) -> None: ...
 
 class Band(_message.Message):
-    __slots__ = ("name", "description", "data_type", "nodata", "unit", "eo", "raster", "classes", "sar")
+    __slots__ = ("name", "description", "data_type", "nodata", "unit", "eo", "raster", "classes", "sar", "bitfields")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     DATA_TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -153,6 +153,7 @@ class Band(_message.Message):
     RASTER_FIELD_NUMBER: _ClassVar[int]
     CLASSES_FIELD_NUMBER: _ClassVar[int]
     SAR_FIELD_NUMBER: _ClassVar[int]
+    BITFIELDS_FIELD_NUMBER: _ClassVar[int]
     name: str
     description: str
     data_type: DataType
@@ -162,10 +163,11 @@ class Band(_message.Message):
     raster: _asset_metadata_pb2.RasterProperties
     classes: _containers.RepeatedCompositeFieldContainer[_asset_metadata_pb2.ClassificationClass]
     sar: _sar_pb2.SARProperties
-    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., data_type: _Optional[_Union[DataType, str]] = ..., nodata: _Optional[float] = ..., unit: _Optional[str] = ..., eo: _Optional[_Union[_asset_metadata_pb2.EOProperties, _Mapping]] = ..., raster: _Optional[_Union[_asset_metadata_pb2.RasterProperties, _Mapping]] = ..., classes: _Optional[_Iterable[_Union[_asset_metadata_pb2.ClassificationClass, _Mapping]]] = ..., sar: _Optional[_Union[_sar_pb2.SARProperties, _Mapping]] = ...) -> None: ...
+    bitfields: _containers.RepeatedCompositeFieldContainer[_asset_metadata_pb2.ClassificationBitField]
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., data_type: _Optional[_Union[DataType, str]] = ..., nodata: _Optional[float] = ..., unit: _Optional[str] = ..., eo: _Optional[_Union[_asset_metadata_pb2.EOProperties, _Mapping]] = ..., raster: _Optional[_Union[_asset_metadata_pb2.RasterProperties, _Mapping]] = ..., classes: _Optional[_Iterable[_Union[_asset_metadata_pb2.ClassificationClass, _Mapping]]] = ..., sar: _Optional[_Union[_sar_pb2.SARProperties, _Mapping]] = ..., bitfields: _Optional[_Iterable[_Union[_asset_metadata_pb2.ClassificationBitField, _Mapping]]] = ...) -> None: ...
 
 class Asset(_message.Message):
-    __slots__ = ("key", "primary", "alternates", "media_type", "title", "description", "roles", "custom_roles", "gsd", "band_profile_indices", "data_type", "nodata", "statistics", "unit", "eo", "raster", "projection", "view", "classes", "file", "sar", "satellite", "product")
+    __slots__ = ("key", "primary", "alternates", "media_type", "title", "description", "roles", "custom_roles", "gsd", "band_profile_indices", "data_type", "nodata", "statistics", "unit", "eo", "raster", "projection", "view", "classes", "file", "sar", "satellite", "product", "bitfields")
     KEY_FIELD_NUMBER: _ClassVar[int]
     PRIMARY_FIELD_NUMBER: _ClassVar[int]
     ALTERNATES_FIELD_NUMBER: _ClassVar[int]
@@ -189,6 +191,7 @@ class Asset(_message.Message):
     SAR_FIELD_NUMBER: _ClassVar[int]
     SATELLITE_FIELD_NUMBER: _ClassVar[int]
     PRODUCT_FIELD_NUMBER: _ClassVar[int]
+    BITFIELDS_FIELD_NUMBER: _ClassVar[int]
     key: str
     primary: AssetLocation
     alternates: _containers.RepeatedCompositeFieldContainer[AssetLocation]
@@ -212,7 +215,8 @@ class Asset(_message.Message):
     sar: _sar_pb2.SARProperties
     satellite: _satellite_pb2.SatelliteProperties
     product: _product_pb2.ProductProperties
-    def __init__(self, key: _Optional[str] = ..., primary: _Optional[_Union[AssetLocation, _Mapping]] = ..., alternates: _Optional[_Iterable[_Union[AssetLocation, _Mapping]]] = ..., media_type: _Optional[_Union[_core_pb2.MediaType, _Mapping]] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., roles: _Optional[_Iterable[_Union[KnownAssetRole, str]]] = ..., custom_roles: _Optional[_Iterable[str]] = ..., gsd: _Optional[float] = ..., band_profile_indices: _Optional[_Iterable[int]] = ..., data_type: _Optional[_Union[DataType, str]] = ..., nodata: _Optional[float] = ..., statistics: _Optional[_Union[Statistics, _Mapping]] = ..., unit: _Optional[str] = ..., eo: _Optional[_Union[_asset_metadata_pb2.EOProperties, _Mapping]] = ..., raster: _Optional[_Union[_asset_metadata_pb2.RasterProperties, _Mapping]] = ..., projection: _Optional[_Union[_asset_metadata_pb2.Projection, _Mapping]] = ..., view: _Optional[_Union[_asset_metadata_pb2.View, _Mapping]] = ..., classes: _Optional[_Iterable[_Union[_asset_metadata_pb2.ClassificationClass, _Mapping]]] = ..., file: _Optional[_Union[_asset_metadata_pb2.File, _Mapping]] = ..., sar: _Optional[_Union[_sar_pb2.SARProperties, _Mapping]] = ..., satellite: _Optional[_Union[_satellite_pb2.SatelliteProperties, _Mapping]] = ..., product: _Optional[_Union[_product_pb2.ProductProperties, _Mapping]] = ...) -> None: ...
+    bitfields: _containers.RepeatedCompositeFieldContainer[_asset_metadata_pb2.ClassificationBitField]
+    def __init__(self, key: _Optional[str] = ..., primary: _Optional[_Union[AssetLocation, _Mapping]] = ..., alternates: _Optional[_Iterable[_Union[AssetLocation, _Mapping]]] = ..., media_type: _Optional[_Union[_core_pb2.MediaType, _Mapping]] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., roles: _Optional[_Iterable[_Union[KnownAssetRole, str]]] = ..., custom_roles: _Optional[_Iterable[str]] = ..., gsd: _Optional[float] = ..., band_profile_indices: _Optional[_Iterable[int]] = ..., data_type: _Optional[_Union[DataType, str]] = ..., nodata: _Optional[float] = ..., statistics: _Optional[_Union[Statistics, _Mapping]] = ..., unit: _Optional[str] = ..., eo: _Optional[_Union[_asset_metadata_pb2.EOProperties, _Mapping]] = ..., raster: _Optional[_Union[_asset_metadata_pb2.RasterProperties, _Mapping]] = ..., projection: _Optional[_Union[_asset_metadata_pb2.Projection, _Mapping]] = ..., view: _Optional[_Union[_asset_metadata_pb2.View, _Mapping]] = ..., classes: _Optional[_Iterable[_Union[_asset_metadata_pb2.ClassificationClass, _Mapping]]] = ..., file: _Optional[_Union[_asset_metadata_pb2.File, _Mapping]] = ..., sar: _Optional[_Union[_sar_pb2.SARProperties, _Mapping]] = ..., satellite: _Optional[_Union[_satellite_pb2.SatelliteProperties, _Mapping]] = ..., product: _Optional[_Union[_product_pb2.ProductProperties, _Mapping]] = ..., bitfields: _Optional[_Iterable[_Union[_asset_metadata_pb2.ClassificationBitField, _Mapping]]] = ...) -> None: ...
 
 class Assets(_message.Message):
     __slots__ = ("access_profiles", "band_profiles", "assets")

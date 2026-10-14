@@ -1,0 +1,276 @@
+{
+  "sentinel1": {
+    "dataset": "open_data.aws_earth.sentinel1",
+    "id": "016f5e6b-dce6-41d9-8844-0c904fc39c2f",
+    "stac_id": "S1B_IW_GRDH_1SDV_20200101T000510_20200101T000539_019616_02512B",
+    "assets": {
+      "access_profiles": [
+        {
+          "base_href": "s3://sentinel-s1-l1c/GRD/2020/1/1/IW/DV/S1B_IW_GRDH_1SDV_20200101T000510_20200101T000539_019616_02512B_B140/",
+          "storage_refs": [
+            "sentinel-1-products"
+          ]
+        },
+        {
+          "alternate_key": "https",
+          "base_href": "https://sentinel-s1-l1c.s3.eu-central-1.amazonaws.com/GRD/2020/1/1/IW/DV/S1B_IW_GRDH_1SDV_20200101T000510_20200101T000539_019616_02512B_B140/",
+          "default_alternate_name": "HTTPS",
+          "storage_refs": [
+            "sentinel-1-products"
+          ]
+        }
+      ],
+      "assets": [
+        {
+          "key": "vv",
+          "primary": {
+            "access_profile_index": 0,
+            "href": "measurement/iw-vv.tiff"
+          },
+          "alternates": [
+            {
+              "access_profile_index": 1
+            }
+          ]
+        }
+      ]
+    },
+    "storage": {
+      "schemes": {
+        "earth-search": {
+          "bucket": "earthsearch-data",
+          "known_type": "KNOWN_STORAGE_TYPE_AWS_S3",
+          "platform": "https://{bucket}.s3.{region}.amazonaws.com",
+          "region": "us-west-2",
+          "requester_pays": false
+        },
+        "sentinel-1-products": {
+          "bucket": "sentinel-s1-l1c",
+          "known_type": "KNOWN_STORAGE_TYPE_AWS_S3",
+          "platform": "https://{bucket}.s3.{region}.amazonaws.com",
+          "region": "eu-central-1",
+          "requester_pays": false
+        }
+      }
+    }
+  },
+  "sentinel2": {
+    "dataset": "open_data.aws_earth.sentinel2",
+    "id": "019f1afb-4f9b-138d-74fb-579d4fbffdf0",
+    "stac_id": "S2B_T11XNM_20260701T000137_L2A",
+    "assets": {
+      "access_profiles": [
+        {
+          "base_href": "https://e84-earth-search-sentinel-data.s3.us-west-2.amazonaws.com/sentinel-2-c1-l2a/11/X/NM/2026/7/S2B_T11XNM_20260701T000137_L2A/",
+          "storage_refs": [
+            "earth-search"
+          ]
+        },
+        {
+          "alternate_key": "s3",
+          "base_href": "s3://e84-earth-search-sentinel-data/sentinel-2-c1-l2a/11/X/NM/2026/7/S2B_T11XNM_20260701T000137_L2A/",
+          "default_alternate_name": "S3",
+          "storage_refs": [
+            "earth-search"
+          ]
+        }
+      ],
+      "assets": [
+        {
+          "key": "red",
+          "primary": {
+            "access_profile_index": 0,
+            "href": "B04.tif"
+          },
+          "alternates": [
+            {
+              "access_profile_index": 1
+            }
+          ]
+        }
+      ]
+    },
+    "storage": {
+      "schemes": {
+        "earth-search": {
+          "bucket": "e84-earth-search-sentinel-data",
+          "known_type": "KNOWN_STORAGE_TYPE_AWS_S3",
+          "platform": "https://{bucket}.s3.{region}.amazonaws.com",
+          "region": "us-west-2",
+          "requester_pays": false
+        }
+      }
+    }
+  },
+  "wyvern": {
+    "dataset": "open_data.wyvern.dragonette",
+    "id": "018f4c88-35ba-0b81-dd1e-e9a684261f3d",
+    "stac_id": "wyvern_dragonette-001_20240506T061223_fb944bb4_l2a",
+    "assets": {
+      "access_profiles": [
+        {
+          "base_href": "https://"
+        }
+      ],
+      "assets": [
+        {
+          "key": "Cloud optimized GeoTiff",
+          "primary": {
+            "access_profile_index": 0,
+            "href": "wyvern-data.com/wyvern_dragonette-001_20240506T061223_fb944bb4_l2a/wyvern_dragonette-001_20240506T061223_fb944bb4_l2a.tiff"
+          }
+        }
+      ]
+    }
+  },
+  "planet": {
+    "dataset": "open_data.planet.tanager",
+    "id": "01922a89-76a6-4259-ae30-cd2832c37028",
+    "stac_id": "20240925_185504_87_4001",
+    "assets": {
+      "access_profiles": [
+        {
+          "base_href": "https://storage.googleapis.com/open-cogs/planet-stac/tanager1-release2-core-imagery/"
+        },
+        {
+          "alternate_key": "gcs",
+          "base_href": "gs://open-cogs/planet-stac/tanager1-release2-core-imagery/",
+          "default_alternate_name": "GCS"
+        }
+      ],
+      "assets": [
+        {
+          "key": "ortho_visual",
+          "primary": {
+            "access_profile_index": 0,
+            "href": "ortho_visual/20240925_185504_87_4001_ortho_visual.tif"
+          },
+          "alternates": [
+            {
+              "access_profile_index": 1
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "satellogic": {
+    "dataset": "open_data.satellogic.earth_view",
+    "id": "0181b8fa-7863-1000-3e25-d0621e5fa326",
+    "stac_id": "20220701_085711_SN18_36N_362863_5817776",
+    "assets": {
+      "access_profiles": [
+        {
+          "base_href": "https://satellogic-earthview.s3.us-west-2.amazonaws.com/data/"
+        },
+        {
+          "alternate_key": "s3",
+          "base_href": "s3://satellogic-earthview/data/",
+          "default_alternate_name": "S3"
+        }
+      ],
+      "assets": [
+        {
+          "key": "analytic",
+          "primary": {
+            "access_profile_index": 0,
+            "href": "tif/zone=36N/region=362863_5817776/date=2022-07-01/20220701_085711_SN18_36N_362863_5817776_TOA.tif"
+          },
+          "alternates": [
+            {
+              "access_profile_index": 1
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "planetary_computer": {
+    "dataset": "tilebox.test_planetary_computer",
+    "id": "019f539f-a800-22b3-9e87-a25c51beeaf1",
+    "stac_id": "MOD13Q1.A2026193.h35v10.061.2026210034525",
+    "storage": {
+      "schemes": {
+        "azure_modiseuwest_modis-061": {
+          "account": "modiseuwest",
+          "additional_properties": {
+            "container": "modis-061"
+          },
+          "known_type": "KNOWN_STORAGE_TYPE_MICROSOFT_AZURE",
+          "platform": "https://{account}.blob.core.windows.net",
+          "region": "westeurope"
+        },
+        "azure_modiseuwest_modis-061-cogs": {
+          "account": "modiseuwest",
+          "additional_properties": {
+            "container": "modis-061-cogs"
+          },
+          "known_type": "KNOWN_STORAGE_TYPE_MICROSOFT_AZURE",
+          "platform": "https://{account}.blob.core.windows.net",
+          "region": "westeurope"
+        }
+      }
+    },
+    "authentication": {
+      "schemes": {
+        "planetary_computer": {
+          "flows": [
+            {
+              "key": "authorizationCode",
+              "signed_url": {
+                "authorization_api": "https://planetarycomputer.microsoft.com/api/sas/v1/sign",
+                "method": "GET",
+                "parameters": {
+                  "href": {
+                    "description": "The complete unsigned href of the selected asset location.",
+                    "location": "query",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "response_field": "href"
+              }
+            }
+          ],
+          "known_type": "KNOWN_AUTHENTICATION_TYPE_SIGNED_URL"
+        }
+      }
+    },
+    "assets": {
+      "access_profiles": [
+        {
+          "base_href": "https://planetarycomputer.microsoft.com/api/data/v1/item/"
+        },
+        {
+          "auth_refs": [
+            "planetary_computer"
+          ],
+          "base_href": "https://modiseuwest.blob.core.windows.net/modis-061/MOD13Q1/35/10/2026193/",
+          "storage_refs": [
+            "azure_modiseuwest_modis-061"
+          ]
+        },
+        {
+          "auth_refs": [
+            "planetary_computer"
+          ],
+          "base_href": "https://modiseuwest.blob.core.windows.net/modis-061-cogs/MOD13Q1/35/10/2026193/",
+          "storage_refs": [
+            "azure_modiseuwest_modis-061-cogs"
+          ]
+        }
+      ],
+      "assets": [
+        {
+          "key": "250m_16_days_NDVI",
+          "primary": {
+            "access_profile_index": 2,
+            "href": "MOD13Q1.A2026193.h35v10.061.2026210034525_250m_16_days_NDVI.tif"
+          }
+        }
+      ]
+    }
+  }
+}
