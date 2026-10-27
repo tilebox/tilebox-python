@@ -8,37 +8,34 @@ import xarray as xr
 from hypothesis import assume, given, settings
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, consumes, invariant, rule
 from hypothesis.strategies import lists
-from promise import Promise
 
-from _tilebox.grpc.error import ArgumentError, NotFoundError
+from _tilebox.errors import ArgumentError, NotFoundError
 from tests.data.collection import collection_infos, collection_names
 from tests.data.datapoint import example_datapoints, paginated_query_results
 from tests.data.datasets import example_dataset_type, example_dataset_type_url
-from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
+from tests.example_dataset.schema import ExampleDatapoint
 from tilebox.datasets import CollectionClient, DatasetClient, field
 from tilebox.datasets.data.collection import Collection, CollectionInfo
 from tilebox.datasets.data.datapoint import AnyMessage, QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.data.timeseries import TimeseriesDatasetChunk
-from tilebox.datasets.datasets.v1.collections_pb2 import (
-    CreateCollectionRequest,
-    DeleteCollectionRequest,
-    GetCollectionByNameRequest,
-    ListCollectionsRequest,
-    ListCollectionsResponse,
-)
-from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceStub
-from tilebox.datasets.datasets.v1.core_pb2 import Collection as CollectionMessage
-from tilebox.datasets.datasets.v1.core_pb2 import CollectionInfo as CollectionInfoMessage
-from tilebox.datasets.datasets.v1.timeseries_pb2 import TimeseriesDatasetChunk as TimeseriesDatasetChunkMessage
 from tilebox.datasets.query.time_interval import (
     _EMPTY_TIME_INTERVAL,
     TimeInterval,
     _convert_to_datetime,
     timestamp_to_datetime,
 )
-from tilebox.datasets.service import TileboxDatasetService
 from tilebox.datasets.uuid import uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.datasets.v1.collections_pb import (
+    CreateCollectionRequest,
+    DeleteCollectionRequest,
+    GetCollectionByNameRequest,
+    ListCollectionsRequest,
+    ListCollectionsResponse,
+)
+from tilebox.datasets.v1.core_pb import Collection as CollectionMessage
+from tilebox.datasets.v1.core_pb import CollectionInfo as CollectionInfoMessage
+from tilebox.datasets.v1.timeseries_pb import TimeseriesDatasetChunk as TimeseriesDatasetChunkMessage
 
 
 @pytest.mark.parametrize(("start", "end"), [(0, 86400), (-86400, 0), (0.5, 1)])
@@ -50,7 +47,9 @@ def test_chunk_preserves_zero_second_timestamps(start: float, end: float) -> Non
         time_interval=interval.to_message(),
     )
 
-    assert TimeseriesDatasetChunk.from_message(message).time_interval == interval
+    chunk = TimeseriesDatasetChunk.from_message(message)
+    assert chunk.time_interval == interval
+    assert TimeseriesDatasetChunk.from_binary(chunk.to_binary()) == chunk
 
 
 @pytest.mark.parametrize("missing_field", ["time_interval", "start_time", "end_time"])
@@ -62,21 +61,23 @@ def test_chunk_missing_time_interval_fields(missing_field: str) -> None:
         time_interval=interval.to_message(),
     )
     if missing_field == "time_interval":
-        message.ClearField(missing_field)
+        setattr(message, missing_field, None)
     else:
-        message.time_interval.ClearField(missing_field)
+        setattr(message.time_interval, missing_field, None)
 
     assert TimeseriesDatasetChunk.from_message(message).time_interval is None
 
 
 def _mocked_dataset() -> tuple[DatasetClient, MagicMock]:
     service = MagicMock()
+    connection = MagicMock()
+    connection.client.return_value = service
 
     # we do not sample/draw from datasets() here, because the values themselves are irrelevant for the tests
     # (we are not testing properties, but rather writing conventional unit tests here, so it doesn't make sense to
     # run them multiple times)
     dataset = DatasetClient(
-        service,
+        connection,
         Dataset(
             id=uuid4(),
             group_id=uuid4(),
@@ -107,12 +108,15 @@ def test_timeseries_dataset_list_collections(infos: list[CollectionInfo]) -> Non
         for info in infos
     ]
     dataset, service = _mocked_dataset()
-    # mock a protobuf message response value for the gRPC endpoint:
-    service.get_collections.return_value = Promise.resolve(infos)
+    service.list_collections.return_value = ListCollectionsResponse(data=[info.to_message() for info in infos])
 
     collections = dataset.collections()
 
-    service.get_collections.assert_called_once_with(dataset._dataset.id, True, True)
+    service.list_collections.assert_called_once_with(
+        ListCollectionsRequest(
+            dataset_id=uuid_to_uuid_message(dataset._dataset.id), with_availability=True, with_count=True
+        )
+    )
     assert len(collections) == len(infos)
 
     for info in infos:
@@ -130,11 +134,18 @@ def test_timeseries_dataset_get_collection(collection_name: str) -> None:
     mocked = _mocked_collection()
     info = mocked.collection_info
     info.collection.name = collection_name
-    service.get_collection_by_name.return_value = Promise.resolve(info)
+    service.get_collection_by_name.return_value = info.to_message()
 
     collection = dataset.collection(collection_name)
 
-    service.get_collection_by_name.assert_called_once_with(dataset._dataset.id, collection_name, True, True)
+    service.get_collection_by_name.assert_called_once_with(
+        GetCollectionByNameRequest(
+            dataset_id=uuid_to_uuid_message(dataset._dataset.id),
+            collection_name=collection_name,
+            with_availability=True,
+            with_count=True,
+        )
+    )
     assert collection_name in repr(collection), "Expected collection name to be in repr"
 
 
@@ -162,6 +173,7 @@ def _mocked_collection() -> MockedCollection:
         count=None,
     )
 
+    service.get_collection_by_name.return_value = collection_info.to_message()
     collection = dataset.collection(collection_info.collection.name)
     collection._info = collection_info
     return MockedCollection(dataset, dataset._dataset, collection, collection_info, service)
@@ -183,7 +195,7 @@ def test_timeseries_dataset_collection_info_cache() -> None:
     collection = mocked.collection
 
     for _ in range(3):  # call three times to ensure caching works
-        mocked.service.get_collection_by_name.return_value = Promise.resolve(info)
+        mocked.service.get_collection_by_name.return_value = info.to_message()
         assert collection.info() == info
 
     assert mocked.service.get_collection_by_name.call_count == 1, "Expected the info endpoint responses to be cached"
@@ -196,9 +208,9 @@ def test_timeseries_dataset_collection_find(expected_datapoint: ExampleDatapoint
     mocked = _mocked_collection()
     collection = mocked.collection
 
-    message = AnyMessage(example_dataset_type_url(), expected_datapoint.SerializeToString())
+    message = AnyMessage(example_dataset_type_url(), expected_datapoint.to_binary())
 
-    mocked.service.query_by_id.return_value = Promise.resolve(message)
+    mocked.service.query_by_id.return_value = message.to_message()
     datapoint = collection.find(uuid_message_to_uuid(expected_datapoint.id))
 
     assert isinstance(datapoint, xr.Dataset)
@@ -237,9 +249,11 @@ def test_timeseries_dataset_find_multiple_collections(expected_datapoint: Exampl
     named_collection = CollectionInfo(Collection(uuid4(), "named-collection"), None, None)
     other_collection = CollectionInfo(Collection(uuid4(), "other-collection"), None, None)
 
-    service.get_collections.return_value = Promise.resolve([named_collection, other_collection])
-    message = AnyMessage(example_dataset_type_url(), expected_datapoint.SerializeToString())
-    service.query_by_id.return_value = Promise.resolve(message)
+    service.list_collections.return_value = ListCollectionsResponse(
+        data=[named_collection.to_message(), other_collection.to_message()]
+    )
+    message = AnyMessage(example_dataset_type_url(), expected_datapoint.to_binary())
+    service.query_by_id.return_value = message.to_message()
 
     datapoint_id = uuid_message_to_uuid(expected_datapoint.id)
     datapoint = dataset.find(
@@ -250,15 +264,16 @@ def test_timeseries_dataset_find_multiple_collections(expected_datapoint: Exampl
     )
 
     assert isinstance(datapoint, xr.Dataset)
-    service.get_collections.assert_called_once_with(dataset._dataset.id, True, True)
-    service.query_by_id.assert_called_once_with(
-        dataset._dataset.id,
-        [
-            named_collection.collection.id,
-        ],
-        datapoint_id,
-        False,
+    service.list_collections.assert_called_once_with(
+        ListCollectionsRequest(
+            dataset_id=uuid_to_uuid_message(dataset._dataset.id), with_availability=True, with_count=True
+        )
     )
+    request = service.query_by_id.call_args.args[0]
+    assert request.dataset_id == uuid_to_uuid_message(dataset._dataset.id)
+    assert request.collection_ids == [uuid_to_uuid_message(named_collection.collection.id)]
+    assert request.id == uuid_to_uuid_message(datapoint_id)
+    assert not request.skip_data
 
 
 @settings(max_examples=1)
@@ -270,8 +285,10 @@ def test_timeseries_dataset_query_multiple_collections(pages: list[QueryResultPa
     named_collection = CollectionInfo(Collection(uuid4(), "named-collection"), None, None)
     other_collection = CollectionInfo(Collection(uuid4(), "other-collection"), None, None)
 
-    service.get_collections.return_value = Promise.resolve([named_collection, other_collection])
-    service.query.side_effect = [Promise.resolve(page) for page in pages]
+    service.list_collections.return_value = ListCollectionsResponse(
+        data=[named_collection.to_message(), other_collection.to_message()]
+    )
+    service.query.side_effect = [page.to_message() for page in pages]
 
     interval = TimeInterval(datetime.now(), datetime.now() + timedelta(days=1))
     queried = dataset.query(
@@ -282,20 +299,22 @@ def test_timeseries_dataset_query_multiple_collections(pages: list[QueryResultPa
     )
 
     _assert_datapoints_match(queried, pages)
-    service.get_collections.assert_called_once_with(dataset._dataset.id, True, True)
-    first_call_args = service.query.call_args_list[0][0]
-    assert first_call_args[0] == dataset._dataset.id
-    assert first_call_args[1] == [
-        named_collection.collection.id,
-    ]
+    service.list_collections.assert_called_once_with(
+        ListCollectionsRequest(
+            dataset_id=uuid_to_uuid_message(dataset._dataset.id), with_availability=True, with_count=True
+        )
+    )
+    request = service.query.call_args_list[0].args[0]
+    assert request.dataset_id == uuid_to_uuid_message(dataset._dataset.id)
+    assert request.collection_ids == [uuid_to_uuid_message(named_collection.collection.id)]
 
 
 @settings(max_examples=1)
 @given(pages=paginated_query_results())
 def test_timeseries_dataset_query_filter(pages: list[QueryResultPage]) -> None:
     dataset, service = _mocked_dataset()
-    service.get_collections.return_value = Promise.resolve([])
-    service.query.side_effect = [Promise.resolve(page) for page in pages]
+    service.list_collections.return_value = ListCollectionsResponse()
+    service.query.side_effect = [page.to_message() for page in pages]
     interval = TimeInterval(datetime.now(), datetime.now() + timedelta(days=1))
 
     dataset.query(
@@ -303,7 +322,7 @@ def test_timeseries_dataset_query_filter(pages: list[QueryResultPage]) -> None:
         filter=(field("quality") >= 80) | field("quality").is_null(),
     )
 
-    filters = service.query.call_args_list[0][0][2].to_message()
+    filters = service.query.call_args_list[0].args[0].filters
     assert len(filters.expressions) == 1
     assert filters.expressions[0].logical.operands[0].comparison.field_name == "quality"
 
@@ -319,7 +338,7 @@ def test_timeseries_dataset_query_rejects_invalid_filter_before_request() -> Non
             filter="quality > 80",  # ty: ignore[invalid-argument-type]
         )
 
-    service.get_collections.assert_not_called()
+    service.list_collections.assert_not_called()
     service.query.assert_not_called()
 
 
@@ -342,7 +361,7 @@ def test_timeseries_dataset_collection_query(
     mocked = _mocked_collection()
     # each call will return the next page in the list
     # the last page will have an empty next_page set, indicating that there are no more pages
-    mocked.service.query.side_effect = [Promise.resolve(page) for page in pages]
+    mocked.service.query.side_effect = [page.to_message() for page in pages]
     # the interval doesn't actually matter here, since we mock the response
     interval = TimeInterval(datetime.now(), datetime.now() + timedelta(days=1))
     dataset = mocked.collection.query(temporal_extent=interval, show_progress=show_progress)
@@ -370,7 +389,7 @@ def test_timeseries_dataset_collection_find_interval(
     mocked = _mocked_collection()
     # each call will return the next page in the list
     # the last page will have an empty next_page set, indicating that there are no more pages
-    mocked.service.query.side_effect = [Promise.resolve(page) for page in pages]
+    mocked.service.query.side_effect = [page.to_message() for page in pages]
     # the interval doesn't actually matter here, since we mock the response
     dataset = mocked.collection._find_interval((uuid4(), uuid4()), show_progress=show_progress)
     _assert_datapoints_match(dataset, pages)
@@ -399,31 +418,32 @@ def _assert_datapoints_match(dataset: xr.Dataset, pages: list[QueryResultPage]) 
         assert str(uuid_message_to_uuid(datapoint_message.id)) == datapoint["id"]
 
 
-class MockCollectionService(CollectionServiceStub):
-    """A mock implementation of the gRPC collection service, that stores collections in memory as a dict."""
+class MockCollectionService:
+    """A native collection service double that stores collections in memory."""
 
     def __init__(self) -> None:
         self.collections: dict[str, CollectionInfoMessage] = {}
 
-    def CreateCollection(self, req: CreateCollectionRequest) -> CollectionInfoMessage:  # noqa: N802
+    def create_collection(self, req: CreateCollectionRequest) -> CollectionInfoMessage:
         collection = CollectionInfoMessage(
             collection=CollectionMessage(id=uuid_to_uuid_message(uuid4()), name=req.name), availability=None, count=None
         )
         self.collections[req.name] = collection
         return collection
 
-    def GetCollectionByName(self, req: GetCollectionByNameRequest) -> CollectionInfoMessage:  # noqa: N802
+    def get_collection_by_name(self, req: GetCollectionByNameRequest) -> CollectionInfoMessage:
         if req.collection_name in self.collections:
             return self.collections[req.collection_name]
         raise NotFoundError(f"Collection {req.collection_name} not found")
 
-    def DeleteCollection(self, req: DeleteCollectionRequest) -> None:  # noqa: N802
+    def delete_collection(self, req: DeleteCollectionRequest) -> None:
         for collection in self.collections.values():
+            assert collection.collection is not None
             if collection.collection.id == req.collection_id:
                 del self.collections[collection.collection.name]
                 return
 
-    def ListCollections(self, req: ListCollectionsRequest) -> ListCollectionsResponse:  # noqa: N802
+    def list_collections(self, req: ListCollectionsRequest) -> ListCollectionsResponse:
         _ = req
         return ListCollectionsResponse(data=list(self.collections.values()), owned_collections=len(self.collections))
 
@@ -443,10 +463,12 @@ class CollectionCRUDOperations(RuleBasedStateMachine):
 
     def __init__(self) -> None:
         super().__init__()
-        dataset_client, _ = _mocked_dataset()
-        dataset_client._service = TileboxDatasetService(
-            MagicMock(), MockCollectionService(), MagicMock(), MagicMock()
-        )  # mock the gRPC service
+        dataset_client, service = _mocked_dataset()
+        collections = MockCollectionService()
+        service.create_collection.side_effect = collections.create_collection
+        service.get_collection_by_name.side_effect = collections.get_collection_by_name
+        service.delete_collection.side_effect = collections.delete_collection
+        service.list_collections.side_effect = collections.list_collections
         self.dataset_client = dataset_client
         self.count_collections = 0
 

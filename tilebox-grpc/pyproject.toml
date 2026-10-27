@@ -1,56 +1,22 @@
 [project]
 name = "tilebox-grpc"
 dynamic = ["version"]
-description = "GRPC / Protocol Buffers functions for Tilebox"
+description = "Compatibility package for tilebox-core"
 authors = [{ name = "Tilebox, Inc.", email = "support@tilebox.com" }]
 readme = "README.md"
 license = { text = "MIT License" }
-classifiers = [
-    "Intended Audience :: Science/Research",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
-    "Topic :: Scientific/Engineering",
-    "Topic :: Software Development",
-]
 requires-python = ">=3.11"
-dependencies = [
-    # Includes fixes for https://github.com/grpc/grpc/security/advisories/GHSA-hf3w-6hpw-qp67.
-    "grpcio>=1.84.0",
-    # connectrpc 0.11 switches from Google's protobuf runtime to protobuf-py
-    "connectrpc>=0.10.1,<0.11.0",
-    "pyqwest>=0.7.0",
-    "protobuf>=6.31.0",  # FieldDescriptor.is_repeated
-    # for the libraries below we specify a minimum, tested to be working version
-    "lz4>=4",
-    "anyio>=4",
-]
-
-[dependency-groups]
-dev = ["pytest-asyncio>=0.24.0", "pytest-cov>=5.0.0", "pytest>=8.3.2"]
+dependencies = ["tilebox-core>=0.68.0"]
 
 [project.urls]
 Homepage = "https://tilebox.com"
 Documentation = "https://docs.tilebox.com/"
 
-
 [tool.hatch.build.targets.sdist]
-packages = ["_tilebox"]
+include = ["pyproject.toml", "README.md"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["_tilebox"]
-
-[tool.pytest.ini_options]
-minversion = "6.0"
-testpaths = ["tests"]
-addopts = "-Wall -Werror --import-mode importlib"
-asyncio_default_fixture_loop_scope = "function"
+bypass-selection = true
 
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning"]

@@ -6,9 +6,10 @@ This repository is the Python monorepo for Tilebox SDK packages. It is organized
 
 ## Monorepo Architecture
 
-The workspace is split into four packages:
+The workspace contains four implementation packages and a compatibility package:
 
-- `tilebox-grpc`: Shared low-level gRPC/protobuf plumbing (`_tilebox.grpc`), sync and async channel handling, error mapping, pagination, replay, and async-to-sync helpers.
+- `tilebox-core`: Public `tilebox.query` value types and `tilebox.errors` exceptions; private shared infrastructure, generated messages, conversions, transports, pagination, replay, and concurrency helpers under `_tilebox`. Only this distribution packages `_tilebox`.
+- `tilebox-grpc`: Empty compatibility package depending on `tilebox-core>=0.68.0`, retained for one release.
 - `tilebox-datasets`: Datasets SDK (`tilebox.datasets`) with sync + async clients, query/data model helpers, protobuf conversion, and generated datasets-related protobuf stubs.
 - `tilebox-workflows`: Workflows SDK (`tilebox.workflows`) with job/cluster/automation clients, task model + runner, observability/tracing, and generated workflows protobuf stubs.
 - `tilebox-storage`: Storage SDK (`tilebox.storage`) for provider-specific payload downloads (ASF, Copernicus, Umbra, Landsat, local FS), built mostly on async internals with sync wrappers.
@@ -16,9 +17,9 @@ The workspace is split into four packages:
 Design choices to keep in mind:
 
 - Namespace package layout: multiple packages contribute modules under shared top-level namespaces like `tilebox.*`.
-- Layering pattern: generated protobuf/gRPC types -> service wrappers -> data/domain classes -> user-facing clients.
-- Sync + async parity: many APIs exist in both forms; sync wrappers are often derived from async implementations.
-- External API communication is gRPC-first, with protobuf-generated contracts.
+- Public clients call generated Connect clients directly and convert protobuf messages to domain objects.
+- Sync + async parity: datasets has native blocking and async clients with shared conversion helpers.
+- External API communication uses native Connect RPC clients and protobuf-py messages.
 
 ## Developer Tooling
 
@@ -27,7 +28,7 @@ Use `uv` for all local development.
 ### Setup
 
 ```bash
-uv sync
+uv sync --all-packages
 ```
 
 ### Test Commands
@@ -40,7 +41,7 @@ uv sync
 uv run --package tilebox-datasets pytest tilebox-datasets
 uv run --package tilebox-workflows pytest tilebox-workflows
 uv run --package tilebox-storage pytest tilebox-storage
-uv run --package tilebox-grpc pytest tilebox-grpc
+uv run --no-sync pytest tilebox-core
 ```
 
 ### Lint / Format / Type Check
@@ -65,7 +66,7 @@ Pre-commit hooks include YAML checks, EOF fixer, `sync-with-uv`, Ruff, and `ty`.
 - Linting/formatting is Ruff-based and fairly strict (`select = ["ALL"]`) with explicit ignores configured in root `pyproject.toml`.
 - Type hints are used broadly across public APIs and internals.
 - Prefer dataclasses and explicit domain objects for request/response translation.
-- Service modules generally wrap generated gRPC stubs and convert to internal Pythonic types.
+- Keep transport and error translation in `_tilebox`; request construction and response conversion belong in clients.
 - Workflows uses a lightweight structured facade over stdlib logging, with separate internal and task channels;
 - Tests use `pytest`, with async coverage (`pytest-asyncio`) and property-based testing (`hypothesis`) in multiple packages.
 
@@ -81,21 +82,24 @@ Pre-commit hooks include YAML checks, EOF fixer, `sync-with-uv`, Ruff, and `ty`.
 
 Generated files live under paths such as:
 
-- `tilebox-datasets/tilebox/datasets/datasets/v1/*_pb2*.py`
-- `tilebox-datasets/tilebox/datasets/tilebox/v1/*_pb2*.py`
-- `tilebox-workflows/tilebox/workflows/workflows/v1/*_pb2*.py`
+- `tilebox-datasets/tilebox/datasets/v1/*_pb.py`
+- `tilebox-datasets/tilebox/datasets/stac/v1/*_pb.py`
+- `tilebox-core/_tilebox/proto/tilebox/v1/*_pb.py`
+- `tilebox-workflows/tilebox/workflows/v1/*_pb.py`
+- `tilebox-workflows/tilebox/workflows/_otel/opentelemetry/proto/**`
 
 Regenerate protobuf code with:
 
 ```bash
-uv run generate-protobuf
+./tools/generate-protobuf.sh
 ```
 
-This uses `buf.gen.datasets.yaml` and `buf.gen.workflows.yaml`, then runs import-fixup logic via `tools/generate_protobuf.py`.
+This uses `buf.gen.yaml` with pinned local plugins and import mappings.
+The script strips upstream trailing whitespace with Ruff and places the generated modules in their owning packages.
 
 ### Important Boundary: API Schema Source Of Truth
 
 - Many protobuf contracts are sourced from the separate `api` repository/module (`buf.build/tilebox/api`, with optional local `../api` input in buf configs).
-- Do **not** hand-edit generated `*_pb2.py`, `*_pb2.pyi`, or `*_pb2_grpc.py` files.
+- Do **not** hand-edit generated `*_pb.py` or `*_connect.py` files.
 - If a requested change requires modifying protobuf schema/contracts, that change must be made in the `api` repo first.
 - Whenever schema/proto edits are needed, ask the developer to point you to the `api` repo so those changes can be implemented there and then regenerated here.

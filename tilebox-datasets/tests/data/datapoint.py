@@ -28,7 +28,7 @@ from tests.data.well_known_types import (
     uuid_messages,
     vec3_messages,
 )
-from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
+from tests.example_dataset.schema import ExampleDatapoint
 from tests.query.pagination import paginations
 from tests.query.time_interval import i64_datetimes
 from tilebox.datasets.data.datapoint import AnyMessage, IngestResponse, QueryResultPage, RepeatedAny
@@ -138,7 +138,7 @@ def anys(draw: DrawFn, generated_fields: bool = False, missing_fields: bool = Fa
     """A hypothesis strategy for generating random Any messages"""
     # we need a random byte string here, but let's actually use a valid protobuf message
     datapoint = draw(example_datapoints(generated_fields, missing_fields))
-    return AnyMessage(example_dataset_type_url(), datapoint.SerializeToString())
+    return AnyMessage(example_dataset_type_url(), datapoint.to_binary())
 
 
 @composite
@@ -152,7 +152,7 @@ def repeated_anys(
         )
     else:
         datapoints = draw(lists(example_datapoints(generated_fields, missing_fields), min_size=1, max_size=5))
-    return RepeatedAny(example_dataset_type_url(), [dp.SerializeToString() for dp in datapoints])
+    return RepeatedAny(example_dataset_type_url(), [dp.to_binary() for dp in datapoints])
 
 
 @composite
@@ -174,7 +174,7 @@ def query_result_pages(
     data = draw(repeated_anys(generated_fields, missing_fields))
     next_page = draw(paginations(empty_next_page))
     byte_size = sum(len(m) for m in data.value)
-    return QueryResultPage(data, next_page, byte_size)
+    return QueryResultPage(data, next_page, byte_size, ExampleDatapoint)
 
 
 @composite

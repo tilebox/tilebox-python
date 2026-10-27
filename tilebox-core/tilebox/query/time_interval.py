@@ -1,0 +1,212 @@
+import sys
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta, timezone
+from typing import TYPE_CHECKING, Self, TypeAlias
+
+from _tilebox.proto.tilebox.v1 import query_pb
+from _tilebox.time import _convert_to_datetime, datetime_to_timestamp, timestamp_to_datetime
+
+if TYPE_CHECKING:
+    from pandas.core.tools.datetimes import DatetimeScalar
+    from xarray import DataArray, Dataset
+
+_SMALLEST_POSSIBLE_TIMEDELTA = timedelta(microseconds=1)
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+# A type alias for the different types that can be used to specify a time interval
+TimeIntervalLike: TypeAlias = (
+    "DatetimeScalar | tuple[DatetimeScalar, DatetimeScalar] | list[DatetimeScalar] | DataArray | Dataset | TimeInterval"
+)
+# once we require python >= 3.12 we can replace this with a type statement, which doesn't require a string at all
+# type TimeIntervalLike = DatetimeScalar | tuple[DatetimeScalar ...  | TimeInterval
+
+
+@dataclass(frozen=True)
+class TimeInterval:
+    """
+    A time interval from a given start to a given end time.
+    Both the start and end time can be exclusive or inclusive.
+    """
+
+    start: datetime
+    end: datetime
+
+    # We use exclusive for start and inclusive for end, because that way when both are false
+    # we have a half-open interval [start, end) which is the default behaviour we want to achieve.
+    start_exclusive: bool = False
+    end_inclusive: bool = False
+
+    def __post_init__(self) -> None:
+        """Validate the time interval"""
+        if not isinstance(self.start, datetime):
+            raise TypeError(f"Start time {self.start} must be a datetime object")
+        if not isinstance(self.end, datetime):
+            raise TypeError(f"End time {self.end} must be a datetime object")
+
+        # in case datetime objects are timezone naive, we assume they are in UTC
+        if self.start.tzinfo is None:
+            object.__setattr__(self, "start", self.start.replace(tzinfo=UTC))  # since self is frozen
+        if self.end.tzinfo is None:
+            object.__setattr__(self, "end", self.end.replace(tzinfo=UTC))  # since self is frozen
+
+    def to_half_open(self) -> "TimeInterval":
+        """Convert the time interval to a half-open interval [start, end)"""
+        return TimeInterval(
+            start=self.start + int(self.start_exclusive) * _SMALLEST_POSSIBLE_TIMEDELTA,
+            end=self.end + int(self.end_inclusive) * _SMALLEST_POSSIBLE_TIMEDELTA,
+            start_exclusive=False,
+            end_inclusive=False,
+        )
+
+    def astimezone(self, tzinfo: timezone) -> "TimeInterval":
+        """Convert start and end time to the given timezone"""
+        return TimeInterval(
+            start=self.start.astimezone(tzinfo),
+            end=self.end.astimezone(tzinfo),
+            start_exclusive=self.start_exclusive,
+            end_inclusive=self.end_inclusive,
+        )
+
+    def __eq__(self, other: object) -> bool:
+        """Check whether two intervals are equal"""
+        if not isinstance(other, TimeInterval):
+            return False
+
+        a, b = self.to_half_open(), other.to_half_open()
+        return (a.start, a.end) == (b.start, b.end)
+
+    def __hash__(self) -> int:
+        """Hash the time interval"""
+
+        # if two intervals are equal, they should have the same hash, so we convert to half-open intervals first
+        half_open = self.to_half_open()
+        return hash((half_open.start, half_open.end))
+
+    def __repr__(self) -> str:
+        return self.format()
+
+    def format(self, endpoints: bool = True, sep: str = ", ", timespec: str = "milliseconds") -> str:
+        """Human readable representation of the time interval
+
+        Args:
+            endpoints: Whether to format as interval using scientific interval notation [start, end].
+                "[", "]" for closed intervals and "(", ")" for open intervals.
+            sep: The separator to use between the start and end of the interval.
+            timespec: Specifies the number of additional terms of the time to include. Valid options are 'auto',
+                'hours', 'minutes', 'seconds', 'milliseconds' and 'microseconds'.
+        """
+        if self == _EMPTY_TIME_INTERVAL:
+            return "<empty>"
+
+        start = self.start.isoformat(timespec=timespec).replace("+00:00", " UTC")
+        end = self.end.isoformat(timespec=timespec).replace("+00:00", " UTC")
+
+        formatted = f"{start}{sep}{end}"
+        if endpoints:
+            start_ch = "[" if not self.start_exclusive else "("
+            end_ch = "]" if self.end_inclusive else ")"
+            formatted = f"{start_ch}{formatted}{end_ch}"
+        return formatted
+
+    def __str__(self) -> str:
+        """Human readable representation of the time interval"""
+        return self.format()
+
+    @classmethod
+    def parse(cls, arg: TimeIntervalLike) -> "TimeInterval":
+        """
+        Convert a variety of input types to a TimeInterval.
+
+        Supported input types:
+        - TimeInterval: Return the input as is
+        - DatetimeScalar: Return a TimeInterval with start and end time set to the same value and the end time inclusive
+        - tuple of two DatetimeScalar: Return a TimeInterval with start and end time
+        - xr.DataArray: Return a TimeInterval with start and end time set to the first and last value in the array and
+            the end time inclusive
+        - xr.Dataset: Return a TimeInterval with start and end time set to the first and last value in the time
+            coordinate of the dataset and the end time inclusive
+
+        Args:
+            arg: The input to convert
+
+        Returns:
+            TimeInterval: The parsed time interval
+        """
+
+        if isinstance(arg, TimeInterval):
+            return arg
+
+        if type(arg) is datetime:
+            dt = _convert_to_datetime(arg)
+            return TimeInterval(start=dt, end=dt, start_exclusive=False, end_inclusive=True)
+
+        if isinstance(arg, list | tuple) and len(arg) == 2:
+            start, end = arg
+            return TimeInterval(start=_convert_to_datetime(start), end=_convert_to_datetime(end))
+
+        try:
+            from pandas.core.tools.datetimes import DatetimeScalar  # noqa: PLC0415
+        except ModuleNotFoundError as error:
+            if error.name != "pandas":
+                raise
+            raise ImportError(
+                "Parsing strings and scientific datetime values requires pandas. "
+                "Install pandas or pass Python datetime objects."
+            ) from error
+
+        if isinstance(arg, DatetimeScalar | int):
+            dt = _convert_to_datetime(arg)
+            return TimeInterval(start=dt, end=dt, start_exclusive=False, end_inclusive=True)
+
+        # An xarray input already has its module loaded; don't import it for other values.
+        xr = sys.modules.get("xarray")
+
+        if (
+            xr is not None
+            and isinstance(arg, xr.DataArray)
+            and arg.ndim == 1
+            and arg.size > 0
+            and arg.dtype == "datetime64[ns]"
+        ):
+            start = arg.data[0]
+            end = arg.data[-1]
+            return TimeInterval(
+                start=_convert_to_datetime(start),
+                end=_convert_to_datetime(end),
+                start_exclusive=False,
+                end_inclusive=True,
+            )
+
+        if xr is not None and isinstance(arg, xr.Dataset) and "time" in arg.coords:
+            return cls.parse(arg.time)
+
+        raise ValueError(f"Failed to convert {arg} ({type(arg)}) to TimeInterval)")
+
+    @classmethod
+    def from_message(cls, interval: query_pb.TimeInterval) -> Self:
+        """Convert a TimeInterval protobuf message to a TimeInterval object."""
+
+        start = timestamp_to_datetime(interval.start_time)
+        end = timestamp_to_datetime(interval.end_time)
+        if start == _EPOCH and end == _EPOCH and not interval.start_exclusive and not interval.end_inclusive:
+            return cls(start, end, start_exclusive=True, end_inclusive=False)
+
+        return cls(
+            start=start,
+            end=end,
+            start_exclusive=interval.start_exclusive,
+            end_inclusive=interval.end_inclusive,
+        )
+
+    def to_message(self) -> query_pb.TimeInterval:
+        """Convert a TimeInterval object to a TimeInterval protobuf message."""
+        return query_pb.TimeInterval(
+            start_time=datetime_to_timestamp(self.start),
+            end_time=datetime_to_timestamp(self.end),
+            start_exclusive=self.start_exclusive,
+            end_inclusive=self.end_inclusive,
+        )
+
+
+# A sentinel value to use for time interval that are empty
+_EMPTY_TIME_INTERVAL = TimeInterval(_EPOCH, _EPOCH, start_exclusive=True, end_inclusive=False)

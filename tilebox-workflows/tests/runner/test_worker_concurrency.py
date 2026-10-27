@@ -1,15 +1,15 @@
 import asyncio
 import logging
-import socket
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import ClassVar
 from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
-import grpc
 import pytest
-from google.protobuf.empty_pb2 import Empty
+from protobuf.wkt.google.protobuf.empty_pb import Empty
 
 from tilebox.datasets.uuid import must_uuid_to_uuid_message
 from tilebox.workflows import ExecutionContext, Runner, Task
@@ -19,14 +19,16 @@ from tilebox.workflows.data import Task as TaskData
 from tilebox.workflows.observability._logging import StructuredLogger
 from tilebox.workflows.observability.tracing import NoopWorkflowTracer
 from tilebox.workflows.runner.executor import LazyStorageLocations
-from tilebox.workflows.runner.worker_server import serve_runner
+from tilebox.workflows.runner.worker_server import WorkerServer
 from tilebox.workflows.task import TaskMeta
-from tilebox.workflows.workflows.v1 import core_pb2, worker_pb2, worker_pb2_grpc
+from tilebox.workflows.v1 import core_pb, worker_pb
+from tilebox.workflows.v1.worker_connect import WorkerServiceClientSync
 
 
 def test_worker_executes_tasks_concurrently_with_isolated_execution_state(
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     # Runtime identity is independent of the runner ID supplied by initialization.
     monkeypatch.setenv("TILEBOX_RUNTIME_ID", str(uuid4()))
@@ -67,43 +69,43 @@ def test_worker_executes_tasks_concurrently_with_isolated_execution_state(
     fake_client._task_logger = StructuredLogger(logging.getLogger("tilebox.workflows.tests.shared-worker"))
     caplog.set_level(logging.INFO, logger="tilebox.workflows.tests.shared-worker")
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as free_socket:
-        free_socket.bind(("127.0.0.1", 0))
-        address = f"127.0.0.1:{free_socket.getsockname()[1]}"
-
-    server_thread = threading.Thread(target=serve_runner, args=(runner, address), daemon=True)
+    monkeypatch.setenv("TILEBOX_RUNTIME_DIR", str(tmp_path))
+    monkeypatch.setenv("TILEBOX_RUNTIME_TOKEN", "test-token")
+    server = WorkerServer(runner, "127.0.0.1:0")
+    headers = {"authorization": "Bearer test-token"}
 
     with (
         patch("tilebox.workflows.runner.worker_service.Client", return_value=fake_client),
         patch("tilebox.workflows.runner.worker_service.initialize_logging") as initialize_logging,
     ):
-        server_thread.start()
-        channel = grpc.insecure_channel(address)
-        grpc.channel_ready_future(channel).result(timeout=5)
-        stub = worker_pb2_grpc.WorkerServiceStub(channel)
-        stub.InitializeWorker(
-            worker_pb2.InitializeRunnerRequest(runner_id=must_uuid_to_uuid_message(uuid4())),
-            timeout=5,
+        server.start()
+        stub = WorkerServiceClientSync(f"http://127.0.0.1:{server._port}", timeout_ms=5000)
+        stub.initialize_worker(
+            worker_pb.InitializeRunnerRequest(runner_id=must_uuid_to_uuid_message(uuid4())),
+            headers=headers,
         )
         initialize_logging.assert_called_once_with(url="https://worker.example", token="worker-key")  # noqa: S106
 
         job = _job()
         tasks = [_task_message(ConcurrentTask(label), job) for label in ("first", "second")]
-        responses = [stub.ExecuteTask.future(task, timeout=5) for task in tasks]
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            responses = [pool.submit(stub.execute_task, task, headers=headers) for task in tasks]
+            try:
+                results = [response.result() for response in responses]
+            finally:
+                stub.shutdown_worker(Empty(), headers=headers)
+                stub.close()
+                server.wait()
 
-        try:
-            results = [response.result() for response in responses]
-        finally:
-            stub.ShutdownWorker(Empty(), timeout=5)
-            channel.close()
-            server_thread.join(timeout=10)
-
-    assert not server_thread.is_alive()
+    assert not server._thread.is_alive()
     assert len(SharedRunnerContext.instances) == 1
-    assert all(result.HasField("computed_task") for result in results)
-    assert [result.computed_task.progress_updates[0].label for result in results] == ["first", "second"]
-    assert all(result.computed_task.progress_updates[0].total == 1 for result in results)
-    assert all(result.computed_task.progress_updates[0].done == 1 for result in results)
+    computed_tasks = []
+    for result in results:
+        assert result.computed_task is not None
+        computed_tasks.append(result.computed_task)
+    assert [task.progress_updates[0].label for task in computed_tasks] == ["first", "second"]
+    assert all(task.progress_updates[0].total == 1 for task in computed_tasks)
+    assert all(task.progress_updates[0].done == 1 for task in computed_tasks)
 
     assert {observation[0] for observation in ConcurrentTask.observations} == {"first", "second"}
     assert len({observation[1] for observation in ConcurrentTask.observations}) == 2
@@ -118,7 +120,11 @@ def test_worker_executes_tasks_concurrently_with_isolated_execution_state(
         if record.message == "Concurrent task executing"
     ]
     assert {attributes["label"] for attributes in log_attributes} == {"first", "second"}
-    assert {attributes["task_id"] for attributes in log_attributes} == {str(UUID(bytes=task.id.uuid)) for task in tasks}
+    task_ids = set()
+    for task in tasks:
+        assert task.id is not None
+        task_ids.add(str(UUID(bytes=task.id.uuid)))
+    assert {attributes["task_id"] for attributes in log_attributes} == task_ids
 
 
 def test_lazy_storage_locations_are_loaded_once_during_concurrent_access() -> None:
@@ -173,7 +179,7 @@ def _job() -> Job:
     )
 
 
-def _task_message(task: Task, job: Job) -> core_pb2.Task:
+def _task_message(task: Task, job: Job) -> core_pb.Task:
     identifier = TaskMeta.for_task(task).identifier
     return TaskData(
         id=uuid4(),

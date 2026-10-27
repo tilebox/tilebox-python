@@ -5,16 +5,16 @@ from warnings import warn
 
 from shapely import Geometry, from_wkb, to_wkb
 
-from tilebox.datasets.datasets.v1 import data_access_pb2, well_known_types_pb2
 from tilebox.datasets.query.expression import Expression
 from tilebox.datasets.query.id_interval import IDInterval
 from tilebox.datasets.query.time_interval import TimeInterval
+from tilebox.datasets.v1 import data_access_pb, well_known_types_pb
 
 
 class SpatialFilterMode(Enum):
-    INTERSECTS = data_access_pb2.SPATIAL_FILTER_MODE_INTERSECTS
-    FILTER_CONTAINS_GEOMETRY = data_access_pb2.SPATIAL_FILTER_MODE_FILTER_CONTAINS_GEOMETRY
-    GEOMETRY_CONTAINS_FILTER = data_access_pb2.SPATIAL_FILTER_MODE_GEOMETRY_CONTAINS_FILTER
+    INTERSECTS = data_access_pb.SpatialFilterMode.INTERSECTS
+    FILTER_CONTAINS_GEOMETRY = data_access_pb.SpatialFilterMode.FILTER_CONTAINS_GEOMETRY
+    GEOMETRY_CONTAINS_FILTER = data_access_pb.SpatialFilterMode.GEOMETRY_CONTAINS_FILTER
 
 
 _filter_modes_from_string = {mode.name.lower(): mode for mode in SpatialFilterMode}
@@ -22,8 +22,8 @@ _filter_mode_int_to_enum = {mode.value: mode for mode in SpatialFilterMode}
 
 
 class SpatialCoordinateSystem(Enum):
-    CARTESIAN = data_access_pb2.SPATIAL_COORDINATE_SYSTEM_CARTESIAN
-    SPHERICAL = data_access_pb2.SPATIAL_COORDINATE_SYSTEM_SPHERICAL
+    CARTESIAN = data_access_pb.SpatialCoordinateSystem.CARTESIAN
+    SPHERICAL = data_access_pb.SpatialCoordinateSystem.SPHERICAL
 
 
 _coordinate_systems_from_string = {system.name.lower(): system for system in SpatialCoordinateSystem}
@@ -62,23 +62,25 @@ class SpatialFilter:
     coordinate_system: SpatialCoordinateSystem | None = None
 
     @classmethod
-    def from_message(cls, filter_message: data_access_pb2.SpatialFilter) -> "SpatialFilter":
+    def from_message(cls, filter_message: data_access_pb.SpatialFilter) -> "SpatialFilter":
+        if filter_message.geometry is None:
+            raise ValueError("Spatial filter is missing its geometry")
         return SpatialFilter(
             geometry=from_wkb(filter_message.geometry.wkb),
             mode=_filter_mode_int_to_enum.get(filter_message.mode),
             coordinate_system=_coordinate_system_int_to_enum.get(filter_message.coordinate_system),
         )
 
-    def to_message(self) -> data_access_pb2.SpatialFilter:
-        filter_mode = self.mode.value if self.mode else data_access_pb2.SPATIAL_FILTER_MODE_UNSPECIFIED
+    def to_message(self) -> data_access_pb.SpatialFilter:
+        filter_mode = self.mode.value if self.mode else data_access_pb.SpatialFilterMode.UNSPECIFIED
         coordinate_system = (
             self.coordinate_system.value
             if self.coordinate_system
-            else data_access_pb2.SPATIAL_COORDINATE_SYSTEM_UNSPECIFIED
+            else data_access_pb.SpatialCoordinateSystem.UNSPECIFIED
         )
 
-        return data_access_pb2.SpatialFilter(
-            geometry=well_known_types_pb2.Geometry(wkb=to_wkb(self.geometry)),
+        return data_access_pb.SpatialFilter(
+            geometry=well_known_types_pb.Geometry(wkb=to_wkb(self.geometry)),
             mode=filter_mode,
             coordinate_system=coordinate_system,
         )
@@ -123,18 +125,20 @@ class QueryFilters:
             raise TypeError(f"Expected a query expression, got {type(self.filter).__name__}")
 
     @classmethod
-    def from_message(cls, filters: data_access_pb2.QueryFilters) -> "QueryFilters":
-        interval_variants = [name for name in ("time_interval", "datapoint_interval") if filters.HasField(name)]
+    def from_message(cls, filters: data_access_pb.QueryFilters) -> "QueryFilters":
+        interval_variants = [name for name in ("time_interval", "datapoint_interval") if filters.has_field(name)]
         if len(interval_variants) != 1:
             raise ValueError("Invalid filter: exactly one time or datapoint interval must be set")
 
         if interval_variants[0] == "time_interval":
+            assert filters.time_interval is not None
             temporal_extent = TimeInterval.from_message(filters.time_interval)
         else:
+            assert filters.datapoint_interval is not None
             temporal_extent = IDInterval.from_message(filters.datapoint_interval)
 
         spatial_extent = None
-        if filters.HasField("spatial_extent"):
+        if filters.spatial_extent is not None:
             spatial_extent = SpatialFilter.from_message(filters.spatial_extent)
 
         expressions = tuple(Expression.from_message(expression) for expression in filters.expressions)
@@ -150,17 +154,17 @@ class QueryFilters:
             filter=filter_expression,
         )
 
-    def to_message(self) -> data_access_pb2.QueryFilters:
+    def to_message(self) -> data_access_pb.QueryFilters:
         spatial_extent = self.spatial_extent.to_message() if self.spatial_extent else None
         expressions = [self.filter.to_message()] if self.filter is not None else []
         if isinstance(self.temporal_extent, TimeInterval):
-            return data_access_pb2.QueryFilters(
+            return data_access_pb.QueryFilters(
                 time_interval=self.temporal_extent.to_message(),
                 spatial_extent=spatial_extent,
                 expressions=expressions,
             )
 
-        return data_access_pb2.QueryFilters(
+        return data_access_pb.QueryFilters(
             datapoint_interval=self.temporal_extent.to_message(),
             spatial_extent=spatial_extent,
             expressions=expressions,

@@ -9,24 +9,13 @@ import pytest
 import xarray as xr
 from shapely import Polygon
 
-from _tilebox.grpc.error import NotFoundError
-from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
+from _tilebox.errors import ArgumentError, AuthenticationError, InternalServerError, NotFoundError
+from _tilebox.replay import Record, Replay
 from tilebox.datasets import Client, DatasetClient
 from tilebox.datasets.aio.client import Client as AsyncClient
 from tilebox.datasets.client import _TILEBOX_API_URL, _TILEBOX_DEV_API_URL
 from tilebox.datasets.data.datapoint import QueryResultPage
 from tilebox.datasets.query.time_interval import us_to_datetime
-
-
-@pytest.mark.parametrize(
-    ("client_type", "transport_type"), [(Client, "SyncHTTPTransport"), (AsyncClient, "HTTPTransport")]
-)
-def test_http1_trusts_system_certificates(client_type: type[Client] | type[AsyncClient], transport_type: str) -> None:
-    from pyqwest import HTTPVersion  # noqa: PLC0415
-
-    with patch(f"pyqwest.{transport_type}") as transport:
-        client_type(url="https://api.tilebox.com", transport="http1")
-        transport.assert_called_once_with(http_version=HTTPVersion.HTTP1, tls_include_system_certs=True)
 
 
 @pytest.mark.parametrize("client_type", [Client, AsyncClient])
@@ -51,25 +40,19 @@ def test_client_url_environment(
     if environment_url is not None:
         monkeypatch.setenv("TILEBOX_API_URL", environment_url)
     monkeypatch.setenv("TILEBOX_API_KEY", "runner-key")
-    with patch(f"{client_type.__module__}.open_channel") as open_channel_mock:
+    connection_type = "AsyncConnection" if client_type is AsyncClient else "Connection"
+    with patch(f"{client_type.__module__}.{connection_type}") as connection_mock:
         if explicit_url is None:
             client_type()
         else:
             client_type(url=explicit_url)
-        open_channel_mock.assert_called_once_with(expected_url, "runner-key", rpc_method_prefix=None)
+        connection_mock.assert_called_once_with(expected_url, "runner-key", None, transport="http2", interceptors=())
 
 
-@pytest.mark.parametrize("grpc_verbosity", [None, "DEBUG"])
-def test_heavy_imports_are_lazy(monkeypatch: pytest.MonkeyPatch, grpc_verbosity: str | None) -> None:
-    monkeypatch.delenv("GRPC_VERBOSITY", raising=False)
-    if grpc_verbosity is not None:
-        monkeypatch.setenv("GRPC_VERBOSITY", grpc_verbosity)
+def test_heavy_imports_are_lazy() -> None:
     code = (
-        "import os\n"
         "import sys\n"
         "import tilebox.datasets as datasets\n"
-        f"assert os.environ['GRPC_VERBOSITY'] == {grpc_verbosity or 'ERROR'!r}\n"
-        "assert 'grpc' not in sys.modules\n"
         "assert not {'pandas', 'xarray'} & sys.modules.keys()\n"
         "assert set(datasets.__all__) <= set(dir(datasets))\n"
         "from tilebox.datasets.query.time_interval import TimeInterval\n"
@@ -84,52 +67,52 @@ def test_heavy_imports_are_lazy(monkeypatch: pytest.MonkeyPatch, grpc_verbosity:
     subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603
 
 
+def test_legacy_root_timeseries_aliases_warn_and_preserve_async_identity() -> None:
+    code = """
+import warnings
+import tilebox.datasets as datasets
+from tilebox.datasets import aio
+
+for legacy, current in (("TimeseriesDataset", "DatasetClient"), ("TimeseriesCollection", "CollectionClient")):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        alias = getattr(datasets, legacy)
+    assert alias is getattr(aio, current)
+    assert alias is not getattr(datasets, current)
+    assert len(caught) == 1
+    assert caught[0].category is DeprecationWarning
+    assert f"tilebox.datasets.aio.{current}" in str(caught[0].message)
+"""
+    subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603
+
+
 @pytest.mark.parametrize("url", [_TILEBOX_API_URL, _TILEBOX_DEV_API_URL, f"{_TILEBOX_API_URL}/"])
 @patch.dict(os.environ, {}, clear=True)
-@patch("tilebox.datasets.sync.client.open_channel")
-def test_tilebox_client_init_uses_public_rpc_prefix_for_tilebox_urls(open_channel_mock: MagicMock, url: str) -> None:
+@patch("tilebox.datasets.sync.client.Connection")
+def test_tilebox_client_init_uses_public_rpc_prefix_for_tilebox_urls(connection_mock: MagicMock, url: str) -> None:
     Client(url=url, token=None)
-    open_channel_mock.assert_called_once_with(url.removesuffix("/"), None, rpc_method_prefix="/public")
+    connection_mock.assert_called_once_with(url.removesuffix("/"), None, "/public", transport="http2", interceptors=())
 
 
 @patch.dict(os.environ, {}, clear=True)
-@patch("tilebox.datasets.sync.client.open_channel")
-def test_tilebox_client_init_skips_public_rpc_prefix_for_custom_urls(open_channel_mock: MagicMock) -> None:
+@patch("tilebox.datasets.sync.client.Connection")
+def test_tilebox_client_init_skips_public_rpc_prefix_for_custom_urls(connection_mock: MagicMock) -> None:
     Client(url="some-url", token=None)
-    open_channel_mock.assert_called_once_with("some-url", None, rpc_method_prefix=None)
+    connection_mock.assert_called_once_with("some-url", None, None, transport="http2", interceptors=())
 
 
 def replay_client(replay_file: str, assert_request_matches: bool = True) -> Client:
     replay = Path(__file__).parent / "testdata" / "recordings" / replay_file
-    replay_channel = open_replay_channel(replay, assert_request_matches)
-
-    with patch("tilebox.datasets.sync.client.open_channel") as open_channel_mock:
-        open_channel_mock.return_value = replay_channel
-        # url/token doesn't matter since its a mocked channel
-        client = Client(
-            url="https://api.tilebox.com",
-            token="token",  # noqa: S106
-        )
-        open_channel_mock.assert_called_once()
-
-    return client
+    return Client(url="https://api.tilebox.com", interceptors=[Replay(replay, assert_request_matches)])
 
 
 def record_client(recording_file: str) -> Client:
     recording = Path(__file__).parent / "testdata" / "recordings" / recording_file
-    # this will open a channel to api.tilebox.com, which will send real requests to the server, and record them
-    # for later offline replay
-    recording_channel = open_recording_channel(
-        "https://api.tilebox.com", os.environ["TILEBOX_OPENDATA_ONLY_API_KEY"], recording
+    return Client(
+        url="https://api.tilebox.com",
+        token=os.environ["TILEBOX_OPENDATA_ONLY_API_KEY"],
+        interceptors=[Record(recording)],
     )
-
-    with patch("tilebox.datasets.sync.client.open_channel") as open_channel_mock:
-        open_channel_mock.return_value = recording_channel
-        # url/token doesn't matter since its a mocked channel
-        client = Client(url="https://api.tilebox.com", token="token")  # noqa: S106
-        open_channel_mock.assert_called_once()
-
-    return client
 
 
 def test_list_datasets() -> None:
@@ -177,6 +160,43 @@ def test_dataset_not_found() -> None:
 
     with pytest.raises(NotFoundError, match="no such dataset"):
         client.dataset("this.dataset.does.not.exist")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize(
+    "error",
+    [
+        (16, AuthenticationError, "Unauthenticated: denied"),
+        (7, AuthenticationError, "Unauthorized: denied"),
+        (5, NotFoundError, "denied"),
+        (3, ArgumentError, "denied"),
+        (13, InternalServerError, "Oops, something went wrong: denied"),
+        (12, AuthenticationError, "ListDatasets is only available for authenticated users"),
+    ],
+)
+async def test_public_client_translates_native_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    asynchronous: bool,
+    error: tuple[int, type[Exception], str],
+) -> None:
+    """Both public clients translate native failures through the shared connection."""
+    monkeypatch.delenv("TILEBOX_API_KEY", raising=False)
+    status, error_type, message = error
+    recording = tmp_path / "error.bin"
+    recording.write_bytes(f"/datasets.v1.DatasetService/ListDatasets\n\n{status}\ndenied\n".encode())
+    replay = Replay(recording)
+    if asynchronous:
+        async with AsyncClient(url=_TILEBOX_API_URL, token=None, interceptors=[replay]) as client:
+            with pytest.raises(error_type, match=message):
+                await client.datasets()
+    else:
+        with (
+            Client(url=_TILEBOX_API_URL, token=None, interceptors=[replay]) as sync_client,
+            pytest.raises(error_type, match=message),
+        ):
+            sync_client.datasets()
 
 
 def test_find_datapoint() -> None:

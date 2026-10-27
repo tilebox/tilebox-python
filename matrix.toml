@@ -45,9 +45,9 @@ test-args = ["-v"]
 pandas = ["3.0.0"]
 
 [[scenarios]]
-name = "grpc-pandas2"
+name = "core-pandas2"
 python = ["3.11", "3.12", "3.13", "3.14"]
-working-dir = "tilebox-grpc"
+working-dir = "tilebox-core"
 test-command = "pytest"
 test-args = ["-v"]
 
@@ -55,9 +55,9 @@ test-args = ["-v"]
 pandas = ["2.3.3"]
 
 [[scenarios]]
-name = "grpc-pandas3"
+name = "core-pandas3"
 python = ["3.11", "3.12", "3.13", "3.14"]
-working-dir = "tilebox-grpc"
+working-dir = "tilebox-core"
 test-command = "pytest"
 test-args = ["-v"]
 

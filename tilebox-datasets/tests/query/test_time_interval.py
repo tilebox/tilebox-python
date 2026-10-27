@@ -1,12 +1,16 @@
 from datetime import UTC, datetime, timedelta
 
+import numpy as np
+import pandas as pd
 import pytest
-from google.protobuf.timestamp_pb2 import Timestamp
+import xarray as xr
 from hypothesis import given
 from hypothesis.strategies import datetimes
 from pandas.core.tools.datetimes import DatetimeScalar
+from protobuf.wkt.google.protobuf.timestamp_pb import Timestamp
 from tests.query.time_interval import datetime_scalars, time_intervals
 
+from _tilebox.proto.tilebox.v1 import query_pb
 from tilebox.datasets.query.time_interval import (
     _SMALLEST_POSSIBLE_TIMEDELTA,
     TimeInterval,
@@ -16,7 +20,6 @@ from tilebox.datasets.query.time_interval import (
     timedelta_to_duration,
     timestamp_to_datetime,
 )
-from tilebox.datasets.tilebox.v1 import query_pb2
 
 _TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
@@ -88,7 +91,7 @@ def test_from_message_preserves_subclass(
         pass
 
     interval = CustomInterval.from_message(
-        query_pb2.TimeInterval(
+        query_pb.TimeInterval(
             start_time=Timestamp(seconds=start_seconds),
             end_time=Timestamp(seconds=end_seconds),
             end_inclusive=end_inclusive,
@@ -159,3 +162,24 @@ def test_parse_time_interval_from_tuple(
     assert interval.end == end_dt, f"Failed parsing interval for ({start_scalar}, {end_scalar})"
     assert not interval.start_exclusive
     assert not interval.end_inclusive
+
+
+def test_pandas_timestamp_keeps_conversion_and_precision_behavior() -> None:
+    value = pd.Timestamp("2026-03-04T02:30:00.123456789+02:00")
+    assert isinstance(value, pd.Timestamp)
+    with pytest.warns(UserWarning, match="Discarding nonzero nanoseconds"):
+        interval = TimeInterval.parse(value)
+    assert type(interval.start) is datetime
+    assert interval.start == interval.end == datetime(2026, 3, 4, 0, 30, 0, 123456, tzinfo=UTC)
+    assert interval.end_inclusive
+
+
+@pytest.mark.parametrize("as_dataset", [False, True])
+def test_xarray_time_interval_preserves_notebook_inputs(as_dataset: bool) -> None:
+    values = np.array(["2026-03-04T00:30", "2026-03-05T01:15"], dtype="datetime64[ns]")
+    data = xr.Dataset(coords={"time": values}) if as_dataset else xr.DataArray(values)
+    interval = TimeInterval.parse(data)
+    assert interval.start == datetime(2026, 3, 4, 0, 30, tzinfo=UTC)
+    assert interval.end == datetime(2026, 3, 5, 1, 15, tzinfo=UTC)
+    assert not interval.start_exclusive
+    assert interval.end_inclusive

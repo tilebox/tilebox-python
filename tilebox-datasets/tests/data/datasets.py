@@ -6,7 +6,6 @@ from typing import Literal
 from uuid import UUID
 
 import numpy as np
-from google.protobuf.descriptor_pb2 import FieldDescriptorProto, FileDescriptorProto, FileDescriptorSet
 from hypothesis.strategies import (
     DrawFn,
     booleans,
@@ -20,9 +19,10 @@ from hypothesis.strategies import (
     text,
     uuids,
 )
+from protobuf.wkt.google.protobuf.descriptor_pb import FieldDescriptorProto, FileDescriptorProto, FileDescriptorSet
 from shapely import Geometry
 
-from tests.example_dataset.example_dataset_pb2 import DESCRIPTOR_PROTO
+from tests.example_dataset.schema import DESCRIPTOR_PROTO
 from tilebox.datasets.data.datasets import (
     AnnotatedType,
     Dataset,
@@ -35,7 +35,6 @@ from tilebox.datasets.data.datasets import (
     FieldRole,
     ListDatasetsResponse,
 )
-from tilebox.datasets.message_pool import register_once
 
 
 @composite
@@ -105,19 +104,17 @@ def fields(draw: DrawFn) -> Field:
     name = draw(text(alphabet=string.ascii_lowercase + "_", min_size=3, max_size=25))
     field_type = draw(
         one_of(
-            just(FieldDescriptorProto.Type.TYPE_STRING),
-            just(FieldDescriptorProto.Type.TYPE_BYTES),
-            just(FieldDescriptorProto.Type.TYPE_BOOL),
-            just(FieldDescriptorProto.Type.TYPE_INT64),
-            just(FieldDescriptorProto.Type.TYPE_UINT64),
-            just(FieldDescriptorProto.Type.TYPE_DOUBLE),
-            just(FieldDescriptorProto.Type.TYPE_MESSAGE),
+            just(FieldDescriptorProto.Type.STRING),
+            just(FieldDescriptorProto.Type.BYTES),
+            just(FieldDescriptorProto.Type.BOOL),
+            just(FieldDescriptorProto.Type.INT64),
+            just(FieldDescriptorProto.Type.UINT64),
+            just(FieldDescriptorProto.Type.DOUBLE),
+            just(FieldDescriptorProto.Type.MESSAGE),
         )
     )
-    type_name = f".datasets.v1.{name}" if field_type == FieldDescriptorProto.Type.TYPE_MESSAGE else None
-    label = draw(
-        one_of(just(FieldDescriptorProto.Label.LABEL_OPTIONAL), just(FieldDescriptorProto.Label.LABEL_REPEATED))
-    )
+    type_name = f".datasets.v1.{name}" if field_type == FieldDescriptorProto.Type.MESSAGE else None
+    label = draw(one_of(just(FieldDescriptorProto.Label.OPTIONAL), just(FieldDescriptorProto.Label.REPEATED)))
     descriptor = FieldDescriptorProto(name=name, type=field_type, type_name=type_name, label=label)
 
     annotation = draw(field_annotations())
@@ -134,7 +131,7 @@ def dataset_types(draw: DrawFn) -> DatasetType:
 
 @lru_cache
 def example_dataset_type() -> AnnotatedType:
-    descriptor = FileDescriptorProto.FromString(DESCRIPTOR_PROTO)
+    descriptor = FileDescriptorProto.from_binary(DESCRIPTOR_PROTO)
     # we deliberately change the package name to something other than the generated default, to simulate a protobuf
     # file that was sent from the server and is not actually available and already registered
     descriptor.name = "example_dynamic_dataset/v1/example_dynamic_dataset.proto"
@@ -143,9 +140,7 @@ def example_dataset_type() -> AnnotatedType:
     descriptor_set = FileDescriptorSet(file=[descriptor])
 
     type_url = f"{descriptor.package}.{descriptor.message_type[0].name}"
-    annotated_type = AnnotatedType(descriptor_set, type_url, [])
-    register_once(annotated_type)
-    return annotated_type
+    return AnnotatedType(descriptor_set, type_url, [])
 
 
 @lru_cache

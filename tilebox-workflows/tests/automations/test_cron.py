@@ -2,7 +2,7 @@ import re
 from datetime import UTC, datetime
 
 import pytest
-from tests.proto.test_pb2 import SampleArgs
+from tests.proto.test_pb import SampleArgs
 
 from tilebox.workflows.automations import CronTask
 

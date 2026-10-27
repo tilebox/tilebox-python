@@ -1,167 +1,101 @@
-import os
+"""Synchronous datasets API backed by native Connect clients."""
+
+from collections.abc import Sequence
+from typing import Any, Self
 from uuid import UUID
 
-from _tilebox.grpc.channel import (
-    ConnectStubAdapter,
-    Transport,
-    connect_address,
-    open_channel,
-)
-from _tilebox.grpc.error import NotFoundError, with_pythonic_errors
-from _tilebox.grpc.public import _PUBLIC_RPC_METHOD_PREFIX
-from tilebox.datasets.client import _TILEBOX_API_KEY_ENV_VAR, _TILEBOX_API_URL, _TILEBOX_DEV_API_URL
-from tilebox.datasets.client import Client as BaseClient
-from tilebox.datasets.data.datasets import DatasetKind, FieldDict
-from tilebox.datasets.datasets.v1.collections_pb2_grpc import CollectionServiceStub
-from tilebox.datasets.datasets.v1.data_access_pb2_grpc import DataAccessServiceStub
-from tilebox.datasets.datasets.v1.data_ingestion_pb2_grpc import DataIngestionServiceStub
-from tilebox.datasets.datasets.v1.datasets_pb2_grpc import DatasetServiceStub
+from _tilebox.client import Connection, Transport
+from _tilebox.errors import NotFoundError
+from tilebox.datasets.client import _construct_root_group, _log_server_message, connection_options
+from tilebox.datasets.data.datasets import Dataset, DatasetKind, DatasetType, FieldDict, ListDatasetsResponse
 from tilebox.datasets.group import Group
-from tilebox.datasets.notices import print_notice
-from tilebox.datasets.service import TileboxDatasetService
 from tilebox.datasets.sync.dataset import DatasetClient
+from tilebox.datasets.uuid import as_uuid, uuid_to_uuid_message
+from tilebox.datasets.v1.datasets_connect import DatasetServiceClientSync
+from tilebox.datasets.v1.datasets_pb import (
+    CreateDatasetRequest,
+    GetDatasetRequest,
+    ListDatasetsRequest,
+    UpdateDatasetRequest,
+)
 
 
 class Client:
+    """Access datasets using blocking Connect RPCs."""
+
     def __init__(
         self,
         *,
         url: str | None = None,
         token: str | None = None,
         warn_if_unauthenticated: bool = True,
-        transport: Transport = "grpc",
+        transport: Transport = "http2",
+        interceptors: Sequence[Any] = (),
     ) -> None:
+        """Use Connect over HTTP/2 by default, or force HTTP/1 with transport="http1".
+
+        The legacy transport="grpc" spelling is an alias for "http2".
         """
-        Create a Tilebox datasets client.
+        url, token, prefix = connection_options(url, token, warn_if_unauthenticated)
+        self._connection = Connection(url, token, prefix, transport=transport, interceptors=interceptors)
+        self._datasets = self._connection.client(DatasetServiceClientSync)
 
-        Args:
-            url: Tilebox API URL. If not set, uses the `TILEBOX_API_URL` environment variable,
-                or defaulting to "https://api.tilebox.com".
-            token: The API Key to authenticate with. If not set the `TILEBOX_API_KEY` environment variable will be used.
-                If no token is provided or found, anonymous open data access will be used.
-            warn_if_unauthenticated: Whether to warn if no API key is provided and the client is used with the default
-                Tilebox API URL. Defaults to True.
-            transport: Network transport to use for API requests. Defaults to "grpc". Use "http1" to force
-                the Connect protocol over HTTP/1.1 for networks that do not support gRPC over HTTP/2 correctly.
-        """
-        if url is None:
-            url = os.environ.get("TILEBOX_API_URL") or _TILEBOX_API_URL
-        url = url.removesuffix("/")
+    def close(self) -> None:
+        """Release the connection's HTTP resources."""
+        self._connection.close()
 
-        if token is None:
-            token = os.environ.get(_TILEBOX_API_KEY_ENV_VAR, None)
+    def __enter__(self) -> Self:
+        return self
 
-        is_tilebox_deployment = url in (_TILEBOX_API_URL, _TILEBOX_DEV_API_URL)
-        if token is None and is_tilebox_deployment and warn_if_unauthenticated:
-            print_notice(
-                "[yellow]"
-                "No Tilebox API key detected. Using [bold]anonymous open data access[/bold] without authentication. "
-                "For higher throughput and rate limits, sign up for a free account at https://console.tilebox.com."
-                "[/yellow]"
-            )
-
-        rpc_method_prefix = _PUBLIC_RPC_METHOD_PREFIX if (is_tilebox_deployment and token is None) else None
-        match transport:
-            case "grpc":
-                channel = open_channel(url, token, rpc_method_prefix=rpc_method_prefix)
-                dataset_service_stub = with_pythonic_errors(DatasetServiceStub(channel))
-                collection_service_stub = with_pythonic_errors(CollectionServiceStub(channel))
-                data_access_service_stub = with_pythonic_errors(DataAccessServiceStub(channel))
-                data_ingestion_service_stub = with_pythonic_errors(DataIngestionServiceStub(channel))
-            case "http1":
-                from pyqwest import HTTPVersion, SyncClient, SyncHTTPTransport  # noqa: PLC0415
-
-                from tilebox.datasets.datasets.v1.collections_connect import (  # noqa: PLC0415
-                    CollectionServiceClientSync,
-                )
-                from tilebox.datasets.datasets.v1.data_access_connect import (  # noqa: PLC0415
-                    DataAccessServiceClientSync,
-                )
-                from tilebox.datasets.datasets.v1.data_ingestion_connect import (  # noqa: PLC0415
-                    DataIngestionServiceClientSync,
-                )
-                from tilebox.datasets.datasets.v1.datasets_connect import DatasetServiceClientSync  # noqa: PLC0415
-
-                address = connect_address(url, rpc_method_prefix)
-                http_client = SyncClient(
-                    SyncHTTPTransport(http_version=HTTPVersion.HTTP1, tls_include_system_certs=True)
-                )
-                headers = None if token is None else {"authorization": f"Bearer {token}"}
-                dataset_service_stub = ConnectStubAdapter(
-                    DatasetServiceClientSync(address, http_client=http_client),
-                    headers,
-                    rpc_method_prefix,
-                )
-                collection_service_stub = ConnectStubAdapter(
-                    CollectionServiceClientSync(address, http_client=http_client),
-                    headers,
-                    rpc_method_prefix,
-                )
-                data_access_service_stub = ConnectStubAdapter(
-                    DataAccessServiceClientSync(address, http_client=http_client),
-                    headers,
-                    rpc_method_prefix,
-                )
-                data_ingestion_service_stub = ConnectStubAdapter(
-                    DataIngestionServiceClientSync(address, http_client=http_client),
-                    headers,
-                    rpc_method_prefix,
-                )
-            case _:
-                raise ValueError(f"Unsupported transport: {transport}")
-        service = TileboxDatasetService(
-            dataset_service_stub, collection_service_stub, data_access_service_stub, data_ingestion_service_stub
-        )
-        self._client = BaseClient(service)
+    def __exit__(self, *_: object) -> None:
+        self.close()
 
     def create_or_update_dataset(
-        self,
-        kind: DatasetKind,
-        code_name: str,
-        fields: list[FieldDict] | None = None,
-        *,
-        name: str | None = None,
+        self, kind: DatasetKind, code_name: str, fields: list[FieldDict] | None = None, *, name: str | None = None
     ) -> DatasetClient:
-        """Create a new dataset.
-
-        Args:
-            kind: The kind of the dataset.
-            code_name: The code name of the dataset.
-            fields: The custom fields of the dataset. Supported generated
-                message field types are available from :mod:`tilebox.datasets.schema`.
-            name: The name of the dataset. Defaults to the code name.
-
-        Returns:
-            The created dataset.
-        """
-
+        """Create a dataset, or update it if the slug already exists."""
         try:
-            dataset = self.dataset(code_name)
+            existing = Dataset.from_message(self._datasets.get_dataset(GetDatasetRequest(slug=code_name)))
         except NotFoundError:
-            return self._client.create_dataset(kind, code_name, fields or [], name or code_name, DatasetClient).get()
-
-        return self._client.update_dataset(
-            kind,
-            dataset._dataset.id,  # noqa: SLF001
-            fields or [],
-            name or dataset._dataset.name,  # noqa: SLF001
-            DatasetClient,
-        ).get()
+            dataset = Dataset.from_message(
+                self._datasets.create_dataset(
+                    CreateDatasetRequest(
+                        code_name=code_name,
+                        name=name or code_name,
+                        type=DatasetType.from_fields(kind, fields or []).to_message(),
+                    )
+                )
+            )
+        else:
+            dataset = Dataset.from_message(
+                self._datasets.update_dataset(
+                    UpdateDatasetRequest(
+                        id=uuid_to_uuid_message(existing.id),
+                        name=name or existing.name,
+                        type=DatasetType.from_fields(kind, fields or []).to_message(),
+                    )
+                )
+            )
+        return DatasetClient(self._connection, dataset)
 
     def datasets(self) -> Group:
-        """Fetch all available datasets."""
-        return self._client.datasets(DatasetClient).get()
+        """Fetch the hierarchy of accessible datasets."""
+        response = ListDatasetsResponse.from_message(self._datasets.list_datasets(ListDatasetsRequest()))
+        _log_server_message(response)
+        return _construct_root_group(
+            [DatasetClient(self._connection, dataset) for dataset in response.datasets], response.groups
+        )
 
     def dataset(self, slug: str) -> DatasetClient:
-        """Get a dataset by its slug, e.g. `open_data.copernicus.sentinel1_sar`.
-
-        Args:
-            slug: The slug of the dataset.
-
-        Returns:
-            The dataset if it exists.
-        """
-        return self._client.dataset(slug, DatasetClient).get()
+        """Fetch a dataset by slug."""
+        return DatasetClient(
+            self._connection, Dataset.from_message(self._datasets.get_dataset(GetDatasetRequest(slug=slug)))
+        )
 
     def _dataset_by_id(self, dataset_id: str | UUID) -> DatasetClient:
-        return self._client._dataset_by_id(dataset_id, DatasetClient).get()  # noqa: SLF001
+        return DatasetClient(
+            self._connection,
+            Dataset.from_message(
+                self._datasets.get_dataset(GetDatasetRequest(id=uuid_to_uuid_message(as_uuid(dataset_id))))
+            ),
+        )

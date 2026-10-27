@@ -27,7 +27,7 @@ from shapely.geometry import (
     Polygon,
 )
 
-from tests.proto.test_pb2 import SampleArgs
+from tests.proto.test_pb import SampleArgs
 from tilebox.datasets.data.data_access import SpatialFilter
 from tilebox.datasets.query.id_interval import IDInterval
 from tilebox.datasets.query.time_interval import TimeInterval
@@ -175,10 +175,8 @@ class OptionalSingleProtobufTask(Task):
 
 def test_optional_single_protobuf_preserves_raw_envelope() -> None:
     message = SampleArgs(some_string="hello", some_int=123)
-    assert serialize_task(OptionalSingleProtobufTask(message)) == message.SerializeToString()
-    assert deserialize_task(OptionalSingleProtobufTask, message.SerializeToString()) == OptionalSingleProtobufTask(
-        message
-    )
+    assert serialize_task(OptionalSingleProtobufTask(message)) == message.to_binary()
+    assert deserialize_task(OptionalSingleProtobufTask, message.to_binary()) == OptionalSingleProtobufTask(message)
     assert deserialize_task(OptionalSingleProtobufTask, b"null") == OptionalSingleProtobufTask(None)
 
 
@@ -343,16 +341,27 @@ def test_rasterio_window_round_trip_when_installed() -> None:
 def test_optional_integrations_are_not_imported_by_task_module() -> None:
     script = """
 import builtins
+from datetime import UTC, datetime
+from uuid import UUID
 original_import = builtins.__import__
 def guarded_import(name, *args, **kwargs):
-    if name.startswith(('odc.geo', 'pyproj', 'affine', 'rasterio', 'async_geotiff')):
+    if name.startswith(('tilebox.datasets', 'pandas', 'numpy', 'xarray', 'shapely', 'odc.geo', 'pyproj', 'affine', 'rasterio', 'async_geotiff')):
         raise ModuleNotFoundError(name)
     return original_import(name, *args, **kwargs)
 builtins.__import__ = guarded_import
-from tilebox.workflows.task import Task
+from tilebox.query import IDInterval, TimeInterval
+from tilebox.workflows.task import Task, serialize_task, deserialize_task
 class Example(Task):
     value: str
 assert Example('works')._serialize() == b'\"works\"'
+class Intervals(Task):
+    time: TimeInterval
+    ids: IDInterval
+task = Intervals(
+    TimeInterval.parse((datetime(2026, 1, 1, tzinfo=UTC), datetime(2026, 1, 2, tzinfo=UTC))),
+    IDInterval.parse((UUID(int=1), UUID(int=9))),
+)
+assert deserialize_task(Intervals, serialize_task(task)) == task
 """
     subprocess.run([sys.executable, "-c", script], check=True)  # noqa: S603
 

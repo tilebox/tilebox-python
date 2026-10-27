@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from niquests import AsyncResponse, AsyncSession, Response
     from obstore.store import AzureSASToken
 
-    from tilebox.datasets.datasets.stac.v1.authentication_pb import SignedURLFlow
+    from tilebox.datasets.stac.v1.authentication_pb import SignedURLFlow
 
 
 def bind_credentials(spec: StoreSpec, path: str, signed: "SignedURLFlow") -> tuple[StoreSpec, str]:

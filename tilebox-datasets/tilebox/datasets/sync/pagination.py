@@ -16,7 +16,7 @@ def with_progressbar(
     paginated_request: Iterator[ResultPage],
     progress_description: str,
 ) -> Iterator[ResultPage]:
-    """Make a paginated request to a gRPC service endpoint while displaying the progress in a tqdm progress bar.
+    """Consume paginated RPC results while displaying progress in a tqdm progress bar.
 
     We don't know the total amount of work beforehand, so the progress bar will just show the number of data points
     that have been downloaded so far.
@@ -45,7 +45,7 @@ def with_progressbar(
         progress_bar.update(first_page.n_datapoints)  # one page has already been downloaded
         progress_bar.start_t = actual_start_time  # set the start time to the actual start time before the first page
         for page in paginated_request:  # now loop over the remaining pages
-            progress_bar.update(first_page.n_datapoints)
+            progress_bar.update(page.n_datapoints)
             yield page
 
 
@@ -54,7 +54,7 @@ def with_time_progressbar(
     interval: TimeInterval,
     progress_description: str,
 ) -> Iterator[ResultPage]:
-    """Make a paginated request to a gRPC service endpoint while displaying the progress in a tqdm progress bar.
+    """Consume paginated RPC results while displaying progress in a tqdm progress bar.
 
     The given interval is used to estimate a total amount of work for the progress bar. Then the event_time of the
     latest data point returned in each page is used to update the progress bar accordingly.
@@ -108,7 +108,7 @@ def with_time_progress_callback(
     interval: TimeInterval,
     progress_callback: ProgressCallback,
 ) -> Iterator[ResultPage]:
-    """Make a paginated request to a gRPC service endpoint, and reporting progress percentage to a callback function.
+    """Consume paginated RPC results and report progress percentages to a callback.
 
     The given interval is used to estimate a total amount of work for the progress bar. Then the event_time of the
     latest data point returned in each page is used to calculate progress percentage.

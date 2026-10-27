@@ -4,6 +4,7 @@ from uuid import UUID
 
 import pytest
 from hypothesis import given
+from protobuf import Oneof
 
 from tests.tasks_data import (
     artifacts,
@@ -27,6 +28,11 @@ from tests.tasks_data import (
     workflow_releases,
     workflows,
 )
+from tilebox.workflows._otel.opentelemetry.proto.common.v1.common_pb import AnyValue, ArrayValue, KeyValue
+from tilebox.workflows._otel.opentelemetry.proto.logs.v1.logs_pb import LogRecord as NativeLogRecord
+from tilebox.workflows._otel.opentelemetry.proto.logs.v1.logs_pb import ResourceLogs, ScopeLogs
+from tilebox.workflows._otel.opentelemetry.proto.trace.v1.trace_pb import ResourceSpans, ScopeSpans
+from tilebox.workflows._otel.opentelemetry.proto.trace.v1.trace_pb import Span as NativeSpan
 from tilebox.workflows.data import (
     Artifact,
     AutomationPrototype,
@@ -37,10 +43,12 @@ from tilebox.workflows.data import (
     Idling,
     Job,
     JobState,
+    LogRecord,
     ProgressIndicator,
     QueryFilters,
     ReleaseContent,
     SingleTaskSubmission,
+    Span,
     StorageLocation,
     Task,
     TaskIdentifier,
@@ -52,7 +60,7 @@ from tilebox.workflows.data import (
     WorkflowRelease,
 )
 from tilebox.workflows.formatting.job import JobWidget, RichDisplayJob
-from tilebox.workflows.workflows.v1 import workflows_pb2
+from tilebox.workflows.v1 import workflows_pb
 
 
 @given(task_identifiers())
@@ -182,19 +190,19 @@ def test_workflows_to_message_and_back(workflow: Workflow) -> None:
     ],
 )
 def test_workflow_summary_and_presentation(presentation: WorkflowPresentation | None) -> None:
-    message = workflows_pb2.Workflow(
-        slug="flood-extent",
+    message = workflows_pb.Workflow(
+        reference="flood-extent",
         name="Flood extent",
         summary="Map flooded areas",
         description="A longer description of the workflow.",
-        presentation=workflows_pb2.WorkflowPresentation(**vars(presentation)) if presentation is not None else None,
+        presentation=workflows_pb.WorkflowPresentation(**vars(presentation)) if presentation is not None else None,
     )
     workflow = Workflow.from_message(message)
     assert workflow.summary == "Map flooded areas"
     assert workflow.description == "A longer description of the workflow."
     assert workflow.presentation == presentation
     assert workflow.to_message() == message
-    assert workflow.to_message().HasField("presentation") == (presentation is not None)
+    assert workflow.to_message().has_field("presentation") == (presentation is not None)
 
 
 @given(task_submissions())
@@ -235,3 +243,49 @@ def test_automation_to_message_and_back(automation: AutomationPrototype) -> None
 @given(query_filters())
 def test_query_filters_to_message_and_back(filters: QueryFilters) -> None:
     assert QueryFilters.from_message(filters.to_message()) == filters
+
+
+def test_native_log_values_preserve_false_and_nested_values() -> None:
+    """Decode native OTEL oneofs directly without losing false, zero, or nested values."""
+    native = ResourceLogs(
+        scope_logs=[
+            ScopeLogs(
+                log_records=[
+                    NativeLogRecord(
+                        body=AnyValue(value=Oneof("string_value", "hello")),
+                        attributes=[
+                            KeyValue(
+                                key="values",
+                                value=AnyValue(
+                                    value=Oneof(
+                                        "array_value",
+                                        ArrayValue(
+                                            values=[
+                                                AnyValue(value=Oneof("bool_value", False)),
+                                                AnyValue(value=Oneof("int_value", 0)),
+                                                AnyValue(value=Oneof("bytes_value", b"\x00\xff")),
+                                            ]
+                                        ),
+                                    )
+                                ),
+                            )
+                        ],
+                    )
+                ]
+            )
+        ]
+    )
+    record = LogRecord.from_message(ResourceLogs.from_binary(native.to_binary()))
+    assert record.body == "hello"
+    assert record.attributes == {"values": [False, 0, b"\x00\xff"]}
+    assert record.runner_attributes == {}
+    assert LogRecord.from_message(record.to_message()) == record
+
+
+def test_native_span_without_status_or_resource() -> None:
+    """Treat omitted OTEL status and resource messages as their domain defaults."""
+    span = Span.from_message(ResourceSpans(scope_spans=[ScopeSpans(spans=[NativeSpan(name="task")])]))
+    assert span.status_code == "STATUS_CODE_UNSET"
+    assert span.status_message == ""
+    assert span.runner_attributes == {}
+    assert Span.from_message(span.to_message()) == span

@@ -1,7 +1,9 @@
+import gc
 import json
 import os
 import subprocess
 import sys
+import weakref
 from collections.abc import Iterator
 from importlib.metadata import version
 from unittest.mock import patch
@@ -10,9 +12,10 @@ import pytest
 from opentelemetry.context import Context
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, Span, TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExportResult, SpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
+from tilebox.workflows import Client
 from tilebox.workflows.observability import logging as observability_logging
 from tilebox.workflows.observability import tracing
 
@@ -62,10 +65,13 @@ class RecordingSpanProcessor(SpanProcessor):
 @pytest.fixture(autouse=True)
 def reset_tilebox_tracing() -> Iterator[None]:
     original_provider = tracing._get_tilebox_tracer_provider()
+    original_tracers = tracing._workflow_tracers[:]
     tracing._workflow_tracers.clear()
     tracing._set_tilebox_tracer_provider(TracerProvider(resource=observability_logging._get_default_resource()))
     yield
-    tracing._workflow_tracers.clear()
+    for tracer in tracing._workflow_tracers[:]:
+        tracer.close()
+    tracing._workflow_tracers.extend(original_tracers)
     tracing._set_tilebox_tracer_provider(original_provider)
 
 
@@ -80,6 +86,39 @@ def span_processors(monkeypatch: pytest.MonkeyPatch) -> list[RecordingSpanProces
 
     monkeypatch.setattr(tracing, "_otel_span_exporter", create_processor)
     return processors
+
+
+def test_client_close_flushes_owned_traces_and_preserves_shared_exporters() -> None:
+    shared = InMemorySpanExporter()
+    tracing._get_tilebox_tracer_provider().add_span_processor(SimpleSpanProcessor(shared))
+    first_exporter, second_exporter = InMemorySpanExporter(), InMemorySpanExporter()
+    with (
+        patch.object(tracing, "OTLPSpanExporter", side_effect=[first_exporter, second_exporter]),
+        Client(url="http://localhost:9999", token="test-key") as first,  # noqa: S106
+        Client(url="http://localhost:9999", token="test-key") as second,  # noqa: S106
+    ):
+        tracer_ref = weakref.ref(first._tracer)
+        with first._tracer.span("first"):
+            pass
+        first.close()
+        first.close()
+        assert [span.name for span in first_exporter.get_finished_spans()] == ["first"]
+        assert first_exporter.export([]) is SpanExportResult.FAILURE
+        assert second_exporter.export([]) is SpanExportResult.SUCCESS
+        assert shared.export([]) is SpanExportResult.SUCCESS
+
+        # Reconfiguration must not resurrect a closed client or retain it in an old provider.
+        with patch.object(tracing, "_otel_span_exporter", return_value=SimpleSpanProcessor(shared)):
+            tracing.configure_otel_tracing(service="updated", endpoint="https://collector.example")
+        with second._tracer.span("second"):
+            pass
+
+    assert [span.name for span in second_exporter.get_finished_spans()] == ["second"]
+    assert second_exporter.export([]) is SpanExportResult.FAILURE
+    assert shared.export([]) is SpanExportResult.SUCCESS
+    del first
+    gc.collect()
+    assert tracer_ref() is None
 
 
 @pytest.mark.parametrize("otel_service_name", ["unknown_service:python", "unknown_service:python.exe", "other-default"])

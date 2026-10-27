@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from tilebox.datasets.datasets.v1 import core_pb2
 from tilebox.datasets.query.time_interval import TimeInterval
 from tilebox.datasets.uuid import uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.datasets.v1 import core_pb
 
 
 @dataclass
@@ -14,11 +14,11 @@ class Collection:
     name: str
 
     @classmethod
-    def from_message(cls, collection: core_pb2.Collection) -> "Collection":
+    def from_message(cls, collection: core_pb.Collection) -> "Collection":
         return Collection(id=uuid_message_to_uuid(collection.id), name=collection.name)
 
-    def to_message(self) -> core_pb2.Collection:
-        return core_pb2.Collection(id=uuid_to_uuid_message(self.id), name=self.name)
+    def to_message(self) -> core_pb.Collection:
+        return core_pb.Collection(id=uuid_to_uuid_message(self.id), name=self.name)
 
 
 @dataclass
@@ -30,7 +30,7 @@ class CollectionInfo:
     count: int | None
 
     @classmethod
-    def from_message(cls, info: core_pb2.CollectionInfo) -> "CollectionInfo":
+    def from_message(cls, info: core_pb.CollectionInfo) -> "CollectionInfo":
         """
         Convert a CollectionInfo protobuf message to a CollectionInfo object.
 
@@ -41,16 +41,18 @@ class CollectionInfo:
                 don't know whether it has data points or not. Because the protobuf message availability field is
                 None for both of those cases.
         """
+        if info.collection is None:
+            raise ValueError("Collection info is missing its collection")
         return CollectionInfo(
             collection=Collection.from_message(info.collection),
-            availability=TimeInterval.from_message(info.availability) if info.HasField("availability") else None,
-            count=info.count if info.HasField("count") else None,
+            availability=TimeInterval.from_message(info.availability) if info.availability is not None else None,
+            count=info.count if info.has_field("count") else None,
         )
 
-    def to_message(self) -> core_pb2.CollectionInfo:
-        info = core_pb2.CollectionInfo(collection=self.collection.to_message())
+    def to_message(self) -> core_pb.CollectionInfo:
+        info = core_pb.CollectionInfo(collection=self.collection.to_message())
         if isinstance(self.availability, TimeInterval):
-            info.availability.CopyFrom(self.availability.to_message())
+            info.availability = self.availability.to_message()
         if self.count is not None:
             info.count = self.count
         return info

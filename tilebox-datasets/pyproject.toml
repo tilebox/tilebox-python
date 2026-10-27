@@ -21,16 +21,14 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "tilebox-grpc>=0.28.0",
+    "tilebox-core>=0.68.0",
+    "lz4>=4",
     # below version pins are some minimum sane versions that we tested against to make sure they are working
     "numpy>=1.25",
     "xarray>=2024.6",
     "tqdm>=4.65",
     "pandas>=2.2.2",
     "shapely>=2.0.6",
-    "promise>=2.3",
-    # Keep the minimum version and the generator version in ../buf.gen.datasets-bufpy.yaml matching.
-    "protobuf-py>=0.7.0,<0.8",  # minor releases can break generated-code compatibility
 ]
 
 [dependency-groups]
@@ -53,8 +51,8 @@ packages = ["tilebox"]
 
 [tool.coverage.run]
 omit = [
-    "tilebox/*/datasets/v1/*",
-    "tilebox/*/tilebox/v1/*",
+    "tilebox/datasets/v1/*",
+    "tilebox/datasets/stac/v1/*",
 ]
 
 [tool.pytest.ini_options]

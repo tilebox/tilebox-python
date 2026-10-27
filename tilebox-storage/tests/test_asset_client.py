@@ -20,13 +20,13 @@ from obstore.store import AzureStore, GCSStore, HTTPStore, LocalStore, S3Store
 
 from tilebox.datasets.assets import AssetCollection
 from tilebox.datasets.assets.assets import Asset, AssetLocation
-from tilebox.datasets.datasets.stac.v1.asset_pb import Assets
-from tilebox.datasets.datasets.stac.v1.authentication_pb import (
+from tilebox.datasets.stac.v1.asset_pb import Assets
+from tilebox.datasets.stac.v1.authentication_pb import (
     Authentication,
     AuthenticationScheme,
     KnownAuthenticationType,
 )
-from tilebox.datasets.datasets.stac.v1.storage_pb import KnownStorageType, Storage, StorageScheme
+from tilebox.datasets.stac.v1.storage_pb import KnownStorageType, Storage, StorageScheme
 from tilebox.storage.aio import AssetAccessPolicy, Client
 
 if TYPE_CHECKING:

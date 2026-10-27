@@ -16,8 +16,11 @@ from affine import Affine
 from opentelemetry._logs import SeverityNumber
 from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.trace import Span, TracerProvider
+from protobuf import Oneof
+from tests.log_values import string_value
 
 from tilebox.workflows._codec import registry
+from tilebox.workflows._otel.opentelemetry.proto.common.v1.common_pb import AnyValue, ArrayValue, KeyValue, KeyValueList
 from tilebox.workflows.observability import _logging as structured_logging
 from tilebox.workflows.observability import logging as observability
 from tilebox.workflows.observability import tracing
@@ -189,9 +192,10 @@ def test_export_attributes_capture_context_once_without_mutating_record(structur
     assert metadata == {"task_id": "task-123", "details": {"attempt": 2}}
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("stdlib", [False, True])
 @pytest.mark.parametrize("stream_first", [False, True])
-def test_codecs_run_once_per_record_across_handlers(stdlib: bool, stream_first: bool) -> None:
+async def test_codecs_run_once_per_record_across_handlers(stdlib: bool, stream_first: bool) -> None:
     codec = registry.find(Affine)
     assert codec is not None
     encode = MagicMock(wraps=codec.encode)
@@ -227,13 +231,33 @@ def test_codecs_run_once_per_record_across_handlers(stdlib: bool, stream_first: 
         # Records hold snapshots, not references to task-owned mutable containers.
         value.clear()
         queue.seal()
-        stream_records = list(queue.subscribe())
-        assert [record.body.string_value for record in stream_records] == ["record-0", "record-1"]
+        stream_records = [record async for record in queue.subscribe_async()]
+        assert [string_value(record.body) for record in stream_records] == ["record-0", "record-1"]
         for record in stream_records:
             attributes = {item.key: item.value for item in record.attributes}
-            transform = attributes["input"].kvlist_value.values[0]
-            assert transform.key == "transform"
-            assert [item.double_value for item in transform.value.array_value.values] == [2, 3, 5, 7, 11, 13]
+            assert attributes["input"] == AnyValue(
+                value=Oneof(
+                    "kvlist_value",
+                    KeyValueList(
+                        values=[
+                            KeyValue(
+                                key="transform",
+                                value=AnyValue(
+                                    value=Oneof(
+                                        "array_value",
+                                        ArrayValue(
+                                            values=[
+                                                AnyValue(value=Oneof("double_value", number))
+                                                for number in (2.0, 3.0, 5.0, 7.0, 11.0, 13.0)
+                                            ]
+                                        ),
+                                    )
+                                ),
+                            )
+                        ]
+                    ),
+                )
+            )
         for exporter in exporters:
             records = [item.log_record for item in exporter.get_finished_logs()]
             assert [record.body for record in records] == ["record-0", "record-1"]
@@ -246,9 +270,10 @@ def test_codecs_run_once_per_record_across_handlers(stdlib: bool, stream_first: 
             provider.shutdown()
 
 
+@pytest.mark.asyncio
 @pytest.mark.usefixtures("isolated_logging")
 @pytest.mark.parametrize("external_first", [False, True])
-def test_external_exports_and_console_do_not_replace_api_or_stream(external_first: bool) -> None:
+async def test_external_exports_and_console_do_not_replace_api_or_stream(external_first: bool) -> None:
     queue = _LogQueue()
     root_logger.addHandler(_OTLPQueueHandler(queue))
     api, external = InMemoryLogRecordExporter(), InMemoryLogRecordExporter()
@@ -275,7 +300,7 @@ def test_external_exports_and_console_do_not_replace_api_or_stream(external_firs
     for exporter in (api, external):
         assert [item.log_record.body for item in exporter.get_finished_logs()] == ["all outputs", "exports only"]
     queue.seal()
-    assert [record.body.string_value for record in queue.subscribe()] == ["all outputs", "exports only"]
+    assert [string_value(record.body) async for record in queue.subscribe_async()] == ["all outputs", "exports only"]
 
 
 @pytest.mark.usefixtures("isolated_logging")
@@ -302,8 +327,9 @@ def test_log_level_override_defaults_reset_both_levels() -> None:
     assert internal_logger.level == logging.ERROR
 
 
+@pytest.mark.asyncio
 @pytest.mark.usefixtures("isolated_logging")
-def test_task_values_and_unserializable_attributes_reach_both_outputs(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_task_values_and_unserializable_attributes_reach_both_outputs(monkeypatch: pytest.MonkeyPatch) -> None:
     @dataclass
     class Input:
         transform: Affine
@@ -330,17 +356,40 @@ def test_task_values_and_unserializable_attributes_reach_both_outputs(monkeypatc
         unsupported=Broken(),
     )
     queue.seal()
-    [record] = queue.subscribe()
+    [record] = [record async for record in queue.subscribe_async()]
     stream_attributes = {item.key: item.value for item in record.attributes}
-    input_attributes = {item.key: item.value for item in stream_attributes["input"].kvlist_value.values}
-    assert [item.double_value for item in input_attributes["transform"].array_value.values] == [2, 3, 5, 7, 11, 13]
-    assert input_attributes["path"].string_value == "image.tif"
-    counts = stream_attributes["counts"].kvlist_value.values
-    assert len(counts) == 1
-    assert counts[0].key == "2026-09-16"
-    assert counts[0].value.int_value == 3
-    assert stream_attributes["cyclic"].string_value == "[[...]]"
-    assert stream_attributes["unsupported"].string_value == "<unserializable Broken>"
+    assert stream_attributes["input"] == AnyValue(
+        value=Oneof(
+            "kvlist_value",
+            KeyValueList(
+                values=[
+                    KeyValue(
+                        key="transform",
+                        value=AnyValue(
+                            value=Oneof(
+                                "array_value",
+                                ArrayValue(
+                                    values=[
+                                        AnyValue(value=Oneof("double_value", number))
+                                        for number in (2.0, 3.0, 5.0, 7.0, 11.0, 13.0)
+                                    ]
+                                ),
+                            )
+                        ),
+                    ),
+                    KeyValue(key="path", value=AnyValue(value=Oneof("string_value", "image.tif"))),
+                ]
+            ),
+        )
+    )
+    assert stream_attributes["counts"] == AnyValue(
+        value=Oneof(
+            "kvlist_value",
+            KeyValueList(values=[KeyValue(key="2026-09-16", value=AnyValue(value=Oneof("int_value", 3)))]),
+        )
+    )
+    assert string_value(stream_attributes["cyclic"]) == "[[...]]"
+    assert string_value(stream_attributes["unsupported"]) == "<unserializable Broken>"
     attributes = exporter.get_finished_logs()[0].log_record.attributes
     assert attributes is not None
     assert isinstance(attributes["input"], str)

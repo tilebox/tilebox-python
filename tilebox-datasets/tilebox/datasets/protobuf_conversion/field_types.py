@@ -2,26 +2,36 @@ import re
 from collections.abc import Sequence
 from datetime import timedelta
 from enum import Enum
-from typing import Any
+from functools import lru_cache
+from typing import Any, TypeGuard, TypeVar
 from uuid import UUID
 
 import numpy as np
 import pandas as pd
-from google.protobuf.descriptor import FieldDescriptor
-from google.protobuf.duration_pb2 import Duration
-from google.protobuf.message import Message
-from google.protobuf.timestamp_pb2 import Timestamp
 from numpy import dtypes as npdtypes
 from pandas.core.tools.datetimes import DatetimeScalar, to_datetime
 from pandas.core.tools.timedeltas import to_timedelta
-from protobuf import Message as ProtobufPyMessage
+from protobuf import (
+    DescEnum,
+    DescField,
+    DescFieldValueEnum,
+    DescFieldValueList,
+    DescFieldValueMessage,
+    DescFieldValueScalar,
+    DescMessage,
+    Message,
+    ScalarType,
+)
+from protobuf.wkt.google.protobuf.duration_pb import Duration
+from protobuf.wkt.google.protobuf.timestamp_pb import Timestamp
 from shapely import from_wkb
 
-from tilebox.datasets.datasets.v1.well_known_types_pb2 import UUID as UUIDMessage  # noqa: N811
-from tilebox.datasets.datasets.v1.well_known_types_pb2 import Geometry, LatLon, LatLonAlt, Quaternion, Vec3
 from tilebox.datasets.schema import _MESSAGE_FIELD_TYPES, Assets
+from tilebox.datasets.v1.well_known_types_pb import UUID as UUIDMessage  # noqa: N811
+from tilebox.datasets.v1.well_known_types_pb import Geometry, LatLon, LatLonAlt, Quaternion, Vec3
 
 ScalarProtoFieldValue = Message | float | str | bool | bytes
+_MessageT = TypeVar("_MessageT", bound=Message)
 
 
 ProtoFieldValue = ScalarProtoFieldValue | Sequence[ScalarProtoFieldValue] | None
@@ -71,39 +81,31 @@ class ProtobufFieldType:
         return value
 
 
-class ProtobufPyMessageField(ProtobufFieldType):
-    """Convert between protobuf wire messages and protobuf-py values."""
+class MessageField(ProtobufFieldType):
+    """Normalize dynamically loaded values into public native message classes."""
 
     def __init__(
         self,
-        wire_type: type[Message],
-        value_type: type[ProtobufPyMessage[Any]],
+        value_type: type[Message],
         *,
-        read_type: type[ProtobufPyMessage[Any]] | None = None,
+        read_type: type[Message] | None = None,
     ) -> None:
-        """Initialize a protobuf-py field converter.
-
-        Args:
-            wire_type: Google protobuf message used on the ingestion wire.
-            value_type: Public protobuf-py message accepted during ingestion.
-            read_type: Optional subtype returned when decoding query results.
-        """
+        """Initialize the public message class used for conversion."""
         super().__init__(object)
-        self._wire_type = wire_type
         self._value_type = value_type
         self._read_type = read_type or value_type
 
-    def from_proto(self, value: ProtoFieldValue) -> ProtobufPyMessage[Any]:
-        if not isinstance(value, self._wire_type):
-            raise TypeError(f"Expected {self._wire_type.__name__} message but got {type(value)}")
-        return self._read_type.from_binary(value.SerializeToString())
+    def from_proto(self, value: ProtoFieldValue) -> Message:
+        if not isinstance(value, Message) or value.desc().type_name != self._value_type.desc().type_name:
+            raise TypeError(f"Expected {self._value_type.__name__} message but got {type(value)}")
+        return self._read_type.from_binary(value.to_binary())
 
-    def to_proto(self, value: ProtobufPyMessage[Any]) -> Message | None:
+    def to_proto(self, value: Message) -> Message | None:
         if is_missing(value):
             return None
         if not isinstance(value, self._value_type):
             raise TypeError(f"Expected {self._value_type.__name__} message but got {type(value)}")
-        return self._wire_type.FromString(value.to_binary())
+        return self._value_type.from_binary(value.to_binary())
 
 
 class BoolField(ProtobufFieldType):
@@ -153,16 +155,15 @@ class TimestampField(ProtobufFieldType):
         super().__init__("datetime64[ns]")
 
     def from_proto(self, value: ProtoFieldValue) -> int:
-        if not isinstance(value, Timestamp):
+        if not _is_message(value, Timestamp):
             raise TypeError(f"Expected Timestamp message but got {type(value)}")
-        return value.seconds * 10**9 + value.nanos
+        return value.to_nanos()
 
     def to_proto(self, value: DatetimeScalar) -> Timestamp | None:
         if is_missing(value) or (isinstance(value, np.datetime64) and np.isnat(value)):
             return None
         # we use pandas to_datetime function to handle a variety of input types that can be coerced to datetimes
-        seconds, nanos = divmod(to_datetime(value, utc=True).value, 10**9)
-        return Timestamp(seconds=seconds, nanos=nanos)
+        return Timestamp.from_nanos(int(to_datetime(value, utc=True).as_unit("ns").value))
 
 
 class TimeDeltaField(ProtobufFieldType):
@@ -170,7 +171,7 @@ class TimeDeltaField(ProtobufFieldType):
         super().__init__("timedelta64[ns]")
 
     def from_proto(self, value: ProtoFieldValue) -> int:
-        if not isinstance(value, Duration):
+        if not _is_message(value, Duration):
             raise TypeError(f"Expected Duration message but got {type(value)}")
         return value.seconds * 10**9 + value.nanos
 
@@ -179,8 +180,7 @@ class TimeDeltaField(ProtobufFieldType):
             return None
         # we use pandas to_timedelta function to handle a variety of input types that can be coerced to timedeltas
         # pandas accepts np.timedelta64 at runtime, but its overloads omit it.
-        seconds, nanos = divmod(to_timedelta(value).value, 10**9)  # ty: ignore[no-matching-overload]
-        return Duration(seconds=seconds, nanos=nanos)
+        return Duration.from_nanos(int(to_timedelta(value).as_unit("ns").value))  # ty: ignore[no-matching-overload]
 
 
 class UUIDField(ProtobufFieldType):
@@ -188,7 +188,7 @@ class UUIDField(ProtobufFieldType):
         super().__init__("<U36")
 
     def from_proto(self, value: ProtoFieldValue) -> str:
-        if not isinstance(value, UUIDMessage):
+        if not _is_message(value, UUIDMessage):
             raise TypeError(f"Expected UUID message but got {type(value)}")
         return str(UUID(bytes=value.uuid))
 
@@ -207,7 +207,7 @@ class GeometryField(ProtobufFieldType):
         super().__init__(object)
 
     def from_proto(self, value: ProtoFieldValue) -> Any:
-        if not isinstance(value, Geometry):
+        if not _is_message(value, Geometry):
             raise TypeError(f"Expected Geometry message but got {type(value)}")
         return from_wkb(value.wkb)
 
@@ -222,7 +222,7 @@ class Vec3Field(ProtobufFieldType):
         super().__init__(float, value_dim=3, value_dim_meta=("vec3", ["x", "y", "z"]))
 
     def from_proto(self, value: ProtoFieldValue) -> tuple[float, float, float]:
-        if not isinstance(value, Vec3):
+        if not _is_message(value, Vec3):
             raise TypeError(f"Expected Vec3 message but got {type(value)}")
         return value.x, value.y, value.z
 
@@ -237,7 +237,7 @@ class QuaternionField(ProtobufFieldType):
         super().__init__(float, value_dim=4, value_dim_meta=("quaternion", ["q1", "q2", "q3", "q4"]))
 
     def from_proto(self, value: ProtoFieldValue) -> tuple[float, float, float, float]:
-        if not isinstance(value, Quaternion):
+        if not _is_message(value, Quaternion):
             raise TypeError(f"Expected Quaternion message but got {type(value)}")
         return value.q1, value.q2, value.q3, value.q4
 
@@ -252,7 +252,7 @@ class LatLonField(ProtobufFieldType):
         super().__init__(float, value_dim=2, value_dim_meta=("latlon", ["latitude", "longitude"]))
 
     def from_proto(self, value: ProtoFieldValue) -> tuple[float, float]:
-        if not isinstance(value, LatLon):
+        if not _is_message(value, LatLon):
             raise TypeError(f"Expected LatLon message but got {type(value)}")
         return value.latitude, value.longitude
 
@@ -267,7 +267,7 @@ class LatLonAltField(ProtobufFieldType):
         super().__init__(float, value_dim=3, value_dim_meta=("lat_lon_alt", ["latitude", "longitude", "altitude"]))
 
     def from_proto(self, value: ProtoFieldValue) -> tuple[float, float, float]:
-        if not isinstance(value, LatLonAlt):
+        if not _is_message(value, LatLonAlt):
             raise TypeError(f"Expected LatLonAlt message but got {type(value)}")
 
         return value.latitude, value.longitude, value.altitude
@@ -280,13 +280,20 @@ class LatLonAltField(ProtobufFieldType):
 
 # A mapping from protobuf field types to the corresponding numpy data types
 _PROTOBUF_TYPE_TO_NUMPY_TYPE = {
-    FieldDescriptor.TYPE_DOUBLE: float,
-    FieldDescriptor.TYPE_FLOAT: np.float32,
-    FieldDescriptor.TYPE_INT64: int,
-    FieldDescriptor.TYPE_UINT64: np.uint64,
-    FieldDescriptor.TYPE_INT32: np.int32,
-    FieldDescriptor.TYPE_STRING: object,  # use object to allow for variable length strings
-    FieldDescriptor.TYPE_BYTES: object,  # use object to allow for variable length bytes
+    ScalarType.DOUBLE: float,
+    ScalarType.FLOAT: np.float32,
+    ScalarType.INT64: np.int64,
+    ScalarType.SINT64: np.int64,
+    ScalarType.SFIXED64: np.int64,
+    ScalarType.UINT64: np.uint64,
+    ScalarType.FIXED64: np.uint64,
+    ScalarType.INT32: np.int32,
+    ScalarType.SINT32: np.int32,
+    ScalarType.SFIXED32: np.int32,
+    ScalarType.UINT32: np.uint32,
+    ScalarType.FIXED32: np.uint32,
+    ScalarType.STRING: object,
+    ScalarType.BYTES: object,
 }
 
 
@@ -304,12 +311,11 @@ _MESSAGE_NAMES_TO_FIELDS: dict[str, ProtobufFieldType] = {
     "google.protobuf.Timestamp": TimestampField(),
     "google.protobuf.Duration": TimeDeltaField(),
     **{
-        wire_type.DESCRIPTOR.full_name: ProtobufPyMessageField(
-            wire_type,
+        value_type.desc().type_name: MessageField(
             value_type,
             read_type=_AssetsDisplay if value_type is Assets else None,
         )
-        for value_type, wire_type in _MESSAGE_FIELD_TYPES.items()
+        for value_type in _MESSAGE_FIELD_TYPES
     },
     "datasets.v1.UUID": UUIDField(),
     "datasets.v1.Geometry": GeometryField(),
@@ -320,43 +326,60 @@ _MESSAGE_NAMES_TO_FIELDS: dict[str, ProtobufFieldType] = {
 }
 
 
-def infer_field_type(field: FieldDescriptor) -> ProtobufFieldType:
-    if field.type == FieldDescriptor.TYPE_MESSAGE:
-        if field.message_type is None:
-            raise ValueError("Expected message type for field but got None")
-        message_name = field.message_type.full_name
-        return _MESSAGE_NAMES_TO_FIELDS.get(message_name, ProtobufFieldType(object))
-
-    if field.type == FieldDescriptor.TYPE_ENUM:
-        return EnumField(enum_mapping_from_field_descriptor(field))
-
-    if field.type == FieldDescriptor.TYPE_BOOL:
-        return BoolField()  # special handling, since we need to convert numpy bools to python bools
-
-    if field.type not in _PROTOBUF_TYPE_TO_NUMPY_TYPE:
-        raise ValueError(f"Unsupported field type {field.type}")
-
-    return ProtobufFieldType(_PROTOBUF_TYPE_TO_NUMPY_TYPE[field.type])
+def _is_message(value: object, message_type: type[_MessageT]) -> TypeGuard[_MessageT]:
+    return isinstance(value, Message) and value.desc().type_name == message_type.desc().type_name
 
 
-def enum_mapping_from_field_descriptor(field: FieldDescriptor) -> dict[int, str]:
+@lru_cache(maxsize=4096)
+def infer_field_type(field: DescField) -> ProtobufFieldType:
+    """Cache scientific field conversion by native descriptor identity."""
+    match field.value:
+        case DescFieldValueMessage(message=message):
+            element = message
+        case DescFieldValueEnum(enum=enum):
+            element = enum
+        case DescFieldValueScalar(scalar=scalar):
+            element = scalar
+        case DescFieldValueList(element=element):
+            pass
+        case _:
+            raise ValueError(f"Unsupported field: {field.name}")
+    if isinstance(element, DescMessage):
+        return _MESSAGE_NAMES_TO_FIELDS.get(element.type_name, ProtobufFieldType(object))
+    if isinstance(element, DescEnum):
+        return EnumField(_enum_mapping(element))
+    if element == ScalarType.BOOL:
+        return BoolField()
+    return ProtobufFieldType(_PROTOBUF_TYPE_TO_NUMPY_TYPE[element])
+
+
+def enum_mapping_from_field_descriptor(field: DescField) -> dict[int, str]:
     """Create a mapping from enum values to their names.
 
     Args:
         field: The field descriptor to create the mapping for. Must be of type FieldDescriptor.TYPE_ENUM.
     """
-    if field.type != FieldDescriptor.TYPE_ENUM:
-        raise ValueError("Expected field to be of type FieldDescriptor.TYPE_ENUM")
+    value = field.value
+    enum = (
+        value.element
+        if isinstance(value, DescFieldValueList)
+        else value.enum
+        if isinstance(value, DescFieldValueEnum)
+        else None
+    )
+    if not isinstance(enum, DescEnum):
+        raise TypeError("Expected an enum field")
+    return _enum_mapping(enum)
 
-    if field.enum_type is None:
-        raise ValueError("Expected enum type for field but got None")
+
+def _enum_mapping(enum: DescEnum) -> dict[int, str]:
 
     # remove the enum type prefix from the enum values
     # e.g. FLIGHT_DIRECTION_ASCENDING of the FlightDirection enum will result in a value of ASCENDING
-    enum_type_prefix = _camel_to_uppercase(field.enum_type.name) + "_"
+    enum_type_prefix = _camel_to_uppercase(enum.name) + "_"
     return {
         v.number: str(v.name).removeprefix(enum_type_prefix)
-        for v in field.enum_type.values  # noqa: PD011  # enum_type is not a numpy array, even though ruff thinks it is
+        for v in enum.values  # noqa: PD011
     }
 
 

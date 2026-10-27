@@ -1,1 +1,0 @@
-_PUBLIC_RPC_METHOD_PREFIX = "/public"

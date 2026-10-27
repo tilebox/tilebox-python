@@ -6,10 +6,9 @@ authors = [{ name = "Tilebox, Inc.", email = "support@tilebox.com" }]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "tilebox-datasets>=0.56.0",
-    "tilebox-grpc",
-    "tilebox-storage",
-    "tilebox-workflows",
+    "tilebox-datasets>=0.68.0",
+    "tilebox-storage>=0.68.0",
+    "tilebox-workflows>=0.68.0",
 ]
 
 [dependency-groups]
@@ -26,30 +25,28 @@ dev = [
     "ruff",
     "ty",
     "prek",
-    "types-protobuf>=6.30",
     "junitparser>=3.2.0",
 ]
 
-[project.scripts]
-generate-protobuf = "tools.generate_protobuf:main"
-
 [tool.hatch.build.targets.sdist]
-packages = ["tools"]
+include = ["pyproject.toml", "README.md", "LICENSE"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["tools"]
+bypass-selection = true
 
 [tool.uv.workspace]
 members = [
-    "tilebox-datasets",
+    "tilebox-core",
     "tilebox-grpc",
+    "tilebox-datasets",
     "tilebox-storage",
     "tilebox-workflows",
 ]
 
 [tool.uv.sources] # don't install from pypi, use the workspace packages
-tilebox-datasets = { workspace = true }
+tilebox-core = { workspace = true }
 tilebox-grpc = { workspace = true }
+tilebox-datasets = { workspace = true }
 tilebox-storage = { workspace = true }
 tilebox-workflows = { workspace = true }
 
@@ -71,6 +68,7 @@ exclude = [
     "*/datasets/stac/v1/*",
     "*/workflows/v1/*",
     "*/tilebox/v1/*",
+    "*/_otel/opentelemetry/*",
 ]
 
 [tool.ruff.lint]
@@ -115,8 +113,5 @@ known-first-party = ["tilebox", "_tilebox"]
 [tool.ty.src]
 exclude = [
     # auto-generated code
-    "**/*_pb2.py",
-    "**/*_pb2.pyi",
-    "**/*pb2_grpc.py",
-    "**/*pb.py",
+    "**/*_pb.py",
 ]
