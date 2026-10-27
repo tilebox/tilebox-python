@@ -1,13 +1,20 @@
 from typing import TypeAlias
 
-from tilebox.workflows.clusters.service import ClusterService
 from tilebox.workflows.data import Cluster
+from tilebox.workflows.v1.workflows_connect import WorkflowsServiceClientSync
+from tilebox.workflows.v1.workflows_pb import (
+    CreateClusterRequest,
+    DeleteClusterRequest,
+    GetClusterRequest,
+    ListClustersRequest,
+    UpdateClusterRequest,
+)
 
 ClusterSlugLike: TypeAlias = Cluster | str
 
 
 class ClusterClient:
-    def __init__(self, service: ClusterService) -> None:
+    def __init__(self, service: WorkflowsServiceClientSync) -> None:
         """Create a new cluster client.
 
         Args:
@@ -28,7 +35,8 @@ class ClusterClient:
         Returns:
             Cluster: The created cluster.
         """
-        return self._service.create(name, description, slug)
+        request = CreateClusterRequest(name=name, description=description or "", slug=slug or "")
+        return Cluster.from_message(self._service.create_cluster(request))
 
     def update(
         self,
@@ -46,7 +54,10 @@ class ClusterClient:
         Returns:
             The updated cluster.
         """
-        return self._service.update(to_cluster_slug(cluster_or_slug), name, description)
+        request = UpdateClusterRequest(
+            cluster_slug=to_cluster_slug(cluster_or_slug), name=name, description=description
+        )
+        return Cluster.from_message(self._service.update_cluster(request))
 
     def all(self) -> list[Cluster]:
         """List all available clusters.
@@ -54,7 +65,8 @@ class ClusterClient:
         Returns:
             All available clusters.
         """
-        return self._service.list()
+        response = self._service.list_clusters(ListClustersRequest())
+        return [Cluster.from_message(cluster) for cluster in response.clusters]
 
     def find(self, cluster_or_slug: ClusterSlugLike) -> Cluster:
         """Find a cluster by slug.
@@ -65,7 +77,9 @@ class ClusterClient:
         Returns:
             The cluster for the given cluster_slug.
         """
-        return self._service.get_by_slug(to_cluster_slug(cluster_or_slug))
+        return Cluster.from_message(
+            self._service.get_cluster(GetClusterRequest(cluster_slug=to_cluster_slug(cluster_or_slug)))
+        )
 
     def delete(self, cluster_or_slug: ClusterSlugLike) -> None:
         """Delete a cluster by slug.
@@ -73,7 +87,7 @@ class ClusterClient:
         Args:
             cluster_slug: The slug of the cluster to delete.
         """
-        self._service.delete(to_cluster_slug(cluster_or_slug))
+        self._service.delete_cluster(DeleteClusterRequest(cluster_slug=to_cluster_slug(cluster_or_slug)))
 
 
 def to_cluster_slug(cluster: Cluster | str) -> str:

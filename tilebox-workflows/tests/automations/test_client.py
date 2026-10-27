@@ -1,16 +1,16 @@
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
-from google.protobuf.empty_pb2 import Empty
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, consumes, rule
 from hypothesis.strategies import lists
+from protobuf.wkt.google.protobuf.empty_pb import Empty
 from tests.tasks_data import alphanumerical_text, cron_triggers, storage_event_triggers, task_identifiers
 
-from _tilebox.grpc.error import NotFoundError
-from tilebox.datasets.tilebox.v1.id_pb2 import ID
+from _tilebox.errors import NotFoundError
+from _tilebox.proto.tilebox.v1.id_pb import ID
 from tilebox.datasets.uuid import uuid_message_to_uuid
 from tilebox.workflows.automations import CronTask, StorageEventTask
-from tilebox.workflows.automations.client import AutomationClient, AutomationService
+from tilebox.workflows.automations.client import AutomationClient
 from tilebox.workflows.data import (
     AutomationPrototype,
     CronTrigger,
@@ -18,20 +18,20 @@ from tilebox.workflows.data import (
     TaskIdentifier,
     uuid_to_uuid_message,
 )
-from tilebox.workflows.workflows.v1.automation_pb2 import AutomationPrototype as AutomationPrototypeMessage
-from tilebox.workflows.workflows.v1.automation_pb2 import Automations, DeleteAutomationRequest
-from tilebox.workflows.workflows.v1.automation_pb2 import CronTrigger as CronTriggerMessage
-from tilebox.workflows.workflows.v1.automation_pb2 import StorageEventTrigger as StorageEventTriggerMessage
-from tilebox.workflows.workflows.v1.automation_pb2_grpc import AutomationServiceStub
+from tilebox.workflows.v1.automation_connect import AutomationServiceClientSync
+from tilebox.workflows.v1.automation_pb import AutomationPrototype as AutomationPrototypeMessage
+from tilebox.workflows.v1.automation_pb import Automations, DeleteAutomationRequest
+from tilebox.workflows.v1.automation_pb import CronTrigger as CronTriggerMessage
+from tilebox.workflows.v1.automation_pb import StorageEventTrigger as StorageEventTriggerMessage
 
 
-class MockAutomationService(AutomationServiceStub):
-    """A mock implementation of the gRPC automation service, that stores automations in memory as a dict."""
+class MockAutomationService:
+    """Store automations in memory for client behavior tests."""
 
     def __init__(self) -> None:
         self.automations: dict[UUID, AutomationPrototypeMessage] = {}
 
-    def CreateAutomation(self, req: AutomationPrototypeMessage) -> AutomationPrototypeMessage:  # noqa: N802
+    def create_automation(self, req: AutomationPrototypeMessage) -> AutomationPrototypeMessage:
         automation_id = uuid4()
         created = AutomationPrototypeMessage(
             id=uuid_to_uuid_message(automation_id),  # assign an auto generated id to the automation
@@ -52,27 +52,27 @@ class MockAutomationService(AutomationServiceStub):
         self.automations[automation_id] = created
         return created
 
-    def UpdateAutomation(self, req: AutomationPrototypeMessage) -> AutomationPrototypeMessage:  # noqa: N802
+    def update_automation(self, req: AutomationPrototypeMessage) -> AutomationPrototypeMessage:
         automation_id = uuid_message_to_uuid(req.id)
         if automation_id not in self.automations:
             raise NotFoundError(f"Automation {automation_id} not found")
         self.automations[automation_id] = req
         return req
 
-    def GetAutomation(self, req: ID) -> AutomationPrototypeMessage:  # noqa: N802
+    def get_automation(self, req: ID) -> AutomationPrototypeMessage:
         automation_id = uuid_message_to_uuid(req)
         if automation_id in self.automations:
             return self.automations[automation_id]
         raise NotFoundError(f"Automation {automation_id} not found")
 
-    def DeleteAutomation(self, req: DeleteAutomationRequest) -> None:  # noqa: N802
+    def delete_automation(self, req: DeleteAutomationRequest) -> None:
         automation_id = uuid_message_to_uuid(req.automation_id)
         if automation_id in self.automations:
             del self.automations[automation_id]
         else:
             raise NotFoundError(f"Automation {automation_id} not found")
 
-    def ListAutomations(self, req: Empty) -> Automations:  # noqa: N802
+    def list_automations(self, req: Empty) -> Automations:
         _ = req
         return Automations(automations=list(self.automations.values()))
 
@@ -92,8 +92,7 @@ class AutomationCRUDOperations(RuleBasedStateMachine):
 
     def __init__(self) -> None:
         super().__init__()
-        service = AutomationService(MagicMock())
-        service.service = MockAutomationService()  # mock the gRPC service
+        service = MagicMock(spec=AutomationServiceClientSync, wraps=MockAutomationService())
         self.client = AutomationClient(service)
         self.count_automations = 0
 

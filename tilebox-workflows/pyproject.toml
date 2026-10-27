@@ -21,10 +21,8 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "tilebox-datasets>=0.56.0",
-    "tilebox-grpc>=0.28.0",
-    # Require the security fixes even with an older tilebox-grpc release.
-    "grpcio>=1.84.0",
+    "tilebox-core>=0.67.0",
+    "uvicorn>=0.35",
     "google-auth[requests]>=2.29",
     "azure-identity>=1.23",
     "opentelemetry-api>=1.44.0",
@@ -49,9 +47,9 @@ geospatial = [
 
 [dependency-groups]
 dev = [
+    "tilebox-datasets>=0.67.0", # cross-SDK serialization and compatibility tests
     "boto3-stubs[s3]>=1.40.2",
     "google-cloud-storage>=3.2.0",
-    "grpcio-status>=1.78.0",
     "hypothesis>=6.112.1",
     "ipywidgets>=8.1.7",
     "odc-geo>=0.5",
@@ -72,7 +70,7 @@ packages = ["tilebox"]
 packages = ["tilebox"]
 
 [tool.coverage.run]
-omit = ["tilebox/workflows/workflows/v1/*"]
+omit = ["tilebox/workflows/v1/*", "tilebox/workflows/_otel/opentelemetry/*"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"

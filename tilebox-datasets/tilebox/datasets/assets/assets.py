@@ -13,7 +13,7 @@ import numpy as np
 import xarray as xr
 from protobuf import Message
 
-from tilebox.datasets.datasets.stac.v1.asset_metadata_pb import (
+from tilebox.datasets.stac.v1.asset_metadata_pb import (
     ClassificationBitField,
     ClassificationClass,
     EOCommonName,
@@ -24,33 +24,33 @@ from tilebox.datasets.datasets.stac.v1.asset_metadata_pb import (
     RasterSampling,
     View,
 )
-from tilebox.datasets.datasets.stac.v1.asset_pb import (
+from tilebox.datasets.stac.v1.asset_pb import (
     Asset as ProtoAsset,
 )
-from tilebox.datasets.datasets.stac.v1.asset_pb import (
+from tilebox.datasets.stac.v1.asset_pb import (
     AssetAccessProfile,
     Assets,
     DataType,
     KnownAssetRole,
     Statistics,
 )
-from tilebox.datasets.datasets.stac.v1.asset_pb import (
+from tilebox.datasets.stac.v1.asset_pb import (
     AssetLocation as ProtoAssetLocation,
 )
-from tilebox.datasets.datasets.stac.v1.asset_pb import (
+from tilebox.datasets.stac.v1.asset_pb import (
     Band as ProtoBand,
 )
-from tilebox.datasets.datasets.stac.v1.authentication_pb import Authentication, AuthenticationScheme
-from tilebox.datasets.datasets.stac.v1.core_pb import KnownMediaType
-from tilebox.datasets.datasets.stac.v1.core_pb import MediaType as ProtoMediaType
-from tilebox.datasets.datasets.stac.v1.product_pb import ProductProperties
-from tilebox.datasets.datasets.stac.v1.sar_pb import (
+from tilebox.datasets.stac.v1.authentication_pb import Authentication, AuthenticationScheme
+from tilebox.datasets.stac.v1.core_pb import KnownMediaType
+from tilebox.datasets.stac.v1.core_pb import MediaType as ProtoMediaType
+from tilebox.datasets.stac.v1.product_pb import ProductProperties
+from tilebox.datasets.stac.v1.sar_pb import (
     SARFrequencyBand,
     SARObservationDirection,
     SARProperties,
 )
-from tilebox.datasets.datasets.stac.v1.satellite_pb import SatelliteProperties
-from tilebox.datasets.datasets.stac.v1.storage_pb import Storage, StorageScheme
+from tilebox.datasets.stac.v1.satellite_pb import SatelliteProperties
+from tilebox.datasets.stac.v1.storage_pb import Storage, StorageScheme
 
 _ASSETS_MESSAGE_NAME = "datasets.stac.v1.Assets"
 _STORAGE_MESSAGE_NAME = "datasets.stac.v1.Storage"

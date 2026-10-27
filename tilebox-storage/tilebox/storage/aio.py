@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, TypeAlias
 import anyio
 from aiofile import async_open
 
-from _tilebox.grpc.aio.producer_consumer import async_producer_consumer
+from _tilebox.aio.concurrency import async_producer_consumer
 from tilebox.storage.client import (
     AssetAccessPolicy,
     Client,

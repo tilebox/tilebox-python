@@ -1,84 +1,61 @@
+import asyncio
 import logging
 import sys
-import threading
 import time
 
 import pytest
-from opentelemetry.proto.logs.v1.logs_pb2 import LogRecord, SeverityNumber
+from protobuf import Oneof
+from tests.log_values import string_value
 
+from tilebox.workflows._otel.opentelemetry.proto.common.v1.common_pb import AnyValue, ArrayValue, KeyValue, KeyValueList
+from tilebox.workflows._otel.opentelemetry.proto.logs.v1.logs_pb import LogRecord, SeverityNumber
 from tilebox.workflows.observability._log_stream import _LogQueue, _OTLPQueueHandler
 
 
 def _record(message: str) -> LogRecord:
-    record = LogRecord()
-    record.body.string_value = message
-    return record
+    return LogRecord(body=AnyValue(value=Oneof("string_value", message)))
 
 
-def test_full_sealed_queue_drains_without_sentinel() -> None:
+@pytest.mark.asyncio
+async def test_full_sealed_queue_drains_without_sentinel() -> None:
     records = _LogQueue(capacity=2)
     records.submit(_record("one"))
     records.submit(_record("two"))
     records.seal()
 
-    assert [record.body.string_value for record in records.subscribe()] == ["one", "two"]
-    assert list(records.subscribe()) == []
+    assert [string_value(record.body) async for record in records.subscribe_async()] == ["one", "two"]
+    assert [record async for record in records.subscribe_async()] == []
 
 
-def test_overflow_notice_is_emitted_without_another_submission() -> None:
+@pytest.mark.asyncio
+async def test_overflow_notice_is_emitted_without_another_submission() -> None:
     records = _LogQueue(capacity=1)
     records.submit(_record("kept"))
     records.submit(_record("lost-one"))
     records.submit(_record("lost-two"))
     records.seal()
 
-    assert [record.body.string_value for record in records.subscribe()] == [
+    assert [string_value(record.body) async for record in records.subscribe_async()] == [
         "kept",
         "Dropped 2 local log records",
     ]
 
 
-def test_cancelled_subscription_reconnects_and_does_not_consume_full_queue() -> None:
-    records = _LogQueue(capacity=1)
-    records.submit(_record("buffered"))
-    assert list(records.subscribe(lambda: False)) == []
-    records.seal()
-    assert [record.body.string_value for record in records.subscribe()] == ["buffered"]
-
-
-def test_overflow_notice_precedes_new_records_after_delivery_resumes() -> None:
+@pytest.mark.asyncio
+async def test_overflow_notice_precedes_new_records_after_delivery_resumes() -> None:
     records = _LogQueue(capacity=2)
     records.submit(_record("first"))
     records.submit(_record("second"))
     records.submit(_record("lost"))
-    subscriber = records.subscribe()
-    assert next(subscriber).body.string_value == "first"
-    assert next(subscriber).body.string_value == "second"
+    subscriber = records.subscribe_async()
+    assert string_value((await anext(subscriber)).body) == "first"
+    assert string_value((await anext(subscriber)).body) == "second"
     records.submit(_record("after loss"))
     records.seal()
-    assert [record.body.string_value for record in subscriber] == [
+    assert [string_value(record.body) async for record in subscriber] == [
         "Dropped 1 local log records",
         "after loss",
     ]
-
-
-def test_concurrent_subscription_is_rejected() -> None:
-    records = _LogQueue()
-    subscribed = threading.Event()
-    release = threading.Event()
-
-    def active() -> bool:
-        subscribed.set()
-        return not release.is_set()
-
-    subscriber = threading.Thread(target=lambda: list(records.subscribe(active)))
-    subscriber.start()
-    assert subscribed.wait(timeout=1)
-    with pytest.raises(RuntimeError, match="already connected"):
-        next(records.subscribe())
-    release.set()
-    subscriber.join(timeout=1)
-    assert not subscriber.is_alive()
 
 
 def test_wait_empty_is_bounded_without_consumer() -> None:
@@ -89,13 +66,15 @@ def test_wait_empty_is_bounded_without_consumer() -> None:
     assert time.monotonic() - started < 0.5
 
 
-def test_oversize_record_is_replaced_by_drop_notice() -> None:
+@pytest.mark.asyncio
+async def test_oversize_record_is_replaced_by_drop_notice() -> None:
     records = _LogQueue(max_record_size=32)
     records.submit(_record("x" * 100))
     records.seal()
-    assert [record.body.string_value for record in records.subscribe()] == ["Dropped 1 local log records"]
+    assert [string_value(record.body) async for record in records.subscribe_async()] == ["Dropped 1 local log records"]
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("value", "field"),
     [
@@ -111,7 +90,7 @@ def test_oversize_record_is_replaced_by_drop_notice() -> None:
         (-(2**80), "string_value"),
     ],
 )
-def test_handler_preserves_integer_boundaries(value: int, field: str) -> None:
+async def test_handler_preserves_integer_boundaries(value: int, field: str) -> None:
     records = _LogQueue()
     handler = _OTLPQueueHandler(records)
     record = logging.LogRecord("test", logging.INFO, __file__, 1, "integer attribute", (), None)
@@ -120,18 +99,33 @@ def test_handler_preserves_integer_boundaries(value: int, field: str) -> None:
     handler.emit(logging.LogRecord("test", logging.INFO, __file__, 1, "next record", (), None))
     records.seal()
 
-    first, second = records.subscribe()
-    assert first.body.string_value == "integer attribute"
-    assert second.body.string_value == "next record"
+    first, second = [record async for record in records.subscribe_async()]
+    assert string_value(first.body) == "integer attribute"
+    assert string_value(second.body) == "next record"
     attributes = {item.key: item.value for item in first.attributes}
-    nested = attributes["nested"].kvlist_value.values[0]
-    assert nested.key == "items"
-    for result in (attributes["value"], nested.value.array_value.values[0]):
-        assert result.WhichOneof("value") == field
-        assert getattr(result, field) == (str(value) if field == "string_value" else value)
+    if field == "string_value":
+        expected = AnyValue(value=Oneof("string_value", str(value)))
+    elif field == "bool_value":
+        assert isinstance(value, bool)
+        expected = AnyValue(value=Oneof("bool_value", value))
+    else:
+        assert field == "int_value"
+        expected = AnyValue(value=Oneof("int_value", value))
+    assert attributes["value"] == expected
+    assert attributes["nested"] == AnyValue(
+        value=Oneof(
+            "kvlist_value",
+            KeyValueList(
+                values=[
+                    KeyValue(key="items", value=AnyValue(value=Oneof("array_value", ArrayValue(values=[expected]))))
+                ]
+            ),
+        )
+    )
 
 
-def test_handler_preserves_structured_attributes_exception_trace_and_level() -> None:
+@pytest.mark.asyncio
+async def test_handler_preserves_structured_attributes_exception_trace_and_level() -> None:
     records = _LogQueue()
     handler = _OTLPQueueHandler(records)
 
@@ -151,14 +145,45 @@ def test_handler_preserves_structured_attributes_exception_trace_and_level() -> 
         }
         handler.emit(record)
     records.seal()
-    [result] = records.subscribe()
+    [result] = [record async for record in records.subscribe_async()]
     attributes = {item.key: item.value for item in result.attributes}
-    assert result.severity_number == SeverityNumber.SEVERITY_NUMBER_WARN
+    assert result.severity_number == SeverityNumber.WARN
     assert result.severity_text == "WARN"
     assert result.trace_id == b"\x01" * 16
     assert result.span_id == b"\x02" * 8
-    assert [item.int_value or item.string_value for item in attributes["items"].array_value.values] == [1, "two"]
-    assert attributes["mapping"].kvlist_value.values[0].value.bool_value
-    assert attributes["missing"].WhichOneof("value") is None
-    assert attributes["exception.type"].string_value == "ValueError"
-    assert "ValueError: bad value" in attributes["exception.stacktrace"].string_value
+    assert attributes["items"] == AnyValue(
+        value=Oneof(
+            "array_value",
+            ArrayValue(values=[AnyValue(value=Oneof("int_value", 1)), AnyValue(value=Oneof("string_value", "two"))]),
+        )
+    )
+    assert attributes["mapping"] == AnyValue(
+        value=Oneof(
+            "kvlist_value",
+            KeyValueList(values=[KeyValue(key="nested", value=AnyValue(value=Oneof("bool_value", True)))]),
+        )
+    )
+    assert attributes["missing"] == AnyValue()
+    assert string_value(attributes["exception.type"]) == "ValueError"
+    assert "ValueError: bad value" in string_value(attributes["exception.stacktrace"])
+
+
+@pytest.mark.asyncio
+async def test_async_subscription_cancellation_releases_single_subscriber() -> None:
+    """Cancel an idle async subscriber without consuming future records or retaining a thread."""
+    records = _LogQueue(capacity=1)
+    subscriber = records.subscribe_async()
+    pending = asyncio.create_task(anext(subscriber))
+    await asyncio.sleep(0.02)
+    with pytest.raises(RuntimeError, match="already connected"):
+        await anext(records.subscribe_async())
+    pending.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await pending
+    records.submit(_record("after cancellation"))
+    records.submit(_record("overflow"))
+    records.seal()
+    assert [string_value(record.body) async for record in records.subscribe_async()] == [
+        "after cancellation",
+        "Dropped 1 local log records",
+    ]

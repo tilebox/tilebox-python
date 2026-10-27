@@ -1,19 +1,21 @@
 """Bounded OTLP log streaming for CLI-managed workflow runtimes."""
 
+import asyncio
 import logging
 import os
 import threading
 import time
 import traceback
 from collections import deque
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from opentelemetry.instrumentation.log_utils import std_to_otel
-from opentelemetry.proto.common.v1.common_pb2 import AnyValue, ArrayValue, KeyValue, KeyValueList
-from opentelemetry.proto.logs.v1.logs_pb2 import LogRecord, SeverityNumber
 from opentelemetry.semconv.attributes import exception_attributes
+from protobuf import Oneof
 
+from tilebox.workflows._otel.opentelemetry.proto.common.v1.common_pb import AnyValue, ArrayValue, KeyValue, KeyValueList
+from tilebox.workflows._otel.opentelemetry.proto.logs.v1.logs_pb import LogRecord, SeverityNumber
 from tilebox.workflows.observability._logging import _record_attributes
 
 _MAX_RECORD_SIZE = 1024 * 1024
@@ -25,20 +27,23 @@ def _any_value(value: Any) -> AnyValue:  # noqa: PLR0911 -- each protobuf union 
     if value is None:
         return AnyValue()
     if isinstance(value, bool):
-        return AnyValue(bool_value=value)
+        return AnyValue(value=Oneof("bool_value", value))
     if isinstance(value, int):
         if abs(value) > 2**63 - 1:
-            return AnyValue(string_value=str(value))
-        return AnyValue(int_value=value)
+            return AnyValue(value=Oneof("string_value", str(value)))
+        return AnyValue(value=Oneof("int_value", value))
     if isinstance(value, float):
-        return AnyValue(double_value=value)
+        return AnyValue(value=Oneof("double_value", value))
     if isinstance(value, dict):
         return AnyValue(
-            kvlist_value=KeyValueList(values=[KeyValue(key=key, value=_any_value(item)) for key, item in value.items()])
+            value=Oneof(
+                "kvlist_value",
+                KeyValueList(values=[KeyValue(key=key, value=_any_value(item)) for key, item in value.items()]),
+            )
         )
     if isinstance(value, list):
-        return AnyValue(array_value=ArrayValue(values=[_any_value(item) for item in value]))
-    return AnyValue(string_value=value)
+        return AnyValue(value=Oneof("array_value", ArrayValue(values=[_any_value(item) for item in value])))
+    return AnyValue(value=Oneof("string_value", value))
 
 
 class _LogQueue:
@@ -57,7 +62,7 @@ class _LogQueue:
         with self._condition:
             if self._sealed:
                 return
-            if record.ByteSize() > self._max_record_size or len(self._records) >= self._capacity:
+            if len(record.to_binary()) > self._max_record_size or len(self._records) >= self._capacity:
                 self._dropped += 1
                 self._condition.notify_all()
                 return
@@ -71,27 +76,28 @@ class _LogQueue:
             self._records.append(record)
             self._condition.notify_all()
 
-    def subscribe(self, active: Callable[[], bool] = lambda: True) -> Iterator[LogRecord]:
+    async def subscribe_async(self) -> AsyncGenerator[LogRecord]:
+        """Stream without blocking the ASGI loop or leaving a thread behind on cancellation."""
         with self._condition:
             if self._subscriber:
                 raise RuntimeError("A log subscriber is already connected")
             self._subscriber = True
         try:
-            while active():
+            while True:
+                record = None
                 with self._condition:
                     if self._records:
                         record = self._records.popleft()
-                        self._condition.notify_all()
                     elif self._dropped:
                         record = _drop_record(self._dropped)
                         self._dropped = 0
-                        self._condition.notify_all()
                     elif self._sealed:
                         return
-                    else:
-                        self._condition.wait(timeout=0.1)
-                        continue
-                yield record
+                    self._condition.notify_all()
+                if record is not None:
+                    yield record
+                else:
+                    await asyncio.sleep(0.01)
         finally:
             with self._condition:
                 self._subscriber = False
@@ -118,7 +124,7 @@ def _drop_record(count: int) -> LogRecord:
         time_unix_nano=time.time_ns(),
         severity_number=_severity_number(logging.WARNING),
         severity_text="WARN",
-        body=AnyValue(string_value=f"Dropped {count} local log records"),
+        body=_any_value(f"Dropped {count} local log records"),
     )
 
 
@@ -165,8 +171,8 @@ def _hex_id(value: Any, size: int) -> bytes:
     return result if len(result) == size else b""
 
 
-def _severity_number(level: int) -> SeverityNumber.ValueType:
-    return SeverityNumber.Value(f"SEVERITY_NUMBER_{std_to_otel(level).name}")
+def _severity_number(level: int) -> SeverityNumber:
+    return SeverityNumber(std_to_otel(level).value)
 
 
 managed_log_queue = _LogQueue() if _MANAGED_RUNTIME else None

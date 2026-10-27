@@ -12,44 +12,43 @@ from tilebox.datasets.assets import (
     Band,
     MediaType,
 )
-from tilebox.datasets.datasets.stac.v1.asset_metadata_pb import (
+from tilebox.datasets.stac.v1.asset_metadata_pb import (
     ClassificationBitField,
     ClassificationClass,
     EOCommonName,
     EOProperties,
     RasterProperties,
 )
-from tilebox.datasets.datasets.stac.v1.asset_pb import (
+from tilebox.datasets.stac.v1.asset_pb import (
     Asset as ProtoAsset,
 )
-from tilebox.datasets.datasets.stac.v1.asset_pb import (
+from tilebox.datasets.stac.v1.asset_pb import (
     AssetAccessProfile,
     Assets,
     DataType,
     KnownAssetRole,
 )
-from tilebox.datasets.datasets.stac.v1.asset_pb import AssetLocation as ProtoAssetLocation
-from tilebox.datasets.datasets.stac.v1.asset_pb import Band as ProtoBand
-from tilebox.datasets.datasets.stac.v1.asset_pb2 import Assets as AssetsWire
-from tilebox.datasets.datasets.stac.v1.authentication_pb import (
+from tilebox.datasets.stac.v1.asset_pb import AssetLocation as ProtoAssetLocation
+from tilebox.datasets.stac.v1.asset_pb import Band as ProtoBand
+from tilebox.datasets.stac.v1.authentication_pb import (
     Authentication,
     AuthenticationFlow,
     AuthenticationParameter,
     OAuth2Flow,
     SignedURLFlow,
 )
-from tilebox.datasets.datasets.stac.v1.authentication_pb import (
+from tilebox.datasets.stac.v1.authentication_pb import (
     AuthenticationScheme as AuthenticationSchemeProto,
 )
-from tilebox.datasets.datasets.stac.v1.core_pb import KnownMediaType
-from tilebox.datasets.datasets.stac.v1.core_pb import MediaType as ProtoMediaType
-from tilebox.datasets.datasets.stac.v1.sar_pb import (
+from tilebox.datasets.stac.v1.core_pb import KnownMediaType
+from tilebox.datasets.stac.v1.core_pb import MediaType as ProtoMediaType
+from tilebox.datasets.stac.v1.sar_pb import (
     SARFrequencyBand,
     SARObservationDirection,
     SARPolarization,
     SARProperties,
 )
-from tilebox.datasets.datasets.stac.v1.storage_pb import KnownStorageType, Storage, StorageScheme
+from tilebox.datasets.stac.v1.storage_pb import KnownStorageType, Storage, StorageScheme
 
 TESTDATA = Path(__file__).parent / "testdata"
 
@@ -364,12 +363,12 @@ def test_classification_bitfields_round_trip(placement: str) -> None:
     sparse_bitfields = [compiled.band_profiles[index].bitfields for index in compiled.assets[0].band_profile_indices]
     assert sparse_bitfields == [list(bits) if bits != expected_asset else [] for bits in expected_bands]
 
-    wire = AssetsWire.FromString(compiled.to_binary())
+    wire = Assets.from_binary(compiled.to_binary())
     if placement != "distinct":
-        assert wire.assets[0].bitfields[0].HasField("offset")
+        assert wire.assets[0].bitfields[0].has_field("offset")
         assert wire.assets[0].bitfields[0].offset == 0
-        assert wire.assets[0].bitfields[0].classes[0].HasField("value")
-    decoded = AssetCollection.from_datapoint(_scalar(assets=Assets.from_binary(wire.SerializeToString())))
+        assert wire.assets[0].bitfields[0].classes[0].has_field("value")
+    decoded = AssetCollection.from_datapoint(_scalar(assets=wire))
     assert decoded["qa"].bitfields == expected_asset
     assert tuple(band.bitfields for band in decoded["qa"].bands) == expected_bands
     assert decoded == authored

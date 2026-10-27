@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
-from _tilebox.grpc.error import NotFoundError
+from _tilebox.errors import NotFoundError
 from tilebox.datasets.query.time_interval import datetime_to_timestamp
 from tilebox.datasets.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.workflows.data import (
@@ -14,12 +14,11 @@ from tilebox.workflows.data import (
     Workflow,
     WorkflowRelease,
 )
-from tilebox.workflows.workflows.client import WorkflowClient
-from tilebox.workflows.workflows.service import WorkflowService
-from tilebox.workflows.workflows.v1.workflows_pb2 import (
+from tilebox.workflows.v1.workflows_connect import WorkflowsServiceClientSync
+from tilebox.workflows.v1.workflows_pb import (
     Cluster as ClusterMessage,
 )
-from tilebox.workflows.workflows.v1.workflows_pb2 import (
+from tilebox.workflows.v1.workflows_pb import (
     CreateWorkflowRequest,
     DeleteWorkflowRequest,
     DeployWorkflowReleaseRequest,
@@ -32,17 +31,17 @@ from tilebox.workflows.workflows.v1.workflows_pb2 import (
     UnpublishWorkflowReleaseRequest,
     UpdateWorkflowRequest,
 )
-from tilebox.workflows.workflows.v1.workflows_pb2 import (
+from tilebox.workflows.v1.workflows_pb import (
     Workflow as WorkflowMessage,
 )
-from tilebox.workflows.workflows.v1.workflows_pb2 import (
+from tilebox.workflows.v1.workflows_pb import (
     WorkflowRelease as WorkflowReleaseMessage,
 )
-from tilebox.workflows.workflows.v1.workflows_pb2_grpc import WorkflowsServiceStub
+from tilebox.workflows.workflows.client import WorkflowClient
 
 
-class MockWorkflowService(WorkflowsServiceStub):
-    """A mock implementation of the gRPC workflow service, that stores workflows in memory as a dict."""
+class MockWorkflowService:
+    """Store workflows in memory for client behavior tests."""
 
     def __init__(self) -> None:
         self.workflows: dict[str, WorkflowMessage] = {}
@@ -51,53 +50,53 @@ class MockWorkflowService(WorkflowsServiceStub):
         self.undeploy_requests: list[UndeployWorkflowReleaseRequest] = []
         self.update_requests: list[UpdateWorkflowRequest] = []
 
-    def CreateWorkflow(self, req: CreateWorkflowRequest) -> WorkflowMessage:  # noqa: N802
+    def create_workflow(self, req: CreateWorkflowRequest) -> WorkflowMessage:
         slug = req.name.lower().replace(" ", "-")
-        workflow = WorkflowMessage(slug=slug, name=req.name, description=req.description, summary=req.summary)
-        self.workflows[workflow.slug] = workflow
+        workflow = WorkflowMessage(reference=slug, name=req.name, description=req.description, summary=req.summary)
+        self.workflows[workflow.reference] = workflow
         return workflow
 
-    def ListWorkflows(self, req: ListWorkflowsRequest) -> ListWorkflowsResponse:  # noqa: N802
+    def list_workflows(self, req: ListWorkflowsRequest) -> ListWorkflowsResponse:
         _ = req
         return ListWorkflowsResponse(workflows=list(self.workflows.values()))
 
-    def GetWorkflow(self, req: GetWorkflowRequest) -> WorkflowMessage:  # noqa: N802
-        if req.workflow_slug in self.workflows:
-            return self.workflows[req.workflow_slug]
-        raise NotFoundError(f"Workflow {req.workflow_slug} not found")
+    def get_workflow(self, req: GetWorkflowRequest) -> WorkflowMessage:
+        if req.workflow_reference in self.workflows:
+            return self.workflows[req.workflow_reference]
+        raise NotFoundError(f"Workflow {req.workflow_reference} not found")
 
-    def UpdateWorkflow(self, req: UpdateWorkflowRequest) -> WorkflowMessage:  # noqa: N802
+    def update_workflow(self, req: UpdateWorkflowRequest) -> WorkflowMessage:
         self.update_requests.append(req)
-        if req.workflow_slug not in self.workflows:
-            raise NotFoundError(f"Workflow {req.workflow_slug} not found")
+        if req.workflow_reference not in self.workflows:
+            raise NotFoundError(f"Workflow {req.workflow_reference} not found")
 
-        workflow = WorkflowMessage.FromString(self.workflows[req.workflow_slug].SerializeToString())
-        if req.HasField("name"):
+        workflow = WorkflowMessage.from_binary(self.workflows[req.workflow_reference].to_binary())
+        if req.has_field("name"):
             workflow.name = req.name
-        if req.HasField("description"):
+        if req.has_field("description"):
             workflow.description = req.description
-        if req.HasField("summary"):
+        if req.has_field("summary"):
             workflow.summary = req.summary
-        self.workflows[workflow.slug] = workflow
+        self.workflows[workflow.reference] = workflow
         return workflow
 
-    def DeleteWorkflow(self, req: DeleteWorkflowRequest) -> None:  # noqa: N802
-        if req.workflow_slug in self.workflows:
-            del self.workflows[req.workflow_slug]
+    def delete_workflow(self, req: DeleteWorkflowRequest) -> None:
+        if req.workflow_reference in self.workflows:
+            del self.workflows[req.workflow_reference]
         else:
-            raise NotFoundError(f"Workflow {req.workflow_slug} not found")
+            raise NotFoundError(f"Workflow {req.workflow_reference} not found")
 
-    def UnpublishWorkflowRelease(self, req: UnpublishWorkflowReleaseRequest) -> None:  # noqa: N802
-        self.unpublished_releases.append((req.workflow_slug, uuid_message_to_uuid(req.release_id)))
+    def unpublish_workflow_release(self, req: UnpublishWorkflowReleaseRequest) -> None:
+        self.unpublished_releases.append((req.workflow_reference, uuid_message_to_uuid(req.release_id)))
 
-    def DeployWorkflowRelease(self, req: DeployWorkflowReleaseRequest) -> DeployWorkflowReleaseResponse:  # noqa: N802
+    def deploy_workflow_release(self, req: DeployWorkflowReleaseRequest) -> DeployWorkflowReleaseResponse:
         self.deploy_requests.append(req)
         return DeployWorkflowReleaseResponse(
             release=WorkflowReleaseMessage(id=req.release_id),
             clusters=[ClusterMessage(slug=slug, display_name=slug) for slug in req.cluster_slugs],
         )
 
-    def UndeployWorkflowRelease(self, req: UndeployWorkflowReleaseRequest) -> UndeployWorkflowReleaseResponse:  # noqa: N802
+    def undeploy_workflow_release(self, req: UndeployWorkflowReleaseRequest) -> UndeployWorkflowReleaseResponse:
         self.undeploy_requests.append(req)
         return UndeployWorkflowReleaseResponse(
             release=WorkflowReleaseMessage(id=req.release_id),
@@ -106,8 +105,7 @@ class MockWorkflowService(WorkflowsServiceStub):
 
 
 def test_create_workflow() -> None:
-    service = WorkflowService(MagicMock())
-    service.service = MockWorkflowService()
+    service = MagicMock(spec=WorkflowsServiceClientSync, wraps=MockWorkflowService())
     workflow_client = WorkflowClient(service)
 
     workflow = workflow_client.create("Agentic Workflow", "Short summary", "Description")
@@ -119,9 +117,8 @@ def test_create_workflow() -> None:
 
 
 def test_list_find_and_delete_workflows() -> None:
-    service = WorkflowService(MagicMock())
     mock_service = MockWorkflowService()
-    service.service = mock_service
+    service = MagicMock(spec=WorkflowsServiceClientSync, wraps=mock_service)
     workflow_client = WorkflowClient(service)
     workflow = workflow_client.create("Agentic Workflow", "Short summary")
 
@@ -135,18 +132,17 @@ def test_list_find_and_delete_workflows() -> None:
 
 
 def test_update_workflow() -> None:
-    service = WorkflowService(MagicMock())
     mock_service = MockWorkflowService()
-    service.service = mock_service
+    service = MagicMock(spec=WorkflowsServiceClientSync, wraps=mock_service)
     workflow_client = WorkflowClient(service)
     workflow = workflow_client.create("Agentic Workflow", "Short summary", "Description")
 
     updated_workflow = workflow_client.update(workflow, "Updated Workflow", "Updated summary", "Updated description")
 
     request = mock_service.update_requests[-1]
-    assert request.workflow_slug == workflow.slug
-    assert request.HasField("name")
-    assert request.HasField("description")
+    assert request.workflow_reference == workflow.slug
+    assert request.has_field("name")
+    assert request.has_field("description")
     assert request.name == "Updated Workflow"
     assert request.description == "Updated description"
     assert updated_workflow.name == "Updated Workflow"
@@ -155,27 +151,26 @@ def test_update_workflow() -> None:
 
 
 def test_update_workflow_preserves_optional_presence() -> None:
-    service = WorkflowService(MagicMock())
     mock_service = MockWorkflowService()
-    service.service = mock_service
+    service = MagicMock(spec=WorkflowsServiceClientSync, wraps=mock_service)
     workflow_client = WorkflowClient(service)
     workflow = workflow_client.create("Agentic Workflow", description="Description", summary="Short summary")
 
     unchanged = workflow_client.update(workflow.slug)
     assert unchanged == workflow
     request = mock_service.update_requests[-1]
-    assert not request.HasField("name")
-    assert not request.HasField("description")
-    assert not request.HasField("summary")
+    assert not request.has_field("name")
+    assert not request.has_field("description")
+    assert not request.has_field("summary")
 
     unchanged = workflow_client.update(workflow.slug, name=None, summary=None, description=None)
     assert unchanged == workflow
 
     updated_workflow = workflow_client.update(workflow.slug, summary=None, description="")
     request = mock_service.update_requests[-1]
-    assert not request.HasField("name")
-    assert not request.HasField("summary")
-    assert request.HasField("description")
+    assert not request.has_field("name")
+    assert not request.has_field("summary")
+    assert request.has_field("description")
     assert request.description == ""
     assert updated_workflow.description == ""
     assert updated_workflow.summary == "Short summary"
@@ -191,9 +186,8 @@ def test_update_workflow_preserves_optional_presence() -> None:
 
 
 def test_unpublish_release() -> None:
-    service = WorkflowService(MagicMock())
     mock_service = MockWorkflowService()
-    service.service = mock_service
+    service = MagicMock(spec=WorkflowsServiceClientSync, wraps=mock_service)
     workflow_client = WorkflowClient(service)
     release_id = uuid4()
 
@@ -203,16 +197,15 @@ def test_unpublish_release() -> None:
 
 
 def test_deploy_release() -> None:
-    service = WorkflowService(MagicMock())
     mock_service = MockWorkflowService()
-    service.service = mock_service
+    service = MagicMock(spec=WorkflowsServiceClientSync, wraps=mock_service)
     workflow_client = WorkflowClient(service)
     release_id = uuid4()
 
     deployment = workflow_client.deploy_release("agentic-workflow", release_id, clusters=["dev", "prod"])
 
     request = mock_service.deploy_requests[-1]
-    assert request.workflow_slug == "agentic-workflow"
+    assert request.workflow_reference == "agentic-workflow"
     assert uuid_message_to_uuid(request.release_id) == release_id
     assert list(request.cluster_slugs) == ["dev", "prod"]
     assert deployment.release.id == release_id
@@ -220,16 +213,15 @@ def test_deploy_release() -> None:
 
 
 def test_undeploy_release() -> None:
-    service = WorkflowService(MagicMock())
     mock_service = MockWorkflowService()
-    service.service = mock_service
+    service = MagicMock(spec=WorkflowsServiceClientSync, wraps=mock_service)
     workflow_client = WorkflowClient(service)
     release_id = uuid4()
 
     deployment = workflow_client.undeploy_release("agentic-workflow", release_id, clusters="dev")
 
     request = mock_service.undeploy_requests[-1]
-    assert request.workflow_slug == "agentic-workflow"
+    assert request.workflow_reference == "agentic-workflow"
     assert uuid_message_to_uuid(request.release_id) == release_id
     assert list(request.cluster_slugs) == ["dev"]
     assert deployment.release.id == release_id

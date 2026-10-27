@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import pytest
 
-from _tilebox.grpc.replay import open_recording_channel, open_replay_channel
+from _tilebox.replay import Record, Replay
 from tilebox.workflows import ExecutionContext, Runner, Task
 from tilebox.workflows.cache import InMemoryCache, JobCache
 from tilebox.workflows.client import Client
@@ -51,7 +51,7 @@ def test_task_authoring_imports_are_lazy(monkeypatch: pytest.MonkeyPatch, grpc_v
         "import os\n"
         "import sys\n"
         "import tilebox.workflows as workflows\n"
-        f"assert os.environ['GRPC_VERBOSITY'] == {grpc_verbosity or 'ERROR'!r}\n"
+        f"assert os.environ.get('GRPC_VERBOSITY') == {grpc_verbosity!r}\n"
         "assert 'grpc' not in sys.modules\n"
         "heavy = {'pandas', 'xarray', 'boto3', 'google.cloud.storage', 'google.auth', 'azure.identity', 'obstore', 'ipywidgets', 'opentelemetry.sdk'}\n"
         "assert not heavy & sys.modules.keys()\n"
@@ -206,38 +206,25 @@ def test_runner_with_workflow_tracking_progress() -> None:
 
 def replay_client(replay_file: str, assert_request_matches: bool = True) -> Client:
     replay = Path(__file__).parent / "testdata" / "recordings" / replay_file
-    replay_channel = open_replay_channel(replay, assert_request_matches)
+    interceptor = Replay(replay, assert_request_matches)
 
     with (
-        patch("tilebox.workflows.client.open_channel") as open_channel_mock,
         patch("tilebox.workflows.client.WorkflowTracer", return_value=NoopWorkflowTracer()),
     ):
-        open_channel_mock.return_value = replay_channel
-        # url/token doesn't matter since its a mocked channel
-        client = Client(
+        return Client(
             url="https://api.tilebox.com",
             token="token",  # noqa: S106
+            interceptors=[interceptor],
         )
-        open_channel_mock.assert_called_once()
-
-    return client
 
 
 def record_client(recording_file: str) -> Client:
     recording = Path(__file__).parent / "testdata" / "recordings" / recording_file
-    # this will open a channel to api.tilebox.com, which will send real requests to the server, and record them
-    # for later offline replay
-    recording_channel = open_recording_channel(
-        "https://api.tilebox.com", os.environ["TILEBOX_OPENDATA_ONLY_API_KEY"], recording
+    return Client(
+        url="https://api.tilebox.com",
+        token=os.environ["TILEBOX_OPENDATA_ONLY_API_KEY"],
+        interceptors=[Record(recording)],
     )
-
-    with patch("tilebox.workflows.client.open_channel") as open_channel_mock:
-        open_channel_mock.return_value = recording_channel
-        # url/token doesn't matter since its a mocked channel
-        client = Client(url="https://api.tilebox.com", token="token")  # noqa: S106
-        open_channel_mock.assert_called_once()
-
-    return client
 
 
 class ExplicitIdentifierTaskV1(Task):

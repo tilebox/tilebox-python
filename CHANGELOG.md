@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `tilebox-core`: Own shared Connect RPC infrastructure and protobuf-py messages, public
+  `tilebox.query` interval/pagination types, and `tilebox.errors` exceptions with a common `TileboxError` base.
+- `tilebox-grpc`: Retain an empty compatibility package depending on `tilebox-core>=0.67.0` for one release.
+- `tilebox-datasets`, `tilebox-workflows`, and `tilebox-storage`: Depend explicitly on
+  `tilebox-core`; datasets retains its scientific and LZ4 dependencies.
+- `tilebox-workflows`: Remove the runtime dependency on datasets. Existing public datasets imports
+  of shared intervals, pagination, and conversions remain compatible. Task interval serialization is unchanged.
+- Parse ordinary Python datetimes without pandas. Strings and scientific datetime values still use pandas;
+  workflows-only users need to install pandas explicitly for those inputs. Dataset installations are unchanged.
+- Raise `tilebox.errors.RequestCanceledError` for remote request cancellation instead of `KeyboardInterrupt`.
+- Require Tilebox sibling dependencies version 0.67.0 or newer. When upgrading from older releases,
+  upgrade all installed Tilebox packages together; older releases do not enforce this minimum.
+- Use Connect over HTTP/2 by default. Keep `transport="http1"` for proxies that block HTTP/2,
+  and accept `transport="grpc"` as a silent alias for `"http2"`.
+- Replace generated `_pb2` modules with native `_pb` modules. User-defined protobuf task
+  arguments use protobuf-py messages; existing stored binary task payloads remain compatible.
+- Resolve dynamic dataset schemas by descriptor content and compile scientific conversion
+  plans per schema, including projected metadata-only queries.
+- Bundle native OTEL response types in workflows and convert them directly into log/span
+  objects. Keep the official OpenTelemetry SDK and HTTP exporters for telemetry export.
+- Serve managed workers over Connect HTTP/1 with independent log streams and task calls.
+  Managed workers require a CLI with Connect worker support; that CLI still supports older workers.
+
+### Deprecated
+
+- `tilebox-datasets`: Deprecate the root `TimeseriesDataset` and `TimeseriesCollection` aliases.
+  They still refer to asynchronous clients. Use `tilebox.datasets.aio.DatasetClient` and
+  `CollectionClient` for the same classes, or the root `DatasetClient` and `CollectionClient`
+  for synchronous code.
+
+### Fixed
+
+- `tilebox-workflows`: Flush and close client-owned tracing exporters when closing a client,
+  without shutting down shared exporters. Release closed clients from the tracing registry.
+- `tilebox-datasets`: Count each page's actual datapoints in synchronous query progress bars.
+
 ## [0.66.0] - 2026-10-14
 
 ### Added

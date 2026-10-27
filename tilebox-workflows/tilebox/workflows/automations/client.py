@@ -1,7 +1,9 @@
 from uuid import UUID
 
+from protobuf.wkt.google.protobuf.empty_pb import Empty
+
+from _tilebox.uuid import must_uuid_to_uuid_message, uuid_to_uuid_message
 from tilebox.workflows.automations.cron import CronTask
-from tilebox.workflows.automations.service import AutomationService
 from tilebox.workflows.automations.storage_event import StorageEventTask
 from tilebox.workflows.clusters.client import ClusterSlugLike, to_cluster_slug
 from tilebox.workflows.data import (
@@ -12,10 +14,12 @@ from tilebox.workflows.data import (
     StorageLocation,
 )
 from tilebox.workflows.task import _task_meta
+from tilebox.workflows.v1.automation_connect import AutomationServiceClientSync
+from tilebox.workflows.v1.automation_pb import DeleteAutomationRequest
 
 
 class AutomationClient:
-    def __init__(self, service: AutomationService) -> None:
+    def __init__(self, service: AutomationServiceClientSync) -> None:
         self._service = service
 
     def all(self) -> list[AutomationPrototype]:
@@ -24,7 +28,8 @@ class AutomationClient:
         Returns:
             A list of all registered automations.
         """
-        return self._service.list()
+        response = self._service.list_automations(Empty())
+        return [AutomationPrototype.from_message(automation) for automation in response.automations]
 
     def find(self, automation_id: UUID | str) -> AutomationPrototype:
         """Find an automation by id.
@@ -37,7 +42,7 @@ class AutomationClient:
         """
         if isinstance(automation_id, str):
             automation_id = UUID(automation_id)
-        return self._service.get_by_id(automation_id)
+        return AutomationPrototype.from_message(self._service.get_automation(must_uuid_to_uuid_message(automation_id)))
 
     def create_cron_automation(
         self,
@@ -79,7 +84,7 @@ class AutomationClient:
             storage_event_triggers=[],
             cron_triggers=[CronTrigger(id=UUID(int=0), schedule=s) for s in cron_schedules],
         )
-        return self._service.create(automation)
+        return AutomationPrototype.from_message(self._service.create_automation(automation.to_message()))
 
     def create_storage_event_automation(
         self,
@@ -123,7 +128,7 @@ class AutomationClient:
             ],
             cron_triggers=[],
         )
-        return self._service.create(automation)
+        return AutomationPrototype.from_message(self._service.create_automation(automation.to_message()))
 
     def delete(self, automation_or_id: AutomationPrototype | UUID | str, cancel_jobs: bool = False) -> None:
         """Delete an automation by id.
@@ -139,4 +144,6 @@ class AutomationClient:
         else:
             automation_id = automation_or_id
 
-        self._service.delete(automation_id, cancel_jobs)
+        self._service.delete_automation(
+            DeleteAutomationRequest(automation_id=uuid_to_uuid_message(automation_id), cancel_jobs=cancel_jobs)
+        )

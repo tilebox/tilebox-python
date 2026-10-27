@@ -1,7 +1,7 @@
 import os
 import re
 import warnings
-from collections.abc import Callable, Mapping, MutableMapping
+from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from contextlib import closing
 from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime, timedelta
@@ -11,22 +11,23 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Self, TypeAlias, cast
 from uuid import UUID
 
-from google.protobuf.duration_pb2 import Duration
-from opentelemetry.proto.common.v1 import common_pb2
-from opentelemetry.proto.logs.v1 import logs_pb2
-from opentelemetry.proto.resource.v1 import resource_pb2
-from opentelemetry.proto.trace.v1 import trace_pb2
+from protobuf import Oneof
+from protobuf.wkt.google.protobuf.duration_pb import Duration
 
-from tilebox.datasets.query.id_interval import IDInterval
-from tilebox.datasets.query.pagination import Pagination
-from tilebox.datasets.query.time_interval import (
-    TimeInterval,
+from _tilebox.time import (
     datetime_to_timestamp,
     duration_to_timedelta,
     timedelta_to_duration,
     timestamp_to_datetime,
 )
-from tilebox.datasets.uuid import must_uuid_to_uuid_message, uuid_message_to_uuid, uuid_to_uuid_message
+from _tilebox.uuid import must_uuid_to_uuid_message, uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.query.id_interval import IDInterval
+from tilebox.query.pagination import Pagination
+from tilebox.query.time_interval import TimeInterval
+from tilebox.workflows._otel.opentelemetry.proto.common.v1 import common_pb
+from tilebox.workflows._otel.opentelemetry.proto.logs.v1 import logs_pb
+from tilebox.workflows._otel.opentelemetry.proto.resource.v1 import resource_pb
+from tilebox.workflows._otel.opentelemetry.proto.trace.v1 import trace_pb
 
 if TYPE_CHECKING:
     from obstore.store import AzureStore, GCSStore, S3Store
@@ -35,9 +36,8 @@ if TYPE_CHECKING:
 else:
     WorkflowTracer = Any
 
-from tilebox.workflows.workflows.v1 import automation_pb2 as automation_pb
-from tilebox.workflows.workflows.v1 import core_pb2, job_pb2, task_pb2, telemetry_pb2, workflows_pb2
-from tilebox.workflows.workflows.v1 import storage_location_pb2 as storage_pb
+from tilebox.workflows.v1 import automation_pb, core_pb, job_pb, task_pb, telemetry_pb, workflows_pb
+from tilebox.workflows.v1 import storage_location_pb as storage_pb
 
 _VERSION_PATTERN = re.compile(r"^v(\d+)\.(\d+)$")  # matches a version string in the format "v3.2"
 
@@ -61,11 +61,11 @@ class TaskIdentifier:
     version: str
 
     @classmethod
-    def from_message(cls, identifier: core_pb2.TaskIdentifier) -> Self:
+    def from_message(cls, identifier: core_pb.TaskIdentifier | core_pb.UnboundTaskIdentifier) -> Self:
         return cls(name=identifier.name, version=identifier.version)
 
-    def to_message(self) -> core_pb2.TaskIdentifier:
-        return core_pb2.TaskIdentifier(name=self.name, version=self.version)
+    def to_message(self) -> core_pb.TaskIdentifier:
+        return core_pb.TaskIdentifier(name=self.name, version=self.version)
 
     @classmethod
     def from_name_and_version(cls, name: str, version: str) -> Self:
@@ -98,16 +98,18 @@ class TaskLease:
     recommended_wait_until_next_extension: int
 
     @classmethod
-    def from_message(cls, computed_task: core_pb2.TaskLease) -> "TaskLease":
+    def from_message(cls, computed_task: core_pb.TaskLease) -> "TaskLease":
         """Convert a TaskLease protobuf message to a TaskLease object."""
         return cls(
-            lease=computed_task.lease.ToSeconds(),
-            recommended_wait_until_next_extension=computed_task.recommended_wait_until_next_extension.ToSeconds(),
+            lease=int((computed_task.lease or Duration()).to_seconds()),
+            recommended_wait_until_next_extension=int(
+                (computed_task.recommended_wait_until_next_extension or Duration()).to_seconds()
+            ),
         )
 
-    def to_message(self) -> core_pb2.TaskLease:
+    def to_message(self) -> core_pb.TaskLease:
         """Convert a TaskLease object to a TaskLease protobuf message."""
-        return core_pb2.TaskLease(
+        return core_pb.TaskLease(
             lease=Duration(seconds=self.lease),
             recommended_wait_until_next_extension=Duration(seconds=self.recommended_wait_until_next_extension),
         )
@@ -120,13 +122,13 @@ class ProgressIndicator:
     done: int
 
     @classmethod
-    def from_message(cls, progress_indicator: core_pb2.Progress) -> "ProgressIndicator":
+    def from_message(cls, progress_indicator: core_pb.Progress) -> "ProgressIndicator":
         """Convert a ProgressIndicator protobuf message to a ProgressIndicator object."""
         return cls(label=progress_indicator.label or None, total=progress_indicator.total, done=progress_indicator.done)
 
-    def to_message(self) -> core_pb2.Progress:
+    def to_message(self) -> core_pb.Progress:
         """Convert a ProgressIndicator object to a ProgressIndicator protobuf message."""
-        return core_pb2.Progress(label=self.label, total=self.total, done=self.done)
+        return core_pb.Progress(label=self.label or "", total=self.total, done=self.done)
 
 
 @dataclass(order=True)
@@ -143,30 +145,30 @@ class Task:
     retry_count: int = field(default=0)
 
     @classmethod
-    def from_message(cls, task: core_pb2.Task) -> Self:
+    def from_message(cls, task: core_pb.Task) -> Self:
         """Convert a Task protobuf message to a Task object."""
         return cls(
             id=uuid_message_to_uuid(task.id),
-            identifier=TaskIdentifier.from_message(task.identifier),
+            identifier=TaskIdentifier.from_message(task.identifier or core_pb.TaskIdentifier()),
             state=_TASK_STATES[task.state],
             input=task.input,
-            display=task.display,
+            display=task.display if task.has_field("display") else None,
             job=Job.from_message(task.job) if task.job else None,
-            parent_id=uuid_message_to_uuid(task.parent_id) if task.parent_id.uuid else None,
+            parent_id=uuid_message_to_uuid(task.parent_id) if task.parent_id and task.parent_id.uuid else None,
             depends_on=[uuid_message_to_uuid(uuid) for uuid in task.depends_on],
             lease=TaskLease.from_message(task.lease) if task.lease else None,
             retry_count=task.retry_count,
         )
 
-    def to_message(self) -> core_pb2.Task:
+    def to_message(self) -> core_pb.Task:
         """Convert a Task object to a Task protobuf message."""
         depends_on = [uuid_to_uuid_message(uuid) for uuid in self.depends_on]
         depends_on_valid = [uuid for uuid in depends_on if uuid is not None]
 
-        return core_pb2.Task(
+        return core_pb.Task(
             id=uuid_to_uuid_message(self.id),
             identifier=self.identifier.to_message(),
-            state=cast(core_pb2.TaskState, self.state.value),
+            state=cast(core_pb.TaskState, self.state.value),
             input=self.input,
             display=self.display,
             job=self.job.to_message() if self.job else None,
@@ -182,13 +184,13 @@ class Idling:
     suggested_idling_duration: timedelta
 
     @classmethod
-    def from_message(cls, idling: task_pb2.IdlingResponse) -> "Idling":
+    def from_message(cls, idling: task_pb.IdlingResponse) -> "Idling":
         """Convert a Idling protobuf message to a Idling object."""
-        return cls(suggested_idling_duration=duration_to_timedelta(idling.suggested_idling_duration))
+        return cls(suggested_idling_duration=duration_to_timedelta(idling.suggested_idling_duration or Duration()))
 
-    def to_message(self) -> task_pb2.IdlingResponse:
+    def to_message(self) -> task_pb.IdlingResponse:
         """Convert a Idling object to a Idling protobuf message."""
-        return task_pb2.IdlingResponse(suggested_idling_duration=timedelta_to_duration(self.suggested_idling_duration))
+        return task_pb.IdlingResponse(suggested_idling_duration=timedelta_to_duration(self.suggested_idling_duration))
 
 
 class JobState(Enum):
@@ -218,25 +220,25 @@ class ExecutionStats:
     tasks_by_state: dict[TaskState, int]
 
     @classmethod
-    def from_message(cls, execution_stats: core_pb2.ExecutionStats) -> "ExecutionStats":
+    def from_message(cls, execution_stats: core_pb.ExecutionStats) -> "ExecutionStats":
         """Convert a ExecutionStats protobuf message to a ExecutionStats object."""
         return cls(
             first_task_started_at=timestamp_to_datetime(execution_stats.first_task_started_at)
-            if execution_stats.HasField("first_task_started_at")
+            if execution_stats.has_field("first_task_started_at")
             else None,
             last_task_stopped_at=timestamp_to_datetime(execution_stats.last_task_stopped_at)
-            if execution_stats.HasField("last_task_stopped_at")
+            if execution_stats.has_field("last_task_stopped_at")
             else None,
-            compute_time=duration_to_timedelta(execution_stats.compute_time),
-            elapsed_time=duration_to_timedelta(execution_stats.elapsed_time),
+            compute_time=duration_to_timedelta(execution_stats.compute_time or Duration()),
+            elapsed_time=duration_to_timedelta(execution_stats.elapsed_time or Duration()),
             parallelism=execution_stats.parallelism,
             total_tasks=execution_stats.total_tasks,
             tasks_by_state={_TASK_STATES[state.state]: state.count for state in execution_stats.tasks_by_state},
         )
 
-    def to_message(self) -> core_pb2.ExecutionStats:
+    def to_message(self) -> core_pb.ExecutionStats:
         """Convert a ExecutionStats object to a ExecutionStats protobuf message."""
-        return core_pb2.ExecutionStats(
+        return core_pb.ExecutionStats(
             first_task_started_at=datetime_to_timestamp(self.first_task_started_at)
             if self.first_task_started_at
             else None,
@@ -248,7 +250,7 @@ class ExecutionStats:
             parallelism=self.parallelism,
             total_tasks=self.total_tasks,
             tasks_by_state=[
-                core_pb2.TaskStateCount(state=cast(core_pb2.TaskState, state.value), count=count)
+                core_pb.TaskStateCount(state=cast(core_pb.TaskState, state.value), count=count)
                 for state, count in self.tasks_by_state.items()
             ],
         )
@@ -276,7 +278,7 @@ class Job:
         )
 
     @classmethod
-    def from_message(cls, job: core_pb2.Job, **extra_kwargs: Any) -> Self:
+    def from_message(cls, job: core_pb.Job, **extra_kwargs: Any) -> Self:
         """Convert a Job protobuf message to a Job object."""
         return cls(
             id=uuid_message_to_uuid(job.id),
@@ -285,17 +287,17 @@ class Job:
             state=_JOB_STATES[job.state],
             submitted_at=timestamp_to_datetime(job.submitted_at),
             progress=[ProgressIndicator.from_message(progress) for progress in job.progress],
-            execution_stats=ExecutionStats.from_message(job.execution_stats),
+            execution_stats=ExecutionStats.from_message(job.execution_stats or core_pb.ExecutionStats()),
             **extra_kwargs,
         )
 
-    def to_message(self) -> core_pb2.Job:
+    def to_message(self) -> core_pb.Job:
         """Convert a Job object to a Job protobuf message."""
-        return core_pb2.Job(
+        return core_pb.Job(
             id=uuid_to_uuid_message(self.id),
             name=self.name,
             trace_parent=self.trace_parent,
-            state=cast(core_pb2.JobState, self.state.value),
+            state=cast(core_pb.JobState, self.state.value),
             submitted_at=datetime_to_timestamp(self.submitted_at),
             progress=[progress.to_message() for progress in self.progress],
             execution_stats=self.execution_stats.to_message(),
@@ -332,7 +334,7 @@ class Cluster:
     deployed_workflows: list["Workflow"] = field(default_factory=list)
 
     @classmethod
-    def from_message(cls, cluster: workflows_pb2.Cluster, *, include_deployed_workflows: bool = True) -> Self:
+    def from_message(cls, cluster: workflows_pb.Cluster, *, include_deployed_workflows: bool = True) -> Self:
         """Convert a Cluster protobuf message to a Cluster object."""
         return cls(
             slug=cluster.slug,
@@ -344,13 +346,13 @@ class Cluster:
             else [],
         )
 
-    def to_message(self) -> workflows_pb2.Cluster:
+    def to_message(self) -> workflows_pb.Cluster:
         """Convert a Cluster object to a Cluster protobuf message."""
-        return workflows_pb2.Cluster(
+        return workflows_pb.Cluster(
             slug=self.slug,
             display_name=self.display_name,
             deletable=self.deletable,
-            description=self.description,
+            description=self.description or "",
             deployed_releases=[workflow.to_message() for workflow in self.deployed_workflows],
         )
 
@@ -361,13 +363,13 @@ class Artifact:
     digest: str
 
     @classmethod
-    def from_message(cls, artifact: workflows_pb2.Artifact) -> "Artifact":
+    def from_message(cls, artifact: workflows_pb.Artifact) -> "Artifact":
         """Convert an Artifact protobuf message to an Artifact object."""
         return cls(id=uuid_message_to_uuid(artifact.id), digest=artifact.digest)
 
-    def to_message(self) -> workflows_pb2.Artifact:
+    def to_message(self) -> workflows_pb.Artifact:
         """Convert an Artifact object to an Artifact protobuf message."""
-        return workflows_pb2.Artifact(id=uuid_to_uuid_message(self.id), digest=self.digest)
+        return workflows_pb.Artifact(id=uuid_to_uuid_message(self.id), digest=self.digest)
 
 
 @dataclass(order=True, frozen=True)
@@ -377,7 +379,7 @@ class FilesystemNode:
     children: list["FilesystemNode"] = field(default_factory=list)
 
     @classmethod
-    def from_message(cls, path: workflows_pb2.Path) -> "FilesystemNode":
+    def from_message(cls, path: workflows_pb.Path) -> "FilesystemNode":
         """Convert a Path protobuf message to a FilesystemNode object."""
         return cls(
             path=path.path,
@@ -385,9 +387,9 @@ class FilesystemNode:
             children=[cls.from_message(child) for child in path.children],
         )
 
-    def to_message(self) -> workflows_pb2.Path:
+    def to_message(self) -> workflows_pb.Path:
         """Convert a FilesystemNode object to a Path protobuf message."""
-        return workflows_pb2.Path(
+        return workflows_pb.Path(
             path=self.path,
             directory=self.directory,
             children=[child.to_message() for child in self.children],
@@ -403,7 +405,7 @@ class ReleaseContent:
     command_override: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_message(cls, content: workflows_pb2.ReleaseContent) -> "ReleaseContent":
+    def from_message(cls, content: workflows_pb.ReleaseContent) -> "ReleaseContent":
         """Convert a ReleaseContent protobuf message to a ReleaseContent object."""
         return cls(
             fingerprint=content.fingerprint,
@@ -413,11 +415,11 @@ class ReleaseContent:
             command_override=list(content.command_override),
         )
 
-    def to_message(self) -> workflows_pb2.ReleaseContent:
+    def to_message(self) -> workflows_pb.ReleaseContent:
         """Convert a ReleaseContent object to a ReleaseContent protobuf message."""
-        return workflows_pb2.ReleaseContent(
+        return workflows_pb.ReleaseContent(
             fingerprint=self.fingerprint,
-            tasks=[task.to_message() for task in self.tasks],
+            tasks=[core_pb.UnboundTaskIdentifier(name=task.name, version=task.version) for task in self.tasks],
             files=[path.to_message() for path in self.files],
             runner_object_path=self.runner_object_path,
             command_override=self.command_override,
@@ -433,7 +435,7 @@ class WorkflowPresentation:
     dataset_label: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_message(cls, presentation: workflows_pb2.WorkflowPresentation) -> "WorkflowPresentation":
+    def from_message(cls, presentation: workflows_pb.WorkflowPresentation) -> "WorkflowPresentation":
         return cls(
             image_url=presentation.image_url,
             image_alt=presentation.image_alt,
@@ -442,8 +444,8 @@ class WorkflowPresentation:
             dataset_label=list(presentation.dataset_label),
         )
 
-    def to_message(self) -> workflows_pb2.WorkflowPresentation:
-        return workflows_pb2.WorkflowPresentation(
+    def to_message(self) -> workflows_pb.WorkflowPresentation:
+        return workflows_pb.WorkflowPresentation(
             image_url=self.image_url,
             image_alt=self.image_alt,
             imagery_type=self.imagery_type,
@@ -462,23 +464,23 @@ class Workflow:
     presentation: WorkflowPresentation | None = field(default=None, compare=False)
 
     @classmethod
-    def from_message(cls, workflow: workflows_pb2.Workflow) -> "Workflow":
+    def from_message(cls, workflow: workflows_pb.Workflow) -> "Workflow":
         """Convert a Workflow protobuf message to a Workflow object."""
         return cls(
-            slug=workflow.slug,
+            slug=workflow.reference,
             name=workflow.name,
             description=workflow.description,
             releases=[WorkflowRelease.from_message(release) for release in workflow.releases],
             summary=workflow.summary,
             presentation=WorkflowPresentation.from_message(workflow.presentation)
-            if workflow.HasField("presentation")
+            if workflow.presentation is not None
             else None,
         )
 
-    def to_message(self) -> workflows_pb2.Workflow:
+    def to_message(self) -> workflows_pb.Workflow:
         """Convert a Workflow object to a Workflow protobuf message."""
-        return workflows_pb2.Workflow(
-            slug=self.slug,
+        return workflows_pb.Workflow(
+            reference=self.slug,
             name=self.name,
             description=self.description,
             releases=[release.to_message() for release in self.releases],
@@ -496,19 +498,19 @@ class WorkflowRelease:
     clusters: list[Cluster] = field(default_factory=list)
 
     @classmethod
-    def from_message(cls, release: workflows_pb2.WorkflowRelease) -> "WorkflowRelease":
+    def from_message(cls, release: workflows_pb.WorkflowRelease) -> "WorkflowRelease":
         """Convert a WorkflowRelease protobuf message to a WorkflowRelease object."""
         return cls(
             id=uuid_message_to_uuid(release.id),
-            artifact=Artifact.from_message(release.artifact) if release.HasField("artifact") else None,
-            content=ReleaseContent.from_message(release.content) if release.HasField("content") else None,
-            created_at=timestamp_to_datetime(release.created_at) if release.HasField("created_at") else None,
+            artifact=Artifact.from_message(release.artifact) if release.artifact is not None else None,
+            content=ReleaseContent.from_message(release.content) if release.content is not None else None,
+            created_at=timestamp_to_datetime(release.created_at) if release.has_field("created_at") else None,
             clusters=[Cluster.from_message(cluster, include_deployed_workflows=False) for cluster in release.clusters],
         )
 
-    def to_message(self) -> workflows_pb2.WorkflowRelease:
+    def to_message(self) -> workflows_pb.WorkflowRelease:
         """Convert a WorkflowRelease object to a WorkflowRelease protobuf message."""
-        return workflows_pb2.WorkflowRelease(
+        return workflows_pb.WorkflowRelease(
             id=uuid_to_uuid_message(self.id),
             artifact=self.artifact.to_message() if self.artifact is not None else None,
             content=self.content.to_message() if self.content is not None else None,
@@ -523,22 +525,20 @@ class WorkflowReleaseDeployment:
     clusters: list[Cluster]
 
     @classmethod
-    def from_deploy_message(
-        cls, deployment: workflows_pb2.DeployWorkflowReleaseResponse
-    ) -> "WorkflowReleaseDeployment":
+    def from_deploy_message(cls, deployment: workflows_pb.DeployWorkflowReleaseResponse) -> "WorkflowReleaseDeployment":
         """Convert a DeployWorkflowReleaseResponse protobuf message to a WorkflowReleaseDeployment object."""
         return cls(
-            release=WorkflowRelease.from_message(deployment.release),
+            release=WorkflowRelease.from_message(deployment.release or workflows_pb.WorkflowRelease()),
             clusters=[Cluster.from_message(cluster) for cluster in deployment.clusters],
         )
 
     @classmethod
     def from_undeploy_message(
-        cls, deployment: workflows_pb2.UndeployWorkflowReleaseResponse
+        cls, deployment: workflows_pb.UndeployWorkflowReleaseResponse
     ) -> "WorkflowReleaseDeployment":
         """Convert an UndeployWorkflowReleaseResponse protobuf message to a WorkflowReleaseDeployment object."""
         return cls(
-            release=WorkflowRelease.from_message(deployment.release),
+            release=WorkflowRelease.from_message(deployment.release or workflows_pb.WorkflowRelease()),
             clusters=[Cluster.from_message(cluster) for cluster in deployment.clusters],
         )
 
@@ -550,9 +550,9 @@ class NextTaskToRun:
 
     # from message not needed, as we never return this from the server
 
-    def to_message(self) -> task_pb2.NextTaskToRun:
+    def to_message(self) -> task_pb.NextTaskToRun:
         """Convert a NextTaskToRun object to a NextTaskToRun protobuf message."""
-        return task_pb2.NextTaskToRun(
+        return task_pb.NextTaskToRun(
             cluster_slug=self.cluster_slug,
             identifiers=[identifier.to_message() for identifier in self.identifiers],
         )
@@ -569,7 +569,7 @@ class TaskSubmissionGroup:
     optional_values: list[bool] = field(default_factory=list)
 
     @classmethod
-    def from_message(cls, group: core_pb2.TaskSubmissionGroup) -> "TaskSubmissionGroup":
+    def from_message(cls, group: core_pb.TaskSubmissionGroup) -> "TaskSubmissionGroup":
         """Convert a TaskSubmissionGroup protobuf message to a TaskSubmissionGroup object."""
         return cls(
             dependencies_on_other_groups=list(group.dependencies_on_other_groups),
@@ -581,9 +581,9 @@ class TaskSubmissionGroup:
             optional_values=list(group.optional_values),
         )
 
-    def to_message(self) -> core_pb2.TaskSubmissionGroup:
+    def to_message(self) -> core_pb.TaskSubmissionGroup:
         """Convert a TaskSubmissionGroup object to a TaskSubmissionGroup protobuf message."""
-        return core_pb2.TaskSubmissionGroup(
+        return core_pb.TaskSubmissionGroup(
             dependencies_on_other_groups=self.dependencies_on_other_groups,
             inputs=self.inputs,
             identifier_pointers=self.identifier_pointers,
@@ -602,7 +602,7 @@ class TaskSubmissions:
     display_lookup: list[str]
 
     @classmethod
-    def from_message(cls, sub_task: core_pb2.TaskSubmissions) -> "TaskSubmissions":
+    def from_message(cls, sub_task: core_pb.TaskSubmissions) -> "TaskSubmissions":
         """Convert a TaskSubmission protobuf message to a TaskSubmission object."""
         return cls(
             task_groups=[TaskSubmissionGroup.from_message(group) for group in sub_task.task_groups],
@@ -611,9 +611,9 @@ class TaskSubmissions:
             display_lookup=list(sub_task.display_lookup),
         )
 
-    def to_message(self) -> core_pb2.TaskSubmissions:
+    def to_message(self) -> core_pb.TaskSubmissions:
         """Convert a TaskSubmissions object to a TaskSubmissions protobuf message."""
-        return core_pb2.TaskSubmissions(
+        return core_pb.TaskSubmissions(
             task_groups=[group.to_message() for group in self.task_groups],
             cluster_slug_lookup=self.cluster_slug_lookup,
             identifier_lookup=[identifier.to_message() for identifier in self.identifier_lookup],
@@ -633,20 +633,20 @@ class SingleTaskSubmission:
     max_retries: int = 0
 
     @classmethod
-    def from_message(cls, sub_task: core_pb2.SingleTaskSubmission) -> "SingleTaskSubmission":
+    def from_message(cls, sub_task: core_pb.SingleTaskSubmission) -> "SingleTaskSubmission":
         """Convert a TaskSubmission protobuf message to a SingleTaskSubmission object."""
         return cls(
             cluster_slug=sub_task.cluster_slug,
-            identifier=TaskIdentifier.from_message(sub_task.identifier),
+            identifier=TaskIdentifier.from_message(sub_task.identifier or core_pb.TaskIdentifier()),
             input=sub_task.input,
             dependencies=list(sub_task.dependencies),
             display=sub_task.display,
             max_retries=sub_task.max_retries,
         )
 
-    def to_message(self) -> core_pb2.SingleTaskSubmission:
+    def to_message(self) -> core_pb.SingleTaskSubmission:
         """Convert a SingleTaskSubmission object to a TaskSubmission protobuf message."""
-        return core_pb2.SingleTaskSubmission(
+        return core_pb.SingleTaskSubmission(
             cluster_slug=self.cluster_slug,
             identifier=self.identifier.to_message(),
             input=self.input,
@@ -664,22 +664,22 @@ class ComputedTask:
     progress_updates: list[ProgressIndicator]
 
     @classmethod
-    def from_message(cls, computed_task: task_pb2.ComputedTask) -> "ComputedTask":
+    def from_message(cls, computed_task: task_pb.ComputedTask) -> "ComputedTask":
         """Convert a ComputedTask protobuf message to a ComputedTask object."""
         return cls(
             id=uuid_message_to_uuid(computed_task.id),
             display=computed_task.display,
             sub_tasks=TaskSubmissions.from_message(computed_task.sub_tasks)
-            if computed_task.HasField("sub_tasks")
+            if computed_task.sub_tasks is not None
             else None,
             progress_updates=[ProgressIndicator.from_message(progress) for progress in computed_task.progress_updates],
         )
 
-    def to_message(self) -> task_pb2.ComputedTask:
+    def to_message(self) -> task_pb.ComputedTask:
         """Convert a ComputedTask object to a ComputedTask protobuf message."""
-        return task_pb2.ComputedTask(
+        return task_pb.ComputedTask(
             id=uuid_to_uuid_message(self.id),
-            display=self.display,
+            display=self.display or "",
             sub_tasks=self.sub_tasks.to_message() if self.sub_tasks else None,
             progress_updates=[progress.to_message() for progress in self.progress_updates],
         )
@@ -693,7 +693,7 @@ class FailedTask:
     progress_updates: list[ProgressIndicator]
 
     @classmethod
-    def from_message(cls, failed_task: task_pb2.TaskFailedRequest) -> "FailedTask":
+    def from_message(cls, failed_task: task_pb.TaskFailedRequest) -> "FailedTask":
         """Convert a TaskFailedRequest protobuf message to a FailedTask object."""
         return cls(
             task_id=uuid_message_to_uuid(failed_task.task_id),
@@ -720,11 +720,11 @@ class FailedTask:
             progress_updates=progress_updates,
         )
 
-    def to_message(self) -> task_pb2.TaskFailedRequest:
+    def to_message(self) -> task_pb.TaskFailedRequest:
         """Convert a FailedTask object to a TaskFailedRequest protobuf message."""
-        return task_pb2.TaskFailedRequest(
+        return task_pb.TaskFailedRequest(
             task_id=uuid_to_uuid_message(self.task_id),
-            display=self.display,
+            display=self.display or "",
             was_workflow_error=self.was_workflow_error,
             progress_updates=[progress.to_message() for progress in self.progress_updates],
         )
@@ -747,11 +747,11 @@ def _parse_version(version: str) -> tuple[int, int]:
 
 
 class LogSeverity(Enum):
-    TRACE = telemetry_pb2.LOG_SEVERITY_GROUP_TRACE
-    DEBUG = telemetry_pb2.LOG_SEVERITY_GROUP_DEBUG
-    INFO = telemetry_pb2.LOG_SEVERITY_GROUP_INFO
-    WARNING = telemetry_pb2.LOG_SEVERITY_GROUP_WARNING
-    ERROR = telemetry_pb2.LOG_SEVERITY_GROUP_ERROR
+    TRACE = telemetry_pb.LogSeverityGroup.TRACE
+    DEBUG = telemetry_pb.LogSeverityGroup.DEBUG
+    INFO = telemetry_pb.LogSeverityGroup.INFO
+    WARNING = telemetry_pb.LogSeverityGroup.WARNING
+    ERROR = telemetry_pb.LogSeverityGroup.ERROR
 
 
 LogSeverityLiteral: TypeAlias = Literal["trace", "debug", "info", "warning", "error"]
@@ -769,13 +769,13 @@ class LogRecord:
     runner_attributes: dict[str, Any]
 
     @classmethod
-    def from_message(cls, log_record: logs_pb2.ResourceLogs) -> "LogRecord":
+    def from_message(cls, log_record: logs_pb.ResourceLogs) -> "LogRecord":
         try:
             log_record_message = log_record.scope_logs[0].log_records[0]
         except IndexError:
             raise ValueError("ResourceLogs does not contain a log record.") from None
 
-        body = _any_value_to_python(log_record_message.body) if log_record_message.HasField("body") else ""
+        body = _any_value_to_python(log_record_message.body) if log_record_message.body is not None else ""
         return cls(
             time=_datetime_from_unix_nanos(log_record_message.time_unix_nano),
             severity_number=int(log_record_message.severity_number),
@@ -785,19 +785,19 @@ class LogRecord:
             span_id=log_record_message.span_id.hex() or None,
             attributes=_key_values_to_dict(log_record_message.attributes),
             runner_attributes=_key_values_to_dict(log_record.resource.attributes)
-            if log_record.HasField("resource")
+            if log_record.resource is not None
             else {},
         )
 
-    def to_message(self) -> logs_pb2.ResourceLogs:
-        return logs_pb2.ResourceLogs(
-            resource=resource_pb2.Resource(attributes=_dict_to_key_values(self.runner_attributes)),
+    def to_message(self) -> logs_pb.ResourceLogs:
+        return logs_pb.ResourceLogs(
+            resource=resource_pb.Resource(attributes=_dict_to_key_values(self.runner_attributes)),
             scope_logs=[
-                logs_pb2.ScopeLogs(
+                logs_pb.ScopeLogs(
                     log_records=[
-                        logs_pb2.LogRecord(
+                        logs_pb.LogRecord(
                             time_unix_nano=_datetime_to_unix_nanos(self.time),
-                            severity_number=cast(logs_pb2.SeverityNumber.ValueType, self.severity_number),
+                            severity_number=logs_pb.SeverityNumber(self.severity_number),
                             severity_text=self.severity_text,
                             body=_python_to_any_value(self.body),
                             attributes=_dict_to_key_values(self.attributes),
@@ -837,7 +837,7 @@ class Span:
         return self.end_time - self.start_time
 
     @classmethod
-    def from_message(cls, span: trace_pb2.ResourceSpans) -> "Span":
+    def from_message(cls, span: trace_pb.ResourceSpans) -> "Span":
         try:
             span_message = span.scope_spans[0].spans[0]
         except IndexError:
@@ -850,10 +850,10 @@ class Span:
             span_id=span_message.span_id.hex(),
             parent_span_id=span_message.parent_span_id.hex() or None,
             name=span_message.name,
-            status_code=trace_pb2.Status.StatusCode.Name(span_message.status.code),
-            status_message=span_message.status.message,
+            status_code="STATUS_CODE_" + (span_message.status or trace_pb.Status()).code.name,
+            status_message=(span_message.status or trace_pb.Status()).message,
             attributes=_key_values_to_dict(span_message.attributes),
-            runner_attributes=_key_values_to_dict(span.resource.attributes) if span.HasField("resource") else {},
+            runner_attributes=_key_values_to_dict(span.resource.attributes) if span.resource is not None else {},
             events=[
                 {
                     "time": _datetime_from_unix_nanos(event.time_unix_nano),
@@ -864,20 +864,20 @@ class Span:
             ],
         )
 
-    def to_message(self) -> trace_pb2.ResourceSpans:
-        return trace_pb2.ResourceSpans(
-            resource=resource_pb2.Resource(attributes=_dict_to_key_values(self.runner_attributes)),
+    def to_message(self) -> trace_pb.ResourceSpans:
+        return trace_pb.ResourceSpans(
+            resource=resource_pb.Resource(attributes=_dict_to_key_values(self.runner_attributes)),
             scope_spans=[
-                trace_pb2.ScopeSpans(
+                trace_pb.ScopeSpans(
                     spans=[
-                        trace_pb2.Span(
+                        trace_pb.Span(
                             start_time_unix_nano=_datetime_to_unix_nanos(self.start_time),
                             end_time_unix_nano=_datetime_to_unix_nanos(self.end_time),
                             trace_id=bytes.fromhex(self.trace_id),
                             span_id=bytes.fromhex(self.span_id),
                             parent_span_id=bytes.fromhex(self.parent_span_id) if self.parent_span_id else b"",
                             name=self.name,
-                            status=trace_pb2.Status(
+                            status=trace_pb.Status(
                                 code=_status_code_from_name(self.status_code),
                                 message=self.status_message,
                             ),
@@ -911,67 +911,60 @@ def _datetime_to_unix_nanos(value: datetime) -> int:
     return int(value.timestamp() * 1_000_000_000)
 
 
-def _any_value_to_python(value: common_pb2.AnyValue) -> Any:  # noqa: PLR0911
-    match value.WhichOneof("value"):
-        case "string_value":
-            return value.string_value
-        case "bool_value":
-            return value.bool_value
-        case "int_value":
-            return value.int_value
-        case "double_value":
-            return value.double_value
-        case "bytes_value":
-            return value.bytes_value
-        case "array_value":
-            return [_any_value_to_python(item) for item in value.array_value.values]  # noqa: PD011
-        case "kvlist_value":
-            return _key_values_to_dict(value.kvlist_value.values)
-        case _:
-            return None
+def _any_value_to_python(value: common_pb.AnyValue | None) -> Any:
+    if value is None or value.value is None:
+        return None
+    selected = value.value
+    if selected.field == "array_value":
+        return [_any_value_to_python(item) for item in selected.value.values]  # noqa: PD011
+    if selected.field == "kvlist_value":
+        return _key_values_to_dict(selected.value.values)
+    return selected.value
 
 
-def _python_to_any_value(value: Any) -> common_pb2.AnyValue:  # noqa: PLR0911
+def _python_to_any_value(value: Any) -> common_pb.AnyValue:  # noqa: PLR0911
     if isinstance(value, bool):
-        return common_pb2.AnyValue(bool_value=value)
+        return common_pb.AnyValue(value=Oneof("bool_value", value))
     if isinstance(value, str):
-        return common_pb2.AnyValue(string_value=value)
+        return common_pb.AnyValue(value=Oneof("string_value", value))
     if isinstance(value, int):
-        return common_pb2.AnyValue(int_value=value)
+        return common_pb.AnyValue(value=Oneof("int_value", value))
     if isinstance(value, float):
-        return common_pb2.AnyValue(double_value=value)
+        return common_pb.AnyValue(value=Oneof("double_value", value))
     if isinstance(value, bytes):
-        return common_pb2.AnyValue(bytes_value=value)
+        return common_pb.AnyValue(value=Oneof("bytes_value", value))
     if isinstance(value, list | tuple):
-        return common_pb2.AnyValue(
-            array_value=common_pb2.ArrayValue(values=[_python_to_any_value(item) for item in value])
+        return common_pb.AnyValue(
+            value=Oneof("array_value", common_pb.ArrayValue(values=[_python_to_any_value(item) for item in value]))
         )
     if isinstance(value, dict):
-        return common_pb2.AnyValue(kvlist_value=common_pb2.KeyValueList(values=_dict_to_key_values(value)))
-    return common_pb2.AnyValue(string_value=str(value))
+        return common_pb.AnyValue(
+            value=Oneof("kvlist_value", common_pb.KeyValueList(values=_dict_to_key_values(value)))
+        )
+    return common_pb.AnyValue(value=Oneof("string_value", str(value)))
 
 
-def _key_values_to_dict(key_values: Any) -> dict[str, Any]:
+def _key_values_to_dict(key_values: Iterable[common_pb.KeyValue]) -> dict[str, Any]:
     return {key_value.key: _any_value_to_python(key_value.value) for key_value in key_values}
 
 
-def _dict_to_key_values(attributes: dict[str, Any]) -> list[common_pb2.KeyValue]:
-    return [common_pb2.KeyValue(key=key, value=_python_to_any_value(value)) for key, value in attributes.items()]
+def _dict_to_key_values(attributes: dict[str, Any]) -> list[common_pb.KeyValue]:
+    return [common_pb.KeyValue(key=key, value=_python_to_any_value(value)) for key, value in attributes.items()]
 
 
-def _status_code_from_name(status_code: str) -> trace_pb2.Status.StatusCode.ValueType:
+def _status_code_from_name(status_code: str) -> trace_pb.Status.StatusCode:
     try:
-        return trace_pb2.Status.StatusCode.Value(status_code)
-    except ValueError:
-        return trace_pb2.Status.STATUS_CODE_UNSET
+        return trace_pb.Status.StatusCode[status_code.removeprefix("STATUS_CODE_")]
+    except KeyError:
+        return trace_pb.Status.StatusCode.UNSET
 
 
-def _span_event_to_message(event: dict[str, Any]) -> trace_pb2.Span.Event:
+def _span_event_to_message(event: dict[str, Any]) -> trace_pb.Span.Event:
     time = event.get("time")
     attributes = event.get("attributes", {})
     if not isinstance(attributes, dict):
         attributes = {}
-    return trace_pb2.Span.Event(
+    return trace_pb.Span.Event(
         time_unix_nano=_datetime_to_unix_nanos(time) if isinstance(time, datetime) else 0,
         name=str(event.get("name", "")),
         attributes=_dict_to_key_values(attributes),
@@ -984,7 +977,7 @@ class QueryJobLogsResponse:
     next_page: Pagination
 
     @classmethod
-    def from_message(cls, page: Any) -> "QueryJobLogsResponse":
+    def from_message(cls, page: telemetry_pb.PaginatedLogsData) -> "QueryJobLogsResponse":
         return cls(
             logs=LogRecords(LogRecord.from_message(log_record) for log_record in page.resource_logs),
             next_page=Pagination.from_message(page.next_page),
@@ -997,7 +990,7 @@ class QueryJobSpansResponse:
     next_page: Pagination
 
     @classmethod
-    def from_message(cls, page: Any) -> "QueryJobSpansResponse":
+    def from_message(cls, page: telemetry_pb.PaginatedSpansData) -> "QueryJobSpansResponse":
         return cls(
             spans=Spans(Span.from_message(span) for span in page.resource_spans),
             next_page=Pagination.from_message(page.next_page),
@@ -1005,10 +998,10 @@ class QueryJobSpansResponse:
 
 
 class StorageType(Enum):
-    GCS = storage_pb.STORAGE_TYPE_GCS  # Google Cloud Storage
-    AWS_S3 = storage_pb.STORAGE_TYPE_AWS_S3  # Amazon Web Services S3
-    LOCAL = storage_pb.STORAGE_TYPE_LOCAL  # Local Filesystem
-    AZURE_BLOB = storage_pb.STORAGE_TYPE_AZURE_BLOB  # Azure Blob Storage
+    GCS = storage_pb.StorageType.GCS  # Google Cloud Storage
+    AWS_S3 = storage_pb.StorageType.AWS_S3  # Amazon Web Services S3
+    LOCAL = storage_pb.StorageType.LOCAL  # Local Filesystem
+    AZURE_BLOB = storage_pb.StorageType.AZURE_BLOB  # Azure Blob Storage
 
 
 @dataclass(frozen=True)
@@ -1018,7 +1011,7 @@ class AWSS3BucketReference:
 
     def to_message(self) -> storage_pb.StorageLocationReference:
         return storage_pb.StorageLocationReference(
-            type=storage_pb.STORAGE_TYPE_AWS_S3,
+            type=storage_pb.StorageType.AWS_S3,
             aws_s3_bucket=storage_pb.AWSS3BucketReference(bucket=self.bucket, region=self.region),
         )
 
@@ -1031,7 +1024,7 @@ class GCSBucketReference:
 
     def to_message(self) -> storage_pb.StorageLocationReference:
         return storage_pb.StorageLocationReference(
-            type=storage_pb.STORAGE_TYPE_GCS,
+            type=storage_pb.StorageType.GCS,
             gcs_bucket=storage_pb.GCSBucketReference(
                 bucket=self.bucket, project_id=self.project_id, location=self.location
             ),
@@ -1046,7 +1039,7 @@ class AzureBlobReference:
 
     def to_message(self) -> storage_pb.StorageLocationReference:
         return storage_pb.StorageLocationReference(
-            type=storage_pb.STORAGE_TYPE_AZURE_BLOB,
+            type=storage_pb.StorageType.AZURE_BLOB,
             azure_blob=storage_pb.AzureBlobReference(
                 storage_account_resource_id=self.storage_account_resource_id,
                 container=self.container,
@@ -1061,7 +1054,7 @@ class LocalReference:
 
     def to_message(self) -> storage_pb.StorageLocationReference:
         return storage_pb.StorageLocationReference(
-            type=storage_pb.STORAGE_TYPE_LOCAL, local=storage_pb.LocalReference(path=self.path)
+            type=storage_pb.StorageType.LOCAL, local=storage_pb.LocalReference(path=self.path)
         )
 
 
@@ -1096,39 +1089,42 @@ class StorageLocation:
     @classmethod
     def from_message(cls, storage_location: storage_pb.StorageLocation) -> "StorageLocation":
         """Convert a StorageLocation protobuf message to a StorageLocation object."""
-        reference = storage_location.reference
+        reference = storage_location.reference or storage_pb.StorageLocationReference()
         match reference.type:
-            case storage_pb.STORAGE_TYPE_AZURE_BLOB:
+            case storage_pb.StorageType.AZURE_BLOB:
+                azure = reference.azure_blob or storage_pb.AzureBlobReference()
                 return AzureBlobStorageLocation(
                     id=uuid_message_to_uuid(storage_location.id),
                     name=storage_location.name,
-                    location=reference.azure_blob.container,
+                    location=azure.container,
                     type=StorageType.AZURE_BLOB,
-                    storage_account_resource_id=reference.azure_blob.storage_account_resource_id,
-                    region=reference.azure_blob.region,
+                    storage_account_resource_id=azure.storage_account_resource_id,
+                    region=azure.region,
                 )
-            case storage_pb.STORAGE_TYPE_GCS:
+            case storage_pb.StorageType.GCS:
+                gcs = reference.gcs_bucket or storage_pb.GCSBucketReference()
                 return GCSStorageLocation(
                     id=uuid_message_to_uuid(storage_location.id),
                     name=storage_location.name,
-                    location=reference.gcs_bucket.bucket,
+                    location=gcs.bucket,
                     type=StorageType.GCS,
-                    project_id=reference.gcs_bucket.project_id,
-                    bucket_location=reference.gcs_bucket.location,
+                    project_id=gcs.project_id,
+                    bucket_location=gcs.location,
                 )
-            case storage_pb.STORAGE_TYPE_AWS_S3:
+            case storage_pb.StorageType.AWS_S3:
+                s3 = reference.aws_s3_bucket or storage_pb.AWSS3BucketReference()
                 return AWSS3StorageLocation(
                     id=uuid_message_to_uuid(storage_location.id),
                     name=storage_location.name,
-                    location=reference.aws_s3_bucket.bucket,
+                    location=s3.bucket,
                     type=StorageType.AWS_S3,
-                    region=reference.aws_s3_bucket.region or None,
+                    region=s3.region or None,
                 )
-            case storage_pb.STORAGE_TYPE_LOCAL:
+            case storage_pb.StorageType.LOCAL:
                 return cls(
                     id=uuid_message_to_uuid(storage_location.id),
                     name=storage_location.name,
-                    location=reference.local.path,
+                    location=(reference.local or storage_pb.LocalReference()).path,
                     type=StorageType.LOCAL,
                 )
             case _:
@@ -1142,13 +1138,13 @@ class StorageLocation:
         reference = storage_pb.StorageLocationReference(type=self.type.value)
         match self.type:
             case StorageType.AWS_S3:
-                reference.aws_s3_bucket.bucket = self.location
+                reference.aws_s3_bucket = storage_pb.AWSS3BucketReference(bucket=self.location)
             case StorageType.GCS:
-                reference.gcs_bucket.bucket = self.location
+                reference.gcs_bucket = storage_pb.GCSBucketReference(bucket=self.location)
             case StorageType.AZURE_BLOB:
-                reference.azure_blob.container = self.location
+                reference.azure_blob = storage_pb.AzureBlobReference(container=self.location)
             case StorageType.LOCAL:
-                reference.local.path = self.location
+                reference.local = storage_pb.LocalReference(path=self.location)
         return storage_pb.StorageLocation(id=uuid_to_uuid_message(self.id), name=self.name, reference=reference)
 
     def read(self, path: str) -> bytes:
@@ -1193,7 +1189,7 @@ class AWSS3StorageLocation(StorageLocation):
     def to_message(self) -> storage_pb.StorageLocation:
         """Include the S3 bucket and its region in the storage reference."""
         message = super().to_message()
-        message.reference.aws_s3_bucket.region = self.region or ""
+        message.reference = AWSS3BucketReference(self.location, self.region or "").to_message()
         return message
 
 
@@ -1204,8 +1200,7 @@ class GCSStorageLocation(StorageLocation):
 
     def to_message(self) -> storage_pb.StorageLocation:
         message = super().to_message()
-        message.reference.gcs_bucket.project_id = self.project_id
-        message.reference.gcs_bucket.location = self.bucket_location
+        message.reference = GCSBucketReference(self.location, self.project_id, self.bucket_location).to_message()
         return message
 
 
@@ -1220,8 +1215,9 @@ class AzureBlobStorageLocation(StorageLocation):
     def to_message(self) -> storage_pb.StorageLocation:
         """Include the Azure account and container in the storage reference."""
         message = super().to_message()
-        message.reference.azure_blob.storage_account_resource_id = self.storage_account_resource_id
-        message.reference.azure_blob.region = self.region
+        message.reference = AzureBlobReference(
+            self.storage_account_resource_id, self.location, self.region
+        ).to_message()
         return message
 
 
@@ -1236,7 +1232,7 @@ class StorageEventTrigger:
         """Convert a StorageEventTrigger protobuf message to a StorageEventTrigger object."""
         return cls(
             id=uuid_message_to_uuid(trigger.id),
-            storage_location=StorageLocation.from_message(trigger.storage_location),
+            storage_location=StorageLocation.from_message(trigger.storage_location or storage_pb.StorageLocation()),
             glob_pattern=trigger.glob_pattern,
         )
 
@@ -1250,7 +1246,7 @@ class StorageEventTrigger:
 
 
 class StorageEventType(Enum):
-    CREATED = storage_pb.STORAGE_EVENT_TYPE_CREATED
+    CREATED = storage_pb.StorageEventType.CREATED
 
 
 _STORAGE_EVENT_TYPE_TO_ENUM = {storage_event_type.value: storage_event_type for storage_event_type in StorageEventType}
@@ -1332,7 +1328,7 @@ class AutomationPrototype:
         return cls(
             id=uuid_message_to_uuid(task.id),
             name=task.name,
-            prototype=SingleTaskSubmission.from_message(task.prototype),
+            prototype=SingleTaskSubmission.from_message(task.prototype or core_pb.SingleTaskSubmission()),
             storage_event_triggers=[
                 StorageEventTrigger.from_message(trigger) for trigger in task.storage_event_triggers
             ],
@@ -1466,16 +1462,16 @@ class QueryJobsResponse:
     @classmethod
     def from_message(
         cls,
-        page: job_pb2.QueryJobsResponse,
-        job_factory: Callable[[core_pb2.Job], Job] = Job.from_message,
+        page: job_pb.QueryJobsResponse,
+        job_factory: Callable[[core_pb.Job], Job] = Job.from_message,
     ) -> "QueryJobsResponse":
         return cls(
             jobs=[job_factory(job) for job in page.jobs],
             next_page=Pagination.from_message(page.next_page),
         )
 
-    def to_message(self) -> job_pb2.QueryJobsResponse:
-        return job_pb2.QueryJobsResponse(
+    def to_message(self) -> job_pb.QueryJobsResponse:
+        return job_pb.QueryJobsResponse(
             jobs=[job.to_message() for job in self.jobs],
             next_page=self.next_page.to_message(),
         )
@@ -1492,12 +1488,12 @@ class QueryFilters:
     cluster_slugs: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_message(cls, filters: job_pb2.QueryFilters) -> "QueryFilters":
+    def from_message(cls, filters: job_pb.QueryFilters) -> "QueryFilters":
         return cls(
             time_interval=TimeInterval.from_message(filters.time_interval)
-            if filters.HasField("time_interval")
+            if filters.time_interval is not None
             else None,
-            id_interval=IDInterval.from_message(filters.id_interval) if filters.HasField("id_interval") else None,
+            id_interval=IDInterval.from_message(filters.id_interval) if filters.id_interval is not None else None,
             automation_ids=[uuid_message_to_uuid(uuid) for uuid in filters.automation_ids],
             job_states=[_JOB_STATES[state] for state in filters.states],
             name=filters.name or None,
@@ -1505,16 +1501,16 @@ class QueryFilters:
             cluster_slugs=list(filters.cluster_slugs),
         )
 
-    def to_message(self) -> job_pb2.QueryFilters:
-        return job_pb2.QueryFilters(
+    def to_message(self) -> job_pb.QueryFilters:
+        return job_pb.QueryFilters(
             time_interval=self.time_interval.to_message() if self.time_interval else None,
             id_interval=self.id_interval.to_message() if self.id_interval else None,
             automation_ids=[must_uuid_to_uuid_message(uuid) for uuid in self.automation_ids]
             if self.automation_ids
             else None,
-            states=[cast(core_pb2.JobState, state.value) for state in self.job_states] if self.job_states else None,
-            name=self.name or None,  # empty string becomes None
-            task_states=[cast(core_pb2.TaskState, state.value) for state in self.task_states]
+            states=[cast(core_pb.JobState, state.value) for state in self.job_states] if self.job_states else None,
+            name=self.name or "",
+            task_states=[cast(core_pb.TaskState, state.value) for state in self.task_states]
             if self.task_states
             else None,
             cluster_slugs=self.cluster_slugs or None,

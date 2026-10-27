@@ -16,7 +16,19 @@ private: {
   style.fill: '#F5EFED'
 }
 
-public.tilebox-datasets -> private.tilebox-grpc: {
+public.tilebox-core: {
+  label: tilebox-core\ntilebox.query · tilebox.errors
+}
+
+private._tilebox: {
+  label: _tilebox\nOwned by tilebox-core
+}
+
+public.tilebox-core -> private._tilebox: {
+  label: implements
+}
+
+public.tilebox-datasets -> public.tilebox-core: {
   label: depends on
 }
 
@@ -24,6 +36,14 @@ public.tilebox-storage -> public.tilebox-datasets: {
   label: enhances
 }
 
-public.tilebox-workflows -> private.tilebox-grpc: {
+public.tilebox-workflows -> public.tilebox-core: {
   label: depends on
+}
+
+public.tilebox-storage -> public.tilebox-core: {
+  label: depends on
+}
+
+public.tilebox-grpc -> public.tilebox-core: {
+  label: compatibility dependency only
 }

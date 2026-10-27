@@ -1,3 +1,4 @@
+import atexit
 import logging
 import os
 from collections.abc import Iterator
@@ -83,6 +84,7 @@ class WorkflowTracer:
         authentication information.
         """
         self._service = service
+        self._closed = False
         self._tilebox_span_exporter = _otel_span_exporter(
             endpoint=url,
             headers={"Authorization": f"Bearer {token}"} if token is not None else None,
@@ -94,13 +96,27 @@ class WorkflowTracer:
         # keep track of all workflow tracers, to be able to update them in case the
         # global tracer provider is replaced.
         _workflow_tracers.append(self)
+        atexit.register(self.close)
+
+    def close(self) -> None:
+        """Flush and shut down this client's exporter, leaving shared exporters running."""
+        if self._closed:
+            return
+        self._closed = True
+        _workflow_tracers.remove(self)
+        atexit.unregister(self.close)
+        self._tilebox_span_exporter.shutdown()
 
     def _configure_provider(self, source_provider: TracerProvider) -> None:
         """
         A callback function that get's invoked in case a new global tracer provider is configured, to make sure
         existing workflow tracers are updated when the user changes global tracing configuration.
         """
-        provider = TracerProvider(resource=_get_default_resource(self._service or source_provider.resource))
+        # The client owns its exporter; copied processors belong to the global provider.
+        # Provider shutdown would close both, including shared exporters still in use.
+        provider = TracerProvider(
+            resource=_get_default_resource(self._service or source_provider.resource), shutdown_on_exit=False
+        )
         _copy_configured_span_processors(source_provider, provider)
         provider.add_span_processor(self._tilebox_span_exporter)
 
@@ -124,6 +140,9 @@ class NoopWorkflowTracer(WorkflowTracer):
     def __init__(self, service: str | Resource | None = None) -> None:
         provider = TracerProvider(resource=_get_default_resource(service))
         self._tracer = provider.get_tracer(_INSTRUMENTATION_MODULE_NAME)
+
+    def close(self) -> None:
+        pass
 
     def _configure_provider(self, source_provider: TracerProvider) -> None:
         # noop tracer doesn't need to be reconfigured

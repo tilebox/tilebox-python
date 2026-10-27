@@ -1,12 +1,13 @@
 from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
+from functools import lru_cache
 from typing import Any, TypeVar, cast
 from uuid import UUID
 
 import numpy as np
 import pandas as pd
 import xarray as xr
-from google.protobuf.descriptor import Descriptor, FieldDescriptor
-from google.protobuf.message import Message
+from protobuf import DescField as FieldDescriptor
+from protobuf import DescFieldValueList, DescFieldValueMessage, DescMessage, Message
 
 from tilebox.datasets.protobuf_conversion.field_types import (
     ProtobufFieldType,
@@ -42,13 +43,18 @@ def to_messages(
     """
     required = set(required_fields or [])
     ignore = set(ignore_fields or [])
-    field_descriptors_by_name = cast(Descriptor, message_type.DESCRIPTOR).fields_by_name
+    field_descriptors_by_name = _fields_by_name(message_type)
     records = _iter_records(data, field_descriptors_by_name, ignore)
     return _records_to_messages(records, message_type, field_descriptors_by_name, required, ignore)
 
 
 def marshal_messages(messages: list[Message]) -> list[bytes]:
-    return [m.SerializeToString(deterministic=True) for m in messages]
+    return [m.to_binary() for m in messages]
+
+
+@lru_cache(maxsize=128)
+def _fields_by_name(message_type: type[Message]) -> dict[str, FieldDescriptor]:
+    return {field.name: field for field in message_type.desc().fields}
 
 
 def _iter_records(
@@ -109,7 +115,7 @@ def _xarray_records(
     for field_name in validated_names:
         values = data[field_name].to_numpy()
         descriptor = descriptors.get(field_name)
-        if descriptor is not None and descriptor.is_repeated:
+        if descriptor is not None and isinstance(descriptor.value, DescFieldValueList):
             field_type = infer_field_type(descriptor)
             values = trim_trailing_fill_values(values, field_type.fill_value)
         columns[field_name] = values
@@ -210,17 +216,24 @@ def _record_to_message(
         descriptor = descriptors[field_name]
         field_type = infer_field_type(descriptor)
         try:
-            if descriptor.is_repeated:
+            if isinstance(descriptor.value, DescFieldValueList):
                 converted = _convert_repeated_value(value, field_type)
+                element = descriptor.value.element
+                if isinstance(element, DescMessage):
+                    converted = [element.type.from_binary(cast(Message, item).to_binary()) for item in converted]
             else:
                 converted = field_type.to_proto(value)
+                if isinstance(descriptor.value, DescFieldValueMessage) and converted is not None:
+                    converted = descriptor.value.message.type.from_binary(cast(Message, converted).to_binary())
         except (TypeError, ValueError) as error:
             raise type(error)(f"Field {field_name!r}: {error}") from error
         if converted is None:
             if field_name in required:
                 raise ValueError(f"Field {field_name!r}: Invalid value for required field")
             continue
-        values[field_name] = converted
+        values[descriptor.local_name] = converted
+    # Dataset schemas do not support native oneofs, so fields can be passed directly
+    # to the constructor without grouping oneof members.
     return message_type(**values)
 
 

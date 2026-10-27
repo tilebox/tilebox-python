@@ -4,10 +4,11 @@ from enum import Enum
 from math import isfinite
 from typing import TYPE_CHECKING, ClassVar, NoReturn, TypeAlias
 
-from google.protobuf.duration_pb2 import Duration
+from protobuf.wkt.google.protobuf.duration_pb import Duration
+from protobuf.wkt.google.protobuf.timestamp_pb import Timestamp
 
-from tilebox.datasets.datasets.v1 import data_access_pb2
 from tilebox.datasets.query.time_interval import datetime_to_timestamp, timedelta_to_duration
+from tilebox.datasets.v1 import data_access_pb
 
 if TYPE_CHECKING:
     import numpy as np
@@ -30,13 +31,13 @@ class Expression:
     """
 
     def __and__(self, other: "Expression") -> "Expression":
-        return _combine(data_access_pb2.LOGICAL_OPERATOR_AND, self, other)
+        return _combine(data_access_pb.LogicalOperator.AND, self, other)
 
     def __or__(self, other: "Expression") -> "Expression":
-        return _combine(data_access_pb2.LOGICAL_OPERATOR_OR, self, other)
+        return _combine(data_access_pb.LogicalOperator.OR, self, other)
 
     def __invert__(self) -> "Expression":
-        return _Logical(data_access_pb2.LOGICAL_OPERATOR_NOT, (self,))
+        return _Logical(data_access_pb.LogicalOperator.NOT, (self,))
 
     def __bool__(self) -> NoReturn:
         raise TypeError(
@@ -44,22 +45,23 @@ class Expression:
             "Use &, |, and ~; chained comparisons are unsupported."
         )
 
-    def to_message(self) -> data_access_pb2.FilterExpression:
+    def to_message(self) -> data_access_pb.FilterExpression:
         """Convert this expression to its protobuf representation."""
         # Each concrete expression node overrides this method with its protobuf representation.
         raise NotImplementedError
 
     @classmethod
-    def from_message(cls, message: data_access_pb2.FilterExpression) -> "Expression":
+    def from_message(cls, message: data_access_pb.FilterExpression) -> "Expression":
         """Construct an expression from its protobuf representation."""
-        variants = [name for name in ("logical", "comparison", "is_null") if message.HasField(name)]
+        variants = [name for name in ("logical", "comparison", "is_null") if message.has_field(name)]
         if len(variants) != 1:
             raise ValueError("A filter expression must contain exactly one expression node")
 
         variant = variants[0]
         if variant == "comparison":
             comparison = message.comparison
-            if not comparison.HasField("value"):
+            assert comparison is not None
+            if comparison.value is None:
                 raise ValueError("A field comparison must contain a value")
             if comparison.operator not in _COMPARISON_OPERATORS:
                 raise ValueError(f"Unknown field comparison operator: {comparison.operator}")
@@ -71,13 +73,15 @@ class Expression:
                 query_value,
             )
         if variant == "is_null":
+            assert message.is_null is not None
             return _NullCheck(message.is_null.field_name)
 
         logical = message.logical
+        assert logical is not None
         if logical.operator not in _LOGICAL_OPERATORS:
             raise ValueError(f"Unknown logical operator: {logical.operator}")
         operands = tuple(cls.from_message(operand) for operand in logical.operands)
-        if logical.operator == data_access_pb2.LOGICAL_OPERATOR_NOT:
+        if logical.operator == data_access_pb.LogicalOperator.NOT:
             if len(operands) != 1:
                 raise ValueError("NOT requires exactly one operand")
         elif len(operands) < 2:
@@ -96,22 +100,22 @@ class Field:
     __hash__ = None
 
     def __eq__(self, value: object) -> Expression:  # ty: ignore[invalid-method-override]
-        return self._comparison(data_access_pb2.FIELD_COMPARISON_OPERATOR_EQUAL, value)
+        return self._comparison(data_access_pb.FieldComparisonOperator.EQUAL, value)
 
     def __ne__(self, value: object) -> Expression:  # ty: ignore[invalid-method-override]
-        return self._comparison(data_access_pb2.FIELD_COMPARISON_OPERATOR_NOT_EQUAL, value)
+        return self._comparison(data_access_pb.FieldComparisonOperator.NOT_EQUAL, value)
 
     def __lt__(self, value: _QueryScalar) -> Expression:
-        return self._comparison(data_access_pb2.FIELD_COMPARISON_OPERATOR_LESS_THAN, value)
+        return self._comparison(data_access_pb.FieldComparisonOperator.LESS_THAN, value)
 
     def __le__(self, value: _QueryScalar) -> Expression:
-        return self._comparison(data_access_pb2.FIELD_COMPARISON_OPERATOR_LESS_THAN_OR_EQUAL, value)
+        return self._comparison(data_access_pb.FieldComparisonOperator.LESS_THAN_OR_EQUAL, value)
 
     def __gt__(self, value: _QueryScalar) -> Expression:
-        return self._comparison(data_access_pb2.FIELD_COMPARISON_OPERATOR_GREATER_THAN, value)
+        return self._comparison(data_access_pb.FieldComparisonOperator.GREATER_THAN, value)
 
     def __ge__(self, value: _QueryScalar) -> Expression:
-        return self._comparison(data_access_pb2.FIELD_COMPARISON_OPERATOR_GREATER_THAN_OR_EQUAL, value)
+        return self._comparison(data_access_pb.FieldComparisonOperator.GREATER_THAN_OR_EQUAL, value)
 
     def is_null(self) -> Expression:
         """Match datapoints where this field is missing or explicitly null."""
@@ -121,7 +125,7 @@ class Field:
         """Match datapoints where this field is present and non-null."""
         return ~self.is_null()
 
-    def _comparison(self, operator: data_access_pb2.FieldComparisonOperator, value: object) -> Expression:
+    def _comparison(self, operator: data_access_pb.FieldComparisonOperator, value: object) -> Expression:
         query_value = _QueryValue.parse(value)
         _validate_comparison(operator, query_value)
         return _Comparison(self.name, operator, query_value)
@@ -152,8 +156,7 @@ class _QueryValue:
         if isinstance(value, np.timedelta64):
             if np.isnat(value):
                 raise ValueError("NaT is not a valid query value")
-            duration = Duration()
-            duration.FromNanoseconds(int(value.astype("timedelta64[ns]").astype(np.int64)))
+            duration = Duration.from_nanos(int(value.astype("timedelta64[ns]").astype(np.int64)))
             _validate_duration(duration.seconds, duration.nanos)
             return cls("duration_value", (duration.seconds, duration.nanos))
         if isinstance(value, datetime):
@@ -187,8 +190,8 @@ class _QueryValue:
         raise TypeError(f"Unsupported query value type: {type(value).__name__}")
 
     @classmethod
-    def from_message(cls, message: data_access_pb2.FieldQueryValue) -> "_QueryValue":
-        variants = [name for name in _QUERY_VALUE_KINDS if message.HasField(name)]
+    def from_message(cls, message: data_access_pb.FieldQueryValue) -> "_QueryValue":
+        variants = [name for name in _QUERY_VALUE_KINDS if message.has_field(name)]
         if len(variants) != 1:
             raise ValueError("A field query value must contain exactly one typed literal")
         kind = variants[0]
@@ -199,23 +202,23 @@ class _QueryValue:
             _validate_duration(*value)
         return cls(kind, value)
 
-    def to_message(self) -> data_access_pb2.FieldQueryValue:
+    def to_message(self) -> data_access_pb.FieldQueryValue:
         if self.kind == "timestamp_value":
             if not isinstance(self.value, tuple):
                 raise TypeError("Invalid timestamp query value")
             seconds, nanos = self.value
-            return data_access_pb2.FieldQueryValue(
-                timestamp_value={"seconds": seconds, "nanos": nanos},
+            return data_access_pb.FieldQueryValue(
+                timestamp_value=Timestamp(seconds=seconds, nanos=nanos),
             )
         if self.kind == "duration_value":
             if not isinstance(self.value, tuple):
                 raise TypeError("Invalid duration query value")
             seconds, nanos = self.value
             _validate_duration(seconds, nanos)
-            return data_access_pb2.FieldQueryValue(
-                duration_value={"seconds": seconds, "nanos": nanos},
+            return data_access_pb.FieldQueryValue(
+                duration_value=Duration(seconds=seconds, nanos=nanos),
             )
-        message = data_access_pb2.FieldQueryValue()
+        message = data_access_pb.FieldQueryValue()
         setattr(message, self.kind, self.value)
         return message
 
@@ -223,12 +226,12 @@ class _QueryValue:
 @dataclass(frozen=True, slots=True)
 class _Comparison(Expression):
     field_name: str
-    operator: data_access_pb2.FieldComparisonOperator
+    operator: data_access_pb.FieldComparisonOperator
     value: _QueryValue
 
-    def to_message(self) -> data_access_pb2.FilterExpression:
-        return data_access_pb2.FilterExpression(
-            comparison=data_access_pb2.FieldComparison(
+    def to_message(self) -> data_access_pb.FilterExpression:
+        return data_access_pb.FilterExpression(
+            comparison=data_access_pb.FieldComparison(
                 field_name=self.field_name,
                 operator=self.operator,
                 value=self.value.to_message(),
@@ -240,27 +243,27 @@ class _Comparison(Expression):
 class _NullCheck(Expression):
     field_name: str
 
-    def to_message(self) -> data_access_pb2.FilterExpression:
-        return data_access_pb2.FilterExpression(
-            is_null=data_access_pb2.FieldNullCheck(field_name=self.field_name),
+    def to_message(self) -> data_access_pb.FilterExpression:
+        return data_access_pb.FilterExpression(
+            is_null=data_access_pb.FieldNullCheck(field_name=self.field_name),
         )
 
 
 @dataclass(frozen=True, slots=True)
 class _Logical(Expression):
-    operator: data_access_pb2.LogicalOperator
+    operator: data_access_pb.LogicalOperator
     operands: tuple[Expression, ...]
 
-    def to_message(self) -> data_access_pb2.FilterExpression:
-        return data_access_pb2.FilterExpression(
-            logical=data_access_pb2.LogicalExpression(
+    def to_message(self) -> data_access_pb.FilterExpression:
+        return data_access_pb.FilterExpression(
+            logical=data_access_pb.LogicalExpression(
                 operator=self.operator,
                 operands=[operand.to_message() for operand in self.operands],
             )
         )
 
 
-def _combine(operator: data_access_pb2.LogicalOperator, left: Expression, right: Expression) -> Expression:
+def _combine(operator: data_access_pb.LogicalOperator, left: Expression, right: Expression) -> Expression:
     if not isinstance(right, Expression):
         raise TypeError(f"Expected a query expression, got {type(right).__name__}")
     operands: tuple[Expression, ...] = ()
@@ -277,12 +280,12 @@ def _nanoseconds_to_parts(nanoseconds: int) -> tuple[int, int]:
 
 
 def _validate_comparison(
-    operator: data_access_pb2.FieldComparisonOperator,
+    operator: data_access_pb.FieldComparisonOperator,
     value: _QueryValue,
 ) -> None:
     if value.kind == "bool_value" and operator not in {
-        data_access_pb2.FIELD_COMPARISON_OPERATOR_EQUAL,
-        data_access_pb2.FIELD_COMPARISON_OPERATOR_NOT_EQUAL,
+        data_access_pb.FieldComparisonOperator.EQUAL,
+        data_access_pb.FieldComparisonOperator.NOT_EQUAL,
     }:
         raise TypeError("Boolean query values only support == and !=")
     if value.kind == "double_value":
@@ -302,17 +305,17 @@ def _validate_duration(seconds: int, nanos: int) -> None:
 
 
 _COMPARISON_OPERATORS = {
-    data_access_pb2.FIELD_COMPARISON_OPERATOR_EQUAL,
-    data_access_pb2.FIELD_COMPARISON_OPERATOR_NOT_EQUAL,
-    data_access_pb2.FIELD_COMPARISON_OPERATOR_LESS_THAN,
-    data_access_pb2.FIELD_COMPARISON_OPERATOR_LESS_THAN_OR_EQUAL,
-    data_access_pb2.FIELD_COMPARISON_OPERATOR_GREATER_THAN,
-    data_access_pb2.FIELD_COMPARISON_OPERATOR_GREATER_THAN_OR_EQUAL,
+    data_access_pb.FieldComparisonOperator.EQUAL,
+    data_access_pb.FieldComparisonOperator.NOT_EQUAL,
+    data_access_pb.FieldComparisonOperator.LESS_THAN,
+    data_access_pb.FieldComparisonOperator.LESS_THAN_OR_EQUAL,
+    data_access_pb.FieldComparisonOperator.GREATER_THAN,
+    data_access_pb.FieldComparisonOperator.GREATER_THAN_OR_EQUAL,
 }
 _LOGICAL_OPERATORS = {
-    data_access_pb2.LOGICAL_OPERATOR_AND,
-    data_access_pb2.LOGICAL_OPERATOR_OR,
-    data_access_pb2.LOGICAL_OPERATOR_NOT,
+    data_access_pb.LogicalOperator.AND,
+    data_access_pb.LogicalOperator.OR,
+    data_access_pb.LogicalOperator.NOT,
 }
 _QUERY_VALUE_KINDS = (
     "bool_value",

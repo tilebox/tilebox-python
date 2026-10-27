@@ -5,7 +5,7 @@ from typing import Annotated
 
 import pytest
 
-from tests.proto.test_pb2 import SampleArgs
+from tests.proto.test_pb import SampleArgs
 from tilebox.workflows.cache import InMemoryCache
 from tilebox.workflows.data import TaskIdentifier
 from tilebox.workflows.runner.task_runner import ExecutionContext as RunnerExecutionContext

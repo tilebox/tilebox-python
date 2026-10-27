@@ -4,8 +4,8 @@ from typing import Self
 
 from tilebox.workflows.data import TriggeredCronEvent
 from tilebox.workflows.task import RunnerContext, Task, deserialize_task, serialize_task
-from tilebox.workflows.workflows.v1.automation_pb2 import Automation as AutomationMessage
-from tilebox.workflows.workflows.v1.automation_pb2 import TriggeredCronEvent as TriggeredCronEventMessage
+from tilebox.workflows.v1.automation_pb import Automation as AutomationMessage
+from tilebox.workflows.v1.automation_pb import TriggeredCronEvent as TriggeredCronEventMessage
 
 _NOT_TRIGGERED = TriggeredCronEvent(datetime.min.replace(tzinfo=UTC))
 
@@ -23,20 +23,18 @@ class CronTask(Task):
         event = self.trigger.to_message()
         args = self._serialize_args()
         message = AutomationMessage(
-            trigger_event=event.SerializeToString(),
+            trigger_event=event.to_binary(),
             args=args,
         )
-        return message.SerializeToString()
+        return message.to_binary()
 
     @classmethod
     def _deserialize(cls, task_input: bytes, context: RunnerContext | None = None) -> Self:  # noqa: ARG003
-        message = AutomationMessage()
-        message.ParseFromString(task_input)
+        message = AutomationMessage.from_binary(task_input)
 
         task = deserialize_task(cls, message.args)
 
-        event_message = TriggeredCronEventMessage()
-        event_message.ParseFromString(message.trigger_event)
+        event_message = TriggeredCronEventMessage.from_binary(message.trigger_event)
         event = TriggeredCronEvent.from_message(event_message)
         task.trigger = event
         return task

@@ -1,10 +1,14 @@
+from collections.abc import Callable
+from dataclasses import replace
+from typing import Any, Literal
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from google.protobuf.descriptor_pb2 import FieldDescriptorProto
 from hypothesis import given
+from protobuf.wkt.google.protobuf.descriptor_pb import FieldDescriptorProto, FileDescriptorProto, FileDescriptorSet
 
+from _tilebox.errors import NotFoundError
 from tests.data.datasets import (
     annotated_types,
     dataset_groups,
@@ -15,6 +19,10 @@ from tests.data.datasets import (
     fields,
     list_datasets_responses,
 )
+from tests.example_dataset.schema import DESCRIPTOR
+from tilebox.datasets import Client
+from tilebox.datasets.data.collection import CollectionInfo
+from tilebox.datasets.data.data_access import SpatialFilter
 from tilebox.datasets.data.datasets import (
     AnnotatedType,
     Dataset,
@@ -27,8 +35,9 @@ from tilebox.datasets.data.datasets import (
     FieldRole,
     ListDatasetsResponse,
 )
+from tilebox.datasets.message_pool import get_message_type
 from tilebox.datasets.schema import Assets, Authentication, Links, ProcessingSoftware, Provider, Storage
-from tilebox.datasets.service import TileboxDatasetService
+from tilebox.datasets.v1 import core_pb, data_access_pb, dataset_type_pb
 
 
 @given(field_annotations())
@@ -36,16 +45,50 @@ def test_field_annotations_to_message_and_back(annotation: FieldAnnotation) -> N
     assert FieldAnnotation.from_message(annotation.to_message()) == annotation
 
 
+def test_schema_cache_reuses_content_without_conflating_same_named_types() -> None:
+    """Reuse equivalent schemas while isolating different descriptors with the same message name."""
+    schema = AnnotatedType(FileDescriptorSet(file=[DESCRIPTOR]), "tests.scientific.Datapoint", [])
+    original = get_message_type(schema)
+    equivalent = AnnotatedType.from_message(schema.to_message())
+    assert get_message_type(equivalent) is original
+    assert get_message_type(replace(schema, type_url="type.googleapis.com/tests.scientific.Datapoint")) is original
+
+    changed = FileDescriptorProto.from_binary(DESCRIPTOR.to_binary())
+    changed.message_type[0].field[4].type = FieldDescriptorProto.Type.INT64
+    other = get_message_type(replace(schema, descriptor_set=FileDescriptorSet(file=[changed])))
+    assert other is not original
+    field_name = changed.message_type[0].field[4].name
+    assert getattr(original.from_binary(original(some_string="value").to_binary()), field_name) == "value"
+    assert getattr(other.from_binary(other(some_string=42).to_binary()), field_name) == 42
+
+
+@pytest.mark.parametrize(
+    ("convert", "message", "error"),
+    [
+        (Field.from_message, dataset_type_pb.Field(), "missing its descriptor"),
+        (AnnotatedType.from_message, dataset_type_pb.AnnotatedType(), "missing its descriptor set"),
+        (Dataset.from_message, core_pb.Dataset(), "missing its type"),
+        (CollectionInfo.from_message, core_pb.CollectionInfo(), "missing its collection"),
+        (SpatialFilter.from_message, data_access_pb.SpatialFilter(), "missing its geometry"),
+    ],
+)
+def test_required_nested_messages_are_rejected(convert: Callable[[Any], Any], message: Any, error: str) -> None:
+    """Reject incomplete responses with a useful error instead of dereferencing absent messages."""
+    with pytest.raises(ValueError, match=error):
+        convert(message)
+
+
 @pytest.mark.parametrize("attribute", ["source_json_pointer", "json_schema_ref"])
-def test_optional_field_annotation_presence(attribute: str) -> None:
+def test_optional_field_annotation_presence(attribute: Literal["source_json_pointer", "json_schema_ref"]) -> None:
     absent = FieldAnnotation("description", "example").to_message()
-    assert not absent.HasField(attribute)
+    assert not absent.has_field(attribute)
 
     if attribute == "source_json_pointer":
         present = FieldAnnotation("description", "example", source_json_pointer="").to_message()
     else:
         present = FieldAnnotation("description", "example", json_schema_ref="").to_message()
-    assert present.HasField(attribute)
+    assert present.has_field(attribute)
+    assert getattr(present, attribute) == ""
 
 
 @given(field_dicts())
@@ -78,11 +121,11 @@ def test_message_types_can_define_dataset_fields(message_type: type, message_nam
     scalar = Field.from_dict({"name": "metadata", "type": message_type})
     repeated = Field.from_dict({"name": "metadata", "type": list[message_type]})  # ty: ignore[invalid-type-form]
 
-    assert scalar.descriptor.type == FieldDescriptorProto.TYPE_MESSAGE
+    assert scalar.descriptor.type == FieldDescriptorProto.Type.MESSAGE
     assert scalar.descriptor.type_name == f".{message_name}"
-    assert scalar.descriptor.label == FieldDescriptorProto.LABEL_OPTIONAL
+    assert scalar.descriptor.label == FieldDescriptorProto.Label.OPTIONAL
     assert repeated.descriptor.type_name == f".{message_name}"
-    assert repeated.descriptor.label == FieldDescriptorProto.LABEL_REPEATED
+    assert repeated.descriptor.label == FieldDescriptorProto.Label.REPEATED
 
 
 @given(fields())
@@ -117,8 +160,10 @@ def test_list_datasets_responses_to_message_and_back(response: ListDatasetsRespo
 
 @pytest.mark.parametrize("operation", ["create", "update"])
 def test_create_and_update_dataset_include_field_annotations(operation: str) -> None:
+    """Public dataset writes send required and custom field annotations to native clients."""
     dataset_service = MagicMock()
-    service = TileboxDatasetService(dataset_service, MagicMock(), MagicMock(), MagicMock())
+    if operation == "create":
+        dataset_service.get_dataset.side_effect = NotFoundError
     custom_fields: list[FieldDict] = [
         {
             "name": "title",
@@ -130,21 +175,23 @@ def test_create_and_update_dataset_include_field_annotations(operation: str) -> 
         }
     ]
 
-    with patch.object(Dataset, "from_message", side_effect=lambda message: message):
-        if operation == "create":
-            service.create_dataset(DatasetKind.SPATIOTEMPORAL, "example", "Example", custom_fields).get()
-            request = dataset_service.CreateDataset.call_args.args[0]
-        else:
-            service.update_dataset(DatasetKind.SPATIOTEMPORAL, uuid4(), "Example", custom_fields).get()
-            request = dataset_service.UpdateDataset.call_args.args[0]
+    with (
+        patch("tilebox.datasets.sync.client.Connection") as connection,
+        patch("tilebox.datasets.sync.client.DatasetClient"),
+        patch.object(Dataset, "from_message", return_value=MagicMock(id=uuid4(), name="Example")),
+    ):
+        connection.return_value.client.return_value = dataset_service
+        with Client(url="http://localhost", token="test") as client:  # noqa: S106
+            client.create_or_update_dataset(DatasetKind.SPATIOTEMPORAL, "example", custom_fields, name="Example")
+        request = getattr(dataset_service, f"{operation}_dataset").call_args.args[0]
 
     annotations = {field.descriptor.name: field.annotation for field in request.type.fields}
     assert annotations["time"].source_json_pointer == "/properties/datetime"
     assert annotations["time"].json_schema_ref.endswith("datetime.json#/properties/datetime")
     assert annotations["id"].source_json_pointer == "/properties/tilebox:id"
-    assert not annotations["id"].HasField("json_schema_ref")
+    assert not annotations["id"].has_field("json_schema_ref")
     assert annotations["ingestion_time"].source_json_pointer == "/properties/tilebox:ingestion_time"
-    assert not annotations["ingestion_time"].HasField("json_schema_ref")
+    assert not annotations["ingestion_time"].has_field("json_schema_ref")
     assert annotations["geometry"].source_json_pointer == "/geometry"
     assert annotations["geometry"].json_schema_ref == "https://geojson.org/schema/Geometry.json"
     assert all(

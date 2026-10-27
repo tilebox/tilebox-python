@@ -1,18 +1,22 @@
 from collections.abc import Iterator
+from dataclasses import replace
 from functools import partial
 from uuid import UUID
 from warnings import warn
 
 import xarray as xr
+from protobuf import Message
 from tqdm.auto import tqdm
 
-from _tilebox.grpc.error import ArgumentError, NotFoundError
-from _tilebox.grpc.pagination import Pagination as PaginationProtocol
-from _tilebox.grpc.pagination import paginated_request
-from _tilebox.grpc.producer_consumer import concurrent_producer_consumer
+from _tilebox.client import Connection
+from _tilebox.concurrency import concurrent_producer_consumer
+from _tilebox.errors import ArgumentError, NotFoundError
+from _tilebox.pagination import Pagination as PaginationProtocol
+from _tilebox.pagination import paginated_request
+from _tilebox.proto.tilebox.v1.id_pb import ID
 from tilebox.datasets.data.collection import Collection, CollectionInfo
 from tilebox.datasets.data.data_access import QueryFilters, SpatialFilter, SpatialFilterLike
-from tilebox.datasets.data.datapoint import QueryResultPage
+from tilebox.datasets.data.datapoint import DATAPOINT_METADATA_FIELDS, AnyMessage, IngestResponse, QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.message_pool import get_message_type
 from tilebox.datasets.progress import ProgressCallback
@@ -28,13 +32,23 @@ from tilebox.datasets.query.expression import Expression
 from tilebox.datasets.query.id_interval import IDInterval, IDIntervalLike
 from tilebox.datasets.query.pagination import Pagination
 from tilebox.datasets.query.time_interval import TimeInterval, TimeIntervalLike
-from tilebox.datasets.service import TileboxDatasetService
 from tilebox.datasets.sync.pagination import (
     with_progressbar,
     with_time_progress_callback,
     with_time_progressbar,
 )
-from tilebox.datasets.uuid import as_uuid
+from tilebox.datasets.uuid import as_uuid, must_uuid_to_uuid_message, uuid_to_uuid_message
+from tilebox.datasets.v1.collections_connect import CollectionServiceClientSync
+from tilebox.datasets.v1.collections_pb import (
+    CreateCollectionRequest,
+    DeleteCollectionRequest,
+    GetCollectionByNameRequest,
+    ListCollectionsRequest,
+)
+from tilebox.datasets.v1.data_access_connect import DataAccessServiceClientSync
+from tilebox.datasets.v1.data_access_pb import QueryByIDRequest, QueryRequest
+from tilebox.datasets.v1.data_ingestion_connect import DataIngestionServiceClientSync
+from tilebox.datasets.v1.data_ingestion_pb import DeleteRequest, IngestRequest
 
 # allow private member access: we allow it here because we want to make as much private as possible so that we can
 # minimize the publicly facing API (which allows us to change internals later, and also limits to auto-completion)
@@ -46,12 +60,15 @@ class DatasetClient:
 
     def __init__(
         self,
-        service: TileboxDatasetService,
+        connection: Connection,
         dataset: Dataset,
     ) -> None:
-        self._service = service
+        self._collections = connection.client(CollectionServiceClientSync)
+        self._data_access = connection.client(DataAccessServiceClientSync)
+        self._data_ingestion = connection.client(DataIngestionServiceClientSync)
         self.name = dataset.name
         self._dataset = dataset
+        self._message_type = get_message_type(dataset.type)
 
     def collections(self, availability: bool | None = None, count: bool | None = None) -> dict[str, "CollectionClient"]:
         """
@@ -79,7 +96,12 @@ class DatasetClient:
                 stacklevel=2,
             )
 
-        collections = self._service.get_collections(self._dataset.id, True, True).get()
+        response = self._collections.list_collections(
+            ListCollectionsRequest(
+                dataset_id=uuid_to_uuid_message(self._dataset.id), with_availability=True, with_count=True
+            )
+        )
+        collections = [CollectionInfo.from_message(collection) for collection in response.data]
 
         return {collection.collection.name: CollectionClient(self, collection) for collection in collections}
 
@@ -107,7 +129,11 @@ class DatasetClient:
         Returns:
             The created collection.
         """
-        info = self._service.create_collection(self._dataset.id, name).get()
+        info = CollectionInfo.from_message(
+            self._collections.create_collection(
+                CreateCollectionRequest(dataset_id=uuid_to_uuid_message(self._dataset.id), name=name)
+            )
+        )
         return CollectionClient(self, info)
 
     def collection(self, name: str) -> "CollectionClient":
@@ -120,7 +146,16 @@ class DatasetClient:
             The collection with the given name.
         """
         try:
-            info = self._service.get_collection_by_name(self._dataset.id, name, True, True).get()
+            info = CollectionInfo.from_message(
+                self._collections.get_collection_by_name(
+                    GetCollectionByNameRequest(
+                        dataset_id=uuid_to_uuid_message(self._dataset.id),
+                        collection_name=name,
+                        with_availability=True,
+                        with_count=True,
+                    )
+                )
+            )
         except NotFoundError:
             raise NotFoundError(f"No such collection {name}") from None
 
@@ -139,7 +174,11 @@ class DatasetClient:
         else:  # str
             collection_id = self.collection(collection)._collection.id
 
-        self._service.delete_collection(self._dataset.id, collection_id).get()
+        self._collections.delete_collection(
+            DeleteCollectionRequest(
+                dataset_id=uuid_to_uuid_message(self._dataset.id), collection_id=uuid_to_uuid_message(collection_id)
+            )
+        )
 
     def find(
         self,
@@ -162,21 +201,26 @@ class DatasetClient:
         """
         collection_ids = self._collection_ids(collections)
         try:
-            datapoint = self._service.query_by_id(
-                self._dataset.id,
-                collection_ids,
-                as_uuid(datapoint_id),
-                skip_data,
-            ).get()
+            datapoint = AnyMessage.from_message(
+                self._data_access.query_by_id(
+                    QueryByIDRequest(
+                        dataset_id=must_uuid_to_uuid_message(self._dataset.id),
+                        collection_ids=list(map(must_uuid_to_uuid_message, collection_ids)),
+                        id=must_uuid_to_uuid_message(as_uuid(datapoint_id)),
+                        skip_data=skip_data,
+                    )
+                )
+            )
         except ArgumentError:
             raise ValueError(f"Invalid datapoint id: {datapoint_id} is not a valid UUID") from None
         except NotFoundError:
             raise NotFoundError(f"No such datapoint {datapoint_id}") from None
 
-        message_type = get_message_type(datapoint.type_url)
-        data = message_type.FromString(datapoint.value)
+        data = self._message_type.from_binary(datapoint.value)
 
-        converter = MessageToXarrayConverter(initial_capacity=1)
+        converter = MessageToXarrayConverter(
+            initial_capacity=1, fields=DATAPOINT_METADATA_FIELDS if skip_data else None
+        )
         converter.convert(data)
         return converter.finalize("time", skip_empty_fields=skip_data).isel(time=0)
 
@@ -214,7 +258,7 @@ class DatasetClient:
 
         collection_ids = self._collection_ids(collections)
         pages = _iter_query_pages(
-            self._service,
+            self._data_access,
             self._dataset.id,
             collection_ids,
             temporal_extent,
@@ -222,6 +266,7 @@ class DatasetClient:
             skip_data,
             filter_expression=filter,
             dataset_name=self.name,
+            message_type=self._message_type,
             show_progress=show_progress,
         )
         return _convert_to_dataset(pages, skip_empty_fields=skip_data)
@@ -242,7 +287,7 @@ class DatasetClient:
         if collections is None:
             return []
 
-        all_collections: list[CollectionInfo] = self._service.get_collections(self._dataset.id, True, True).get()
+        all_collections = [collection.info() for collection in self.collections().values()]
         # find all valid collection names and ids
         collections_by_name = {c.collection.name: c.collection.id for c in all_collections}
         valid_collection_ids = {c.collection.id for c in all_collections}
@@ -318,9 +363,16 @@ class CollectionClient:
 
         if self._info is None:  # only load collection info if it hasn't been loaded yet (or it has been invalidated)
             try:
-                self._info = self._dataset._service.get_collection_by_name(
-                    self._dataset._dataset.id, self.name, True, True
-                ).get()
+                self._info = CollectionInfo.from_message(
+                    self._dataset._collections.get_collection_by_name(
+                        GetCollectionByNameRequest(
+                            dataset_id=uuid_to_uuid_message(self._dataset._dataset.id),
+                            collection_name=self.name,
+                            with_availability=True,
+                            with_count=True,
+                        )
+                    )
+                )
             except NotFoundError:
                 raise NotFoundError(f"No such collection {self.name}") from None
 
@@ -338,18 +390,26 @@ class CollectionClient:
             The datapoint as an xarray dataset
         """
         try:
-            datapoint = self._dataset._service.query_by_id(
-                self._dataset._dataset.id, [self._collection.id], as_uuid(datapoint_id), skip_data
-            ).get()
+            datapoint = AnyMessage.from_message(
+                self._dataset._data_access.query_by_id(
+                    QueryByIDRequest(
+                        dataset_id=must_uuid_to_uuid_message(self._dataset._dataset.id),
+                        collection_ids=[must_uuid_to_uuid_message(self._collection.id)],
+                        id=must_uuid_to_uuid_message(as_uuid(datapoint_id)),
+                        skip_data=skip_data,
+                    )
+                )
+            )
         except ArgumentError:
             raise ValueError(f"Invalid datapoint id: {datapoint_id} is not a valid UUID") from None
         except NotFoundError:
             raise NotFoundError(f"No such datapoint {datapoint_id}") from None
 
-        message_type = get_message_type(datapoint.type_url)
-        data = message_type.FromString(datapoint.value)
+        data = self._dataset._message_type.from_binary(datapoint.value)
 
-        converter = MessageToXarrayConverter(initial_capacity=1)
+        converter = MessageToXarrayConverter(
+            initial_capacity=1, fields=DATAPOINT_METADATA_FIELDS if skip_data else None
+        )
         converter.convert(data)
         return converter.finalize("time", skip_empty_fields=skip_data).isel(time=0)
 
@@ -378,12 +438,13 @@ class CollectionClient:
 
         def request(page: PaginationProtocol) -> QueryResultPage:
             return _query_page(
-                self._dataset._service,
+                self._dataset._data_access,
                 self._dataset._dataset.id,
                 [self._collection.id],
                 filters,
                 skip_data,
                 page,
+                message_type=self._dataset._message_type,
             )
 
         initial_page = Pagination()
@@ -478,7 +539,7 @@ class CollectionClient:
             raise ValueError("A temporal_extent for your query must be specified")
 
         pages = _iter_query_pages(
-            self._dataset._service,
+            self._dataset._data_access,
             self._dataset._dataset.id,
             [self._collection.id],
             temporal_extent,
@@ -486,6 +547,7 @@ class CollectionClient:
             skip_data,
             filter_expression=filter,
             dataset_name=self._dataset.name,
+            message_type=self._dataset._message_type,
             show_progress=show_progress,
         )
         return _convert_to_dataset(pages, skip_empty_fields=skip_data)
@@ -499,13 +561,14 @@ class CollectionClient:
         page_size: int | None = None,
     ) -> Iterator[QueryResultPage]:
         return _iter_query_pages(
-            self._dataset._service,
+            self._dataset._data_access,
             self._dataset._dataset.id,
             [self._collection.id],
             temporal_extent,
             spatial_extent,
             skip_data,
             dataset_name=self._dataset.name,
+            message_type=self._dataset._message_type,
             show_progress=show_progress,
             page_size=page_size,
         )
@@ -535,7 +598,7 @@ class CollectionClient:
         Returns:
             List of datapoint ids that were ingested.
         """
-        message_type = get_message_type(self._dataset._dataset.type.type_url)
+        message_type = self._dataset._message_type
         messages = marshal_messages(
             to_messages(data, message_type, required_fields=["time"], ignore_fields=["id", "ingestion_time"])
         )
@@ -551,7 +614,15 @@ class CollectionClient:
         ) as progress_bar:
             for chunk_start in range(0, len(messages), _INGEST_CHUNK_SIZE):
                 chunk = messages[chunk_start : chunk_start + _INGEST_CHUNK_SIZE]
-                response = self._dataset._service.ingest(self._collection.id, chunk, allow_existing).get()
+                response = IngestResponse.from_message(
+                    self._dataset._data_ingestion.ingest(
+                        IngestRequest(
+                            collection_id=uuid_to_uuid_message(self._collection.id),
+                            values=chunk,
+                            allow_existing=allow_existing,
+                        )
+                    )
+                )
                 ingested_ids.extend(response.datapoint_ids)
 
                 progress_bar.update(len(chunk))
@@ -594,7 +665,12 @@ class CollectionClient:
         ) as progress_bar:
             for chunk_start in range(0, len(datapoint_ids), _DELETE_CHUNK_SIZE):
                 chunk = datapoint_ids[chunk_start : chunk_start + _DELETE_CHUNK_SIZE]
-                num_deleted += self._dataset._service.delete(self._collection.id, chunk).get()
+                num_deleted += self._dataset._data_ingestion.delete(
+                    DeleteRequest(
+                        collection_id=uuid_to_uuid_message(self._collection.id),
+                        datapoint_ids=[ID(uuid=value.bytes) for value in chunk],
+                    )
+                ).num_deleted
 
                 progress_bar.update(len(chunk))
                 if callable(show_progress):
@@ -604,19 +680,34 @@ class CollectionClient:
 
 
 def _query_page(  # noqa: PLR0913, PLR0917
-    service: TileboxDatasetService,
+    service: DataAccessServiceClientSync,
     dataset_id: UUID,
     collection_ids: list[UUID] | None,
     filters: QueryFilters,
     skip_data: bool,
     page: PaginationProtocol | None = None,
+    *,
+    message_type: type[Message],
 ) -> QueryResultPage:
     query_page = Pagination(page.limit, page.starting_after) if page else Pagination()
-    return service.query(dataset_id, collection_ids or [], filters, skip_data, query_page).get()
+    return replace(
+        QueryResultPage.from_message(
+            service.query(
+                QueryRequest(
+                    dataset_id=must_uuid_to_uuid_message(dataset_id),
+                    collection_ids=list(map(must_uuid_to_uuid_message, collection_ids or [])),
+                    filters=filters.to_message(),
+                    skip_data=skip_data,
+                    page=query_page.to_message(),
+                )
+            )
+        ),
+        message_type=message_type,
+    )
 
 
 def _iter_query_pages(  # noqa: PLR0913, PLR0917
-    service: TileboxDatasetService,
+    service: DataAccessServiceClientSync,
     dataset_id: UUID,
     collection_ids: list[UUID] | None,
     temporal_extent: TimeIntervalLike,
@@ -625,6 +716,7 @@ def _iter_query_pages(  # noqa: PLR0913, PLR0917
     *,
     filter_expression: Expression | None = None,
     dataset_name: str,
+    message_type: type[Message],
     show_progress: bool | ProgressCallback = False,
     page_size: int | None = None,
 ) -> Iterator[QueryResultPage]:
@@ -635,7 +727,7 @@ def _iter_query_pages(  # noqa: PLR0913, PLR0917
         filter_expression,
     )
 
-    request = partial(_query_page, service, dataset_id, collection_ids, filters, skip_data)
+    request = partial(_query_page, service, dataset_id, collection_ids, filters, skip_data, message_type=message_type)
 
     initial_page = Pagination(limit=page_size)
     pages = paginated_request(request, initial_page)
@@ -661,11 +753,14 @@ def _convert_to_dataset(pages: Iterator[QueryResultPage], skip_empty_fields: boo
     Returns:
         The datapoints from the individual pages converted and combined into a single xarray dataset
     """
-    converter = MessageToXarrayConverter()
+    converter = MessageToXarrayConverter(fields=DATAPOINT_METADATA_FIELDS if skip_empty_fields else None)
 
     def convert_page(page: QueryResultPage) -> None:
-        message_type = get_message_type(page.data.type_url)
-        messages = [message_type.FromString(v) for v in page.data.value]
+        if not page.data.value:
+            return
+        if page.message_type is None:
+            raise ValueError("Query page is not bound to a dataset schema")
+        messages = [page.message_type.from_binary(v) for v in page.data.value]
         converter.convert_all(messages)
 
     # lets parse the incoming pages already while we wait for the next page from the server

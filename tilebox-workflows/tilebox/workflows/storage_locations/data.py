@@ -2,11 +2,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from tilebox.datasets.query.pagination import Pagination
-from tilebox.datasets.query.time_interval import timestamp_to_datetime
-from tilebox.datasets.uuid import uuid_message_to_uuid
+from _tilebox.time import timestamp_to_datetime
+from _tilebox.uuid import uuid_message_to_uuid
+from tilebox.query.pagination import Pagination
 from tilebox.workflows.data import StorageEventType
-from tilebox.workflows.workflows.v1 import storage_location_pb2 as storage_pb
+from tilebox.workflows.v1 import storage_location_pb as storage_pb
 
 
 @dataclass(frozen=True)

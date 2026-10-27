@@ -9,7 +9,7 @@ from typing import Any, ClassVar, Protocol, get_args, get_origin
 from zoneinfo import ZoneInfo
 
 import msgspec
-from google.protobuf.message import Message
+from protobuf import Message
 
 from tilebox.workflows._codec import registry
 
@@ -193,7 +193,7 @@ def _matches_annotation(field_type: Any, value: Any) -> bool:
 
 def _encode_hook(value: Any) -> Any:
     if isinstance(value, Message):
-        return b64encode(value.SerializeToString()).decode("ascii")
+        return b64encode(value.to_binary()).decode("ascii")
     codec = registry.find(type(value))
     if codec is not None:
         return codec.encode(value)
@@ -239,8 +239,8 @@ def _typed_decoder(field_type: Any) -> msgspec.json.Decoder:
 
 
 def _decode_hook(field_type: type, value: Any) -> Any:
-    if _is_protobuf_type(field_type):
-        return field_type.FromString(b64decode(value))  # ty: ignore[unresolved-attribute]
+    if issubclass(field_type, Message):
+        return field_type.from_binary(b64decode(value))
     codec = registry.find(field_type)
     if codec is not None:
         return codec.decode(value)

@@ -9,8 +9,8 @@ from tilebox.workflows.data import (
     TriggeredStorageEvent,
 )
 from tilebox.workflows.task import RunnerContext, Task, deserialize_task, serialize_task
-from tilebox.workflows.workflows.v1.automation_pb2 import Automation as AutomationMessage
-from tilebox.workflows.workflows.v1.storage_location_pb2 import TriggeredStorageEvent as TriggeredStorageEventMessage
+from tilebox.workflows.v1.automation_pb import Automation as AutomationMessage
+from tilebox.workflows.v1.storage_location_pb import TriggeredStorageEvent as TriggeredStorageEventMessage
 
 _NOT_TRIGGERED = TriggeredStorageEvent(
     StorageLocation(UUID(int=0), "", StorageType.LOCAL),
@@ -32,20 +32,18 @@ class StorageEventTask(Task):
         event = self.trigger.to_message()
         args = self._serialize_args()
         message = AutomationMessage(
-            trigger_event=event.SerializeToString(),
+            trigger_event=event.to_binary(),
             args=args,
         )
-        return message.SerializeToString()
+        return message.to_binary()
 
     @classmethod
     def _deserialize(cls, task_input: bytes, context: RunnerContext | None = None) -> Self:
-        message = AutomationMessage()
-        message.ParseFromString(task_input)
+        message = AutomationMessage.from_binary(task_input)
 
         task = deserialize_task(cls, message.args)
 
-        event_message = TriggeredStorageEventMessage()
-        event_message.ParseFromString(message.trigger_event)
+        event_message = TriggeredStorageEventMessage.from_binary(message.trigger_event)
         if context is None:
             raise ValueError("No storage locations available in runner context, cannot deserialize storage event task.")
         event = TriggeredStorageEvent.from_message(event_message, context.storage_locations)

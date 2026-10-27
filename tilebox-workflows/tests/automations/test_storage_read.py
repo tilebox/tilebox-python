@@ -33,7 +33,7 @@ from tilebox.workflows.data import (
     _default_s3_storage_client,
 )
 from tilebox.workflows.observability.tracing import NoopWorkflowTracer
-from tilebox.workflows.workflows.v1 import storage_location_pb2 as storage_pb
+from tilebox.workflows.v1 import storage_location_pb as storage_pb
 
 _ID = UUID("01a0fd71-8262-2fde-7283-43dab469c23f")
 _ACCOUNT = "/subscriptions/test/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/sourceaccount"
@@ -111,7 +111,7 @@ def _azure_message() -> storage_pb.StorageLocation:
     return storage_pb.StorageLocation(
         id=uuid_to_uuid_message(_ID),
         reference=storage_pb.StorageLocationReference(
-            type=storage_pb.STORAGE_TYPE_AZURE_BLOB,
+            type=storage_pb.StorageType.AZURE_BLOB,
             azure_blob=storage_pb.AzureBlobReference(storage_account_resource_id=_ACCOUNT, container="sourcecontainer"),
         ),
     )
@@ -222,7 +222,7 @@ def test_gcs_trigger_read() -> None:
     message = storage_pb.StorageLocation(
         id=uuid_to_uuid_message(_ID),
         reference=storage_pb.StorageLocationReference(
-            type=storage_pb.STORAGE_TYPE_GCS,
+            type=storage_pb.StorageType.GCS,
             gcs_bucket=storage_pb.GCSBucketReference(project_id="test-project", bucket=bucket),
         ),
     )
@@ -313,7 +313,7 @@ def test_s3_reference_region_and_store_cache(monkeypatch: pytest.MonkeyPatch) ->
     message = storage_pb.StorageLocation(
         id=uuid_to_uuid_message(_ID),
         reference=storage_pb.StorageLocationReference(
-            type=storage_pb.STORAGE_TYPE_AWS_S3,
+            type=storage_pb.StorageType.AWS_S3,
             aws_s3_bucket=storage_pb.AWSS3BucketReference(bucket="source-bucket", region="eu-west-2"),
         ),
     )
@@ -454,7 +454,7 @@ def test_local_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         storage_pb.StorageLocation(
             id=uuid_to_uuid_message(_ID),
             reference=storage_pb.StorageLocationReference(
-                type=storage_pb.STORAGE_TYPE_LOCAL,
+                type=storage_pb.StorageType.LOCAL,
                 local=storage_pb.LocalReference(path=str(tmp_path)),
             ),
         )
@@ -494,7 +494,7 @@ def test_local_read_accepts_empty_directory(tmp_path: Path) -> None:
     [
         (
             storage_pb.StorageLocationReference(
-                type=storage_pb.STORAGE_TYPE_GCS,
+                type=storage_pb.StorageType.GCS,
                 gcs_bucket=storage_pb.GCSBucketReference(project_id="project", bucket="bucket"),
             ),
             StorageType.GCS,
@@ -502,7 +502,7 @@ def test_local_read_accepts_empty_directory(tmp_path: Path) -> None:
         ),
         (
             storage_pb.StorageLocationReference(
-                type=storage_pb.STORAGE_TYPE_AWS_S3,
+                type=storage_pb.StorageType.AWS_S3,
                 aws_s3_bucket=storage_pb.AWSS3BucketReference(bucket="bucket"),
             ),
             StorageType.AWS_S3,
@@ -510,7 +510,7 @@ def test_local_read_accepts_empty_directory(tmp_path: Path) -> None:
         ),
         (
             storage_pb.StorageLocationReference(
-                type=storage_pb.STORAGE_TYPE_LOCAL, local=storage_pb.LocalReference(path="/data")
+                type=storage_pb.StorageType.LOCAL, local=storage_pb.LocalReference(path="/data")
             ),
             StorageType.LOCAL,
             "/data",
@@ -528,32 +528,16 @@ def test_reference_coordinates(
     assert storage.location == expected_location
 
 
-def test_grpc_storage_location_service_route() -> None:
-    # gRPC listing uses StorageLocationService and retains Azure account metadata.
-    channel = MagicMock()
-    channel.unary_unary.return_value.return_value = storage_pb.StorageLocations(locations=[_azure_message()])
-    with (
-        patch("tilebox.workflows.client.open_channel", return_value=channel),
-        patch("tilebox.workflows.client.WorkflowTracer", return_value=NoopWorkflowTracer()),
-    ):
-        locations = Client(token="test-key").storage_locations().all()  # noqa: S106
-    assert isinstance(locations[0], AzureBlobStorageLocation)
-    assert locations[0].storage_account_resource_id == _ACCOUNT
-    assert "/workflows.v1.StorageLocationService/ListStorageLocations" in [
-        call.args[0] for call in channel.unary_unary.call_args_list
-    ]
-
-
-def test_http1_storage_location_service_route() -> None:
-    # HTTP/1.1 listing uses the Connect storage-location client and retains Azure account metadata.
+def test_storage_location_service_route() -> None:
+    # Listing uses the typed storage-location client and retains Azure account metadata.
     with (
         patch(
-            "tilebox.workflows.workflows.v1.storage_location_connect.StorageLocationServiceClientSync.list_storage_locations",
+            "tilebox.workflows.v1.storage_location_connect.StorageLocationServiceClientSync.list_storage_locations",
             return_value=storage_pb.StorageLocations(locations=[_azure_message()]),
         ) as list_locations,
         patch("tilebox.workflows.client.WorkflowTracer", return_value=NoopWorkflowTracer()),
     ):
-        locations = Client(token="test-key", transport="http1").storage_locations().all()  # noqa: S106
+        locations = Client(token="test-key").storage_locations().all()  # noqa: S106
     assert isinstance(locations[0], AzureBlobStorageLocation)
     assert locations[0].storage_account_resource_id == _ACCOUNT
     list_locations.assert_called_once()

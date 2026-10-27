@@ -1,11 +1,12 @@
 from datetime import UTC, datetime, timedelta
 from enum import Enum, IntEnum
+from typing import Literal
 
 import numpy as np
 import pytest
 
-from tilebox.datasets.datasets.v1 import data_access_pb2
 from tilebox.datasets.query import Expression, field
+from tilebox.datasets.v1 import data_access_pb
 
 
 class Quality(Enum):
@@ -29,9 +30,18 @@ class NumericQuality(IntEnum):
         (NumericQuality.GOOD, "enum_name", "GOOD"),
     ],
 )
-def test_query_value_types(value: object, kind: str, expected: object) -> None:
-    message = (field("quality") == value).to_message().comparison.value
-    assert message.HasField(kind)
+def test_query_value_types(
+    value: object,
+    kind: Literal[
+        "bool_value", "int64_value", "uint64_value", "double_value", "string_value", "bytes_value", "enum_name"
+    ],
+    expected: object,
+) -> None:
+    comparison = (field("quality") == value).to_message().comparison
+    assert comparison is not None
+    message = comparison.value
+    assert message is not None
+    assert message.has_field(kind)
     assert getattr(message, kind) == expected
 
 
@@ -58,7 +68,11 @@ def test_well_known_query_values_round_trip(value: object) -> None:
     ],
 )
 def test_negative_duration_values(value: object, seconds: int, nanos: int) -> None:
-    duration = (field("value") == value).to_message().comparison.value.duration_value
+    comparison = (field("value") == value).to_message().comparison
+    assert comparison is not None
+    assert comparison.value is not None
+    duration = comparison.value.duration_value
+    assert duration is not None
     assert (duration.seconds, duration.nanos) == (seconds, nanos)
 
 
@@ -74,10 +88,14 @@ def test_negative_duration_values(value: object, seconds: int, nanos: int) -> No
     ],
 )
 def test_numpy_query_values_preserve_type_when_reflected(value: object) -> None:
-    field_first = (field("value") == value).to_message().comparison.value
+    comparison = (field("value") == value).to_message().comparison
+    assert comparison is not None
+    field_first = comparison.value
     reflected = value == field("value")
     assert isinstance(reflected, Expression)
-    value_first = reflected.to_message().comparison.value
+    reflected_comparison = reflected.to_message().comparison
+    assert reflected_comparison is not None
+    value_first = reflected_comparison.value
     assert value_first == field_first
 
 
@@ -90,10 +108,15 @@ def test_logical_expression_shape_and_round_trip() -> None:
     )
 
     message = expression.to_message()
-    assert message.logical.operator == data_access_pb2.LOGICAL_OPERATOR_AND
+    assert message.logical is not None
+    assert message.logical.operator == data_access_pb.LogicalOperator.AND
     assert len(message.logical.operands) == 4
-    assert message.logical.operands[2].logical.operator == data_access_pb2.LOGICAL_OPERATOR_OR
-    assert message.logical.operands[3].logical.operator == data_access_pb2.LOGICAL_OPERATOR_NOT
+    disjunction = message.logical.operands[2].logical
+    negation = message.logical.operands[3].logical
+    assert disjunction is not None
+    assert negation is not None
+    assert disjunction.operator == data_access_pb.LogicalOperator.OR
+    assert negation.operator == data_access_pb.LogicalOperator.NOT
     assert Expression.from_message(message) == expression
 
 
@@ -127,10 +150,10 @@ def test_invalid_query_operators() -> None:
 
 def test_invalid_expression_message() -> None:
     with pytest.raises(ValueError, match="exactly one expression node"):
-        Expression.from_message(data_access_pb2.FilterExpression())
+        Expression.from_message(data_access_pb.FilterExpression())
 
-    malformed_not = data_access_pb2.FilterExpression(
-        logical=data_access_pb2.LogicalExpression(operator=data_access_pb2.LOGICAL_OPERATOR_NOT)
+    malformed_not = data_access_pb.FilterExpression(
+        logical=data_access_pb.LogicalExpression(operator=data_access_pb.LogicalOperator.NOT)
     )
     with pytest.raises(ValueError, match="NOT requires exactly one operand"):
         Expression.from_message(malformed_not)
@@ -139,24 +162,24 @@ def test_invalid_expression_message() -> None:
 @pytest.mark.parametrize(
     "message",
     [
-        data_access_pb2.FilterExpression(
-            comparison=data_access_pb2.FieldComparison(
+        data_access_pb.FilterExpression(
+            comparison=data_access_pb.FieldComparison(
                 field_name="quality",
-                operator=data_access_pb2.FIELD_COMPARISON_OPERATOR_LESS_THAN,
-                value=data_access_pb2.FieldQueryValue(bool_value=True),
+                operator=data_access_pb.FieldComparisonOperator.LESS_THAN,
+                value=data_access_pb.FieldQueryValue(bool_value=True),
             )
         ),
-        data_access_pb2.FilterExpression(
-            comparison=data_access_pb2.FieldComparison(
+        data_access_pb.FilterExpression(
+            comparison=data_access_pb.FieldComparison(
                 field_name="quality",
-                operator=data_access_pb2.FIELD_COMPARISON_OPERATOR_EQUAL,
-                value=data_access_pb2.FieldQueryValue(double_value=float("nan")),
+                operator=data_access_pb.FieldComparisonOperator.EQUAL,
+                value=data_access_pb.FieldQueryValue(double_value=float("nan")),
             )
         ),
     ],
 )
 def test_expression_message_cannot_bypass_comparison_validation(
-    message: data_access_pb2.FilterExpression,
+    message: data_access_pb.FilterExpression,
 ) -> None:
     with pytest.raises((TypeError, ValueError)):
         Expression.from_message(message)

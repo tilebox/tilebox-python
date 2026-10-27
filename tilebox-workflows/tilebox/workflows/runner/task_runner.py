@@ -17,8 +17,8 @@ from uuid import UUID
 from tenacity import retry, retry_if_exception_type, stop_when_event_set, wait_random_exponential
 from tenacity.stop import stop_base
 
-from _tilebox.grpc.channel import open_channel
-from _tilebox.grpc.error import InternalServerError
+from _tilebox.client import Connection, Transport
+from _tilebox.errors import InternalServerError
 from tilebox.workflows.cache import JobCache
 from tilebox.workflows.data import ComputedTask, FailedTask, Idling, NextTaskToRun, Task, TaskLease
 from tilebox.workflows.observability._logging import StructuredLogger, logger
@@ -76,12 +76,17 @@ def _retry_backoff(func: Callable[..., WrappedFnReturnT], stop: stop_base) -> Ca
 
 
 def lease_renewer(
-    url: str, token: str | None, new_leases: "Queue[tuple[UUID, TaskLease]]", done_tasks: "Queue[UUID]"
+    url: str,
+    token: str | None,
+    new_leases: "Queue[tuple[UUID, TaskLease]]",
+    done_tasks: "Queue[UUID]",
+    *,
+    transport: Transport = "http2",
 ) -> None:
     # The direct runner's spawned lease-renewal process needs its own stage-3 setup;
     # it cannot inherit the parent's logging handlers or exporter thread.
     initialize_logging(url=url, token=token)
-    channel = open_channel(url, token)
+    channel = Connection(url, token, transport=transport)
     service = TaskService(channel)
 
     while True:
@@ -143,10 +148,11 @@ def _extend_lease_while_task_is_running(
 class _LeaseRenewer(SpawnProcess):
     """Daemon process to extend the lease for a task whenever necessary."""
 
-    def __init__(self, url: str, token: str | None) -> None:
+    def __init__(self, url: str, token: str | None, *, transport: Transport = "http2") -> None:
         super().__init__(daemon=True)
         self._url = url
         self._token = token
+        self._transport = transport
 
         # we don't want to fork the current process, but instead spawn a new one
         # therefore we need to use the spawn context to create the queues
@@ -155,7 +161,7 @@ class _LeaseRenewer(SpawnProcess):
         self._done_tasks: Queue[UUID] = ctx.Queue()
 
     def run(self) -> None:
-        lease_renewer(self._url, self._token, self._new_leases, self._done_tasks)
+        lease_renewer(self._url, self._token, self._new_leases, self._done_tasks, transport=self._transport)
 
     @contextmanager
     def lease_extension(self, task_id: UUID, task_lease: TaskLease) -> Iterator[None]:

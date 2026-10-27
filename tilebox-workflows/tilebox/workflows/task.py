@@ -9,6 +9,8 @@ from types import NoneType, UnionType
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast, dataclass_transform, get_args, get_origin
 from uuid import UUID
 
+from protobuf import Message
+
 from tilebox.workflows._serialization import decode_json, encode_json_field, encode_json_fields
 from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmissionGroup, TaskSubmissions
 
@@ -478,8 +480,8 @@ def serialize_task(task: Task) -> bytes:
         return b""  # empty task
     if len(task_fields) == 1:
         value = getattr(task, task_fields[0].name)
-        if hasattr(value, "SerializeToString"):
-            return value.SerializeToString()
+        if isinstance(value, Message):
+            return value.to_binary()
         return encode_json_field(value, type(task), task_fields[0].name)
 
     return encode_json_fields(task, task_fields)
@@ -503,8 +505,8 @@ def deserialize_task(task_cls: type[_TaskT], task_input: bytes) -> _TaskT:
         type_hints = typing.get_type_hints(task_cls, include_extras=True)
         field_type = type_hints.get(task_fields[0].name, task_fields[0].type)
         protobuf_type = _get_deserialization_field_type(field_type)
-        if hasattr(protobuf_type, "FromString"):  # protobuf message
-            value = None if task_input == b"null" else protobuf_type.FromString(task_input)  # ty: ignore[call-non-callable]
+        if isinstance(protobuf_type, type) and issubclass(protobuf_type, Message):
+            value = None if task_input == b"null" else protobuf_type.from_binary(task_input)
         else:
             value = decode_json(task_input, field_type)
 
