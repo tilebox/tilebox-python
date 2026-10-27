@@ -92,10 +92,7 @@ class WorkerServiceServicer(WorkerService):
         logger.debug("ListRegisteredTasks RPC called")
         self._authorize(context)
         runner = self._loaded_runner(context)
-        identifiers = [
-            core_pb.UnboundTaskIdentifier(name=identifier.name, version=identifier.version)
-            for identifier in runner.task_identifiers
-        ]
+        identifiers = [identifier.to_message() for identifier in runner.task_identifiers]
         logger.debug(f"ListRegisteredTasks RPC returning {len(identifiers)} task identifier(s)")
         return core_pb.UnboundTaskIdentifiers(identifiers=identifiers)
 

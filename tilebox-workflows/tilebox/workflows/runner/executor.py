@@ -71,7 +71,7 @@ class TaskExecutor:
                 return FailedTask(task.id, task.display, was_workflow_error=False, progress_updates=[])
 
             try:
-                task_class = self.runner.tasks_by_identifier[task.identifier]
+                task_class = self.runner.tasks_by_identifier[task.identifier.unbind()]
             except KeyError:
                 self.task_logger.error(
                     f"Task {task.id} has unknown identifier {task.identifier}.",
@@ -181,6 +181,7 @@ class ExecutionContext(ExecutionContextBase):
             cluster=cluster,
             max_retries=max_retries,
             optional=optional,
+            workflow_id=self.current_task.identifier.workflow_id,
         )
         self._sub_tasks.append(subtask)
         return subtask

@@ -115,7 +115,7 @@ class Client:
             A client for the jobs service.
         """
 
-        return JobClient(self._job_service, self._telemetry_service, self._tracer)
+        return JobClient(self._job_service, self._telemetry_service, self._tracer, self._workflow_service)
 
     def runner(
         self,
@@ -188,7 +188,7 @@ class Client:
         Returns:
             A client for the automations service.
         """
-        return AutomationClient(self._automation_service)
+        return AutomationClient(self._automation_service, self._workflow_service)
 
     def storage_locations(self) -> StorageLocationClient:
         """Get a client for storage locations."""

@@ -55,17 +55,71 @@ class TaskState(Enum):
 _TASK_STATES = {state.value: state for state in TaskState}
 
 
-@dataclass(order=True, eq=True, unsafe_hash=True, frozen=True)
-class TaskIdentifier:
+@dataclass(order=True, frozen=True)
+class UnboundTaskIdentifier:
+    """A task implementation's name and version, independent of workflow scope."""
+
     name: str
     version: str
 
     @classmethod
-    def from_message(cls, identifier: core_pb.TaskIdentifier | core_pb.UnboundTaskIdentifier) -> Self:
+    def from_message(cls, identifier: core_pb.UnboundTaskIdentifier) -> Self:
         return cls(name=identifier.name, version=identifier.version)
 
+    def to_message(self) -> core_pb.UnboundTaskIdentifier:
+        return core_pb.UnboundTaskIdentifier(name=self.name, version=self.version)
+
+    def bind(self, workflow_id: UUID | None = None) -> "TaskIdentifier":
+        """Create an execution identifier; None selects unscoped execution."""
+        return TaskIdentifier(self.name, self.version, workflow_id)
+
+    @classmethod
+    def from_name_and_version(cls, name: str, version: str) -> Self:
+        """Construct an implementation identifier, validating its name and version."""
+        if name == "":
+            raise ValueError("A task name is required")
+        if len(name) > 256:
+            raise ValueError("The task name is too long")
+        _parse_version(version)
+        return cls(name=name, version=version)
+
+
+@total_ordering
+@dataclass(frozen=True)
+class TaskIdentifier:
+    name: str
+    version: str
+    workflow_id: UUID | None = None
+
+    def __post_init__(self) -> None:
+        if self.workflow_id is not None and self.workflow_id.int == 0:
+            raise ValueError("Workflow ID must not be Nil")
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, TaskIdentifier):
+            return NotImplemented
+        return (self.name, self.version, self.workflow_id.int if self.workflow_id else 0) < (
+            other.name,
+            other.version,
+            other.workflow_id.int if other.workflow_id else 0,
+        )
+
+    @classmethod
+    def from_message(cls, identifier: core_pb.TaskIdentifier) -> Self:
+        return cls(
+            name=identifier.name,
+            version=identifier.version,
+            workflow_id=uuid_message_to_uuid(identifier.workflow_id) if identifier.workflow_id is not None else None,
+        )
+
     def to_message(self) -> core_pb.TaskIdentifier:
-        return core_pb.TaskIdentifier(name=self.name, version=self.version)
+        return core_pb.TaskIdentifier(
+            name=self.name, version=self.version, workflow_id=uuid_to_uuid_message(self.workflow_id)
+        )
+
+    def unbind(self) -> UnboundTaskIdentifier:
+        """Return the implementation identifier without execution scope."""
+        return UnboundTaskIdentifier(self.name, self.version)
 
     @classmethod
     def from_name_and_version(cls, name: str, version: str) -> Self:
@@ -83,13 +137,8 @@ class TaskIdentifier:
         Returns:
             Task metadata
         """
-        if name == "":
-            raise ValueError("A task name is required")
-        if len(name) > 256:
-            raise ValueError("The task name is too long")
-
-        _parse_version(version)  # validate the version string
-        return cls(name=name, version=version)
+        identifier = UnboundTaskIdentifier.from_name_and_version(name, version)
+        return cls(name=identifier.name, version=identifier.version)
 
 
 @dataclass
@@ -399,7 +448,7 @@ class FilesystemNode:
 @dataclass(order=True, frozen=True)
 class ReleaseContent:
     fingerprint: str
-    tasks: list[TaskIdentifier]
+    tasks: list[UnboundTaskIdentifier]
     files: list[FilesystemNode] = field(default_factory=list)
     runner_object_path: str = ""
     command_override: list[str] = field(default_factory=list)
@@ -409,7 +458,7 @@ class ReleaseContent:
         """Convert a ReleaseContent protobuf message to a ReleaseContent object."""
         return cls(
             fingerprint=content.fingerprint,
-            tasks=[TaskIdentifier.from_message(task) for task in content.tasks],
+            tasks=[UnboundTaskIdentifier.from_message(task) for task in content.tasks],
             files=[FilesystemNode.from_message(path) for path in content.files],
             runner_object_path=content.runner_object_path,
             command_override=list(content.command_override),
@@ -419,7 +468,7 @@ class ReleaseContent:
         """Convert a ReleaseContent object to a ReleaseContent protobuf message."""
         return workflows_pb.ReleaseContent(
             fingerprint=self.fingerprint,
-            tasks=[core_pb.UnboundTaskIdentifier(name=task.name, version=task.version) for task in self.tasks],
+            tasks=[task.to_message() for task in self.tasks],
             files=[path.to_message() for path in self.files],
             runner_object_path=self.runner_object_path,
             command_override=self.command_override,
@@ -454,20 +503,52 @@ class WorkflowPresentation:
         )
 
 
-@dataclass(order=True, frozen=True)
+@dataclass(frozen=True)
 class Workflow:
-    slug: str
+    reference: str
     name: str
     description: str
     releases: list["WorkflowRelease"] = field(default_factory=list)
     summary: str = ""
     presentation: WorkflowPresentation | None = field(default=None, compare=False)
+    id: UUID | None = None
+    project_slug: str = ""
+    legacy_task_aliases: bool | None = None
+
+    @property
+    def slug(self) -> str:
+        """Compatibility alias for the remote workflow reference."""
+        return self.reference
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, Workflow):
+            return NotImplemented
+        return (self.reference, self.name, self.id.int if self.id is not None else -1) < (
+            other.reference,
+            other.name,
+            other.id.int if other.id is not None else -1,
+        )
+
+    def __le__(self, other: object) -> bool:
+        if not isinstance(other, Workflow):
+            return NotImplemented
+        return not other < self
+
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, Workflow):
+            return NotImplemented
+        return other < self
+
+    def __ge__(self, other: object) -> bool:
+        if not isinstance(other, Workflow):
+            return NotImplemented
+        return not self < other
 
     @classmethod
     def from_message(cls, workflow: workflows_pb.Workflow) -> "Workflow":
         """Convert a Workflow protobuf message to a Workflow object."""
         return cls(
-            slug=workflow.reference,
+            reference=workflow.reference,
             name=workflow.name,
             description=workflow.description,
             releases=[WorkflowRelease.from_message(release) for release in workflow.releases],
@@ -475,17 +556,23 @@ class Workflow:
             presentation=WorkflowPresentation.from_message(workflow.presentation)
             if workflow.presentation is not None
             else None,
+            id=uuid_message_to_uuid(workflow.id) if workflow.id is not None else None,
+            project_slug=workflow.project_slug,
+            legacy_task_aliases=workflow.legacy_task_aliases if workflow.has_field("legacy_task_aliases") else None,
         )
 
     def to_message(self) -> workflows_pb.Workflow:
         """Convert a Workflow object to a Workflow protobuf message."""
         return workflows_pb.Workflow(
-            reference=self.slug,
+            reference=self.reference,
             name=self.name,
             description=self.description,
             releases=[release.to_message() for release in self.releases],
             summary=self.summary,
             presentation=self.presentation.to_message() if self.presentation is not None else None,
+            id=uuid_to_uuid_message(self.id),
+            project_slug=self.project_slug,
+            legacy_task_aliases=self.legacy_task_aliases,
         )
 
 
@@ -546,7 +633,7 @@ class WorkflowReleaseDeployment:
 @dataclass
 class NextTaskToRun:
     cluster_slug: str
-    identifiers: dict[TaskIdentifier, type[Any]]
+    identifiers: dict[UnboundTaskIdentifier, type[Any]]
 
     # from message not needed, as we never return this from the server
 
@@ -554,7 +641,7 @@ class NextTaskToRun:
         """Convert a NextTaskToRun object to a NextTaskToRun protobuf message."""
         return task_pb.NextTaskToRun(
             cluster_slug=self.cluster_slug,
-            identifiers=[identifier.to_message() for identifier in self.identifiers],
+            identifiers=[identifier.bind().to_message() for identifier in self.identifiers],
         )
 
 
@@ -1486,6 +1573,7 @@ class QueryFilters:
     name: str | None
     task_states: list[TaskState]
     cluster_slugs: list[str] = field(default_factory=list)
+    workflow_references: list[str] = field(default_factory=list)
 
     @classmethod
     def from_message(cls, filters: job_pb.QueryFilters) -> "QueryFilters":
@@ -1499,6 +1587,7 @@ class QueryFilters:
             name=filters.name or None,
             task_states=[_TASK_STATES[state] for state in filters.task_states],
             cluster_slugs=list(filters.cluster_slugs),
+            workflow_references=list(filters.workflow_references),
         )
 
     def to_message(self) -> job_pb.QueryFilters:
@@ -1514,4 +1603,5 @@ class QueryFilters:
             if self.task_states
             else None,
             cluster_slugs=self.cluster_slugs or None,
+            workflow_references=self.workflow_references or None,
         )

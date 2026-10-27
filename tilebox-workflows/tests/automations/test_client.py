@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
+import pytest
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, consumes, rule
 from hypothesis.strategies import lists
 from protobuf.wkt.google.protobuf.empty_pb import Empty
@@ -15,7 +16,10 @@ from tilebox.workflows.data import (
     AutomationPrototype,
     CronTrigger,
     StorageEventTrigger,
+    StorageLocation,
+    StorageType,
     TaskIdentifier,
+    Workflow,
     uuid_to_uuid_message,
 )
 from tilebox.workflows.v1.automation_connect import AutomationServiceClientSync
@@ -23,6 +27,9 @@ from tilebox.workflows.v1.automation_pb import AutomationPrototype as Automation
 from tilebox.workflows.v1.automation_pb import Automations, DeleteAutomationRequest
 from tilebox.workflows.v1.automation_pb import CronTrigger as CronTriggerMessage
 from tilebox.workflows.v1.automation_pb import StorageEventTrigger as StorageEventTriggerMessage
+from tilebox.workflows.v1.workflows_connect import WorkflowsServiceClientSync
+from tilebox.workflows.v1.workflows_pb import GetWorkflowRequest
+from tilebox.workflows.v1.workflows_pb import Workflow as WorkflowMessage
 
 
 class MockAutomationService:
@@ -75,6 +82,44 @@ class MockAutomationService:
     def list_automations(self, req: Empty) -> Automations:
         _ = req
         return Automations(automations=list(self.automations.values()))
+
+
+@pytest.mark.parametrize("kind", ["cron", "storage"])
+@pytest.mark.parametrize("selection", ["reference", "object", "unscoped"])
+def test_automation_scope_survives_creation_and_reads(kind: str, selection: str) -> None:
+    class ScheduledTask(CronTask):
+        pass
+
+    class StorageTask(StorageEventTask):
+        pass
+
+    workflow = Workflow("owner:workflow-123", "Workflow", "", id=uuid4(), project_slug="workflow")
+
+    def find(request: GetWorkflowRequest) -> WorkflowMessage:
+        if request.workflow_reference != workflow.reference:
+            raise NotFoundError("Workflow not found")
+        return workflow.to_message()
+
+    workflow_service = MagicMock(spec=WorkflowsServiceClientSync)
+    workflow_service.get_workflow.side_effect = find
+    mock_service = MockAutomationService()
+    client = AutomationClient(MagicMock(spec=AutomationServiceClientSync, wraps=mock_service), workflow_service)
+    selected = workflow.reference if selection == "reference" else workflow if selection == "object" else None
+    if kind == "cron":
+        created = client.create_cron_automation("Scheduled", ScheduledTask(), "0 * * * *", workflow=selected)
+    else:
+        storage = StorageLocation(uuid4(), "test-bucket", StorageType.AWS_S3)
+        created = client.create_storage_event_automation(
+            "Storage", StorageTask(), (storage, "*.tif"), workflow=selected
+        )
+    expected = workflow.id if selected is not None else None
+    assert created.prototype.identifier.workflow_id == expected
+    assert client.find(created.id).prototype.identifier.workflow_id == expected
+    assert client.all()[0].prototype.identifier.workflow_id == expected
+    stored = mock_service.automations[created.id].prototype
+    assert stored is not None
+    assert stored.identifier is not None
+    assert stored.identifier.workflow_id == uuid_to_uuid_message(expected)
 
 
 class AutomationCRUDOperations(RuleBasedStateMachine):

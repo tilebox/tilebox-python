@@ -10,7 +10,7 @@ from tilebox.workflows.data import (
     Cluster,
     FilesystemNode,
     ReleaseContent,
-    TaskIdentifier,
+    UnboundTaskIdentifier,
     Workflow,
     WorkflowRelease,
 )
@@ -49,10 +49,20 @@ class MockWorkflowService:
         self.deploy_requests: list[DeployWorkflowReleaseRequest] = []
         self.undeploy_requests: list[UndeployWorkflowReleaseRequest] = []
         self.update_requests: list[UpdateWorkflowRequest] = []
+        self.create_requests: list[CreateWorkflowRequest] = []
 
     def create_workflow(self, req: CreateWorkflowRequest) -> WorkflowMessage:
+        self.create_requests.append(req)
         slug = req.name.lower().replace(" ", "-")
-        workflow = WorkflowMessage(reference=slug, name=req.name, description=req.description, summary=req.summary)
+        workflow = WorkflowMessage(
+            id=uuid_to_uuid_message(uuid4()),
+            reference=slug,
+            name=req.name,
+            description=req.description,
+            summary=req.summary,
+            project_slug=req.project_slug,
+            legacy_task_aliases=req.legacy_task_aliases if req.has_field("legacy_task_aliases") else True,
+        )
         self.workflows[workflow.reference] = workflow
         return workflow
 
@@ -105,15 +115,23 @@ class MockWorkflowService:
 
 
 def test_create_workflow() -> None:
-    service = MagicMock(spec=WorkflowsServiceClientSync, wraps=MockWorkflowService())
+    mock_service = MockWorkflowService()
+    service = MagicMock(spec=WorkflowsServiceClientSync, wraps=mock_service)
     workflow_client = WorkflowClient(service)
 
-    workflow = workflow_client.create("Agentic Workflow", "Short summary", "Description")
+    workflow = workflow_client.create("Agentic Workflow", "Short summary", "Description", project_slug="agentic")
 
     assert workflow.slug == "agentic-workflow"
     assert workflow.name == "Agentic Workflow"
     assert workflow.description == "Description"
     assert workflow.summary == "Short summary"
+    assert workflow.id is not None
+    assert workflow.reference == workflow.slug
+    assert workflow.project_slug == "agentic"
+    assert workflow.legacy_task_aliases is False
+    request = mock_service.create_requests[-1]
+    assert request.has_field("legacy_task_aliases")
+    assert request.legacy_task_aliases is False
 
 
 def test_list_find_and_delete_workflows() -> None:
@@ -237,7 +255,7 @@ def test_workflow_release_data_includes_release_content_and_clusters() -> None:
         artifact=Artifact(artifact_id, "a" * 64),
         content=ReleaseContent(
             fingerprint="b" * 64,
-            tasks=[TaskIdentifier("tilebox.com/task/Review", "v1.0")],
+            tasks=[UnboundTaskIdentifier("tilebox.com/task/Review", "v1.0")],
             files=[FilesystemNode(".", directory=True, children=[FilesystemNode("main.py")])],
             runner_object_path="my_module.my_runner:runner",
             command_override=["python", "main.py"],

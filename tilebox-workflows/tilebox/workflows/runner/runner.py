@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from tilebox.workflows.cache import JobCache
-from tilebox.workflows.data import RunnerContext, TaskIdentifier
+from tilebox.workflows.data import RunnerContext, UnboundTaskIdentifier
 from tilebox.workflows.task import Task, TaskMeta
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ class Runner:
     ) -> None:
         self.cache = cache
         self.context = context
-        self._tasks_by_identifier: dict[TaskIdentifier, type[Task]] = {}
+        self._tasks_by_identifier: dict[UnboundTaskIdentifier, type[Task]] = {}
 
         for task in tasks or []:
             self.register(task)
@@ -52,11 +52,11 @@ class Runner:
         self._tasks_by_identifier[meta.identifier] = task
 
     @property
-    def task_identifiers(self) -> list[TaskIdentifier]:
+    def task_identifiers(self) -> list[UnboundTaskIdentifier]:
         return list(self._tasks_by_identifier)
 
     @property
-    def tasks_by_identifier(self) -> dict[TaskIdentifier, type[Task]]:
+    def tasks_by_identifier(self) -> dict[UnboundTaskIdentifier, type[Task]]:
         return self._tasks_by_identifier
 
     def connect_to(self, client: Client, cluster: ClusterSlugLike | None = None) -> TaskRunner:
