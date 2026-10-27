@@ -49,7 +49,6 @@ geospatial = [
 dev = [
     "tilebox-datasets>=0.67.0", # cross-SDK serialization and compatibility tests
     "boto3-stubs[s3]>=1.40.2",
-    "google-cloud-storage>=3.2.0",
     "hypothesis>=6.112.1",
     "ipywidgets>=8.1.7",
     "odc-geo>=0.5",

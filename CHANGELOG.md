@@ -9,13 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `tilebox-core`: Own shared Connect RPC infrastructure and protobuf-py messages, public
+- `tilebox-core`: New package to own shared Connect RPC infrastructure and protobuf-py messages, public
   `tilebox.query` interval/pagination types, and `tilebox.errors` exceptions with a common `TileboxError` base.
 - `tilebox-grpc`: Retain an empty compatibility package depending on `tilebox-core>=0.67.0` for one release.
 - `tilebox-datasets`, `tilebox-workflows`, and `tilebox-storage`: Depend explicitly on
   `tilebox-core`; datasets retains its scientific and LZ4 dependencies.
 - `tilebox-workflows`: Remove the runtime dependency on datasets. Existing public datasets imports
   of shared intervals, pagination, and conversions remain compatible. Task interval serialization is unchanged.
+- `tilebox-workflows`: `GoogleStorageCache` now accepts only bucket names and uses obstore with google-auth.
+  Remove support for Google Storage SDK `Bucket` objects.
 - Parse ordinary Python datetimes without pandas. Strings and scientific datetime values still use pandas;
   workflows-only users need to install pandas explicitly for those inputs. Dataset installations are unchanged.
 - Raise `tilebox.errors.RequestCanceledError` for remote request cancellation instead of `KeyboardInterrupt`.
