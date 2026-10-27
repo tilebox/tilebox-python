@@ -1,7 +1,7 @@
 import atexit
 import logging
 import os
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, cast
@@ -123,7 +123,7 @@ class WorkflowTracer:
         self._tracer = provider.get_tracer(_INSTRUMENTATION_MODULE_NAME)
 
     @contextmanager
-    def span(self, name: str, *args: Any, **kwargs: Any) -> Iterator[OTSpan]:
+    def span(self, name: str, *args: Any, **kwargs: Any) -> Generator[OTSpan, None, None]:
         parent_task_id = getattr(get_current_span(), "attributes", {}).get("task_id")
         with self._tracer.start_as_current_span(name, *args, **kwargs) as span:
             if isinstance(parent_task_id, str):
@@ -150,7 +150,7 @@ class NoopWorkflowTracer(WorkflowTracer):
 
 
 @contextmanager
-def start_job_span(tracer: WorkflowTracer, job: Job, span_name: str) -> Iterator[OTSpan]:
+def start_job_span(tracer: WorkflowTracer, job: Job, span_name: str) -> Generator[OTSpan, None, None]:
     """Start a new span for a workflow job, using the trace parent from the job to continue the trace."""
     context = _PROPAGATOR.extract({"traceparent": job.trace_parent})
     with tracer._tracer.start_as_current_span(span_name, context=context) as span:  # noqa: SLF001

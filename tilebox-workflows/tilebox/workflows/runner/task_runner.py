@@ -1,7 +1,7 @@
 import random
 import signal
 import threading
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import timedelta
 from multiprocessing import get_context
@@ -164,7 +164,7 @@ class _LeaseRenewer(SpawnProcess):
         lease_renewer(self._url, self._token, self._new_leases, self._done_tasks, transport=self._transport)
 
     @contextmanager
-    def lease_extension(self, task_id: UUID, task_lease: TaskLease) -> Iterator[None]:
+    def lease_extension(self, task_id: UUID, task_lease: TaskLease) -> Generator[None, None, None]:
         """Context manager to extend the lease for a task."""
         logger.debug(f"Task {task_id} started")
         self._new_leases.put((task_id, task_lease))
@@ -397,7 +397,7 @@ class PollingTaskRunner:
         raise TypeError(f"Unexpected task execution result: {type(result)}")
 
     @contextmanager
-    def _active(self, task: Task) -> Iterator[None]:
+    def _active(self, task: Task) -> Generator[None, None, None]:
         with self._active_mutex:
             self._active_task = task
         try:
