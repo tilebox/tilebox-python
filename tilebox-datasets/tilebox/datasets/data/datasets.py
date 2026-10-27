@@ -5,18 +5,18 @@ from enum import Enum
 from typing import Literal, NotRequired, Required, TypeAlias, TypedDict, get_args, get_origin
 
 import numpy as np
-from google.protobuf import duration_pb2, timestamp_pb2
-from google.protobuf.descriptor_pb2 import FieldDescriptorProto, FileDescriptorSet
+from protobuf.wkt.google.protobuf import duration_pb, timestamp_pb
+from protobuf.wkt.google.protobuf.descriptor_pb import FieldDescriptorProto, FileDescriptorSet
 
-from tilebox.datasets.datasets.v1 import core_pb2, dataset_type_pb2, datasets_pb2, well_known_types_pb2
-from tilebox.datasets.schema import UUID, Geometry, MessageFieldType, _wire_message_type
+from tilebox.datasets.schema import UUID, Geometry, MessageFieldType, _message_field_type
 from tilebox.datasets.uuid import uuid_message_to_optional_uuid, uuid_message_to_uuid, uuid_to_uuid_message
+from tilebox.datasets.v1 import core_pb, dataset_type_pb, datasets_pb, well_known_types_pb
 
 
 class DatasetKind(Enum):
-    TEMPORAL = dataset_type_pb2.DATASET_KIND_TEMPORAL
+    TEMPORAL = dataset_type_pb.DatasetKind.TEMPORAL
     """A dataset that contains a timestamp field."""
-    SPATIOTEMPORAL = dataset_type_pb2.DATASET_KIND_SPATIOTEMPORAL
+    SPATIOTEMPORAL = dataset_type_pb.DatasetKind.SPATIOTEMPORAL
     """A dataset that contains a timestamp field and a geometry field."""
 
 
@@ -24,7 +24,7 @@ _dataset_kind_int_to_enum = {kind.value: kind for kind in DatasetKind}
 
 
 class FieldRole(Enum):
-    PRIMARY_TITLE = dataset_type_pb2.FIELD_ROLE_PRIMARY_TITLE
+    PRIMARY_TITLE = dataset_type_pb.FieldRole.PRIMARY_TITLE
     """The primary human-readable title or name used when displaying a datapoint."""
 
 
@@ -49,20 +49,20 @@ class FieldAnnotation:
     """Semantic display roles fulfilled by the field."""
 
     @classmethod
-    def from_message(cls, annotation: dataset_type_pb2.FieldAnnotation) -> "FieldAnnotation":
+    def from_message(cls, annotation: dataset_type_pb.FieldAnnotation | None) -> "FieldAnnotation":
+        if annotation is None:
+            return cls("", "")
         return cls(
             description=annotation.description,
             example_value=annotation.example_value,
-            source_json_pointer=(
-                annotation.source_json_pointer if annotation.HasField("source_json_pointer") else None
-            ),
+            source_json_pointer=annotation.source_json_pointer if annotation.has_field("source_json_pointer") else None,
             queryable=annotation.queryable,
-            json_schema_ref=annotation.json_schema_ref if annotation.HasField("json_schema_ref") else None,
+            json_schema_ref=annotation.json_schema_ref if annotation.has_field("json_schema_ref") else None,
             roles=[_field_role_int_to_enum[role] for role in annotation.roles],
         )
 
-    def to_message(self) -> dataset_type_pb2.FieldAnnotation:
-        annotation = dataset_type_pb2.FieldAnnotation(
+    def to_message(self) -> dataset_type_pb.FieldAnnotation:
+        annotation = dataset_type_pb.FieldAnnotation(
             description=self.description,
             example_value=self.example_value,
             queryable=self.queryable,
@@ -108,17 +108,17 @@ class FieldDict(TypedDict):
     roles: NotRequired[FieldRolesLike]
 
 
-_TYPE_INFO: dict[type, tuple[FieldDescriptorProto.Type.ValueType, str | None]] = {
-    str: (FieldDescriptorProto.TYPE_STRING, None),
-    bytes: (FieldDescriptorProto.TYPE_BYTES, None),
-    bool: (FieldDescriptorProto.TYPE_BOOL, None),
-    int: (FieldDescriptorProto.TYPE_INT64, None),
-    np.uint64: (FieldDescriptorProto.TYPE_UINT64, None),
-    float: (FieldDescriptorProto.TYPE_DOUBLE, None),
-    timedelta: (FieldDescriptorProto.TYPE_MESSAGE, f".{duration_pb2.Duration.DESCRIPTOR.full_name}"),
-    datetime: (FieldDescriptorProto.TYPE_MESSAGE, f".{timestamp_pb2.Timestamp.DESCRIPTOR.full_name}"),
-    UUID: (FieldDescriptorProto.TYPE_MESSAGE, f".{well_known_types_pb2.UUID.DESCRIPTOR.full_name}"),
-    Geometry: (FieldDescriptorProto.TYPE_MESSAGE, f".{well_known_types_pb2.Geometry.DESCRIPTOR.full_name}"),
+_TYPE_INFO: dict[type, tuple[FieldDescriptorProto.Type, str | None]] = {
+    str: (FieldDescriptorProto.Type.STRING, None),
+    bytes: (FieldDescriptorProto.Type.BYTES, None),
+    bool: (FieldDescriptorProto.Type.BOOL, None),
+    int: (FieldDescriptorProto.Type.INT64, None),
+    np.uint64: (FieldDescriptorProto.Type.UINT64, None),
+    float: (FieldDescriptorProto.Type.DOUBLE, None),
+    timedelta: (FieldDescriptorProto.Type.MESSAGE, f".{duration_pb.Duration.desc().type_name}"),
+    datetime: (FieldDescriptorProto.Type.MESSAGE, f".{timestamp_pb.Timestamp.desc().type_name}"),
+    UUID: (FieldDescriptorProto.Type.MESSAGE, f".{well_known_types_pb.UUID.desc().type_name}"),
+    Geometry: (FieldDescriptorProto.Type.MESSAGE, f".{well_known_types_pb.Geometry.desc().type_name}"),
 }
 
 
@@ -128,7 +128,9 @@ class Field:
     annotation: FieldAnnotation
 
     @classmethod
-    def from_message(cls, field: dataset_type_pb2.Field) -> "Field":
+    def from_message(cls, field: dataset_type_pb.Field) -> "Field":
+        if field.descriptor is None:
+            raise ValueError("Dataset field is missing its descriptor")
         return cls(
             descriptor=field.descriptor,
             annotation=FieldAnnotation.from_message(field.annotation),
@@ -138,17 +140,17 @@ class Field:
     def from_dict(cls, field: FieldDict) -> "Field":
         origin = get_origin(field["type"])
         if origin is list:
-            label = FieldDescriptorProto.Label.LABEL_REPEATED
+            label = FieldDescriptorProto.Label.REPEATED
             args = get_args(field["type"])
             inner_type = args[0] if args else field["type"]
         else:
-            label = FieldDescriptorProto.Label.LABEL_OPTIONAL
+            label = FieldDescriptorProto.Label.OPTIONAL
             inner_type = field["type"]
 
-        wire_message_type = _wire_message_type(inner_type)
-        if wire_message_type is not None:
-            field_type = FieldDescriptorProto.TYPE_MESSAGE
-            field_type_name = f".{wire_message_type.DESCRIPTOR.full_name}"
+        message_type = _message_field_type(inner_type)
+        if message_type is not None:
+            field_type = FieldDescriptorProto.Type.MESSAGE
+            field_type_name = f".{message_type.desc().type_name}"
         else:
             (field_type, field_type_name) = _TYPE_INFO[inner_type]
 
@@ -171,8 +173,8 @@ class Field:
             ),
         )
 
-    def to_message(self) -> dataset_type_pb2.Field:
-        return dataset_type_pb2.Field(
+    def to_message(self) -> dataset_type_pb.Field:
+        return dataset_type_pb.Field(
             descriptor=self.descriptor,
             annotation=self.annotation.to_message(),
         )
@@ -184,17 +186,82 @@ class DatasetType:
     fields: list[Field]
 
     @classmethod
-    def from_message(cls, dataset_type: dataset_type_pb2.DatasetType) -> "DatasetType":
+    def from_fields(cls, kind: DatasetKind, custom_fields: list[FieldDict]) -> "DatasetType":
+        """Build a dataset schema with required metadata before custom fields."""
+        return cls(kind, _REQUIRED_FIELDS_PER_DATASET_KIND[kind] + [Field.from_dict(field) for field in custom_fields])
+
+    @classmethod
+    def from_message(cls, dataset_type: dataset_type_pb.DatasetType) -> "DatasetType":
         return cls(
             kind=_dataset_kind_int_to_enum.get(dataset_type.kind),
             fields=[Field.from_message(f) for f in dataset_type.fields],
         )
 
-    def to_message(self) -> dataset_type_pb2.DatasetType:
-        return dataset_type_pb2.DatasetType(
-            kind=self.kind.value if self.kind else dataset_type_pb2.DATASET_KIND_UNSPECIFIED,
+    def to_message(self) -> dataset_type_pb.DatasetType:
+        return dataset_type_pb.DatasetType(
+            kind=self.kind.value if self.kind else dataset_type_pb.DatasetKind.UNSPECIFIED,
             fields=[f.to_message() for f in self.fields],
         )
+
+
+_time_field = Field(
+    descriptor=FieldDescriptorProto(
+        name="time",
+        label=FieldDescriptorProto.Label.OPTIONAL,
+        type=FieldDescriptorProto.Type.MESSAGE,
+        type_name=".google.protobuf.Timestamp",
+    ),
+    annotation=FieldAnnotation(
+        description="The timestamp associated with each data point.",
+        example_value="2022-10-17T14:35:28Z",
+        source_json_pointer="/properties/datetime",
+        json_schema_ref="https://schemas.stacspec.org/v1.1.0/item-spec/json-schema/datetime.json#/properties/datetime",
+    ),
+)
+_id_field = Field(
+    descriptor=FieldDescriptorProto(
+        name="id",
+        label=FieldDescriptorProto.Label.OPTIONAL,
+        type=FieldDescriptorProto.Type.MESSAGE,
+        type_name=".datasets.v1.UUID",
+    ),
+    annotation=FieldAnnotation(
+        description="A universally unique identifier (UUID) that uniquely identifies each data point, automatically generated by Tilebox.",
+        example_value="4e8a2836-72f8-4ac2-a9e9-cbe3492ef60c",
+        source_json_pointer="/properties/tilebox:id",
+    ),
+)
+_ingestion_time_field = Field(
+    descriptor=FieldDescriptorProto(
+        name="ingestion_time",
+        label=FieldDescriptorProto.Label.OPTIONAL,
+        type=FieldDescriptorProto.Type.MESSAGE,
+        type_name=".google.protobuf.Timestamp",
+    ),
+    annotation=FieldAnnotation(
+        description="The time the data point was ingested into the Tilebox API, automatically generated by Tilebox.",
+        example_value="2022-10-17T14:35:28Z",
+        source_json_pointer="/properties/tilebox:ingestion_time",
+    ),
+)
+_geometry_field = Field(
+    descriptor=FieldDescriptorProto(
+        name="geometry",
+        label=FieldDescriptorProto.Label.OPTIONAL,
+        type=FieldDescriptorProto.Type.MESSAGE,
+        type_name=".datasets.v1.Geometry",
+    ),
+    annotation=FieldAnnotation(
+        description="The geometry associated with each data point.",
+        example_value="POLYGON ((112.345 -36.789, ...))",
+        source_json_pointer="/geometry",
+        json_schema_ref="https://geojson.org/schema/Geometry.json",
+    ),
+)
+_REQUIRED_FIELDS_PER_DATASET_KIND: dict[DatasetKind, list[Field]] = {
+    DatasetKind.TEMPORAL: [_time_field, _id_field, _ingestion_time_field],
+    DatasetKind.SPATIOTEMPORAL: [_time_field, _id_field, _ingestion_time_field, _geometry_field],
+}
 
 
 @dataclass(frozen=True)
@@ -205,7 +272,9 @@ class AnnotatedType:
     kind: DatasetKind | None = None
 
     @classmethod
-    def from_message(cls, annotated_type: dataset_type_pb2.AnnotatedType) -> "AnnotatedType":
+    def from_message(cls, annotated_type: dataset_type_pb.AnnotatedType) -> "AnnotatedType":
+        if annotated_type.descriptor_set is None:
+            raise ValueError("Dataset type is missing its descriptor set")
         return cls(
             descriptor_set=annotated_type.descriptor_set,
             type_url=annotated_type.type_url,
@@ -213,12 +282,12 @@ class AnnotatedType:
             kind=_dataset_kind_int_to_enum.get(annotated_type.kind),
         )
 
-    def to_message(self) -> dataset_type_pb2.AnnotatedType:
-        return dataset_type_pb2.AnnotatedType(
+    def to_message(self) -> dataset_type_pb.AnnotatedType:
+        return dataset_type_pb.AnnotatedType(
             descriptor_set=self.descriptor_set,
             type_url=self.type_url,
             field_annotations=[a.to_message() for a in self.field_annotations],
-            kind=self.kind.value if self.kind else dataset_type_pb2.DATASET_KIND_UNSPECIFIED,
+            kind=self.kind.value if self.kind else dataset_type_pb.DatasetKind.UNSPECIFIED,
         )
 
 
@@ -236,7 +305,9 @@ class Dataset:
     description: str
 
     @classmethod
-    def from_message(cls, dataset: core_pb2.Dataset) -> "Dataset":
+    def from_message(cls, dataset: core_pb.Dataset) -> "Dataset":
+        if dataset.type is None:
+            raise ValueError("Dataset is missing its type")
         return cls(
             id=uuid_message_to_uuid(dataset.id),
             group_id=uuid_message_to_uuid(dataset.group_id),
@@ -248,8 +319,8 @@ class Dataset:
             description=dataset.description,
         )
 
-    def to_message(self) -> core_pb2.Dataset:
-        return core_pb2.Dataset(
+    def to_message(self) -> core_pb.Dataset:
+        return core_pb.Dataset(
             id=uuid_to_uuid_message(self.id),
             group_id=uuid_to_uuid_message(self.group_id),
             type=self.type.to_message(),
@@ -270,7 +341,7 @@ class DatasetGroup:
     icon: str
 
     @classmethod
-    def from_message(cls, group: core_pb2.DatasetGroup) -> "DatasetGroup":
+    def from_message(cls, group: core_pb.DatasetGroup) -> "DatasetGroup":
         return cls(
             id=uuid_message_to_uuid(group.id),
             parent_id=uuid_message_to_optional_uuid(group.parent_id),
@@ -279,8 +350,8 @@ class DatasetGroup:
             icon=group.icon,
         )
 
-    def to_message(self) -> core_pb2.DatasetGroup:
-        return core_pb2.DatasetGroup(
+    def to_message(self) -> core_pb.DatasetGroup:
+        return core_pb.DatasetGroup(
             id=uuid_to_uuid_message(self.id),
             parent_id=uuid_to_uuid_message(self.parent_id),
             code_name=self.code_name,
@@ -296,16 +367,16 @@ class ListDatasetsResponse:
     server_message: str | None
 
     @classmethod
-    def from_message(cls, response: datasets_pb2.ListDatasetsResponse) -> "ListDatasetsResponse":
+    def from_message(cls, response: datasets_pb.ListDatasetsResponse) -> "ListDatasetsResponse":
         return cls(
             datasets=[Dataset.from_message(dataset) for dataset in response.datasets],
             groups=[DatasetGroup.from_message(group) for group in response.groups],
             server_message=response.server_message,
         )
 
-    def to_message(self) -> datasets_pb2.ListDatasetsResponse:
-        return datasets_pb2.ListDatasetsResponse(
+    def to_message(self) -> datasets_pb.ListDatasetsResponse:
+        return datasets_pb.ListDatasetsResponse(
             datasets=[dataset.to_message() for dataset in self.datasets],
             groups=[group.to_message() for group in self.groups],
-            server_message=self.server_message,
+            server_message=self.server_message or "",
         )

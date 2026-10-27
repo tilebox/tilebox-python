@@ -1,43 +1,124 @@
 from enum import Enum
 from uuid import UUID
 
+import numpy as np
 import pandas as pd
 import pytest
-from google.protobuf import descriptor_pb2
-from google.protobuf.descriptor_pool import Default
-from google.protobuf.message_factory import GetMessageClass
 from hypothesis import given, settings
 from hypothesis.strategies import lists
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 from pandas import to_datetime
+from protobuf import Oneof
+from protobuf.wkt.google.protobuf.descriptor_pb import (
+    DescriptorProto,
+    EnumDescriptorProto,
+    EnumValueDescriptorProto,
+    FieldDescriptorProto,
+    FileDescriptorProto,
+    FileDescriptorSet,
+    OneofDescriptorProto,
+)
 from shapely import MultiPolygon, Polygon, from_wkb
 from xarray.testing import assert_equal
 
 from tests.data.datapoint import example_datapoints
-from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
-from tilebox.datasets.datasets.stac.v1.asset_pb import Assets
-from tilebox.datasets.datasets.stac.v1.asset_pb2 import Asset as AssetPB2
-from tilebox.datasets.datasets.stac.v1.asset_pb2 import Assets as AssetsPB2
-from tilebox.datasets.datasets.stac.v1.authentication_pb import Authentication
-from tilebox.datasets.datasets.stac.v1.authentication_pb2 import Authentication as AuthenticationPB2
-from tilebox.datasets.datasets.stac.v1.core_pb import Links, Provider
-from tilebox.datasets.datasets.stac.v1.core_pb2 import Link as LinkPB2
-from tilebox.datasets.datasets.stac.v1.core_pb2 import Links as LinksPB2
-from tilebox.datasets.datasets.stac.v1.core_pb2 import Provider as ProviderPB2
-from tilebox.datasets.datasets.stac.v1.processing_pb import ProcessingSoftware
-from tilebox.datasets.datasets.stac.v1.processing_pb2 import ProcessingSoftware as ProcessingSoftwarePB2
-from tilebox.datasets.datasets.stac.v1.sar_pb2 import (
-    SAR_POLARIZATION_HH,
-    SAR_POLARIZATION_VV,
-    SARProperties,
-)
-from tilebox.datasets.datasets.stac.v1.storage_pb import Storage
-from tilebox.datasets.datasets.stac.v1.storage_pb2 import Storage as StoragePB2
-from tilebox.datasets.datasets.v1.well_known_types_pb2 import ProcessingLevel
+from tests.example_dataset.schema import DESCRIPTOR, ExampleDatapoint
+from tilebox.datasets.data.datasets import AnnotatedType
+from tilebox.datasets.message_pool import get_message_type
 from tilebox.datasets.protobuf_conversion.field_types import _AssetsDisplay
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
 from tilebox.datasets.protobuf_conversion.to_protobuf import to_messages
 from tilebox.datasets.query.time_interval import timestamp_to_datetime, us_to_datetime
+from tilebox.datasets.stac.v1.asset_pb import Asset, Assets
+from tilebox.datasets.stac.v1.authentication_pb import Authentication
+from tilebox.datasets.stac.v1.core_pb import Link, Links, Provider
+from tilebox.datasets.stac.v1.processing_pb import ProcessingSoftware
+from tilebox.datasets.stac.v1.sar_pb import (
+    SARPolarization,
+    SARProperties,
+)
+from tilebox.datasets.stac.v1.storage_pb import Storage
+from tilebox.datasets.v1 import well_known_types_pb
+from tilebox.datasets.v1.well_known_types_pb import ProcessingLevel
+
+
+def test_projected_batches_preserve_scalar_and_oneof_presence() -> None:
+    """Keep explicit zero and false values through projection, batching, and buffer growth."""
+    schema = FileDescriptorProto(
+        name="tests/presence.proto",
+        package="tests.presence",
+        syntax="proto2",
+        message_type=[
+            DescriptorProto(
+                name="Row",
+                oneof_decl=[OneofDescriptorProto(name="choice")],
+                field=[
+                    FieldDescriptorProto(
+                        name=name,
+                        number=number,
+                        label=FieldDescriptorProto.Label.OPTIONAL,
+                        type=kind,
+                        oneof_index=0 if name in {"count", "enabled"} else None,
+                    )
+                    for number, (name, kind) in enumerate(
+                        [
+                            ("score", FieldDescriptorProto.Type.DOUBLE),
+                            ("count", FieldDescriptorProto.Type.DOUBLE),
+                            ("enabled", FieldDescriptorProto.Type.BOOL),
+                            ("excluded", FieldDescriptorProto.Type.STRING),
+                            ("never", FieldDescriptorProto.Type.DOUBLE),
+                        ],
+                        start=1,
+                    )
+                ],
+            )
+        ],
+    )
+    row = get_message_type(AnnotatedType(FileDescriptorSet(file=[schema]), "tests.presence.Row", []))
+    messages = [
+        row(excluded="not projected"),
+        row(score=0.0, choice=Oneof("count", 0.0)),
+        row(score=7.0, choice=Oneof("enabled", False)),
+    ]
+    converter = MessageToXarrayConverter(initial_capacity=1, fields=("score", "count", "enabled", "never"))
+    converter.convert(messages[0])
+    converter.convert_all(messages[1:])
+    result = converter.finalize("row", skip_empty_fields=True)
+
+    assert set(result.data_vars) == {"score", "count", "enabled"}
+    assert_array_equal(result["score"], [np.nan, 0.0, 7.0])
+    assert_array_equal(result["count"], [np.nan, 0.0, np.nan])
+    assert_array_equal(result["enabled"], [False, False, False])
+
+
+@pytest.mark.parametrize("nanos", [-1_000_000_001, -1, 0, 1_000_000_001])
+def test_supplied_imports_preserve_nanoseconds_and_message_values(nanos: int) -> None:
+    """Convert isolated nested types and preserve exact signed nanoseconds through xarray ingestion."""
+    schema = AnnotatedType(
+        FileDescriptorSet(file=[well_known_types_pb.desc().proto, DESCRIPTOR]),
+        "tests.scientific.Datapoint",
+        [],
+    )
+    message_type = get_message_type(schema)
+    messages = to_messages(
+        [
+            {
+                "time": np.datetime64(nanos, "ns"),
+                "some_duration": np.timedelta64(nanos, "ns"),
+                "some_identifier": UUID(int=1),
+                "some_vec3": (1.0, 2.0, 3.0),
+                "some_repeated_vec3": [(1.0, 2.0, 3.0)],
+            }
+        ],
+        message_type,
+    )
+    messages = [message_type.from_binary(message.to_binary()) for message in messages]
+    converter = MessageToXarrayConverter()
+    converter.convert_all(messages)
+    dataset = converter.finalize("time", skip_empty_fields=True)
+    assert dataset.time.item() == nanos
+    assert dataset.some_duration.item() == nanos
+    assert to_messages(dataset, message_type) == messages
 
 
 @given(example_datapoints(generated_fields=True, missing_fields=False))
@@ -94,7 +175,7 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
     )
 
     assert isinstance(dataset.some_geometry.item(), Polygon | MultiPolygon)
-    assert dataset.some_enum.item() == ProcessingLevel.Name(datapoint.some_enum).removeprefix("PROCESSING_LEVEL_")
+    assert dataset.some_enum.item() == ProcessingLevel(datapoint.some_enum).name
 
     assert list(dataset.some_repeated_string.to_numpy()) == list(datapoint.some_repeated_string)
     assert_array_equal(dataset.some_repeated_int.to_numpy(), datapoint.some_repeated_int)
@@ -126,18 +207,18 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
 
 def test_convert_stac_messages_to_protobuf_py() -> None:
     message_types = {
-        "assets": ("datasets.stac.v1.Assets", AssetsPB2(assets=[AssetPB2(key="preview")]), _AssetsDisplay),
-        "authentication": ("datasets.stac.v1.Authentication", AuthenticationPB2(), Authentication),
-        "links": ("datasets.stac.v1.Links", LinksPB2(links=[LinkPB2(href="https://example.com")]), Links),
-        "provider": ("datasets.stac.v1.Provider", ProviderPB2(name="Tilebox"), Provider),
+        "assets": ("datasets.stac.v1.Assets", Assets(assets=[Asset(key="preview")]), _AssetsDisplay),
+        "authentication": ("datasets.stac.v1.Authentication", Authentication(), Authentication),
+        "links": ("datasets.stac.v1.Links", Links(links=[Link(href="https://example.com")]), Links),
+        "provider": ("datasets.stac.v1.Provider", Provider(name="Tilebox"), Provider),
         "processing_software": (
             "datasets.stac.v1.ProcessingSoftware",
-            ProcessingSoftwarePB2(versions={"processor": "1.0"}),
+            ProcessingSoftware(versions={"processor": "1.0"}),
             ProcessingSoftware,
         ),
-        "storage": ("datasets.stac.v1.Storage", StoragePB2(), Storage),
+        "storage": ("datasets.stac.v1.Storage", Storage(), Storage),
     }
-    file_descriptor = descriptor_pb2.FileDescriptorProto(
+    file_descriptor = FileDescriptorProto(
         name="tests/protobuf_conversion/stac_datapoint.proto",
         package="tests.protobuf_conversion",
         dependency=[
@@ -148,24 +229,30 @@ def test_convert_stac_messages_to_protobuf_py() -> None:
             "datasets/stac/v1/storage.proto",
         ],
     )
-    message_descriptor = file_descriptor.message_type.add(name="StacDatapoint")
+    message_descriptor = DescriptorProto(name="StacDatapoint")
+    file_descriptor.message_type.append(message_descriptor)
     for index, (field_name, (message_name, _, _)) in enumerate(message_types.items()):
-        message_descriptor.field.add(
-            name=field_name,
-            number=index * 2 + 1,
-            label=descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
-            type=descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
-            type_name=f".{message_name}",
+        message_descriptor.field.append(
+            FieldDescriptorProto(
+                name=field_name,
+                number=index * 2 + 1,
+                label=FieldDescriptorProto.Label.OPTIONAL,
+                type=FieldDescriptorProto.Type.MESSAGE,
+                type_name=f".{message_name}",
+            )
         )
-        message_descriptor.field.add(
-            name=f"related_{field_name}",
-            number=index * 2 + 2,
-            label=descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED,
-            type=descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
-            type_name=f".{message_name}",
+        message_descriptor.field.append(
+            FieldDescriptorProto(
+                name=f"related_{field_name}",
+                number=index * 2 + 2,
+                label=FieldDescriptorProto.Label.REPEATED,
+                type=FieldDescriptorProto.Type.MESSAGE,
+                type_name=f".{message_name}",
+            )
         )
-    descriptor = Default().AddSerializedFile(file_descriptor.SerializeToString())
-    message_type = GetMessageClass(descriptor.message_types_by_name["StacDatapoint"])
+    message_type = get_message_type(
+        AnnotatedType(FileDescriptorSet(file=[file_descriptor]), "tests.protobuf_conversion.StacDatapoint", [])
+    )
 
     values = {}
     for field_name, (_, source_value, _) in message_types.items():
@@ -182,7 +269,7 @@ def test_convert_stac_messages_to_protobuf_py() -> None:
         assert dataset[field_name][0].item() is None
         converted_value = dataset[field_name][1].item()
         assert isinstance(converted_value, target_type)
-        assert converted_value.to_binary() == source_value.SerializeToString()
+        assert converted_value.to_binary() == source_value.to_binary()
         if field_name == "assets":
             assert isinstance(converted_value, Assets)
             assert str(converted_value) == "1 assets"
@@ -192,7 +279,7 @@ def test_convert_stac_messages_to_protobuf_py() -> None:
         assert dataset[repeated_field_name].dtype == object
         converted_repeated_value = dataset[repeated_field_name][1, 0].item()
         assert isinstance(converted_repeated_value, target_type)
-        assert converted_repeated_value.to_binary() == source_value.SerializeToString()
+        assert converted_repeated_value.to_binary() == source_value.to_binary()
 
     converted_assets = dataset["assets"][1].item()
     assert isinstance(converted_assets, Assets)
@@ -207,7 +294,7 @@ def test_convert_stac_messages_to_protobuf_py() -> None:
         record = {}
         for field_name, (_, source_value, target_type) in message_types.items():
             value_type = Assets if field_name == "assets" else target_type
-            target_value = value_type.from_binary(source_value.SerializeToString())
+            target_value = value_type.from_binary(source_value.to_binary())
             input_data[field_name] = [target_value]
             input_data[f"related_{field_name}"] = [repeated_container([target_value])]
             record[field_name] = target_value
@@ -225,30 +312,37 @@ def test_convert_scalar_and_repeated_enums_to_names_and_round_trip() -> None:
         HH = "HH"
         VV = "VV"
 
-    file_descriptor = descriptor_pb2.FileDescriptorProto(
+    file_descriptor = FileDescriptorProto(
         name="tests/protobuf_conversion/enum_datapoint.proto",
         package="tests.protobuf_conversion.enums",
     )
-    enum_descriptor = file_descriptor.enum_type.add(name="SARPolarization")
+    enum_descriptor = EnumDescriptorProto(name="SARPolarization")
+    file_descriptor.enum_type.append(enum_descriptor)
     for name, number in (("SAR_POLARIZATION_UNSPECIFIED", 0), ("SAR_POLARIZATION_HH", 1), ("SAR_POLARIZATION_VV", 2)):
-        enum_descriptor.value.add(name=name, number=number)
-    message_descriptor = file_descriptor.message_type.add(name="EnumDatapoint")
-    message_descriptor.field.add(
-        name="primary_polarization",
-        number=1,
-        label=descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
-        type=descriptor_pb2.FieldDescriptorProto.TYPE_ENUM,
-        type_name=".tests.protobuf_conversion.enums.SARPolarization",
+        enum_descriptor.value.append(EnumValueDescriptorProto(name=name, number=number))
+    message_descriptor = DescriptorProto(name="EnumDatapoint")
+    file_descriptor.message_type.append(message_descriptor)
+    message_descriptor.field.append(
+        FieldDescriptorProto(
+            name="primary_polarization",
+            number=1,
+            label=FieldDescriptorProto.Label.OPTIONAL,
+            type=FieldDescriptorProto.Type.ENUM,
+            type_name=".tests.protobuf_conversion.enums.SARPolarization",
+        )
     )
-    message_descriptor.field.add(
-        name="polarizations",
-        number=2,
-        label=descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED,
-        type=descriptor_pb2.FieldDescriptorProto.TYPE_ENUM,
-        type_name=".tests.protobuf_conversion.enums.SARPolarization",
+    message_descriptor.field.append(
+        FieldDescriptorProto(
+            name="polarizations",
+            number=2,
+            label=FieldDescriptorProto.Label.REPEATED,
+            type=FieldDescriptorProto.Type.ENUM,
+            type_name=".tests.protobuf_conversion.enums.SARPolarization",
+        )
     )
-    descriptor = Default().AddSerializedFile(file_descriptor.SerializeToString())
-    message_type = GetMessageClass(descriptor.message_types_by_name["EnumDatapoint"])
+    message_type = get_message_type(
+        AnnotatedType(FileDescriptorSet(file=[file_descriptor]), "tests.protobuf_conversion.enums.EnumDatapoint", [])
+    )
     messages = [
         message_type(primary_polarization=1, polarizations=[0, 1]),
         message_type(primary_polarization=2, polarizations=[2]),
@@ -284,8 +378,8 @@ def test_convert_scalar_and_repeated_enums_to_names_and_round_trip() -> None:
 
 def test_convert_sar_polarizations_with_short_names_in_both_directions() -> None:
     messages = [
-        SARProperties(polarizations=[SAR_POLARIZATION_HH, SAR_POLARIZATION_VV]),
-        SARProperties(polarizations=[SAR_POLARIZATION_VV]),
+        SARProperties(polarizations=[SARPolarization.HH, SARPolarization.VV]),
+        SARProperties(polarizations=[SARPolarization.VV]),
         SARProperties(),
     ]
     converter = MessageToXarrayConverter()
@@ -298,7 +392,7 @@ def test_convert_sar_polarizations_with_short_names_in_both_directions() -> None
     assert pd.isna(dataset.polarizations[1, 1].item())
     assert pd.isna(dataset.polarizations[2].to_numpy()).all()
 
-    other_fields = [field.name for field in SARProperties.DESCRIPTOR.fields if field.name != "polarizations"]
+    other_fields = [field.name for field in SARProperties.desc().fields if field.name != "polarizations"]
     assert to_messages(dataset, SARProperties, ignore_fields=other_fields) == messages
     assert to_messages([{"polarizations": ["HH", "VV"]}], SARProperties) == [messages[0]]
 

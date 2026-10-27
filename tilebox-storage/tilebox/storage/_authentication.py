@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
     from obstore.store import S3Credential, S3CredentialProvider
 
-    from tilebox.datasets.datasets.stac.v1.authentication_pb import AuthenticationScheme
+    from tilebox.datasets.stac.v1.authentication_pb import AuthenticationScheme
 
 
 def register_authentication(registry: Registry, s3_credentials: Mapping[str, "S3CredentialProvider"]) -> None:

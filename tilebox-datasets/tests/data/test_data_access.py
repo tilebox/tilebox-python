@@ -7,9 +7,9 @@ from shapely import Geometry, box
 
 from tests.data.data_access import query_filters, spatial_filter_likes, spatial_filters
 from tilebox.datasets.data.data_access import QueryFilters, SpatialFilter, SpatialFilterDict, SpatialFilterMode
-from tilebox.datasets.datasets.v1 import data_access_pb2
 from tilebox.datasets.query import TimeInterval, field
 from tilebox.datasets.query.id_interval import IDInterval
+from tilebox.datasets.v1 import data_access_pb
 
 
 @given(spatial_filters())
@@ -47,8 +47,8 @@ def test_contains_spatial_filter_mode_is_deprecated() -> None:
 @pytest.mark.parametrize(
     ("mode", "wire_mode"),
     [
-        (SpatialFilterMode.FILTER_CONTAINS_GEOMETRY, data_access_pb2.SPATIAL_FILTER_MODE_FILTER_CONTAINS_GEOMETRY),
-        (SpatialFilterMode.GEOMETRY_CONTAINS_FILTER, data_access_pb2.SPATIAL_FILTER_MODE_GEOMETRY_CONTAINS_FILTER),
+        (SpatialFilterMode.FILTER_CONTAINS_GEOMETRY, data_access_pb.SpatialFilterMode.FILTER_CONTAINS_GEOMETRY),
+        (SpatialFilterMode.GEOMETRY_CONTAINS_FILTER, data_access_pb.SpatialFilterMode.GEOMETRY_CONTAINS_FILTER),
     ],
 )
 def test_directional_spatial_filter_modes(mode: SpatialFilterMode, wire_mode: int) -> None:
@@ -92,7 +92,8 @@ def test_multiple_wire_expressions_are_combined_with_and() -> None:
 
     round_tripped = QueryFilters.from_message(message).to_message()
     assert len(round_tripped.expressions) == 1
-    assert round_tripped.expressions[0].logical.operator == data_access_pb2.LOGICAL_OPERATOR_AND
+    assert round_tripped.expressions[0].logical is not None
+    assert round_tripped.expressions[0].logical.operator == data_access_pb.LogicalOperator.AND
     assert len(round_tripped.expressions[0].logical.operands) == 2
 
 
@@ -109,7 +110,7 @@ def test_query_filters_reject_invalid_filter() -> None:
 
 def test_query_filters_reject_invalid_interval_variants() -> None:
     with pytest.raises(ValueError, match="exactly one time or datapoint interval"):
-        QueryFilters.from_message(data_access_pb2.QueryFilters())
+        QueryFilters.from_message(data_access_pb.QueryFilters())
 
     message = QueryFilters(
         TimeInterval(
@@ -117,6 +118,6 @@ def test_query_filters_reject_invalid_interval_variants() -> None:
             datetime(2026, 7, 28, tzinfo=UTC),
         )
     ).to_message()
-    message.datapoint_interval.CopyFrom(IDInterval(uuid4(), uuid4(), False, False).to_message())
+    message.datapoint_interval = IDInterval(uuid4(), uuid4(), False, False).to_message()
     with pytest.raises(ValueError, match="exactly one time or datapoint interval"):
         QueryFilters.from_message(message)

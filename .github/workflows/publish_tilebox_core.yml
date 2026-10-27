@@ -1,0 +1,33 @@
+name: Publish Tilebox Core
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    name: Build and Publish Tilebox Core
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-python: true
+          cache-dependency-glob: "uv.lock"
+      - name: Print version
+        run: git describe --tags
+      - name: Build
+        run: mkdir dist && uv run python -m build tilebox-core && mv tilebox-core/dist/* dist/
+      - name: Publish to PyPi.org
+        if: github.event_name == 'release'
+        # Configure this workflow as a trusted publisher for tilebox-core on PyPI before releasing.
+        uses: pypa/gh-action-pypi-publish@release/v1

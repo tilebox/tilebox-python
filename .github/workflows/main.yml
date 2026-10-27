@@ -104,10 +104,10 @@ jobs:
         # Select the SDK packages, not the root's unbounded lint/build tooling.
         run: >-
           uv sync --resolution lowest-direct --upgrade
-          --package tilebox-grpc --package tilebox-datasets
+          --package tilebox-core --package tilebox-datasets
           --package tilebox-storage --package tilebox-workflows
       - name: Run tests without replacing the minimum-version environment
         run: |
-          for package in tilebox-grpc tilebox-datasets tilebox-storage tilebox-workflows; do
+          for package in tilebox-core tilebox-datasets tilebox-storage tilebox-workflows; do
             uv run --no-sync pytest "$package" -Wall -Werror --import-mode=importlib
           done

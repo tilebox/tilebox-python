@@ -77,7 +77,8 @@ def test_terminal_color_opt_out(
 def test_anonymous_notice_can_be_disabled(
     capsys: pytest.CaptureFixture[str], client_type: type[Client] | type[AsyncClient]
 ) -> None:
-    with patch(f"{client_type.__module__}.open_channel"):
+    connection_type = "AsyncConnection" if client_type is AsyncClient else "Connection"
+    with patch(f"{client_type.__module__}.{connection_type}"):
         client_type(warn_if_unauthenticated=False)
 
     assert capsys.readouterr() == ("", "")
@@ -88,7 +89,8 @@ def test_anonymous_notice_can_be_disabled(
 def test_anonymous_notice_is_printed(
     capsys: pytest.CaptureFixture[str], client_type: type[Client] | type[AsyncClient]
 ) -> None:
-    with patch(f"{client_type.__module__}.open_channel"):
+    connection_type = "AsyncConnection" if client_type is AsyncClient else "Connection"
+    with patch(f"{client_type.__module__}.{connection_type}"):
         client_type()
 
     captured = capsys.readouterr()
@@ -99,5 +101,5 @@ def test_anonymous_notice_is_printed(
 def test_server_message_is_printed(capsys: pytest.CaptureFixture[str]) -> None:
     response = ListDatasetsResponse([], [], "A message from the server")
 
-    assert _log_server_message(response) is response
+    _log_server_message(response)
     assert capsys.readouterr() == ("", "A message from the server\n\n")

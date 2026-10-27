@@ -1,7 +1,5 @@
 from typing import TYPE_CHECKING, Any
-
-# Apply native logging defaults before any submodule can initialize gRPC.
-import _tilebox.grpc  # noqa: F401
+from warnings import warn
 
 if TYPE_CHECKING:
     from tilebox.datasets.aio.timeseries import TimeseriesCollection, TimeseriesDataset
@@ -25,6 +23,15 @@ def __getattr__(name: str) -> Any:
     # PEP 562 module __getattr__ is supported since Python 3.7. Keep these aliases lazy so importing a focused
     # submodule like tilebox.datasets.query.id_interval does not also import the sync/aio clients and their data-model
     # dependencies.
+    if name in {"TimeseriesCollection", "TimeseriesDataset"}:
+        replacement = "CollectionClient" if name == "TimeseriesCollection" else "DatasetClient"
+        warn(
+            f"tilebox.datasets.{name} is deprecated; this legacy alias is asynchronous. "
+            f"Use tilebox.datasets.aio.{replacement} for the same class, "
+            f"or tilebox.datasets.{replacement} for synchronous code.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     match name:
         case "Client":
             from tilebox.datasets.sync.client import Client  # noqa: PLC0415

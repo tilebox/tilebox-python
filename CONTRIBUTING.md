@@ -7,6 +7,12 @@ Welcome! We're excited that you're interested in contributing to Tilebox Python.
 This repository contains multiple python packages. We use python [namespace packages](https://packaging.python.org/en/latest/guides/packaging-namespace-packages/) to
 organize our code into multiple packages that then share the common `tilebox` python module name.
 
+`tilebox-core` owns the public `tilebox.query` and `tilebox.errors` APIs and the private
+`_tilebox` infrastructure namespace. Datasets, workflows, and storage depend on core;
+scientific dependencies stay in datasets. Core and workflows have no runtime dependency
+on datasets. Their cross-SDK tests run in the all-packages workspace environment.
+`tilebox-grpc` is a dependency-only compatibility package retained for the 0.67 release.
+
 ## Required tooling
 
 Before starting to work on this repository, make sure you have uv installed. [Install instructions](https://docs.astral.sh/uv/getting-started/installation/).
@@ -23,7 +29,7 @@ them.
 ### Initial setup
 
 ```bash
-uv sync
+uv sync --all-packages
 ```
 
 ### Running tests
@@ -33,6 +39,7 @@ uv sync
 
 # testing a single package
 uv run --package tilebox-datasets pytest tilebox-datasets
+uv run --no-sync pytest tilebox-core
 ```
 
 ### Running code analysis
@@ -60,17 +67,28 @@ uv add --package tilebox-datasets "numpy>=2"
 ## Protobuf usage
 
 We use [protobuf](https://protobuf.dev/) for defining our API contracts. The protobuf files are generated from the messages
-defined in the [Tilebox Go repository](https://github.com/tilebox/tilebox-go/tree/main/apis).
+defined in [Tilebox API](https://buf.build/tilebox/api). `buf.gen.yaml` defines schema inputs, import mappings, and pinned native Python plugins.
 
 ### Updating protobuf files
 
 ```bash
-uv run generate-protobuf
+./tools/generate-protobuf.sh
 ```
+
+The script generates into a temporary directory, strips trailing whitespace with Ruff, and replaces the generated
+modules in each package. API types live in `tilebox.datasets.v1`, `tilebox.datasets.stac.v1`, and `tilebox.workflows.v1`;
+shared generated types live in `_tilebox.proto.tilebox.v1`. Workflows bundles its API telemetry types privately under
+`tilebox.workflows._otel`. The OpenTelemetry SDK and exporters continue to use their own generated types.
 
 ## Releasing and deploying a new version
 
 There is a Github CI workflow set up for building the packages and pushing them to the internal `pypi`.
+Sibling-package dependencies require at least version 0.67.0 for the Connect migration.
+Raise these minimums only when a package needs a newer sibling. Make core available before its dependents,
+and datasets before storage. The release workflows run independently; do not announce installation availability
+until all packages have published successfully.
+Before the first core release, configure PyPI trusted publishing for `tilebox-core` using this repository's
+`publish_tilebox_core.yml` workflow. The compatibility `tilebox-grpc` wheel must contain no Python modules.
 All that is needed is to create a github release for a given tag. This can be done in the github web UI or on the
 command line.
 

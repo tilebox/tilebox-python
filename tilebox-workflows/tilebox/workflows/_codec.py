@@ -33,6 +33,7 @@ class Codec:
 
 
 _PROVIDERS = (
+    ("tilebox.query.", "tilebox.workflows._codecs.tilebox"),
     ("tilebox.datasets.", "tilebox.workflows._codecs.tilebox"),
     ("shapely.", "tilebox.workflows._codecs.shapely"),
     ("pyproj.", "tilebox.workflows._codecs.pyproj"),

@@ -6,11 +6,48 @@ import pytest
 import xarray as xr
 from hypothesis import given
 from hypothesis.strategies import lists
+from protobuf.wkt.google.protobuf.descriptor_pb import (
+    DescriptorProto,
+    FieldDescriptorProto,
+    FileDescriptorProto,
+    FileDescriptorSet,
+)
 
 from tests.data.datapoint import example_datapoints, example_pandas_datapoints
-from tests.example_dataset.example_dataset_pb2 import ExampleDatapoint
+from tests.example_dataset.schema import ExampleDatapoint
+from tilebox.datasets.data.datasets import AnnotatedType
+from tilebox.datasets.message_pool import get_message_type
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
 from tilebox.datasets.protobuf_conversion.to_protobuf import to_messages
+
+
+def test_ingestion_preserves_fields_with_escaped_python_names() -> None:
+    record = {"normal": 3, "class": 5, "from": 7, "desc": 11, "to_binary": 13}
+    schema = FileDescriptorProto(
+        name="tests/escaped_names.proto",
+        package="tests.escaped_names",
+        syntax="proto3",
+        message_type=[
+            DescriptorProto(
+                name="Row",
+                field=[
+                    FieldDescriptorProto(
+                        name=name,
+                        number=number,
+                        type=FieldDescriptorProto.Type.INT64,
+                        label=FieldDescriptorProto.Label.OPTIONAL,
+                    )
+                    for number, name in enumerate(record, start=1)
+                ],
+            )
+        ],
+    )
+    row = get_message_type(AnnotatedType(FileDescriptorSet(file=[schema]), "tests.escaped_names.Row", []))
+
+    message = to_messages([record], row)[0]
+
+    # Wire field numbers and values must not depend on Python's escaped attribute names.
+    assert message.to_binary() == b"\x08\x03\x10\x05\x18\x07\x20\x0b\x28\x0d"
 
 
 @given(lists(example_datapoints(generated_fields=True, missing_fields=False), min_size=1, max_size=5))
@@ -22,9 +59,9 @@ def test_xarray_dataset_to_protobuf_messages(messages: list[ExampleDatapoint]) -
 
     assert len(converted) == len(messages)
     for converted_message, expected_message in zip(converted, messages, strict=True):
-        for field in expected_message.DESCRIPTOR.fields:
+        for field in expected_message.desc().fields:
             if field.name in ignore_fields:
-                assert not converted_message.HasField(field.name)
+                assert not converted_message.has_field(field.name)
                 continue
 
             assert getattr(expected_message, field.name) == getattr(converted_message, field.name), (

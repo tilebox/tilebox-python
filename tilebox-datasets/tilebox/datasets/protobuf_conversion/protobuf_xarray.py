@@ -3,14 +3,14 @@ Functionality for converting protobuf messages to xarray datasets.
 """
 
 import contextlib
-from collections.abc import Sequence
-from typing import Any, TypeVar, cast
+from collections.abc import Callable, Collection, Sequence
+from operator import attrgetter
+from typing import Any, TypeVar
 
 import numpy as np
 import xarray as xr
-from google.protobuf.descriptor import FieldDescriptor
-from google.protobuf.message import Message
 from numpy.typing import NDArray
+from protobuf import DescField, DescFieldValueList, DescFieldValueMessage, DescFieldValueSingular, Message
 
 from tilebox.datasets.protobuf_conversion.field_types import (
     ProtobufFieldType,
@@ -22,17 +22,19 @@ AnyMessage = TypeVar("AnyMessage", bound=Message)
 
 
 class MessageToXarrayConverter:
-    def __init__(self, initial_capacity: int = 0) -> None:
+    def __init__(self, initial_capacity: int = 0, *, fields: Collection[str] | None = None) -> None:
         """
         A converter for converting arbitrary protobuf messages to a xarray dataset
 
         Args:
             initial_capacity: The initial capacity (in number of messages) to reserve for the data arrays of each field.
                 If the total number of messages is already known in advance, set it to this number
+            fields: Only convert these fields when the query projects a subset of the schema.
         """
         self._capacity = initial_capacity
         self.count = 0  # number of messages already converted
-        self._converters: dict[str, _FieldConverter] | None = None
+        self._fields = fields
+        self._converters: list[tuple[Callable[[Message], ProtoFieldValue], _FieldConverter]] | None = None
 
     def convert(self, message: Message) -> None:
         """
@@ -43,7 +45,7 @@ class MessageToXarrayConverter:
         """
         self._ensure_capacity(self.count + 1)
         if self._converters is None:
-            self._converters = _create_field_converters(message, buffer_size=self._capacity)
+            self._converters = _create_field_converters(message, self._capacity, self._fields)
         self._convert(message)
 
     def convert_all(self, messages: list[AnyMessage]) -> None:
@@ -58,9 +60,10 @@ class MessageToXarrayConverter:
 
         self._ensure_capacity(self.count + len(messages))
         if self._converters is None:
-            self._converters = _create_field_converters(messages[0], buffer_size=self._capacity)
-        for message in messages:
-            self._convert(message)
+            self._converters = _create_field_converters(messages[0], self._capacity, self._fields)
+        for read, converter in self._converters:
+            converter.convert_all(self.count, messages, read)
+        self.count += len(messages)
 
     def finalize(
         self,
@@ -88,12 +91,12 @@ class MessageToXarrayConverter:
 
         array_dims = {
             f"n_{converter._field_name}": converter._array_dim or 0  # noqa: SLF001
-            for converter in self._converters.values()
+            for _, converter in self._converters
             if isinstance(converter, _ArrayFieldConverter)
         }
         array_dim_mapping = _combine_dimension_names(array_dims)
 
-        for converter in self._converters.values():
+        for _, converter in self._converters:
             if isinstance(converter, _ArrayFieldConverter):
                 array_dim_name = array_dim_mapping[f"n_{converter._field_name}"][0]  # noqa: SLF001
                 converter.finalize(dataset, self.count, (dim_name, array_dim_name), skip_empty_fields)
@@ -116,8 +119,10 @@ class MessageToXarrayConverter:
         assert self._converters is not None
         assert self.count < self._capacity
 
-        for field, value in message.ListFields():
-            self._converters[field.name](self.count, value)
+        for read, convert in self._converters:
+            value = read(message)
+            if value is not None:
+                convert(self.count, value)
         self.count += 1
 
     def _ensure_capacity(self, min_capacity: int) -> None:
@@ -131,7 +136,7 @@ class MessageToXarrayConverter:
             new_capacity *= 2  # double the buffer size until we are large enough
 
         if new_capacity > self._capacity and self._converters is not None:
-            for converter in self._converters.values():
+            for _, converter in self._converters:
                 converter.resize(new_capacity)
 
         self._capacity = new_capacity
@@ -145,7 +150,7 @@ class _FieldConverter:
     to a variable in a xarray dataset.
     """
 
-    def __call__(self, index: int, value: float | str | bool | Message) -> None:
+    def __call__(self, index: int, value: ProtoFieldValue) -> None:
         """
         Assign the given value coming from a protobuf message to the data array constructed by this field converter.
 
@@ -153,6 +158,13 @@ class _FieldConverter:
             index: index of the datapoint in the timeseries
             value: value of the field in the protobuf message
         """
+
+    def convert_all(self, index: int, messages: Sequence[Message], read: Callable[[Message], ProtoFieldValue]) -> None:
+        """Append present values while leaving absent values at their fill value."""
+        for offset, message in enumerate(messages):
+            value = read(message)
+            if value is not None:
+                self(index + offset, value)
 
     def finalize(
         self, dataset: xr.Dataset, count: int, dimension_names: tuple[str, ...], skip_if_empty: bool = False
@@ -203,6 +215,21 @@ class _SimpleFieldConverter(_FieldConverter):
         self._empty = False
         value = self._type.from_proto(value)
         self._data[index, :] = value
+
+    def convert_all(self, index: int, messages: Sequence[Message], read: Callable[[Message], ProtoFieldValue]) -> None:
+        """Assign scalar columns in one NumPy operation instead of one write per row."""
+        if self._type.value_dim != 1:
+            super().convert_all(index, messages, read)
+            return
+        values = []
+        for message in messages:
+            value = read(message)
+            if value is None:
+                values.append(self._type.fill_value)
+            else:
+                self._empty = False
+                values.append(self._type.from_proto(value))
+        self._data[index : index + len(messages), 0] = values
 
     def finalize(
         self, dataset: xr.Dataset, count: int, dimension_names: tuple[str, ...], skip_if_empty: bool = False
@@ -311,32 +338,49 @@ class _ArrayFieldConverter(_FieldConverter):
             self._data = data
 
 
-def _create_field_converters(message: Message, buffer_size: int) -> dict[str, _FieldConverter]:
+def _create_field_converters(
+    message: Message, buffer_size: int, fields: Collection[str] | None
+) -> list[tuple[Callable[[Message], ProtoFieldValue], _FieldConverter]]:
     """
-    Create a dictionary mapping from field names to field converters for the given protobuf message descriptor.
+    Compile field readers and scientific converters once for the selected schema.
 
     Args:
         descriptor: The protobuf message descriptor
         buffer_size: The size of the data arrays to create by the field converters
 
     Returns:
-        A dictionary mapping from field names to field converters
+        Field readers and their corresponding converters
     """
-    converters = {}
+    converters = []
 
-    for field in message.DESCRIPTOR.fields:
+    for field in message.desc().fields:
+        if fields is not None and field.name not in fields:
+            continue
         # if we have an unsupported field type we will get a ValueError, so we just skip those fields
         with contextlib.suppress(ValueError):
-            converter = _create_field_converter(cast(FieldDescriptor, field))
-            converters[field.name] = converter
+            converter = _create_field_converter(field)
+            converters.append((_field_reader(field), converter))
 
     if buffer_size > 0:
-        for converter in converters.values():
+        for _, converter in converters:
             converter.resize(buffer_size)
     return converters
 
 
-def _create_field_converter(field: FieldDescriptor) -> _FieldConverter:
+def _field_reader(field: DescField) -> Callable[[Message], ProtoFieldValue]:
+    """Use direct attributes where presence is encoded in the value itself."""
+    if isinstance(field.value, DescFieldValueSingular) and field.value.oneof is not None:
+        return lambda message: message[field] if field in message else None  # noqa: SIM401 -- Message is not a dict
+    read = attrgetter(field.local_name)
+    if isinstance(field.value, DescFieldValueMessage):
+        return read
+    if isinstance(field.value, DescFieldValueList):
+        return lambda message: read(message) or None
+    # Explicit zero-valued scalars and implicit negative zero still need a presence check.
+    return lambda message: read(message) if field in message else None
+
+
+def _create_field_converter(field: DescField) -> _FieldConverter:
     """
     Create a field converter for the given protobuf field descriptor.
 
@@ -348,7 +392,7 @@ def _create_field_converter(field: FieldDescriptor) -> _FieldConverter:
         A field converter for the given protobuf field descriptor
     """
     field_type = infer_field_type(field)
-    if field.is_repeated:
+    if isinstance(field.value, DescFieldValueList):
         return _ArrayFieldConverter(field.name, field_type)
 
     return _SimpleFieldConverter(field.name, field_type)

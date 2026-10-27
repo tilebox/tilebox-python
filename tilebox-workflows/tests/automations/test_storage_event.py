@@ -2,7 +2,7 @@ import re
 
 import pytest
 from hypothesis import given
-from tests.proto.test_pb2 import SampleArgs
+from tests.proto.test_pb import SampleArgs
 from tests.tasks_data import storage_locations
 
 from tilebox.workflows.automations import StorageEventTask

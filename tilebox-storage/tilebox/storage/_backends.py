@@ -11,7 +11,7 @@ from tilebox.storage._registry import Registry, StoreSpec
 if TYPE_CHECKING:
     from obstore.store import ObjectStore
 
-    from tilebox.datasets.datasets.stac.v1.storage_pb import StorageScheme
+    from tilebox.datasets.stac.v1.storage_pb import StorageScheme
 
 
 def register_backends(registry: Registry) -> None:

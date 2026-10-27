@@ -1,16 +1,27 @@
 from typing import TypeAlias
 from uuid import UUID
 
+from _tilebox.uuid import must_uuid_to_uuid_message
 from tilebox.workflows.clusters.client import ClusterSlugLike, to_cluster_slug
 from tilebox.workflows.data import Workflow, WorkflowRelease, WorkflowReleaseDeployment
-from tilebox.workflows.workflows.service import WorkflowService, release_id
+from tilebox.workflows.v1.workflows_connect import WorkflowsServiceClientSync
+from tilebox.workflows.v1.workflows_pb import (
+    CreateWorkflowRequest,
+    DeleteWorkflowRequest,
+    DeployWorkflowReleaseRequest,
+    GetWorkflowRequest,
+    ListWorkflowsRequest,
+    UndeployWorkflowReleaseRequest,
+    UnpublishWorkflowReleaseRequest,
+    UpdateWorkflowRequest,
+)
 
 WorkflowSlugLike: TypeAlias = Workflow | str
 WorkflowReleaseLike: TypeAlias = WorkflowRelease | UUID | str
 
 
 class WorkflowClient:
-    def __init__(self, service: WorkflowService) -> None:
+    def __init__(self, service: WorkflowsServiceClientSync) -> None:
         """Create a new workflow client.
 
         Args:
@@ -29,7 +40,9 @@ class WorkflowClient:
         Returns:
             The created workflow.
         """
-        return self._service.create(name, summary, description)
+        return Workflow.from_message(
+            self._service.create_workflow(CreateWorkflowRequest(name=name, summary=summary, description=description))
+        )
 
     def all(self) -> list[Workflow]:
         """List all available workflows.
@@ -37,7 +50,8 @@ class WorkflowClient:
         Returns:
             All available workflows.
         """
-        return self._service.list_all()
+        response = self._service.list_workflows(ListWorkflowsRequest())
+        return [Workflow.from_message(workflow) for workflow in response.workflows]
 
     def find(self, workflow_or_slug: WorkflowSlugLike) -> Workflow:
         """Find a workflow by slug.
@@ -48,7 +62,9 @@ class WorkflowClient:
         Returns:
             The workflow for the given workflow slug.
         """
-        return self._service.get_by_slug(to_workflow_slug(workflow_or_slug))
+        return Workflow.from_message(
+            self._service.get_workflow(GetWorkflowRequest(workflow_reference=to_workflow_slug(workflow_or_slug)))
+        )
 
     def update(
         self,
@@ -68,7 +84,10 @@ class WorkflowClient:
         Returns:
             The updated workflow.
         """
-        return self._service.update(to_workflow_slug(workflow_or_slug), name, summary, description)
+        request = UpdateWorkflowRequest(
+            workflow_reference=to_workflow_slug(workflow_or_slug), name=name, summary=summary, description=description
+        )
+        return Workflow.from_message(self._service.update_workflow(request))
 
     def delete(self, workflow_or_slug: WorkflowSlugLike) -> None:
         """Delete a workflow by slug.
@@ -76,7 +95,7 @@ class WorkflowClient:
         Args:
             workflow_or_slug: The workflow or slug of the workflow to delete.
         """
-        self._service.delete(to_workflow_slug(workflow_or_slug))
+        self._service.delete_workflow(DeleteWorkflowRequest(workflow_reference=to_workflow_slug(workflow_or_slug)))
 
     def unpublish_release(self, workflow_or_slug: WorkflowSlugLike, release_or_id: WorkflowReleaseLike) -> None:
         """Unpublish a workflow release.
@@ -85,7 +104,12 @@ class WorkflowClient:
             workflow_or_slug: The workflow or slug containing the release to unpublish.
             release_or_id: The workflow release or id of the release to unpublish.
         """
-        self._service.unpublish_release(to_workflow_slug(workflow_or_slug), release_id(release_or_id))
+        self._service.unpublish_workflow_release(
+            UnpublishWorkflowReleaseRequest(
+                workflow_reference=to_workflow_slug(workflow_or_slug),
+                release_id=must_uuid_to_uuid_message(release_id(release_or_id)),
+            )
+        )
 
     def deploy_release(
         self,
@@ -103,11 +127,12 @@ class WorkflowClient:
         Returns:
             The deployed release and affected clusters.
         """
-        return self._service.deploy_release(
-            to_workflow_slug(workflow_or_slug),
-            release_id(release_or_id),
-            _to_cluster_slugs(clusters),
+        request = DeployWorkflowReleaseRequest(
+            workflow_reference=to_workflow_slug(workflow_or_slug),
+            release_id=must_uuid_to_uuid_message(release_id(release_or_id)),
+            cluster_slugs=_to_cluster_slugs(clusters),
         )
+        return WorkflowReleaseDeployment.from_deploy_message(self._service.deploy_workflow_release(request))
 
     def undeploy_release(
         self,
@@ -125,15 +150,22 @@ class WorkflowClient:
         Returns:
             The undeployed release and affected clusters.
         """
-        return self._service.undeploy_release(
-            to_workflow_slug(workflow_or_slug),
-            release_id(release_or_id),
-            _to_cluster_slugs(clusters),
+        request = UndeployWorkflowReleaseRequest(
+            workflow_reference=to_workflow_slug(workflow_or_slug),
+            release_id=must_uuid_to_uuid_message(release_id(release_or_id)),
+            cluster_slugs=_to_cluster_slugs(clusters),
         )
+        return WorkflowReleaseDeployment.from_undeploy_message(self._service.undeploy_workflow_release(request))
 
 
 def to_workflow_slug(workflow: WorkflowSlugLike) -> str:
     return workflow.slug if isinstance(workflow, Workflow) else workflow
+
+
+def release_id(release_or_id: WorkflowReleaseLike) -> UUID:
+    if isinstance(release_or_id, WorkflowRelease):
+        return release_or_id.id
+    return UUID(release_or_id) if isinstance(release_or_id, str) else release_or_id
 
 
 def _to_cluster_slugs(clusters: ClusterSlugLike | list[ClusterSlugLike] | None) -> list[str]:

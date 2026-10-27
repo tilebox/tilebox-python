@@ -13,8 +13,8 @@ if TYPE_CHECKING:
     from obstore.store import ObjectStore, S3CredentialProvider
 
     from tilebox.datasets.assets.assets import AssetLocation
-    from tilebox.datasets.datasets.stac.v1.authentication_pb import AuthenticationScheme, SignedURLFlow
-    from tilebox.datasets.datasets.stac.v1.storage_pb import StorageScheme
+    from tilebox.datasets.stac.v1.authentication_pb import AuthenticationScheme, SignedURLFlow
+    from tilebox.datasets.stac.v1.storage_pb import StorageScheme
 
 
 @dataclass(frozen=True, slots=True)

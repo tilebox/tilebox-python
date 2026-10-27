@@ -1,11 +1,12 @@
 from typing import Any, TypeAlias
 from uuid import UUID
 
-from _tilebox.grpc.pagination import Pagination as PaginationProtocol
-from _tilebox.grpc.pagination import paginated_request
-from tilebox.datasets.query.id_interval import IDInterval, IDIntervalLike
-from tilebox.datasets.query.pagination import Pagination
-from tilebox.datasets.query.time_interval import TimeInterval, TimeIntervalLike
+from _tilebox.pagination import Pagination as PaginationProtocol
+from _tilebox.pagination import paginated_request
+from _tilebox.uuid import uuid_to_uuid_message
+from tilebox.query.id_interval import IDInterval, IDIntervalLike
+from tilebox.query.pagination import Pagination
+from tilebox.query.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.workflows.clusters.client import ClusterSlugLike, to_cluster_slug
 from tilebox.workflows.data import (
     Job,
@@ -20,11 +21,23 @@ from tilebox.workflows.data import (
     Spans,
     TaskState,
 )
-from tilebox.workflows.jobs.service import JobService
-from tilebox.workflows.jobs.telemetry_service import TelemetryService
+from tilebox.workflows.formatting.job import JobWidget, RichDisplayJob
 from tilebox.workflows.observability.tracing import WorkflowTracer, get_trace_parent_of_current_span, start_job_span
 from tilebox.workflows.task import FutureTask, merge_future_tasks_to_submissions
 from tilebox.workflows.task import Task as TaskInstance
+from tilebox.workflows.v1.core_pb import Job as JobMessage
+from tilebox.workflows.v1.diagram_pb import RenderOptions
+from tilebox.workflows.v1.job_connect import JobServiceClientSync
+from tilebox.workflows.v1.job_pb import (
+    CancelJobRequest,
+    GetJobRequest,
+    QueryJobsRequest,
+    RetryJobRequest,
+    SubmitJobRequest,
+    VisualizeJobRequest,
+)
+from tilebox.workflows.v1.telemetry_connect import TelemetryQueryServiceClientSync
+from tilebox.workflows.v1.telemetry_pb import LogQueryFilters, QueryJobLogsRequest, QueryJobSpansRequest
 
 try:
     from IPython.display import HTML, display
@@ -41,13 +54,15 @@ JobIDLike: TypeAlias = Job | UUID | str
 
 
 class JobClient:
-    def __init__(self, service: JobService, telemetry_service: TelemetryService, tracer: WorkflowTracer) -> None:
+    def __init__(
+        self, service: JobServiceClientSync, telemetry_service: TelemetryQueryServiceClientSync, tracer: WorkflowTracer
+    ) -> None:
         """Create a new job client.
-        z
-                Args:
-                    service: The service to use for job operations.
-                    telemetry_service: The service to use for job telemetry queries.
-                    tracer: The tracer to use for tracing.
+
+        Args:
+            service: The native client to use for job operations.
+            telemetry_service: The native client to use for job telemetry queries.
+            tracer: The tracer to use for tracing.
         """
         self._service = service
         self._telemetry_service = telemetry_service
@@ -96,7 +111,10 @@ class JobClient:
 
         with self._tracer.span(f"job/{job_name}"):
             trace_parent = get_trace_parent_of_current_span()
-            return self._service.submit(job_name, trace_parent, submissions_merged)
+            request = SubmitJobRequest(
+                job_name=job_name, trace_parent=trace_parent, tasks=submissions_merged.to_message()
+            )
+            return self._job_from_message(self._service.submit_job(request))
 
     def retry(self, job_or_id: JobIDLike) -> int:
         """Retry a job.
@@ -111,7 +129,9 @@ class JobClient:
         job = self.find(_to_uuid(job_or_id)) if not isinstance(job_or_id, Job) else job_or_id
 
         with start_job_span(self._tracer, job, "retry_job") as span:
-            num_rescheduled = self._service.retry(job.id)
+            num_rescheduled = self._service.retry_job(
+                RetryJobRequest(job_id=uuid_to_uuid_message(job.id))
+            ).num_tasks_rescheduled
             span.add_event("retried_succeeded", {"num_tasks_rescheduled": num_rescheduled})
             return num_rescheduled
 
@@ -125,7 +145,7 @@ class JobClient:
         job = self.find(_to_uuid(job_or_id)) if not isinstance(job_or_id, Job) else job_or_id
 
         with start_job_span(self._tracer, job, "cancel_job") as cancel_job:
-            self._service.cancel(job.id)
+            self._service.cancel_job(CancelJobRequest(job_id=uuid_to_uuid_message(job.id)))
             cancel_job.add_event("cancel_succeeded")
 
     def find(self, job_id: JobIDLike) -> Job:
@@ -138,7 +158,13 @@ class JobClient:
         Returns:
             The job details for the given job_id.
         """
-        return self._service.get_by_id(_to_uuid(job_id))
+        return self._job_from_message(
+            self._service.get_job(GetJobRequest(job_id=uuid_to_uuid_message(_to_uuid(job_id))))
+        )
+
+    def _job_from_message(self, message: JobMessage) -> RichDisplayJob:
+        """Attach notebook formatting and refresh through this client's find operation."""
+        return RichDisplayJob.from_message(message, _widget=JobWidget(self.find))
 
     def query_logs(
         self,
@@ -169,7 +195,15 @@ class JobClient:
 
         def request(page: PaginationProtocol) -> QueryJobLogsResponse:
             query_page = Pagination(page.limit, page.starting_after)
-            return self._telemetry_service.query_job_logs(_to_uuid(job_id), query_page, task_uuid, severity_levels)
+            request = QueryJobLogsRequest(
+                job_id=uuid_to_uuid_message(_to_uuid(job_id)),
+                page=query_page.to_message(),
+                task_id=uuid_to_uuid_message(task_uuid) if task_uuid is not None else None,
+                filters=LogQueryFilters(severity_levels=[severity.value for severity in severity_levels])
+                if severity_levels
+                else None,
+            )
+            return QueryJobLogsResponse.from_message(self._telemetry_service.query_job_logs(request))
 
         pages = paginated_request(request, Pagination())
 
@@ -193,7 +227,12 @@ class JobClient:
 
         def request(page: PaginationProtocol) -> QueryJobSpansResponse:
             query_page = Pagination(page.limit, page.starting_after)
-            return self._telemetry_service.query_job_spans(_to_uuid(job_id), query_page, task_uuid)
+            request = QueryJobSpansRequest(
+                job_id=uuid_to_uuid_message(_to_uuid(job_id)),
+                page=query_page.to_message(),
+                task_id=uuid_to_uuid_message(task_uuid) if task_uuid is not None else None,
+            )
+            return QueryJobSpansResponse.from_message(self._telemetry_service.query_job_spans(request))
 
         pages = paginated_request(request, Pagination())
 
@@ -229,7 +268,11 @@ class JobClient:
         Returns:
             Rendered SVG of the diagram.
         """
-        return self._service.visualize(_to_uuid(job), direction, layout, sketchy)
+        request = VisualizeJobRequest(
+            job_id=uuid_to_uuid_message(_to_uuid(job)),
+            render_options=RenderOptions(sketchy=sketchy, padding=5, layout=layout, direction=direction),
+        )
+        return self._service.visualize_job(request).svg.decode("utf-8")
 
     def query(  # noqa: C901, PLR0913, PLR0917
         self,
@@ -327,7 +370,8 @@ class JobClient:
 
         def request(page: PaginationProtocol) -> QueryJobsResponse:
             query_page = Pagination(page.limit, page.starting_after)
-            return self._service.query(filters, query_page)
+            request = QueryJobsRequest(filters=filters.to_message(), page=query_page.to_message())
+            return QueryJobsResponse.from_message(self._service.query_jobs(request), job_factory=self._job_from_message)
 
         initial_page = Pagination()
         pages = paginated_request(request, initial_page)

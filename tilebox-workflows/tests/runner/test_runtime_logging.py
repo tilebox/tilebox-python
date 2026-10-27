@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import subprocess
@@ -9,14 +10,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter, SimpleLogRecordProcessor
+from protobuf import Oneof
+from tests.log_values import string_value
 
 from tilebox.workflows import Client, Runner
+from tilebox.workflows._otel.opentelemetry.proto.common.v1.common_pb import AnyValue
 from tilebox.workflows.observability import logging as observability
 from tilebox.workflows.observability._log_stream import _LogQueue, _OTLPQueueHandler
 from tilebox.workflows.observability._logging import internal_logger, logger, root_logger, task_logger
 from tilebox.workflows.observability.logging import _configure_runtime_logging, configure_console_logging
 from tilebox.workflows.runner.worker_service import WorkerServiceServicer
-from tilebox.workflows.workflows.v1 import worker_pb2
+from tilebox.workflows.v1 import worker_pb
 
 
 @pytest.fixture(autouse=True)
@@ -32,17 +36,17 @@ def isolated_handlers(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCapture
 
 def test_worker_initialization_fallback_is_idempotent() -> None:
     exporter = InMemoryLogRecordExporter()
-    request = worker_pb2.InitializeRunnerRequest(
-        api_connection=worker_pb2.TileboxAPIConnection(url="https://legacy.example", token="legacy-key")  # noqa: S106
+    request = worker_pb.InitializeRunnerRequest(
+        api_connection=worker_pb.TileboxAPIConnection(url="https://legacy.example", token="legacy-key")  # noqa: S106
     )
     with (
-        patch("tilebox.workflows.client.open_channel"),
+        patch("tilebox.workflows.client.Connection"),
         patch("tilebox.workflows.client.WorkflowTracer"),
         patch.object(observability, "_otel_log_exporter", return_value=SimpleLogRecordProcessor(exporter)) as factory,
     ):
         for _ in range(2):
             service = WorkerServiceServicer(Runner(tasks=[]), lambda: None)
-            service.InitializeWorker(request, MagicMock())
+            asyncio.run(service.initialize_worker(request, MagicMock()))
     factory.assert_called_once_with(endpoint="https://legacy.example", headers={"Authorization": "Bearer legacy-key"})
     logger.error("legacy-runtime")
     assert [item.log_record.body for item in exporter.get_finished_logs()] == ["legacy-runtime"]
@@ -51,7 +55,7 @@ def test_worker_initialization_fallback_is_idempotent() -> None:
 def test_direct_runner_initializes_on_connect_not_client_creation(capsys: pytest.CaptureFixture[str]) -> None:
     exporter = InMemoryLogRecordExporter()
     with (
-        patch("tilebox.workflows.client.open_channel"),
+        patch("tilebox.workflows.client.Connection"),
         patch("tilebox.workflows.client.WorkflowTracer"),
         patch("tilebox.workflows.client.TaskRunner"),
         patch("tilebox.workflows.client._LeaseRenewer"),
@@ -185,8 +189,9 @@ def test_console_opt_out_persists(before_startup: bool, capsys: pytest.CaptureFi
     assert output.getvalue().count("enabled again") == 1
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(("debug", "level"), [("false", "debug"), ("true", "error")])
-def test_independent_stream_levels(caplog: pytest.LogCaptureFixture, debug: str, level: str) -> None:
+async def test_independent_stream_levels(caplog: pytest.LogCaptureFixture, debug: str, level: str) -> None:
     caplog.set_level(level.upper(), logger=task_logger.name)
     caplog.set_level(logging.DEBUG if debug == "true" else logging.ERROR, logger=internal_logger.name)
     records = _LogQueue()
@@ -197,23 +202,25 @@ def test_independent_stream_levels(caplog: pytest.LogCaptureFixture, debug: str,
         logger.log(severity, f"internal-{severity}", task_id="preserved")
         workflow.log(severity, f"workflow-{severity}")
     records.seal()
-    exported = list(records.subscribe())
+    exported = [record async for record in records.subscribe_async()]
     expected_internal = (
         {"internal-10", "internal-20", "internal-30", "internal-40"} if debug == "true" else {"internal-40"}
     )
     expected_workflow = (
         {"workflow-10", "workflow-20", "workflow-30", "workflow-40"} if level == "debug" else {"workflow-40"}
     )
-    assert {record.body.string_value for record in exported} == expected_internal | expected_workflow
+    assert {string_value(record.body) for record in exported} == expected_internal | expected_workflow
     assert len(exported) == len(expected_internal | expected_workflow)
-    internal = [record for record in exported if record.body.string_value.startswith("internal-")]
+    internal = [record for record in exported if string_value(record.body).startswith("internal-")]
     assert all(
-        {item.key: item.value.string_value for item in record.attributes}["task_id"] == "preserved"
+        {item.key: item.value for item in record.attributes}["task_id"]
+        == AnyValue(value=Oneof("string_value", "preserved"))
         for record in internal
     )
 
 
-def test_structured_stream_preserves_threaded_records(caplog: pytest.LogCaptureFixture) -> None:
+@pytest.mark.asyncio
+async def test_structured_stream_preserves_threaded_records(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.WARNING, logger=task_logger.name)
     records = _LogQueue()
     root_logger.addHandler(_OTLPQueueHandler(records))
@@ -235,16 +242,16 @@ def test_structured_stream_preserves_threaded_records(caplog: pytest.LogCaptureF
         local_logger.exception("failed", extra={"tilebox_structured_log_attributes": {"task": 1}})
 
     records.seal()
-    exported = list(records.subscribe())
-    assert {record.body.string_value for record in exported} == {
+    exported = [record async for record in records.subscribe_async()]
+    assert {string_value(record.body) for record in exported} == {
         *(f"message-{index}" for index in range(20)),
         "failed",
     }
-    failure = next(record for record in exported if record.body.string_value == "failed")
+    failure = next(record for record in exported if string_value(record.body) == "failed")
     assert failure.severity_text == "ERROR"
     attributes = {item.key: item.value for item in failure.attributes}
-    assert "ValueError: first line\nsecond line" in attributes["exception.stacktrace"].string_value
-    assert attributes["task"].int_value == 1
+    assert "ValueError: first line\nsecond line" in string_value(attributes["exception.stacktrace"])
+    assert attributes["task"] == AnyValue(value=Oneof("int_value", 1))
 
 
 @pytest.mark.parametrize("level", ["info", "error"])
@@ -263,6 +270,7 @@ def test_bootstrap_before_import(tmp_path: Path, level: str) -> None:
             sys.executable,
             "-c",
             """
+import asyncio
 from unittest.mock import MagicMock, patch
 from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter
 exporter = InMemoryLogRecordExporter()
@@ -288,7 +296,9 @@ with patch('opentelemetry.exporter.otlp.proto.http._log_exporter.OTLPLogExporter
         ['import-info', 'import-error'] if task_logger.level == 20 else ['import-error']
     )
     managed_log_queue.seal()
-    assert [record.body.string_value for record in managed_log_queue.subscribe()] == (
+    async def drain():
+        return [record.body.value.value async for record in managed_log_queue.subscribe_async()]
+    assert asyncio.run(drain()) == (
         ['import-info', 'import-error'] if task_logger.level == 20 else ['import-error']
     )
 """,

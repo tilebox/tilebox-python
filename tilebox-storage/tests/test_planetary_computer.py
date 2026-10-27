@@ -18,14 +18,14 @@ from obstore.store import AzureStore, HTTPStore
 from protobuf.wkt import Struct, Value
 
 from tilebox.datasets.assets.assets import Asset, AssetLocation
-from tilebox.datasets.datasets.stac.v1.authentication_pb import (
+from tilebox.datasets.stac.v1.authentication_pb import (
     AuthenticationFlow,
     AuthenticationParameter,
     AuthenticationScheme,
     KnownAuthenticationType,
     SignedURLFlow,
 )
-from tilebox.datasets.datasets.stac.v1.storage_pb import KnownStorageType, StorageScheme
+from tilebox.datasets.stac.v1.storage_pb import KnownStorageType, StorageScheme
 from tilebox.storage.aio import Client
 
 

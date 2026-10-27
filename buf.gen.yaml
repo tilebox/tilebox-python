@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://www.schemastore.org/buf.gen.json
+version: v2
+plugins:
+  - local: [uv, tool, run, --from, protoc-gen-py==0.6.0, --with, protobuf-py==0.6.0, protoc-gen-py]
+    out: .
+    opt:
+      - init_files=false
+      - map_imports=datasets/**:tilebox
+      - map_imports=workflows/**:tilebox
+      - map_imports=tilebox/**:_tilebox.proto
+      - map_imports=opentelemetry/**:tilebox.workflows._otel
+  - local: [uv, tool, run, --from, protoc-gen-connectrpc==0.12.1, --with, protobuf-py==0.6.0, protoc-gen-connectrpc]
+    out: .
+    opt:
+      - map_imports=datasets/**:tilebox
+      - map_imports=workflows/**:tilebox
+      - map_imports=tilebox/**:_tilebox.proto
+      - map_imports=opentelemetry/**:tilebox.workflows._otel
+inputs:
+  # For local schema development, replace module with directory: ../api.
+  - module: buf.build/tilebox/api
+    paths: [datasets, tilebox, workflows]
+    # Server-side annotations are not needed by the SDK.
+    exclude_types: ["buf.validate.**", "google.api.**"]
+  - module: buf.build/opentelemetry/opentelemetry:5f2c7d4f740541589805e0816dad4bb0
+    paths:
+      - opentelemetry/proto/common/v1/common.proto
+      - opentelemetry/proto/resource/v1/resource.proto
+      - opentelemetry/proto/logs/v1/logs.proto
+      - opentelemetry/proto/trace/v1/trace.proto

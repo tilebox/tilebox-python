@@ -1,15 +1,16 @@
 from dataclasses import replace
 from datetime import UTC, datetime
+from unittest.mock import MagicMock
 from uuid import UUID
 
 import pytest
-from google.protobuf.empty_pb2 import Empty
+from protobuf.wkt.google.protobuf.empty_pb import Empty
 
-from _tilebox.grpc.error import NotFoundError
+from _tilebox.errors import NotFoundError
+from _tilebox.proto.tilebox.v1.id_pb import ID
+from _tilebox.proto.tilebox.v1.query_pb import Pagination as PaginationMessage
 from tilebox.datasets.query.pagination import Pagination
 from tilebox.datasets.query.time_interval import datetime_to_timestamp
-from tilebox.datasets.tilebox.v1.id_pb2 import ID
-from tilebox.datasets.tilebox.v1.query_pb2 import Pagination as PaginationMessage
 from tilebox.datasets.uuid import uuid_message_to_uuid, uuid_to_uuid_message
 from tilebox.workflows.data import (
     AWSS3BucketReference,
@@ -29,8 +30,8 @@ from tilebox.workflows.storage_locations.data import (
     StorageSubscriptionEvent,
     TriggeredJob,
 )
-from tilebox.workflows.storage_locations.service import StorageLocationService
-from tilebox.workflows.workflows.v1 import storage_location_pb2 as storage_pb
+from tilebox.workflows.v1 import storage_location_pb as storage_pb
+from tilebox.workflows.v1.storage_location_connect import StorageLocationServiceClientSync
 
 _ID = UUID(int=1)
 _OTHER_ID = UUID(int=2)
@@ -42,7 +43,7 @@ class MockStorageLocationService:
         self.locations: dict[UUID, storage_pb.StorageLocation] = {}
         self.events: dict[UUID, list[storage_pb.StorageSubscriptionEvent]] = {}
 
-    def CreateStorageLocation(self, request: storage_pb.CreateStorageLocationRequest) -> storage_pb.StorageLocation:  # noqa: N802
+    def create_storage_location(self, request: storage_pb.CreateStorageLocationRequest) -> storage_pb.StorageLocation:
         location_id = UUID(int=len(self.locations) + 1)
         location = storage_pb.StorageLocation(
             id=uuid_to_uuid_message(location_id), name=request.name, reference=request.reference
@@ -50,28 +51,30 @@ class MockStorageLocationService:
         self.locations[location_id] = location
         return location
 
-    def GetStorageLocation(self, request: ID) -> storage_pb.StorageLocation:  # noqa: N802
+    def get_storage_location(self, request: ID) -> storage_pb.StorageLocation:
         try:
             return self.locations[uuid_message_to_uuid(request)]
         except KeyError:
             raise NotFoundError("Unknown storage location") from None
 
-    def ListStorageLocations(self, request: Empty) -> storage_pb.StorageLocations:  # noqa: N802, ARG002
-        return storage_pb.StorageLocations(locations=self.locations.values())
+    def list_storage_locations(self, request: Empty) -> storage_pb.StorageLocations:  # noqa: ARG002
+        return storage_pb.StorageLocations(locations=list(self.locations.values()))
 
-    def UpdateStorageLocation(self, request: storage_pb.UpdateStorageLocationRequest) -> storage_pb.StorageLocation:  # noqa: N802
-        location = self.GetStorageLocation(request.storage_location_id)
+    def update_storage_location(self, request: storage_pb.UpdateStorageLocationRequest) -> storage_pb.StorageLocation:
+        assert request.storage_location_id is not None
+        location = self.get_storage_location(request.storage_location_id)
         location.name = request.name
         return location
 
-    def ListStorageSubscriptionEvents(  # noqa: N802
+    def list_storage_subscription_events(
         self, request: storage_pb.ListStorageSubscriptionEventsRequest
     ) -> storage_pb.StorageSubscriptionEvents:
         events = self.events.get(uuid_message_to_uuid(request.storage_location_id), [])
-        if request.page.HasField("starting_after"):
-            index = next(i for i, event in enumerate(events) if event.id == request.page.starting_after) + 1
+        page = request.page or PaginationMessage()
+        if page.has_field("starting_after"):
+            index = next(i for i, event in enumerate(events) if event.id == page.starting_after) + 1
             events = events[index:]
-        limit = request.page.limit or len(events)
+        limit = page.limit or len(events)
         return storage_pb.StorageSubscriptionEvents(
             events=events[:limit],
             next_page=PaginationMessage(limit=limit, starting_after=events[limit - 1].id)
@@ -117,7 +120,7 @@ class MockStorageLocationService:
 def test_storage_location_operations(
     reference: StorageLocationReference, expected: StorageLocation, expected_string: str
 ) -> None:
-    client = StorageLocationClient(StorageLocationService(MockStorageLocationService()))
+    client = StorageLocationClient(MagicMock(spec=StorageLocationServiceClientSync, wraps=MockStorageLocationService()))
     assert client.all() == []
     created = client.create("Source", reference)
     other = client.create("Other", LocalReference("/data/other"))
@@ -125,10 +128,10 @@ def test_storage_location_operations(
     assert str(created) == expected_string
     message = created.to_message()
     assert message.location == ""
-    assert message.type == storage_pb.STORAGE_TYPE_UNSPECIFIED
+    assert message.type == storage_pb.StorageType.UNSPECIFIED
     assert StorageLocation.from_message(message) == expected
     message.location = "ignored-legacy-location"
-    message.type = storage_pb.STORAGE_TYPE_LOCAL if expected.type != StorageType.LOCAL else storage_pb.STORAGE_TYPE_GCS
+    message.type = storage_pb.StorageType.LOCAL if expected.type != StorageType.LOCAL else storage_pb.StorageType.GCS
     assert StorageLocation.from_message(message) == expected
     assert client.all() == [expected, other]
     for identifier in (created, created.id, str(created.id)):
@@ -142,7 +145,7 @@ def test_storage_location_operations(
 
 def test_storage_location_requires_reference() -> None:
     message = storage_pb.StorageLocation(
-        id=uuid_to_uuid_message(_ID), location="legacy-bucket", type=storage_pb.STORAGE_TYPE_AWS_S3
+        id=uuid_to_uuid_message(_ID), location="legacy-bucket", type=storage_pb.StorageType.AWS_S3
     )
     with pytest.raises(ValueError, match="Unsupported storage reference type"):
         StorageLocation.from_message(message)
@@ -150,14 +153,14 @@ def test_storage_location_requires_reference() -> None:
 
 def test_storage_event_service_returns_one_page_and_cursor() -> None:
     service = MockStorageLocationService()
-    storage_service = StorageLocationService(service)
+    storage_service = StorageLocationClient(MagicMock(spec=StorageLocationServiceClientSync, wraps=service))
     event_time = datetime(2026, 10, 7, 12, 34, 56, 123456, tzinfo=UTC)
     received_at = datetime(2026, 10, 8, 1, 2, 3, 654321, tzinfo=UTC)
     service.events[_ID] = [
         storage_pb.StorageSubscriptionEvent(
             id=uuid_to_uuid_message(UUID(int=10)),
             object_key="nested/first.txt",
-            type=storage_pb.STORAGE_EVENT_TYPE_CREATED,
+            type=storage_pb.StorageEventType.CREATED,
             event_time=datetime_to_timestamp(event_time),
             received_at=datetime_to_timestamp(received_at),
             storage_subscription_id=uuid_to_uuid_message(UUID(int=20)),
@@ -172,7 +175,7 @@ def test_storage_event_service_returns_one_page_and_cursor() -> None:
         storage_pb.StorageSubscriptionEvent(
             id=uuid_to_uuid_message(UUID(int=11)),
             object_key="second.bin",
-            type=storage_pb.STORAGE_EVENT_TYPE_CREATED,
+            type=storage_pb.StorageEventType.CREATED,
             event_time=datetime_to_timestamp(received_at),
             received_at=datetime_to_timestamp(received_at),
             storage_subscription_id=uuid_to_uuid_message(UUID(int=21)),
