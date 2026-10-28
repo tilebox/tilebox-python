@@ -29,7 +29,8 @@ dependencies = [
     "pandas>=2.2.2",
     "shapely>=2.0.6",
     "promise>=2.3",
-    "protobuf-py>=0.2.0",  # supports integer values in floating-point fields
+    # Keep the minimum version and the generator version in ../buf.gen.datasets-bufpy.yaml matching.
+    "protobuf-py>=0.7.0,<0.8",  # minor releases can break generated-code compatibility
 ]
 
 [dependency-groups]

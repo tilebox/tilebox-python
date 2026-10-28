@@ -1,7 +1,8 @@
 # yaml-language-server: $schema=https://www.schemastore.org/buf.gen.json
 version: v2
 plugins:
-  - remote: buf.build/bufbuild/py:v0.2.0
+  # Keep the generator version and the protobuf-py minimum version in tilebox-datasets/pyproject.toml matching.
+  - remote: buf.build/bufbuild/py:v0.7.0
     out: tilebox-datasets/tilebox/datasets
     opt: init_files=false
 inputs:

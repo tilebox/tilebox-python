@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.67.0] - 2026-10-28
+
+### Changed
+
+- `tilebox-datasets`: Require `protobuf-py>=0.7.0,<0.8` and update the protobuf-py code generator to 0.7.0. Introduced
+  an upper version constraint to guard against breaking `protobuf-py` releases in the future.
+
+### Fixed
+
+- `tilebox-datasets`: Fix client imports failing with protobuf-py 0.7.0 by regenerating STAC messages
+  with fully qualified well-known-type imports. The message schemas are unchanged.
+
 ## [0.66.0] - 2026-10-14
 
 ### Added
@@ -650,7 +662,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.65.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.67.0...HEAD
+[0.67.0]: https://github.com/tilebox/tilebox-python/compare/v0.66.0...v0.67.0
 [0.65.0]: https://github.com/tilebox/tilebox-python/compare/v0.64.0...v0.65.0
 [0.64.0]: https://github.com/tilebox/tilebox-python/compare/v0.63.2...v0.64.0
 [0.63.2]: https://github.com/tilebox/tilebox-python/compare/v0.63.1...v0.63.2
