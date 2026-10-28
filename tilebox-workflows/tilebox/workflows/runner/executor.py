@@ -4,7 +4,7 @@ import asyncio
 import inspect
 import json
 import logging
-from collections.abc import Awaitable, Callable, Iterator, MutableMapping, Sequence
+from collections.abc import Awaitable, Callable, Generator, Iterator, MutableMapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, contextmanager
 from contextvars import copy_context
@@ -312,5 +312,5 @@ async def _await_execute(result: Awaitable[None]) -> None:
 
 
 @contextmanager
-def _noop_context_manager(task: Task, context: ExecutionContext) -> Iterator[None]:  # noqa: ARG001
+def _noop_context_manager(task: Task, context: ExecutionContext) -> Generator[None, None, None]:  # noqa: ARG001
     yield
