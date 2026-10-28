@@ -1,3 +1,4 @@
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
@@ -13,7 +14,7 @@ from tilebox.datasets.v1 import data_access_pb
 if TYPE_CHECKING:
     import numpy as np
 
-    _QueryScalar: TypeAlias = bool | int | float | str | bytes | datetime | timedelta | Enum | np.generic
+    _QueryScalar: TypeAlias = bool | int | float | str | bytes | datetime | timedelta | np.generic
 else:
     _QueryScalar: TypeAlias = object
 
@@ -51,9 +52,9 @@ class Expression:
         raise NotImplementedError
 
     @classmethod
-    def from_message(cls, message: data_access_pb.FilterExpression) -> "Expression":
+    def from_message(cls, message: data_access_pb.FilterExpression) -> "Expression":  # noqa: C901
         """Construct an expression from its protobuf representation."""
-        variants = [name for name in ("logical", "comparison", "is_null") if message.has_field(name)]
+        variants = [name for name in ("logical", "comparison", "is_null", "array_predicate") if message.has_field(name)]
         if len(variants) != 1:
             raise ValueError("A filter expression must contain exactly one expression node")
 
@@ -75,6 +76,10 @@ class Expression:
         if variant == "is_null":
             assert message.is_null is not None
             return _NullCheck(message.is_null.field_name)
+        if variant == "array_predicate":
+            predicate = message.array_predicate
+            assert predicate is not None
+            return _ArrayPredicate(predicate.field_name, predicate.operator, tuple(predicate.values))
 
         logical = message.logical
         assert logical is not None
@@ -125,6 +130,23 @@ class Field:
         """Match datapoints where this field is present and non-null."""
         return ~self.is_null()
 
+    def contains(self, value: str) -> Expression:
+        """Match a queryable repeated enum containing this public value."""
+        return self.contains_all([value])
+
+    def contains_all(self, values: Iterable[str]) -> Expression:
+        """Match a queryable repeated enum containing every value; an empty request matches all rows."""
+        return self._array_predicate(data_access_pb.FieldArrayOperator.CONTAINS_ALL, values)
+
+    def contains_any(self, values: Iterable[str]) -> Expression:
+        """Match a queryable repeated enum containing any value; an empty request matches no rows."""
+        return self._array_predicate(data_access_pb.FieldArrayOperator.OVERLAPS, values)
+
+    def _array_predicate(self, operator: data_access_pb.FieldArrayOperator, values: Iterable[str]) -> Expression:
+        if isinstance(values, str | bytes | Mapping) or not isinstance(values, Iterable):
+            raise TypeError("Array predicates require an iterable of public strings, not a single string or mapping")
+        return _ArrayPredicate(self.name, operator, tuple(values))
+
     def _comparison(self, operator: data_access_pb.FieldComparisonOperator, value: object) -> Expression:
         query_value = _QueryValue.parse(value)
         _validate_comparison(operator, query_value)
@@ -146,7 +168,7 @@ class _QueryValue:
         import numpy as np  # noqa: PLC0415
 
         if isinstance(value, Enum):
-            return cls("enum_name", value.name)
+            raise TypeError("Enum query values must be public strings; use the member's string .value")
         if isinstance(value, bool | np.bool_):
             return cls("bool_value", bool(value))
         if isinstance(value, np.datetime64):
@@ -240,6 +262,36 @@ class _Comparison(Expression):
 
 
 @dataclass(frozen=True, slots=True)
+class _ArrayPredicate(Expression):
+    field_name: str
+    operator: data_access_pb.FieldArrayOperator
+    values: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.operator not in {
+            data_access_pb.FieldArrayOperator.CONTAINS_ALL,
+            data_access_pb.FieldArrayOperator.OVERLAPS,
+        }:
+            raise ValueError(f"Unknown array predicate operator: {self.operator}")
+        if len(self.values) > 100:
+            raise ValueError("Array predicates accept at most 100 values")
+        for value in self.values:
+            if not isinstance(value, str) or isinstance(value, Enum):
+                raise TypeError("Array predicate values must be public strings")
+            if not value:
+                raise ValueError("Array predicate values must be nonempty strings")
+
+    def to_message(self) -> data_access_pb.FilterExpression:
+        return data_access_pb.FilterExpression(
+            array_predicate=data_access_pb.FieldArrayPredicate(
+                field_name=self.field_name,
+                operator=self.operator,
+                values=list(self.values),
+            )
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class _NullCheck(Expression):
     field_name: str
 
@@ -325,6 +377,5 @@ _QUERY_VALUE_KINDS = (
     "string_value",
     "timestamp_value",
     "duration_value",
-    "enum_name",
     "bytes_value",
 )

@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from dataclasses import replace
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -128,6 +128,35 @@ def test_message_types_can_define_dataset_fields(message_type: type, message_nam
     assert repeated.descriptor.label == FieldDescriptorProto.Label.REPEATED
 
 
+@pytest.mark.parametrize(
+    "definition",
+    [
+        {"type": "enum"},
+        {"type": "enum", "enum_values": []},
+        {"type": "enum", "enum_values": [""]},
+        {"type": "enum", "enum_values": ["L1", "L1"]},
+        {"type": "enum", "enum_values": [1]},
+        {"type": "enum", "enum_values": "L1"},
+        {"type": "enum", "enum_values": [str(i) for i in range(101)]},
+        {"type": str, "repeated": True},
+        {"type": str, "enum_values": []},
+    ],
+)
+def test_invalid_enum_definitions(definition: dict[str, Any]) -> None:
+    with pytest.raises(ValueError, match="Field 'level'"):
+        Field.from_dict(cast(FieldDict, {"name": "level", **definition}))
+
+
+@pytest.mark.parametrize("repeated", [False, True])
+def test_enum_vocabulary_limit(repeated: bool) -> None:
+    values = [str(i) for i in range(100)]
+    definition: FieldDict = {"name": "level", "type": "enum", "enum_values": values, "repeated": repeated}
+    assert Field.from_dict(definition).annotation.enum_values == values
+    values.append("100")
+    with pytest.raises(ValueError, match="at most 100"):
+        Field.from_dict(definition)
+
+
 @given(fields())
 def test_fields_to_message_and_back(field: Field) -> None:
     assert Field.from_message(field.to_message()) == field
@@ -159,7 +188,8 @@ def test_list_datasets_responses_to_message_and_back(response: ListDatasetsRespo
 
 
 @pytest.mark.parametrize("operation", ["create", "update"])
-def test_create_and_update_dataset_include_field_annotations(operation: str) -> None:
+@pytest.mark.parametrize("repeated", [False, True])
+def test_create_and_update_dataset_include_field_annotations(operation: str, repeated: bool) -> None:
     """Public dataset writes send required and custom field annotations to native clients."""
     dataset_service = MagicMock()
     if operation == "create":
@@ -172,7 +202,14 @@ def test_create_and_update_dataset_include_field_annotations(operation: str) -> 
             "queryable": True,
             "json_schema_ref": "https://example.com/schema.json#/title",
             "roles": [FieldRole.PRIMARY_TITLE],
-        }
+        },
+        {
+            "name": "level",
+            "type": "enum",
+            "enum_values": ["L1", "L2-SP", "雪"],
+            "queryable": True,
+            "repeated": repeated,
+        },
     ]
 
     with (
@@ -195,9 +232,20 @@ def test_create_and_update_dataset_include_field_annotations(operation: str) -> 
     assert annotations["geometry"].source_json_pointer == "/geometry"
     assert annotations["geometry"].json_schema_ref == "https://geojson.org/schema/Geometry.json"
     assert all(
-        not annotation.queryable and not annotation.roles for name, annotation in annotations.items() if name != "title"
+        not annotation.queryable and not annotation.roles
+        for name, annotation in annotations.items()
+        if name not in {"title", "level"}
     )
     assert annotations["title"].source_json_pointer == "/properties/title"
     assert annotations["title"].queryable
     assert annotations["title"].json_schema_ref == "https://example.com/schema.json#/title"
     assert list(annotations["title"].roles) == [FieldRole.PRIMARY_TITLE.value]
+    enum_field = request.type.fields[-1]
+    assert enum_field.descriptor.type == FieldDescriptorProto.Type.ENUM
+    assert enum_field.descriptor.label == (
+        FieldDescriptorProto.Label.REPEATED if repeated else FieldDescriptorProto.Label.OPTIONAL
+    )
+    assert not enum_field.descriptor.type_name
+    assert enum_field.annotation.queryable
+    assert [entry.value for entry in enum_field.annotation.enum_values] == ["L1", "L2-SP", "雪"]
+    assert all(field.descriptor.options is None for field in request.type.fields)
