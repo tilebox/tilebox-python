@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `tilebox-datasets`: Require `protobuf-py>=0.7.0,<0.8` and update the protobuf-py code generator to 0.7.0. Introduced
   an upper version constraint to guard against breaking `protobuf-py` releases in the future.
+- `tilebox-workflows`: Remove Google SDK Bucket support from `GoogleStorageCache`. Pass a bucket name instead;
+  all storage operations use obstore with Google Auth credentials. Remove the `google-cloud-storage` test dependency.
 
 ### Fixed
 
