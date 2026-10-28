@@ -12,7 +12,13 @@ from uuid import UUID
 from protobuf import Message
 
 from tilebox.workflows._serialization import decode_json, encode_json_field, encode_json_fields
-from tilebox.workflows.data import RunnerContext, TaskIdentifier, TaskSubmissionGroup, TaskSubmissions
+from tilebox.workflows.data import (
+    RunnerContext,
+    TaskIdentifier,
+    TaskSubmissionGroup,
+    TaskSubmissions,
+    UnboundTaskIdentifier,
+)
 
 if TYPE_CHECKING:
     from tilebox.workflows.cache import JobCache
@@ -172,7 +178,7 @@ def _is_valid_execute_return_annotation(annotation: Any) -> bool:
 
 @dataclass
 class TaskMeta:
-    identifier: TaskIdentifier
+    identifier: UnboundTaskIdentifier
     executable: bool
 
     @staticmethod
@@ -208,7 +214,7 @@ def _task_meta(task_or_task_execution: type | Task) -> TaskMeta:
     return meta
 
 
-def _get_task_identifier(task_class: type) -> TaskIdentifier:
+def _get_task_identifier(task_class: type) -> UnboundTaskIdentifier:
     """Get the task identifier for a task class.
 
     Invokes a user-defined identifier method if it exists, or generates default identifier otherwise.
@@ -238,7 +244,7 @@ def _get_task_identifier(task_class: type) -> TaskIdentifier:
         name = class_name
         version = "v0.0"
 
-    return TaskIdentifier.from_name_and_version(name, version)
+    return UnboundTaskIdentifier.from_name_and_version(name, version)
 
 
 @dataclass
@@ -251,9 +257,10 @@ class FutureTask:
     cluster: str | None
     max_retries: int
     optional: bool
+    workflow_id: UUID | None = None
 
     def identifier(self) -> TaskIdentifier:
-        return _task_meta(self.task).identifier
+        return _task_meta(self.task).identifier.bind(self.workflow_id)
 
     def input(self) -> bytes:
         return self.task._serialize()  # noqa: SLF001
@@ -392,6 +399,9 @@ class CurrentTask(Protocol):
     display: str | None
 
     @property
+    def identifier(self) -> TaskIdentifier: ...
+
+    @property
     def job(self) -> CurrentJob: ...
 
 
@@ -411,6 +421,8 @@ class ExecutionContext(ABC):
         optional: bool = False,
     ) -> FutureTask:
         """Submit a subtask of the current task.
+
+        The runner inherits the executing parent's workflow scope, including unscoped legacy-alias execution.
 
         Args:
             task: The subtask to submit.

@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import pytest
 from protobuf.wkt.google.protobuf.empty_pb import Empty
 
+from _tilebox.uuid import uuid_message_to_optional_uuid
 from tilebox.datasets.uuid import must_uuid_to_uuid_message
 from tilebox.workflows import ExecutionContext, Runner, Task
 from tilebox.workflows.cache import InMemoryCache, JobCache
@@ -23,6 +24,7 @@ from tilebox.workflows.runner.worker_server import WorkerServer
 from tilebox.workflows.task import TaskMeta
 from tilebox.workflows.v1 import core_pb, worker_pb
 from tilebox.workflows.v1.worker_connect import WorkerServiceClientSync
+from tilebox.workflows.v1.workflows_pb import Workflow as WorkflowMessage
 
 
 def test_worker_executes_tasks_concurrently_with_isolated_execution_state(
@@ -127,6 +129,108 @@ def test_worker_executes_tasks_concurrently_with_isolated_execution_state(
     assert {attributes["task_id"] for attributes in log_attributes} == task_ids
 
 
+def test_worker_preserves_execution_scope_across_concurrent_descendants(  # noqa: PLR0915
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    scopes = [uuid4(), uuid4(), None]
+    barrier = threading.Barrier(len(scopes))
+
+    class Grandchild(Task):
+        def execute(self, context: ExecutionContext) -> None:
+            context.current_task.display = str(context.current_task.identifier.workflow_id)
+
+    class Child(Task):
+        def execute(self, context: ExecutionContext) -> None:
+            future = context.submit_subtask(Grandchild())
+            assert future.identifier().workflow_id == context.current_task.identifier.workflow_id
+
+    class Parent(Task):
+        def execute(self, context: ExecutionContext) -> None:
+            barrier.wait(timeout=5)
+            context.current_task.display = str(context.current_task.identifier.workflow_id)
+            futures = [context.submit_subtask(Child()), *context.submit_subtasks([Child(), Child()])]
+            assert all(
+                future.identifier().workflow_id == context.current_task.identifier.workflow_id for future in futures
+            )
+
+    fake_client = MagicMock()
+    fake_client._tracer = NoopWorkflowTracer()
+    fake_client._auth = {"url": "https://worker.example", "token": "worker-key"}
+    fake_client._task_logger = StructuredLogger(logging.getLogger("tilebox.workflows.tests.scoped-worker"))
+    monkeypatch.setenv("TILEBOX_RUNTIME_DIR", str(tmp_path))
+    monkeypatch.setenv("TILEBOX_RUNTIME_TOKEN", "test-token")
+    server = WorkerServer(Runner(tasks=[Parent, Child, Grandchild]), "127.0.0.1:0")
+    headers = {"authorization": "Bearer test-token"}
+
+    with (
+        patch("tilebox.workflows.runner.worker_service.Client", return_value=fake_client),
+        patch("tilebox.workflows.runner.worker_service.initialize_logging"),
+    ):
+        server.start()
+        try:
+            with WorkerServiceClientSync(f"http://127.0.0.1:{server._port}", timeout_ms=10000) as worker:
+                discovered = worker.list_registered_tasks(Empty(), headers=headers)
+                assert len(discovered.identifiers) == 3
+                assert all(
+                    isinstance(identifier, core_pb.UnboundTaskIdentifier) for identifier in discovered.identifiers
+                )
+                worker.initialize_worker(
+                    worker_pb.InitializeRunnerRequest(
+                        runner_id=must_uuid_to_uuid_message(uuid4()),
+                        # Release metadata must never override the executing task's scope, especially legacy aliases.
+                        workflow=WorkflowMessage(id=must_uuid_to_uuid_message(uuid4()), legacy_task_aliases=True),
+                    ),
+                    headers=headers,
+                )
+                job = _job()
+                parents = [_task_message(Parent(), job) for _ in scopes]
+                for parent, scope in zip(parents, scopes, strict=True):
+                    assert parent.identifier is not None
+                    parent.identifier.workflow_id = must_uuid_to_uuid_message(scope) if scope is not None else None
+                with ThreadPoolExecutor(max_workers=len(scopes)) as pool:
+                    futures = [pool.submit(worker.execute_task, parent, headers=headers) for parent in parents]
+                    responses = [future.result(timeout=10) for future in futures]
+                for response, scope in zip(responses, scopes, strict=True):
+                    computed = response.computed_task
+                    assert computed is not None
+                    assert computed.display == str(scope)
+                    children = computed.sub_tasks
+                    assert children is not None
+                    child_scopes = []
+                    for group in children.task_groups:
+                        for task_input, pointer in zip(group.inputs, group.identifier_pointers, strict=True):
+                            identifier = children.identifier_lookup[pointer]
+                            child_scope = uuid_message_to_optional_uuid(identifier.workflow_id)
+                            child_scopes.append(child_scope)
+                            child = core_pb.Task(
+                                id=must_uuid_to_uuid_message(uuid4()),
+                                identifier=identifier,
+                                input=task_input,
+                                job=job.to_message(),
+                            )
+                            result = worker.execute_task(child, headers=headers).computed_task
+                            assert result is not None
+                            assert result.sub_tasks is not None
+                            grandchildren = result.sub_tasks
+                            grandchild_identifier = grandchildren.identifier_lookup[0]
+                            assert uuid_message_to_optional_uuid(grandchild_identifier.workflow_id) == child_scope
+                            grandchild = core_pb.Task(
+                                id=must_uuid_to_uuid_message(uuid4()),
+                                identifier=grandchild_identifier,
+                                input=grandchildren.task_groups[0].inputs[0],
+                                job=job.to_message(),
+                            )
+                            final = worker.execute_task(grandchild, headers=headers).computed_task
+                            assert final is not None
+                            assert final.display == str(child_scope)
+                    assert child_scopes == [scope, scope, scope]
+                assert worker.list_registered_tasks(Empty(), headers=headers) == discovered
+                worker.shutdown_worker(Empty(), headers=headers)
+        finally:
+            server.shutdown()
+            server.wait()
+
+
 def test_lazy_storage_locations_are_loaded_once_during_concurrent_access() -> None:
     storage_location = MagicMock()
     storage_location.id = UUID(int=1)
@@ -180,7 +284,7 @@ def _job() -> Job:
 
 
 def _task_message(task: Task, job: Job) -> core_pb.Task:
-    identifier = TaskMeta.for_task(task).identifier
+    identifier = TaskMeta.for_task(task).identifier.bind()
     return TaskData(
         id=uuid4(),
         identifier=identifier,

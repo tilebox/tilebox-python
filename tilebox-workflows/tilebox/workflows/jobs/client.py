@@ -38,6 +38,8 @@ from tilebox.workflows.v1.job_pb import (
 )
 from tilebox.workflows.v1.telemetry_connect import TelemetryQueryServiceClientSync
 from tilebox.workflows.v1.telemetry_pb import LogQueryFilters, QueryJobLogsRequest, QueryJobSpansRequest
+from tilebox.workflows.v1.workflows_connect import WorkflowsServiceClientSync
+from tilebox.workflows.workflows.client import WorkflowReferenceLike, resolve_workflow_id, to_workflow_slug
 
 try:
     from IPython.display import HTML, display
@@ -55,7 +57,11 @@ JobIDLike: TypeAlias = Job | UUID | str
 
 class JobClient:
     def __init__(
-        self, service: JobServiceClientSync, telemetry_service: TelemetryQueryServiceClientSync, tracer: WorkflowTracer
+        self,
+        service: JobServiceClientSync,
+        telemetry_service: TelemetryQueryServiceClientSync,
+        tracer: WorkflowTracer,
+        workflow_service: WorkflowsServiceClientSync | None = None,
     ) -> None:
         """Create a new job client.
 
@@ -63,10 +69,12 @@ class JobClient:
             service: The native client to use for job operations.
             telemetry_service: The native client to use for job telemetry queries.
             tracer: The tracer to use for tracing.
+            workflow_service: The native client used to resolve workflow references for submissions.
         """
         self._service = service
         self._telemetry_service = telemetry_service
         self._tracer = tracer
+        self._workflow_service = workflow_service
 
     def submit(
         self,
@@ -74,6 +82,8 @@ class JobClient:
         root_task_or_tasks: TaskInstance | list[TaskInstance],
         cluster: ClusterSlugLike | list[ClusterSlugLike] | None = None,
         max_retries: int = 0,
+        *,
+        workflow: WorkflowReferenceLike | None = None,
     ) -> Job:
         """Submit a new job with the given root task(s).
 
@@ -84,6 +94,8 @@ class JobClient:
                 of clusters can be provided as well, specifying the cluster for each root task. If not provided, the default
                 cluster will be used.
             max_retries: The maximum number of retries for the root task(s) in case of failure. Defaults to 0.
+            workflow: Workflow reference or object to scope all roots to. Omission submits unscoped tasks, even when
+                called inside a scoped task. A failed reference lookup never falls back to unscoped submission.
 
         Returns:
             The job that was submitted.
@@ -102,8 +114,10 @@ class JobClient:
                 f"or exactly one cluster per task. But got {len(tasks)} tasks and {len(slugs)} clusters."
             )
 
+        workflow_id = resolve_workflow_id(workflow, self._workflow_service)
         task_submissions = [
-            FutureTask(i, task, [], slugs[i], max_retries, optional=False) for i, task in enumerate(tasks)
+            FutureTask(i, task, [], slugs[i], max_retries, optional=False, workflow_id=workflow_id)
+            for i, task in enumerate(tasks)
         ]
         submissions_merged = merge_future_tasks_to_submissions(task_submissions, default_cluster)
         if submissions_merged is None:
@@ -282,6 +296,8 @@ class JobClient:
         name: str | None = None,
         task_states: TaskState | list[TaskState] | None = None,
         clusters: ClusterSlugLike | list[ClusterSlugLike] | None = None,
+        *,
+        workflows: WorkflowReferenceLike | list[WorkflowReferenceLike] | None = None,
     ) -> list[Job]:
         """List jobs matching the given filters.
 
@@ -308,6 +324,8 @@ class JobClient:
                 least one task in any of the selected states are returned.
             clusters: A cluster or list of clusters to filter jobs by. If specified, only jobs submitted to one of the
                 selected clusters are returned.
+            workflows: Workflow references or objects. Matches jobs containing any task scoped to any selected
+                workflow. Unscoped tasks do not match; omission adds no workflow restriction.
 
         Returns:
             A list of jobs matching the given filters.
@@ -357,6 +375,7 @@ class JobClient:
             task_states = [task_states]
 
         cluster_slugs = _to_cluster_filter_slugs(clusters)
+        selected_workflows = workflows if isinstance(workflows, list) else [workflows] if workflows is not None else []
 
         filters = QueryFilters(
             time_interval=time_interval,
@@ -366,6 +385,7 @@ class JobClient:
             name=name,
             task_states=task_states,
             cluster_slugs=cluster_slugs,
+            workflow_references=[to_workflow_slug(workflow) for workflow in selected_workflows],
         )
 
         def request(page: PaginationProtocol) -> QueryJobsResponse:

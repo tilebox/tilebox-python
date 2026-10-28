@@ -2,12 +2,14 @@ import json
 from collections.abc import Awaitable
 from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Annotated
+from uuid import uuid4
 
 import pytest
 
 from tests.proto.test_pb import SampleArgs
 from tilebox.workflows.cache import InMemoryCache
-from tilebox.workflows.data import TaskIdentifier
+from tilebox.workflows.data import Task as TaskData
+from tilebox.workflows.data import TaskIdentifier, UnboundTaskIdentifier
 from tilebox.workflows.runner.task_runner import ExecutionContext as RunnerExecutionContext
 from tilebox.workflows.task import (
     ExecutionContext,
@@ -47,7 +49,7 @@ def test_task_validation_simple_task() -> None:
     class SimpleTask(Task):
         pass
 
-    expected_identifier = TaskIdentifier("SimpleTask", "v0.0")
+    expected_identifier = UnboundTaskIdentifier("SimpleTask", "v0.0")
     assert TaskMeta.for_task(SimpleTask).identifier == expected_identifier
     assert TaskMeta.for_task(SimpleTask).executable is False
 
@@ -58,7 +60,7 @@ def test_task_validation_simple_task_with_identifier() -> None:
         def identifier() -> tuple[str, str]:
             return "tilebox.tests.SimpleTask", "v3.2"
 
-    expected_identifier = TaskIdentifier("tilebox.tests.SimpleTask", "v3.2")
+    expected_identifier = UnboundTaskIdentifier("tilebox.tests.SimpleTask", "v3.2")
     assert TaskMeta.for_task(SimpleTask).identifier == expected_identifier
 
 
@@ -184,7 +186,7 @@ def test_task_validation_used_defined_identifier_classmethod() -> None:
         def identifier(cls) -> tuple[str, str]:
             return "tilebox.tests.SimpleTaskWithClassmethodIdentifier", "v3.2"
 
-    expected_identifier = TaskIdentifier("tilebox.tests.SimpleTaskWithClassmethodIdentifier", "v3.2")
+    expected_identifier = UnboundTaskIdentifier("tilebox.tests.SimpleTaskWithClassmethodIdentifier", "v3.2")
     assert TaskMeta.for_task(SimpleTaskWithClassmethodIdentifier).identifier == expected_identifier
 
 
@@ -520,8 +522,13 @@ class TaskB(Task):
         pass
 
 
-def test_merge_future_tasks_to_submissions() -> None:
-    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # ty: ignore[invalid-argument-type]
+@pytest.fixture
+def context() -> RunnerExecutionContext:
+    parent = TaskData(uuid4(), TaskIdentifier("Parent", "v0.0"))
+    return RunnerExecutionContext(None, parent, job_cache=InMemoryCache())  # ty: ignore[invalid-argument-type]
+
+
+def test_merge_future_tasks_to_submissions(context: RunnerExecutionContext) -> None:
     tasks_1 = context.submit_subtasks([TaskA(3, "three"), TaskA(4, "four"), TaskA(5, "five")])
     tasks_2 = context.submit_subtasks([TaskB(3.2), TaskB(3.44), TaskB(3.55)], max_retries=1)
     tasks_3 = context.submit_subtasks([TaskA(6, "six"), TaskB(8.12)], cluster="other")
@@ -547,12 +554,11 @@ def test_merge_future_tasks_to_submissions() -> None:
     assert group.max_retries_values == [0, 0, 0, 1, 1, 1, 0, 0]
 
     assert submissions.cluster_slug_lookup == ["test", "other"]
-    assert submissions.identifier_lookup == [TaskMeta.for_task(TaskA).identifier, TaskMeta.for_task(TaskB).identifier]
+    assert submissions.identifier_lookup == [TaskIdentifier("TaskA", "v0.0"), TaskIdentifier("TaskB", "v0.0")]
     assert submissions.display_lookup == ["TaskA", "TaskB"]
 
 
-def test_merge_future_tasks_to_submissions_dependencies() -> None:
-    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # ty: ignore[invalid-argument-type]
+def test_merge_future_tasks_to_submissions_dependencies(context: RunnerExecutionContext) -> None:
     tasks_1 = context.submit_subtasks([TaskA(2, "two"), TaskA(3, "three")])
     tasks_2 = context.submit_subtasks([TaskA(4, "four"), TaskA(5, "five")])
     tasks_3 = context.submit_subtasks([TaskB(3.2)], depends_on=tasks_1)
@@ -579,8 +585,7 @@ def test_merge_future_tasks_to_submissions_dependencies() -> None:
     assert submissions.task_groups[4].inputs == [serialize_task(TaskB(3.55))]
 
 
-def test_merge_future_tasks_to_submissions_many_tasks() -> None:
-    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # ty: ignore[invalid-argument-type]
+def test_merge_future_tasks_to_submissions_many_tasks(context: RunnerExecutionContext) -> None:
     n = 100
     tasks_1 = context.submit_subtasks([TaskA(i, f"Task {i}") for i in range(n)])
     tasks_2 = context.submit_subtasks([TaskB(i / 3) for i in range(n)], depends_on=tasks_1)
@@ -594,8 +599,9 @@ def test_merge_future_tasks_to_submissions_many_tasks() -> None:
     assert submissions.task_groups[1].identifier_pointers == [1] * n
 
 
-def test_merge_future_tasks_to_submissions_many_non_mergeable_dependency_groups() -> None:
-    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # ty: ignore[invalid-argument-type]
+def test_merge_future_tasks_to_submissions_many_non_mergeable_dependency_groups(
+    context: RunnerExecutionContext,
+) -> None:
     n = 100
     for i in range(n):
         task_1 = context.submit_subtasks([TaskA(i, f"Task {i}")])
@@ -606,8 +612,7 @@ def test_merge_future_tasks_to_submissions_many_non_mergeable_dependency_groups(
     assert len(submissions.task_groups) == 2 * n
 
 
-def test_merge_future_tasks_two_separate_branches() -> None:
-    context = RunnerExecutionContext(None, None, job_cache=InMemoryCache())  # ty: ignore[invalid-argument-type]
+def test_merge_future_tasks_two_separate_branches(context: RunnerExecutionContext) -> None:
     task_a = context.submit_subtasks([TaskA(0, "Task 0")])
     # left branch
     task_b_left = context.submit_subtasks([TaskB(0.0)], depends_on=task_a)

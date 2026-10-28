@@ -18,6 +18,7 @@ from tilebox.workflows.data import (
     LogSeverity,
     LogSeverityLiteral,
     Span,
+    Workflow,
     uuid_message_to_uuid,
     uuid_to_uuid_message,
 )
@@ -40,6 +41,9 @@ from tilebox.workflows.v1.job_pb import (
     VisualizeJobRequest,
 )
 from tilebox.workflows.v1.telemetry_pb import PaginatedLogsData, PaginatedSpansData
+from tilebox.workflows.v1.workflows_connect import WorkflowsServiceClientSync
+from tilebox.workflows.v1.workflows_pb import GetWorkflowRequest
+from tilebox.workflows.v1.workflows_pb import Workflow as WorkflowMessage
 
 
 class DummyTask(Task):
@@ -190,8 +194,10 @@ class MockJobService:
     def __init__(self) -> None:
         self.jobs: dict[UUID, JobMessage] = {}
         self.query_requests: list[QueryJobsRequest] = []
+        self.submit_requests: list[SubmitJobRequest] = []
 
     def submit_job(self, req: SubmitJobRequest) -> JobMessage:
+        self.submit_requests.append(req)
         job_id = uuid4()
         job = JobMessage(
             id=uuid_to_uuid_message(job_id),
@@ -246,16 +252,83 @@ class MockJobService:
         return QueryJobsResponse(jobs=list(self.jobs.values()))
 
 
-def test_query_filters_by_clusters() -> None:
+@pytest.mark.parametrize("selection", ["reference", "object", "unscoped"])
+def test_submit_workflow_scope(selection: str) -> None:
+    class AnotherTask(Task):
+        def execute(self, context: ExecutionContext) -> None:
+            _ = context
+
+    workflow = Workflow("owner:workflow-123", "Workflow", "", id=uuid4(), project_slug="workflow")
+
+    def find(request: GetWorkflowRequest) -> WorkflowMessage:
+        if request.workflow_reference != workflow.reference:
+            raise NotFoundError("Workflow not found")
+        return workflow.to_message()
+
+    workflow_service = MagicMock(spec=WorkflowsServiceClientSync)
+    workflow_service.get_workflow.side_effect = find
+    mock_service = MockJobService()
+    client = JobClient(
+        MagicMock(spec=JobServiceClientSync, wraps=mock_service), MagicMock(), NoopWorkflowTracer(), workflow_service
+    )
+    selected = workflow.reference if selection == "reference" else workflow if selection == "object" else None
+    client.submit("scoped job", [DummyTask(), AnotherTask()], cluster=["a", "b"], workflow=selected)
+    submissions = mock_service.submit_requests[-1].tasks
+    assert submissions is not None
+    assert len(submissions.identifier_lookup) == 2
+    assert {uuid_message_to_optional_uuid(identifier.workflow_id) for identifier in submissions.identifier_lookup} == {
+        workflow.id if selected is not None else None
+    }
+    # A subsequent ordinary submission must not inherit a previous submission's scope.
+    client.submit("direct job", DummyTask())
+    direct = mock_service.submit_requests[-1].tasks
+    assert direct is not None
+    assert direct.identifier_lookup[0].workflow_id is None
+
+
+@pytest.mark.parametrize("selection", ["missing", "empty", "missing-id", "nil-id"])
+def test_submit_invalid_workflow_never_falls_back_to_unscoped(selection: str) -> None:
+    mock_service = MockJobService()
+    workflow_service = MagicMock(spec=WorkflowsServiceClientSync)
+    workflow_service.get_workflow.side_effect = NotFoundError("Workflow not found")
+    selected = {
+        "missing": "missing",
+        "empty": "",
+        "missing-id": Workflow("old", "Old", ""),
+        "nil-id": Workflow("invalid", "Invalid", "", id=UUID(int=0)),
+    }[selection]
+    client = JobClient(
+        MagicMock(spec=JobServiceClientSync, wraps=mock_service), MagicMock(), NoopWorkflowTracer(), workflow_service
+    )
+    with pytest.raises((NotFoundError, ValueError)):
+        client.submit("must not submit", DummyTask(), workflow=selected)
+    assert not mock_service.jobs
+    assert not mock_service.submit_requests
+
+
+@pytest.mark.parametrize(
+    ("workflows", "expected"),
+    [
+        (None, []),
+        ([], []),
+        ("owner:one", ["owner:one"]),
+        (Workflow("one-123", "One", "", project_slug="one"), ["one-123"]),
+        (["owner:one", Workflow("two-456", "Two", "", project_slug="two")], ["owner:one", "two-456"]),
+    ],
+)
+def test_query_filters_by_clusters_and_workflows(
+    workflows: Workflow | str | list[Workflow | str] | None, expected: list[str]
+) -> None:
     mock_service = MockJobService()
     service = MagicMock(spec=JobServiceClientSync, wraps=mock_service)
     job_client = JobClient(service, MagicMock(), NoopWorkflowTracer())
 
-    job_client.query((uuid4(), uuid4()), clusters=["cluster-a", "cluster-b"])
+    job_client.query((uuid4(), uuid4()), clusters=["cluster-a", "cluster-b"], workflows=workflows)
 
     filters = mock_service.query_requests[-1].filters
     assert filters is not None
     assert list(filters.cluster_slugs) == ["cluster-a", "cluster-b"]
+    assert list(filters.workflow_references) == expected
 
 
 @pytest.mark.parametrize("use_interval", [False, True])

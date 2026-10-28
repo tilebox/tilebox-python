@@ -1,11 +1,13 @@
 from dataclasses import replace
-from itertools import product
+from itertools import pairwise, product
 from uuid import UUID
 
 import pytest
 from hypothesis import given
+from hypothesis.strategies import none, uuids
 from protobuf import Oneof
 
+from _tilebox.proto.tilebox.v1.id_pb import ID
 from tests.tasks_data import (
     artifacts,
     automations,
@@ -55,17 +57,40 @@ from tilebox.workflows.data import (
     TaskLease,
     TaskSubmissionGroup,
     TaskSubmissions,
+    UnboundTaskIdentifier,
     Workflow,
     WorkflowPresentation,
     WorkflowRelease,
 )
 from tilebox.workflows.formatting.job import JobWidget, RichDisplayJob
 from tilebox.workflows.v1 import workflows_pb
+from tilebox.workflows.v1.core_pb import TaskIdentifier as TaskIdentifierMessage
+from tilebox.workflows.v1.core_pb import UnboundTaskIdentifier as UnboundTaskIdentifierMessage
 
 
-@given(task_identifiers())
-def test_task_identifiers_to_message_and_back(task_id: TaskIdentifier) -> None:
-    assert TaskIdentifier.from_message(task_id.to_message()) == task_id
+@given(task_identifiers(), uuids(version=4) | none())
+def test_task_identifiers_to_message_and_back(task_id: TaskIdentifier, scope: UUID | None) -> None:
+    scoped = replace(task_id, workflow_id=scope)
+    message = scoped.to_message()
+    assert message.workflow_id == (ID(uuid=scope.bytes) if scope is not None else None)
+    assert TaskIdentifier.from_message(message) == scoped
+    unbound = UnboundTaskIdentifier(task_id.name, task_id.version)
+    assert scoped.unbind() == unbound
+    assert unbound.bind(scope) == scoped
+    assert unbound.bind() == task_id
+    assert unbound.to_message() == UnboundTaskIdentifierMessage(name=task_id.name, version=task_id.version)
+    assert UnboundTaskIdentifier.from_message(unbound.to_message()) == unbound
+    if scope is not None:
+        assert len({task_id, scoped}) == 2
+        assert sorted([scoped, task_id]) == [task_id, scoped]
+
+
+@pytest.mark.parametrize("raw_id", [b"", bytes(16), b"invalid"])
+def test_task_identifiers_reject_invalid_explicit_scope(raw_id: bytes) -> None:
+    with pytest.raises(ValueError, match=r"Nil|16-char"):
+        TaskIdentifier.from_message(TaskIdentifierMessage(name="Task", version="v0.0", workflow_id=ID(uuid=raw_id)))
+    with pytest.raises(ValueError, match="Nil"):
+        TaskIdentifier("Task", "v0.0", UUID(int=0))
 
 
 @given(progress_indicators())
@@ -173,6 +198,40 @@ def test_workflow_releases_to_message_and_back(release: WorkflowRelease) -> None
 @given(workflows())
 def test_workflows_to_message_and_back(workflow: Workflow) -> None:
     assert Workflow.from_message(workflow.to_message()) == workflow
+    assert workflow.slug == workflow.reference
+    assert workflow.to_message().reference == workflow.reference
+
+
+def test_workflow_ordering() -> None:
+    workflow = Workflow(reference="a", name="A", description="")
+    ordered = [
+        workflow,
+        replace(workflow, id=UUID(int=1)),
+        replace(workflow, id=UUID(int=2)),
+        replace(workflow, name="B"),
+        replace(workflow, reference="b", name="0"),
+    ]
+    unordered = list(reversed(ordered))
+    assert sorted(unordered) == ordered
+    for earlier, later in pairwise(ordered):
+        assert earlier < later
+        assert earlier <= later
+        assert later > earlier
+        assert later >= earlier
+
+
+@given(workflows(), workflows())
+def test_workflow_ordering_ignores_metadata(first: Workflow, second: Workflow) -> None:
+    second = replace(second, reference=first.reference, name=first.name, id=first.id)
+    assert not first < second
+    assert not first > second
+    assert first <= second
+    assert first >= second
+    assert not second < first
+    assert not second > first
+    assert second <= first
+    assert second >= first
+    assert first != replace(first, description=first.description + "changed")
 
 
 @pytest.mark.parametrize(

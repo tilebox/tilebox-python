@@ -7,8 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-workflows`: Add `workflow` selection by reference or object to job submission and automation creation,
+  and `workflows` filters to job queries. Omitting scope preserves unscoped direct-runner behavior.
+- `tilebox-workflows`: Preserve task workflow IDs and inherit the executing parent's scope for children.
+  Keep child scope inheritance internal to the runner and task discovery and release content unbound.
+- `tilebox-workflows`: Expose workflow IDs, references, project slugs, and presence-aware legacy alias policies.
+  Retain `.slug` compatibility.
+
 ### Changed
 
+- `tilebox-workflows`: Always create scoped-only workflows with legacy task aliases disabled.
+- `tilebox-workflows`: Use `UnboundTaskIdentifier` for task metadata, runner registries, and release contents;
+  keep execution scope in `TaskIdentifier` and resolve each future task's scope before merging submissions.
+- `tilebox-workflows`: Rename the `Workflow` constructor field `slug` to `reference`; retain `.slug` as a read-only
+  alias. Order workflows by reference, name, and ID (missing IDs first), ignoring other metadata when sorting.
 - `tilebox-core`: New package to own shared Connect RPC infrastructure and protobuf-py messages, public
   `tilebox.query` interval/pagination types, and `tilebox.errors` exceptions with a common `TileboxError` base.
 - `tilebox-grpc`: Retain an empty compatibility package depending on `tilebox-core>=0.68.0` for one release.

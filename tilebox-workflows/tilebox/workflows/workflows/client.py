@@ -16,7 +16,8 @@ from tilebox.workflows.v1.workflows_pb import (
     UpdateWorkflowRequest,
 )
 
-WorkflowSlugLike: TypeAlias = Workflow | str
+WorkflowReferenceLike: TypeAlias = Workflow | str
+WorkflowSlugLike: TypeAlias = WorkflowReferenceLike
 WorkflowReleaseLike: TypeAlias = WorkflowRelease | UUID | str
 
 
@@ -29,19 +30,35 @@ class WorkflowClient:
         """
         self._service = service
 
-    def create(self, name: str, summary: str, description: str = "") -> Workflow:
-        """Create a new workflow with the given name.
+    def create(
+        self,
+        name: str,
+        summary: str,
+        description: str = "",
+        *,
+        project_slug: str = "",
+    ) -> Workflow:
+        """Create a new scoped-only workflow with the given name.
 
         Args:
             name: The name of the workflow to create.
             summary: The short summary of the workflow to create.
             description: The description of the workflow to create. Defaults to an empty string.
+            project_slug: Portable project name, not a remote workflow reference.
 
         Returns:
             The created workflow.
         """
         return Workflow.from_message(
-            self._service.create_workflow(CreateWorkflowRequest(name=name, summary=summary, description=description))
+            self._service.create_workflow(
+                CreateWorkflowRequest(
+                    name=name,
+                    summary=summary,
+                    description=description,
+                    project_slug=project_slug,
+                    legacy_task_aliases=False,
+                )
+            )
         )
 
     def all(self) -> list[Workflow]:
@@ -159,7 +176,23 @@ class WorkflowClient:
 
 
 def to_workflow_slug(workflow: WorkflowSlugLike) -> str:
-    return workflow.slug if isinstance(workflow, Workflow) else workflow
+    return workflow.reference if isinstance(workflow, Workflow) else workflow
+
+
+def resolve_workflow_id(
+    workflow: WorkflowReferenceLike | None, service: WorkflowsServiceClientSync | None
+) -> UUID | None:
+    if workflow is None:
+        return None
+    if isinstance(workflow, str):
+        if not workflow:
+            raise ValueError("A workflow reference is required")
+        if service is None:
+            raise ValueError("A workflow service is required to resolve workflow references")
+        workflow = Workflow.from_message(service.get_workflow(GetWorkflowRequest(workflow_reference=workflow)))
+    if workflow.id is None or workflow.id.int == 0:
+        raise ValueError("Workflow must have a non-Nil ID to scope tasks")
+    return workflow.id
 
 
 def release_id(release_or_id: WorkflowReleaseLike) -> UUID:

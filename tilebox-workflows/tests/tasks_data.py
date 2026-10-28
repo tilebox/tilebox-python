@@ -102,7 +102,7 @@ def release_contents(draw: DrawFn) -> ReleaseContent:
     fingerprint = draw(text(alphabet="abcdef0123456789", min_size=64, max_size=64))
     return ReleaseContent(
         fingerprint=fingerprint,
-        tasks=draw(lists(task_identifiers(), min_size=1, max_size=3)),
+        tasks=[identifier.unbind() for identifier in draw(lists(task_identifiers(), min_size=1, max_size=3))],
         files=draw(lists(release_filesystem_nodes(), min_size=0, max_size=3)),
         runner_object_path=draw(alphanumerical_text()),
         command_override=draw(lists(alphanumerical_text(), min_size=0, max_size=3)),
@@ -125,10 +125,13 @@ def workflow_releases(draw: DrawFn) -> WorkflowRelease:
 def workflows(draw: DrawFn) -> Workflow:
     """A hypothesis strategy for generating random workflows"""
     return Workflow(
-        slug=draw(alphanumerical_text(min_size=4, max_size=20)),
+        reference=draw(alphanumerical_text(min_size=4, max_size=20)),
         name=draw(alphanumerical_text()),
         description=draw(alphanumerical_text() | none()) or "",
         releases=draw(lists(workflow_releases(), min_size=0, max_size=3)),
+        id=draw(uuids(version=4) | none()),
+        project_slug=draw(alphanumerical_text()),
+        legacy_task_aliases=draw(booleans() | none()),
     )
 
 
@@ -145,7 +148,7 @@ def progress_indicators(draw: DrawFn) -> ProgressIndicator:
 def tasks(draw: DrawFn) -> Task:
     """A hypothesis strategy for generating random tasks"""
     task_id = draw(uuids(version=4))
-    identifier = draw(task_identifiers())
+    identifier = draw(task_identifiers(scoped=True))
     state = draw(sampled_from(TaskState))
     task_input = draw(task_inputs())
     display = draw(alphanumerical_text())
@@ -170,12 +173,13 @@ def idling_responses(draw: DrawFn) -> Idling:
 
 
 @composite
-def task_identifiers(draw: DrawFn) -> TaskIdentifier:
+def task_identifiers(draw: DrawFn, *, scoped: bool = False) -> TaskIdentifier:
     """A hypothesis strategy for generating random task_identifiers"""
     task_name = draw(alphanumerical_text())
     major_version = draw(integers(min_value=0, max_value=100))
     minor_version = draw(integers(min_value=0, max_value=100))
-    return TaskIdentifier(task_name, f"v{major_version}.{minor_version}")
+    workflow_id = draw(uuids(version=4) | none()) if scoped else None
+    return TaskIdentifier(task_name, f"v{major_version}.{minor_version}", workflow_id)
 
 
 @composite
@@ -288,7 +292,7 @@ def task_submissions(draw: DrawFn) -> TaskSubmissions:
     """A hypothesis strategy for generating random task_submissions"""
     task_groups = draw(lists(task_submission_groups(), min_size=1, max_size=10))
     cluster_slug_lookup = draw(lists(alphanumerical_text(), min_size=1, max_size=10))
-    identifier_lookup = draw(lists(task_identifiers(), min_size=1, max_size=10))
+    identifier_lookup = draw(lists(task_identifiers(scoped=True), min_size=1, max_size=10))
     display_lookup = draw(lists(alphanumerical_text(), min_size=1, max_size=10))
 
     return TaskSubmissions(task_groups, cluster_slug_lookup, identifier_lookup, display_lookup)
@@ -298,7 +302,7 @@ def task_submissions(draw: DrawFn) -> TaskSubmissions:
 def single_task_submissions(draw: DrawFn) -> SingleTaskSubmission:
     """A hypothesis strategy for generating random sub_tasks"""
     cluster_slug = str(draw(uuids(version=4)))
-    identifier = draw(task_identifiers())
+    identifier = draw(task_identifiers(scoped=True))
     inputs = draw(task_inputs())
     dependencies: list[int] = draw(lists(integers(min_value=0, max_value=1000), min_size=0, max_size=10))
     display = draw(alphanumerical_text())
@@ -431,5 +435,8 @@ def query_filters(draw: DrawFn) -> QueryFilters:
         task_states = list(set(task_states))  # de-duplicate
 
     cluster_slugs = draw(lists(alphanumerical_text(min_size=4, max_size=20), min_size=0, max_size=3, unique=True))
+    workflow_references = draw(lists(alphanumerical_text(min_size=4, max_size=20), max_size=3, unique=True))
 
-    return QueryFilters(time_interval, id_interval, automation_ids, job_states, name, task_states, cluster_slugs)
+    return QueryFilters(
+        time_interval, id_interval, automation_ids, job_states, name, task_states, cluster_slugs, workflow_references
+    )

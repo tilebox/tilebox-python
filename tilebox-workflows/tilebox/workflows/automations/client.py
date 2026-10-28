@@ -16,11 +16,16 @@ from tilebox.workflows.data import (
 from tilebox.workflows.task import _task_meta
 from tilebox.workflows.v1.automation_connect import AutomationServiceClientSync
 from tilebox.workflows.v1.automation_pb import DeleteAutomationRequest
+from tilebox.workflows.v1.workflows_connect import WorkflowsServiceClientSync
+from tilebox.workflows.workflows.client import WorkflowReferenceLike, resolve_workflow_id
 
 
 class AutomationClient:
-    def __init__(self, service: AutomationServiceClientSync) -> None:
+    def __init__(
+        self, service: AutomationServiceClientSync, workflow_service: WorkflowsServiceClientSync | None = None
+    ) -> None:
         self._service = service
+        self._workflow_service = workflow_service
 
     def all(self) -> list[AutomationPrototype]:
         """List all registered automations.
@@ -44,13 +49,15 @@ class AutomationClient:
             automation_id = UUID(automation_id)
         return AutomationPrototype.from_message(self._service.get_automation(must_uuid_to_uuid_message(automation_id)))
 
-    def create_cron_automation(
+    def create_cron_automation(  # noqa: PLR0913
         self,
         name: str,
         task: CronTask,
         cron_schedules: str | list[str],
         cluster: ClusterSlugLike | None = None,
         max_retries: int = 0,
+        *,
+        workflow: WorkflowReferenceLike | None = None,
     ) -> AutomationPrototype:
         """Create a new automation that is triggered by cron schedules.
 
@@ -60,6 +67,7 @@ class AutomationClient:
             cron_schedules: The cron schedules to trigger the task.
             cluster: The cluster to run the task on. If not provided, the default cluster will be used.
             max_retries: The maximum number of retries for the task in case of failure. Defaults to 0.
+            workflow: Workflow reference or object to scope the prototype to. Omission leaves it unscoped.
 
         Returns:
             The created automation.
@@ -70,12 +78,13 @@ class AutomationClient:
         if not cron_schedules:
             raise ValueError("At least one cron trigger schedule must be provided.")
 
+        workflow_id = resolve_workflow_id(workflow, self._workflow_service)
         automation = AutomationPrototype(
             id=UUID(int=0),
             name=name,
             prototype=SingleTaskSubmission(
                 cluster_slug=to_cluster_slug(cluster or ""),
-                identifier=_task_meta(task).identifier,
+                identifier=_task_meta(task).identifier.bind(workflow_id),
                 input=task._serialize_args(),  # noqa: SLF001
                 dependencies=[],
                 display=task.__class__.__name__,
@@ -86,13 +95,15 @@ class AutomationClient:
         )
         return AutomationPrototype.from_message(self._service.create_automation(automation.to_message()))
 
-    def create_storage_event_automation(
+    def create_storage_event_automation(  # noqa: PLR0913
         self,
         name: str,
         task: StorageEventTask,
         triggers: list[tuple[StorageLocation, str]] | tuple[StorageLocation, str],
         cluster: ClusterSlugLike | None = None,
         max_retries: int = 0,
+        *,
+        workflow: WorkflowReferenceLike | None = None,
     ) -> AutomationPrototype:
         """Create a new automation that is triggered by an object being added to a storage location.
 
@@ -102,6 +113,7 @@ class AutomationClient:
             triggers: Tuples of storage location and glob pattern to trigger the task.
             cluster: The cluster to run the task on. If not provided, the default cluster will be used.
             max_retries: The maximum number of retries for the task in case of failure. Defaults to 0.
+            workflow: Workflow reference or object to scope the prototype to. Omission leaves it unscoped.
 
         Returns:
             The created automation.
@@ -112,12 +124,13 @@ class AutomationClient:
         if not triggers:
             raise ValueError("At least one bucket trigger must be provided.")
 
+        workflow_id = resolve_workflow_id(workflow, self._workflow_service)
         automation = AutomationPrototype(
             id=UUID(int=0),
             name=name,
             prototype=SingleTaskSubmission(
                 cluster_slug=to_cluster_slug(cluster or ""),
-                identifier=_task_meta(task).identifier,
+                identifier=_task_meta(task).identifier.bind(workflow_id),
                 input=task._serialize_args(),  # noqa: SLF001
                 dependencies=[],
                 display=task.__class__.__name__,
