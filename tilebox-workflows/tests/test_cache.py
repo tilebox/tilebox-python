@@ -173,7 +173,7 @@ def test_google_storage_credentials_and_groups() -> None:
         first = cache.group("folder")
         assert_type(cache.bucket, str)
         assert_type(first.bucket, str)
-        assert_type(first, GoogleStorageCache[str])
+        assert_type(first, GoogleStorageCache)
         first["one"] = b"first"
         cache.group("folder2")["two"] = b"second"
         assert list(first) == ["one"]
