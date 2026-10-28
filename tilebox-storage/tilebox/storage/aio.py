@@ -55,7 +55,7 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
-    import niquests
+    import pyqwest
     import xarray as xr
     from obstore.store import GCSStore, LocalStore, S3Store
 
@@ -104,11 +104,11 @@ def _boto3_credential_provider_class() -> type[Any]:
 class _HttpClient:
     def __init__(self, auth: dict[str, tuple[str, str]]) -> None:
         """A tilebox storage client that directly downloads files from the storage provider to a given directory."""
-        self._clients: dict[str, niquests.AsyncSession] = {}
+        self._transports: dict[str, pyqwest.HTTPTransport] = {}
         self._auth = auth
 
     def __del__(self) -> None:
-        if not self._clients:
+        if not self._transports:
             return
 
         with contextlib.suppress(Exception):
@@ -119,10 +119,10 @@ class _HttpClient:
             asyncio.run(self.close())
 
     async def close(self) -> None:
-        clients = list(self._clients.values())
-        self._clients.clear()
-        for client in clients:
-            await client.close()
+        transports = list(self._transports.values())
+        self._transports.clear()
+        for transport in transports:
+            await transport.aclose()
 
     async def download_quicklook(
         self, datapoint: xr.Dataset | ASFStorageGranule, output_dir: Path | None = None
@@ -179,10 +179,10 @@ class _HttpClient:
             raise ValueError("No quicklook available for this granule.")
 
         client = await self._client("ASF")
-        response = await client.get(granule.urls.quicklook, allow_redirects=True)
-        response.raise_for_status()
-        content = response.content
-        return content if content is not None else b""
+        response = await client.get(granule.urls.quicklook)
+        if response.status >= 400:
+            raise ValueError(f"ASF quicklook download failed with HTTP {response.status}")
+        return response.content
 
     async def download(
         self,
@@ -250,13 +250,11 @@ class _HttpClient:
 
         async def downloader() -> AsyncIterator[bytes]:
             client = await self._client("ASF")
-            response = await client.get(url, allow_redirects=True, stream=True)
-            try:
-                response.raise_for_status()
-                async for chunk in await response.iter_content():
-                    yield chunk
-            finally:
-                await response.close()
+            async with client.stream("GET", url) as response:
+                if response.status >= 400:
+                    raise ValueError(f"ASF download failed with HTTP {response.status}")
+                async for chunk in response.content:
+                    yield bytes(chunk)
 
         md5 = hashlib.md5() if verify else None  # noqa: S324
         progress = None
@@ -286,27 +284,25 @@ class _HttpClient:
         shutil.move(download_file, output_file)
         return output_file
 
-    async def _client(self, storage_provider: str) -> niquests.AsyncSession:
+    async def _client(self, storage_provider: str) -> pyqwest.Client:
         """Get an authenticated client for the given storage provider.
 
         Args:
             storage_provider: The storage provider to access the client for.
 
         Returns:
-            The authenticated client for the given storage provider.
+            A client sharing the provider's authenticated transport.
         """
-        if storage_provider in self._clients:
-            return self._clients[storage_provider]
+        from pyqwest import Client as HTTPClient  # noqa: PLC0415
 
-        if storage_provider not in self._auth:
-            raise ValueError(f"Missing credentials for storage provider '{storage_provider}'")
+        if storage_provider not in self._transports:
+            if storage_provider not in self._auth:
+                raise ValueError(f"Missing credentials for storage provider '{storage_provider}'")
 
-        auth = self._auth[storage_provider]
-        from tilebox.storage.providers import login  # noqa: PLC0415
+            from tilebox.storage.providers import login  # noqa: PLC0415
 
-        client = await login(storage_provider, auth)
-        self._clients[storage_provider] = client
-        return client
+            self._transports[storage_provider] = await login(storage_provider, self._auth[storage_provider])
+        return HTTPClient(self._transports[storage_provider])
 
 
 def _display_quicklook(image_data: bytes | Path, width: int, height: int, image_caption: str | None = None) -> None:
@@ -831,14 +827,15 @@ class CopernicusStorageClient(CachingStorageClient):
         if _is_copernicus_odata_url(granule.thumbnail):
             # the thumbnail is not stored in the S3 bucket, but is accessible via a public URL. So download it
             # directly.
-            import niquests  # noqa: PLC0415
+            from pyqwest import Client as HTTPClient  # noqa: PLC0415
+            from pyqwest import HTTPTransport  # noqa: PLC0415
 
-            response = await niquests.aget(
-                granule.thumbnail, allow_redirects=True
-            )  # to check if the thumbnail is accessible, raises if not
-            response.raise_for_status()
+            async with HTTPTransport(tls_include_system_certs=True, follow_redirects=True) as transport:
+                response = await HTTPClient(transport).get(granule.thumbnail)
+            if response.status >= 400:
+                raise ValueError(f"Copernicus quicklook download failed with HTTP {response.status}")
             content = response.content
-            if content is None:
+            if not content:
                 raise ValueError("Received empty content when downloading quicklook.")
 
             download_location = (output_folder / granule.granule_name).with_suffix(".jpg")

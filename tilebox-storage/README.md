@@ -111,7 +111,7 @@ The first read fetches a container-scoped SAS token automatically. Assets with t
 container, and credential binding share an object store. Descriptions and unused flows do not
 split the cache. Obstore caches credentials and
 refreshes them on demand near expiry. `resolved.href` stays unsigned; callers do not need to manage
-tokens or close a session. Token requests use `niquests` and bounded async Tenacity retries.
+tokens or close a transport. Token requests use `pyqwest` and bounded async Tenacity retries.
 
 Use async obstore operations if accessing `resolved.store` directly. Download NetCDF and HDF assets
 with `download()` before opening them locally; `open_geotiff()` only supports GeoTIFF assets.

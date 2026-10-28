@@ -20,6 +20,7 @@ Design choices to keep in mind:
 - Public clients call generated Connect clients directly and convert protobuf messages to domain objects.
 - Sync + async parity: datasets has native blocking and async clients with shared conversion helpers.
 - External API communication uses native Connect RPC clients and protobuf-py messages.
+- Use `pyqwest` for HTTP requests; it is also the HTTP library used by `connectrpc`.
 
 ## Developer Tooling
 

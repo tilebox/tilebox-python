@@ -11,8 +11,8 @@ from typing import Any
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
-import niquests
 import obstore
+import pyqwest
 import pytest
 from obstore.store import AzureStore, HTTPStore
 from protobuf.wkt import Struct, Value
@@ -70,7 +70,7 @@ def test_resolution_is_offline_and_shares_stores_by_container() -> None:
     client = Client()
     asset = _asset()
     with patch.object(
-        niquests.AsyncSession, "__init__", side_effect=AssertionError("resolution must not create a session")
+        pyqwest.Client, "__init__", side_effect=AssertionError("resolution must not create an HTTP client")
     ):
         with ThreadPoolExecutor(max_workers=8) as executor:
             resolved = list(executor.map(client.resolve, [asset, _asset(path="scene/blue.tif")] * 8))
@@ -156,22 +156,26 @@ def test_rejects_href_mismatches_without_leaking_queries(href: str) -> None:
 
 
 @pytest.fixture
-def pc_server(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any]]:
-    """Exercise real niquests and obstore against a local token and blob service."""
-    state: dict[str, Any] = {"tokens": 0, "responses": [], "ttl": 3600, "blob_queries": []}
+def pc_server(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[dict[str, Any]]:
+    """Exercise real pyqwest and obstore against a local token and blob service."""
+    state: dict[str, Any] = {"tokens": 0, "responses": [], "ttl": 3600, "blob_queries": [], "authorization": []}
+    netrc = tmp_path / "netrc"
+    netrc.write_text("machine 127.0.0.1 login secret-user password secret-password\n")
+    monkeypatch.setenv("NETRC", str(netrc))
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             parsed = urlsplit(self.path)
             if parsed.path.startswith("/api/sas/v1/token/"):
                 state["tokens"] += 1
+                state["authorization"].append(self.headers.get("Authorization"))
                 expiry = (datetime.now(UTC) + timedelta(seconds=state["ttl"])).isoformat()
                 status, payload = (
                     state["responses"].pop(0)
                     if state["responses"]
                     else (200, {"token": f"sig=token{state['tokens']}&se={expiry}", "msft:expiry": expiry})
                 )
-                data = json.dumps(payload).encode()
+                data = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
             else:
                 query = parse_qs(parsed.query)
                 state["blob_queries"].append(query)
@@ -181,6 +185,8 @@ def pc_server(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any]]:
             self.send_header("Content-Length", str(len(data)))
             self.send_header("ETag", '"test-etag"')
             self.send_header("Last-Modified", "Mon, 12 Oct 2026 12:00:00 GMT")
+            if status == 302:
+                self.send_header("Location", "/api/sas/v1/token/redirected")
             self.end_headers()
             self.wfile.write(data)
 
@@ -191,17 +197,17 @@ def pc_server(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any]]:
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     origin = f"http://127.0.0.1:{server.server_port}"
-    original_get = niquests.AsyncSession.get
+    original_get = pyqwest.Client.get
 
-    async def local_token_get(session: niquests.AsyncSession, url: str, **kwargs: Any) -> Any:
+    async def local_token_get(client: pyqwest.Client, url: str, **kwargs: Any) -> pyqwest.FullResponse:
         assert url.startswith("https://planetarycomputer.microsoft.com/api/sas/v1/token/modiseuwest/")
-        return await original_get(session, origin + urlsplit(url).path, **kwargs)
+        return await original_get(client, origin + urlsplit(url).path, **kwargs)
 
     def local_store(container: str, **kwargs: Any) -> AzureStore:
         kwargs["endpoint"] = origin
         return AzureStore(container, client_options={"allow_http": True}, **kwargs)
 
-    monkeypatch.setattr(niquests.AsyncSession, "get", local_token_get)
+    monkeypatch.setattr(pyqwest.Client, "get", local_token_get)
     monkeypatch.setattr(obstore.store, "AzureStore", local_store)
     try:
         yield state
@@ -230,6 +236,7 @@ async def test_reads_share_credentials_and_refresh_on_demand(pc_server: dict[str
     assert pc_server["tokens"] == 2
     assert await client.read_bytes(_asset(container="modis-061", path="original.hdf")) == b"/modis-061/original.hdf"
     assert pc_server["tokens"] == 3
+    assert pc_server["authorization"] == [None, None, None]
 
 
 @pytest.mark.asyncio
@@ -257,6 +264,14 @@ async def test_azure_uri_aliases_share_signing_for_objects_and_prefixes(pc_serve
 
 
 @pytest.mark.asyncio
+async def test_follows_token_redirects(pc_server: dict[str, Any]) -> None:
+    pc_server["responses"] = [(302, {})]
+    assert await Client().read_bytes(_asset(path="data.json")) == b"/modis-061-cogs/data.json"
+    assert pc_server["tokens"] == 2
+    assert pc_server["blob_queries"][0]["sig"] == ["token2"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("status", [429, 503])
 async def test_retries_transient_token_failures(pc_server: dict[str, Any], status: int) -> None:
     pc_server["responses"] = [(status, {"error": "secret"})] * 2
@@ -279,7 +294,7 @@ async def test_token_retries_are_bounded(pc_server: dict[str, Any]) -> None:
     ("status", "payload"),
     [
         (403, {"error": "secret"}),
-        (302, {"href": "https://evil.example/?sig=secret"}),
+        (200, b"not-json-secret"),
         (200, {"token": "secret", "msft:expiry": "2099-01-01T00:00:00Z"}),
         (200, {"token": "sig=secret&se=2099-01-01", "msft:expiry": "2099-01-01T00:00:00"}),
         (200, {"token": "sig=secret&se=2000-01-01", "msft:expiry": "2000-01-01T00:00:00Z"}),

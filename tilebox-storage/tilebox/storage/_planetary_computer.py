@@ -5,13 +5,13 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl
 
-from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
+from tenacity import RetryError, retry, retry_if_exception_type, retry_if_result, stop_after_attempt, wait_exponential
 
 from tilebox.storage._registry import StoreSpec
 
 if TYPE_CHECKING:
-    from niquests import AsyncResponse, AsyncSession, Response
     from obstore.store import AzureSASToken
+    from pyqwest import Client, FullResponse
 
     from tilebox.datasets.stac.v1.authentication_pb import SignedURLFlow
 
@@ -38,18 +38,24 @@ class _PlanetaryComputerCredentialProvider:
     container: str
 
     async def __call__(self) -> "AzureSASToken":
-        from niquests import AsyncSession  # noqa: PLC0415
-        from niquests.exceptions import RequestException  # noqa: PLC0415
+        from pyqwest import Client, HTTPTransport, ReadError, RemoteProtocolError, TooManyRedirects, WriteError  # noqa: PLC0415
 
-        # The session belongs to this fetch, not to the storage client's lifetime or event loop.
-        async with AsyncSession() as session:
-            session.trust_env = False  # Never forward netrc credentials to the signing service.
+        # The transport belongs to this fetch. Pyqwest does not load netrc credentials.
+        async with HTTPTransport(tls_include_system_certs=True, follow_redirects=True, timeout=30) as transport:
             try:
                 url = f"https://planetarycomputer.microsoft.com/api/sas/v1/token/{self.account}/{self.container}"
-                response = await _request_token(session, url)
-            except RequestException:
+                response = await _request_token(Client(transport), url)
+            except (
+                ConnectionError,
+                TimeoutError,
+                ReadError,
+                WriteError,
+                RemoteProtocolError,
+                TooManyRedirects,
+                RetryError,
+            ):
                 raise ValueError("Planetary Computer token request failed") from None
-            if response.status_code != 200:
+            if response.status != 200:
                 raise ValueError("Planetary Computer token endpoint did not return HTTP 200")
             try:
                 return _parse_credentials(response.json())
@@ -58,28 +64,15 @@ class _PlanetaryComputerCredentialProvider:
                 raise ValueError("Planetary Computer returned invalid or expired SAS credentials") from None
 
 
-def _is_transient(error: BaseException) -> bool:
-    from niquests.exceptions import ConnectionError as HTTPConnectionError  # noqa: PLC0415
-    from niquests.exceptions import HTTPError, Timeout  # noqa: PLC0415
-
-    if isinstance(error, (HTTPConnectionError, Timeout)):
-        return True
-    if isinstance(error, HTTPError) and error.response is not None:
-        status = error.response.status_code or 0
-        return status == 429 or 500 <= status < 600
-    return False
-
-
 @retry(
-    retry=retry_if_exception(_is_transient),
+    retry=retry_if_exception_type((ConnectionError, TimeoutError))
+    | retry_if_result(lambda response: response.status == 429 or 500 <= response.status < 600),
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=0.5),
     reraise=True,
 )
-async def _request_token(session: "AsyncSession", url: str) -> "Response | AsyncResponse":
-    response = await session.get(url, timeout=30, allow_redirects=False)
-    response.raise_for_status()
-    return response
+async def _request_token(client: "Client", url: str) -> "FullResponse":
+    return await client.get(url)
 
 
 def _parse_credentials(payload: Any) -> "AzureSASToken":

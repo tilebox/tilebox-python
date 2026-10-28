@@ -1,15 +1,15 @@
 import re
 import subprocess
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 import pytest
-import responses
 from hypothesis import HealthCheck, given, settings
 from obstore.store import LocalStore
+from pyqwest import Request
 
 import tilebox.storage.aio as storage_aio
 from tests.storage_data import ers_granules, landsat_granules, s5p_granules, umbra_granules
@@ -33,7 +33,7 @@ from tilebox.storage.granule import (
 _ = storage_aio.Boto3CredentialProvider
 _ = storage_aio.S3Store
 
-pytestmark = pytest.mark.usefixtures("responses_mock")
+pytestmark = pytest.mark.usefixtures("http_responses")
 
 ASF_LOGIN_URL = "https://urs.earthdata.nasa.gov/oauth/authorize"
 
@@ -44,7 +44,7 @@ def test_heavy_imports_are_lazy() -> None:
         "import pickle\n"
         "import sys\n"
         "import tilebox.storage as storage\n"
-        "heavy = {'tilebox.storage.aio', 'xarray', 'obstore', 'niquests', 'IPython'}\n"
+        "heavy = {'tilebox.storage.aio', 'xarray', 'obstore', 'pyqwest', 'IPython'}\n"
         "assert not heavy & sys.modules.keys()\n"
         "assert set(storage.__all__) <= set(dir(storage))\n"
         "client = storage.LocalFileSystemStorageClient\n"
@@ -54,7 +54,7 @@ def test_heavy_imports_are_lazy() -> None:
         "assert client.__init__.__qualname__ == 'LocalFileSystemStorageClient.__init__'\n"
         "assert pickle.loads(pickle.dumps(client)) is client\n"
         "assert 'tilebox.storage.aio' in sys.modules\n"
-        "assert not {'xarray', 'obstore', 'niquests', 'IPython'} & sys.modules.keys()\n"
+        "assert not {'xarray', 'obstore', 'pyqwest', 'IPython'} & sys.modules.keys()\n"
         "try:\n"
         "    from tilebox.storage.aio import Image\n"
         "except ImportError:\n"
@@ -66,35 +66,18 @@ def test_heavy_imports_are_lazy() -> None:
     subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603
 
 
-def _mock_asf_login(*, status: int = 200) -> None:
-    responses.add(responses.GET, ASF_LOGIN_URL, status=status)
-
-
-def _count_calls(url: str) -> int:
-    return sum(call.request.url == url for call in responses.calls)
-
-
-def _count_calls_by_prefix(url: str) -> int:
-    return sum(str(call.request.url).startswith(url) for call in responses.calls)
-
-
 @pytest.mark.asyncio
-async def test_client_login() -> None:
-    _mock_asf_login()
+async def test_client_login(http_requests: list[Request]) -> None:
     client = _HttpClient(auth={"ASF": ("username", "password")})
-    fresh = await client._client("ASF")
-    cached = await client._client("ASF")
-
-    assert isinstance(fresh, type(cached))
-    assert fresh is cached
-    assert _count_calls_by_prefix(ASF_LOGIN_URL) == 1
-
-    await fresh.close()
+    await client._client("ASF")
+    await client._client("ASF")
+    assert sum(request.url.startswith(ASF_LOGIN_URL) for request in http_requests) == 1
+    await client.close()
 
 
 @pytest.mark.asyncio
-async def test_client_login_failed() -> None:
-    _mock_asf_login(status=401)
+async def test_client_login_failed(http_responses: dict[str, tuple[int, bytes]]) -> None:
+    http_responses[ASF_LOGIN_URL] = (401, b"")
     client = _HttpClient(auth={"ASF": ("invalid-username", "password")})
     with pytest.raises(ValueError, match=re.escape("Invalid username or password.")):
         await client._client("ASF")
@@ -112,11 +95,11 @@ async def test_client_missing_credentials() -> None:
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_download_quicklook(
     tmp_path: Path,
+    http_responses: dict[str, tuple[int, bytes]],
     granule: ASFStorageGranule,
 ) -> None:
     assert granule.urls.quicklook is not None  # for type checker
-    _mock_asf_login()
-    responses.add(responses.GET, granule.urls.quicklook, body=b"my-quicklook-image")
+    http_responses[granule.urls.quicklook] = (200, b"my-quicklook-image")
 
     client = _HttpClient(auth={"ASF": ("username", "password")})
     downloaded = await client.download_quicklook(granule, tmp_path)
@@ -130,11 +113,11 @@ async def test_download_quicklook(
 @given(ers_granules(ensure_quicklook=True))
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_quicklook(
+    http_responses: dict[str, tuple[int, bytes]],
     granule: ASFStorageGranule,
 ) -> None:
     assert granule.urls.quicklook is not None  # for type checker
-    _mock_asf_login()
-    responses.add(responses.GET, granule.urls.quicklook, body=b"my-quicklook-image")
+    http_responses[granule.urls.quicklook] = (200, b"my-quicklook-image")
 
     client = _HttpClient(auth={"ASF": ("username", "password")})
     with patch("tilebox.storage.aio._display_quicklook") as display_mock:
@@ -150,12 +133,12 @@ async def test_quicklook(
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_download(
     tmp_path: Path,
+    http_responses: dict[str, tuple[int, bytes]],
     granule: ASFStorageGranule,
 ) -> None:
     mock_data = ["my-granule", "some-data", "some-more-data"]
     granule.md5sum = "1c3cd9bf5dd29c2a79d4783ca2aee55e"  # real md5sum of the above data
-    _mock_asf_login()
-    responses.add(responses.GET, granule.urls.data, body="".join(mock_data).encode())
+    http_responses[granule.urls.data] = (200, "".join(mock_data).encode())
 
     client = _HttpClient(auth={"ASF": ("username", "password")})
     downloaded = await client.download(granule, tmp_path, extract=False, show_progress=False)
@@ -170,10 +153,10 @@ async def test_download(
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_download_verify_md5(
     tmp_path: Path,
+    http_responses: dict[str, tuple[int, bytes]],
     granule: ASFStorageGranule,
 ) -> None:
-    _mock_asf_login()
-    responses.add(responses.GET, granule.urls.data, body=b"my-granule")
+    http_responses[granule.urls.data] = (200, b"my-granule")
 
     client = _HttpClient(auth={"ASF": ("username", "password")})
     with pytest.raises(ValueError, match=r".*md5sum mismatch.*"):
@@ -185,12 +168,13 @@ async def test_download_verify_md5(
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_cached_download_quicklook(
     tmp_path: Path,
+    http_responses: dict[str, tuple[int, bytes]],
+    http_requests: list[Request],
     granule: ASFStorageGranule,
 ) -> None:
     assert granule.urls.quicklook is not None  # for type checker
 
-    _mock_asf_login()
-    responses.add(responses.GET, granule.urls.quicklook, body=b"my-quicklook-image")
+    http_responses[granule.urls.quicklook] = (200, b"my-quicklook-image")
 
     client = ASFStorageClient("username", "password", cache_directory=tmp_path)
     downloaded = await client.download_quicklook(granule)
@@ -201,7 +185,7 @@ async def test_cached_download_quicklook(
 
     for _ in range(10):
         await client.download_quicklook(granule)
-    assert _count_calls(granule.urls.quicklook) == 1
+    assert sum(request.url == granule.urls.quicklook for request in http_requests) == 1
 
 
 @pytest.mark.asyncio
@@ -209,12 +193,13 @@ async def test_cached_download_quicklook(
 @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_cached_download(
     tmp_path: Path,
+    http_responses: dict[str, tuple[int, bytes]],
+    http_requests: list[Request],
     granule: ASFStorageGranule,
 ) -> None:
     mock_data = ["my-granule", "some-data", "some-more-data"]
     granule.md5sum = "1c3cd9bf5dd29c2a79d4783ca2aee55e"  # real md5sum of the above data
-    _mock_asf_login()
-    responses.add(responses.GET, granule.urls.data, body="".join(mock_data).encode())
+    http_responses[granule.urls.data] = (200, "".join(mock_data).encode())
 
     client = ASFStorageClient("username", "password", cache_directory=tmp_path)
     downloaded = await client.download(granule, extract=False, show_progress=False)
@@ -225,7 +210,7 @@ async def test_cached_download(
 
     for _ in range(10):
         await client.download(granule, extract=False, show_progress=False)
-    assert _count_calls(granule.urls.data) == 1
+    assert sum(request.url == granule.urls.data for request in http_requests) == 1
 
 
 @pytest.mark.asyncio
@@ -332,6 +317,26 @@ async def test_copernicus_storage_client_download(granule: CopernicusStorageGran
         folder = await copernicus.download(granule, show_progress=False)
         assert folder.exists()
         assert (folder / granule.granule_name).read_bytes() == b"content1"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("status", "body"), [(200, b"thumbnail"), (200, b""), (403, b"secret")])
+async def test_copernicus_http_quicklook(
+    tmp_path: Path, http_responses: dict[str, tuple[int, bytes]], status: int, body: bytes
+) -> None:
+    url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Assets(scene)/$value"
+    granule = CopernicusStorageGranule(datetime(2026, 10, 28), "scene", "/eodata/Sentinel-2/scene", url)
+    http_responses[url] = (status, body)
+    client = CopernicusStorageClient("access", "secret", cache_directory=tmp_path)
+    expected = tmp_path / "CopernicusDataspace" / "Sentinel-2" / "scene" / "scene.jpg"
+    if status == 200 and body:
+        assert await client.download_quicklook(granule) == expected
+        assert expected.read_bytes() == body
+    else:
+        with pytest.raises(ValueError, match="HTTP 403" if status == 403 else "empty content") as error:
+            await client.download_quicklook(granule)
+        assert "secret" not in str(error.value)
+        assert not expected.exists()
 
 
 @pytest.mark.asyncio
