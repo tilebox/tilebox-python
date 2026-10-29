@@ -462,10 +462,6 @@ def is_missing(value: Any) -> bool:
     This is needed for pandas 3.0+ compatibility where object-dtype columns use
     np.nan instead of None for missing values.
     """
-    try:
-        return bool(pd.isna(value))
-    except ValueError:
-        # pd.isna returns either a bool, or an array of bools. In case of an array, converting the result to bool()
-        # will raise a ValueError. For an array, we know it's not a missing value, even an array of all NaNs is not
-        # a missing value.
-        return False
+    missing = pd.isna(value)
+    # Arrays are not missing scalars, even when empty or containing only missing values.
+    return isinstance(missing, bool | np.bool_) and bool(missing)

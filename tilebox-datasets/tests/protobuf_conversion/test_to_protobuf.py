@@ -105,6 +105,19 @@ def test_record_oriented_data_preserves_absent_fields_and_filters_missing_values
     assert converted[1].some_int == 0
 
 
+@pytest.mark.parametrize(
+    ("values", "expected"), [([], []), ([np.nan], []), ([None, np.nan], []), ([3, np.nan, 7], [3, 7])]
+)
+@pytest.mark.parametrize("as_array", [False, True])
+def test_required_repeated_field_is_not_a_missing_scalar(
+    values: list[float | None], expected: list[int], as_array: bool
+) -> None:
+    value = np.array(values) if as_array else values
+    converted = to_messages([{"some_repeated_int": value}], ExampleDatapoint, required_fields=["some_repeated_int"])
+
+    assert converted[0].some_repeated_int == expected
+
+
 def test_record_oriented_data_requires_every_record_to_have_required_fields() -> None:
     with pytest.raises(ValueError, match=r"Record 1: Missing required field.*time"):
         to_messages(
