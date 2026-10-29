@@ -1,21 +1,90 @@
 import os
 import subprocess
 import sys
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from uuid import UUID
 
 import pytest
 import xarray as xr
+from protobuf.wkt.google.protobuf.descriptor_pb import (
+    EnumDescriptorProto,
+    EnumValueDescriptorProto,
+    FileDescriptorProto,
+    FileDescriptorSet,
+)
 from shapely import Polygon
 
 from _tilebox.errors import ArgumentError, AuthenticationError, InternalServerError, NotFoundError
 from _tilebox.replay import Record, Replay
+from tests.example_dataset.schema import DESCRIPTOR
 from tilebox.datasets import Client, DatasetClient
+from tilebox.datasets.aio import DatasetClient as AsyncDatasetClient
 from tilebox.datasets.aio.client import Client as AsyncClient
 from tilebox.datasets.client import _TILEBOX_API_URL, _TILEBOX_DEV_API_URL
 from tilebox.datasets.data.datapoint import QueryResultPage
+from tilebox.datasets.data.datasets import AnnotatedType, Dataset, DatasetKind, FieldAnnotation
 from tilebox.datasets.query.time_interval import us_to_datetime
+
+
+@pytest.mark.parametrize("client_type", [DatasetClient, AsyncDatasetClient])
+@pytest.mark.parametrize("summary", ["", "Synthetic scenes."])
+@pytest.mark.parametrize("kind", [DatasetKind.TEMPORAL, DatasetKind.SPATIOTEMPORAL, None])
+def test_dataset_representation(
+    client_type: type[DatasetClient] | type[AsyncDatasetClient], summary: str, kind: DatasetKind | None
+) -> None:
+    descriptor = FileDescriptorProto.from_binary(DESCRIPTOR.to_binary())
+    descriptor.enum_type.append(
+        EnumDescriptorProto(
+            name="Level",
+            value=[EnumValueDescriptorProto(name=name, number=n) for name, n in [("ZERO", 0), ("A", 17), ("B", 4)]],
+        )
+    )
+    annotations = []
+    for field in descriptor.message_type[0].field:
+        # Deliberately differ from declaration order to check annotation alignment.
+        field.number = 100 - field.number
+        if field.name == "some_enum":
+            field.type_name = ".tests.scientific.Level"
+            annotations.append(
+                FieldAnnotation("Hidden description", "Hidden example", queryable=True, enum_values=["L2-SP", '雪"'])
+            )
+        else:
+            annotations.append(FieldAnnotation("", ""))
+    schema = AnnotatedType(FileDescriptorSet(file=[descriptor]), "tests.scientific.Datapoint", annotations, kind)
+    dataset = Dataset(UUID(int=1), UUID(int=2), schema, "demo", "Scene demo", summary, "", "", slug="tilebox.demo")
+    dataset = Dataset.from_message(dataset.to_message())
+    client = client_type(MagicMock(), dataset)
+    output = repr(client)
+    label = {
+        DatasetKind.TEMPORAL: "Temporal Dataset",
+        DatasetKind.SPATIOTEMPORAL: "Spatiotemporal Dataset",
+        None: "Dataset",
+    }[kind]
+    heading = f"Scene demo [{label}]" + (f": {summary}" if summary else "")
+    assert output.splitlines()[:4] == ["tilebox.demo", heading, "", "Fields:"]
+    rows = [line.split() for line in output.splitlines()[4:]]
+    assert rows[:5] == [
+        ["🕒", "time", "Timestamp"],
+        ["🔑", "id", "UUID"],
+        ["ingestion_time", "Timestamp"],
+        ["geometry", "Geometry"],
+        ["some_string", "string"],
+    ]
+    assert ["some_int", "int64"] in rows
+    assert ["some_repeated_time", "[]", "Timestamp"] in rows
+    assert ["some_repeated_string", "[]", "string"] in rows
+    assert ["🔍", "some_enum", "enum", '("L2-SP",', r'"雪\"")'] in rows
+    assert "Hidden" not in output
+
+    field = descriptor.message_type[0].field[15]
+    field.label = field.Label.REPEATED
+    assert '[] enum ("L2-SP", "雪\\"")' in repr(client_type(MagicMock(), dataset))
+    legacy = replace(dataset, slug="", type=replace(schema, field_annotations=[]))
+    assert repr(client_type(MagicMock(), legacy)).startswith("demo\n")
+    assert '[] enum ("ZERO", "A", "B")' in repr(client_type(MagicMock(), legacy))
 
 
 @pytest.mark.parametrize("client_type", [Client, AsyncClient])

@@ -124,6 +124,8 @@ class BoolField(ProtobufFieldType):
 
 
 class EnumField(ProtobufFieldType):
+    """Convert custom enum values without exposing protobuf symbols or numbers."""
+
     def __init__(self, name_lookup: dict[int, str]) -> None:
         super().__init__(object)
         self._values_to_name = name_lookup
@@ -137,6 +139,18 @@ class EnumField(ProtobufFieldType):
         except KeyError as error:
             raise ValueError(f"Invalid enum value {value}") from error
 
+    def to_proto(self, value: Any) -> int:
+        if not isinstance(value, str):
+            raise TypeError("Custom enum values must be public strings")
+        try:
+            return self._names_to_value[value]
+        except KeyError as error:
+            raise ValueError(f"Unknown public enum value {value!r}") from error
+
+
+class LegacyEnumField(EnumField):
+    """Convert descriptor-defined enums using short names, numbers, or enum members."""
+
     def to_proto(self, value: str | int | Enum) -> int:
         if isinstance(value, Enum):
             value = value.name
@@ -149,18 +163,6 @@ class EnumField(ProtobufFieldType):
         if integer_value not in self._values_to_name:
             raise ValueError(f"Invalid enum value {value}")  # during ingestion, we can raise an error here
         return integer_value
-
-
-class PublicEnumField(EnumField):
-    """Convert custom enum values without exposing protobuf symbols or numbers."""
-
-    def to_proto(self, value: Any) -> int:
-        if not isinstance(value, str):
-            raise TypeError("Custom enum values must be public strings")
-        try:
-            return self._names_to_value[value]
-        except KeyError as error:
-            raise ValueError(f"Unknown public enum value {value!r}") from error
 
 
 def enum_field_types(schema: AnnotatedType, message_type: type[Message]) -> dict[str, ProtobufFieldType]:
@@ -178,13 +180,12 @@ def enum_field_types(schema: AnnotatedType, message_type: type[Message]) -> dict
         if not annotation.enum_values:
             continue
         value = fields_by_name[field.name].value
-        enum = (
-            value.element
-            if isinstance(value, DescFieldValueList)
-            else value.enum
-            if isinstance(value, DescFieldValueEnum)
-            else None
-        )
+        if isinstance(value, DescFieldValueList):
+            enum = value.element
+        elif isinstance(value, DescFieldValueEnum):
+            enum = value.enum
+        else:
+            enum = None
         if not isinstance(enum, DescEnum):
             raise TypeError(f"Field {field.name!r}: enum_values requires an enum field")
         members = [member for member in enum.proto.value if member.number != 0]
@@ -196,7 +197,7 @@ def enum_field_types(schema: AnnotatedType, message_type: type[Message]) -> dict
             or len({member.number for member in members}) != len(members)
         ):
             raise ValueError(f"Field {field.name!r}: invalid enum_values mapping")
-        result[field.name] = PublicEnumField(
+        result[field.name] = EnumField(
             {member.number: name for member, name in zip(members, public_values, strict=True)}
         )
     return result
@@ -399,7 +400,7 @@ def infer_field_type(field: DescField) -> ProtobufFieldType:
     if isinstance(element, DescMessage):
         return _MESSAGE_NAMES_TO_FIELDS.get(element.type_name, ProtobufFieldType(object))
     if isinstance(element, DescEnum):
-        return EnumField(_enum_mapping(element))
+        return LegacyEnumField(_enum_mapping(element))
     if element == ScalarType.BOOL:
         return BoolField()
     return ProtobufFieldType(_PROTOBUF_TYPE_TO_NUMPY_TYPE[element])

@@ -5,7 +5,7 @@ Functionality for converting protobuf messages to xarray datasets.
 import contextlib
 from collections.abc import Callable, Collection, Mapping, Sequence
 from operator import attrgetter
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 import numpy as np
 import xarray as xr
@@ -13,6 +13,7 @@ from numpy.typing import NDArray
 from protobuf import DescField, DescFieldValueList, DescFieldValueMessage, DescFieldValueSingular, Message
 
 from tilebox.datasets.protobuf_conversion.field_types import (
+    EnumField,
     ProtobufFieldType,
     ProtoFieldValue,
     infer_field_type,
@@ -269,6 +270,33 @@ class _SimpleFieldConverter(_FieldConverter):
             self._data = data
 
 
+class _EnumListFieldConverter(_FieldConverter):
+    """Keep each repeated enum as one ordered list, including empty fields."""
+
+    def __init__(self, field_name: str, field_type: EnumField) -> None:
+        self._field_name = field_name
+        self._type = field_type
+        self._data: NDArray[Any] = np.empty(0, dtype=object)
+
+    def __call__(self, index: int, value: ProtoFieldValue) -> None:
+        self._data[index] = [self._type.from_proto(item) for item in cast(Sequence, value)]
+
+    def resize(self, buffer_size: int) -> None:
+        if buffer_size > len(self._data):
+            data = np.empty(buffer_size, dtype=object)
+            data[: len(self._data)] = self._data
+            for index in range(len(self._data), buffer_size):
+                data[index] = []
+            self._data = data
+
+    def finalize(
+        self, dataset: xr.Dataset, count: int, dimension_names: tuple[str, ...], skip_if_empty: bool = False
+    ) -> str:
+        _ = skip_if_empty  # Empty lists are values, not missing data.
+        dataset[self._field_name] = dimension_names, self._data[:count]
+        return self._field_name
+
+
 class _ArrayFieldConverter(_FieldConverter):
     def __init__(
         self,
@@ -404,6 +432,8 @@ def _create_field_converter(field: DescField, field_type: ProtobufFieldType | No
     """
     field_type = field_type or infer_field_type(field)
     if isinstance(field.value, DescFieldValueList):
+        if isinstance(field_type, EnumField):
+            return _EnumListFieldConverter(field.name, field_type)
         return _ArrayFieldConverter(field.name, field_type)
 
     return _SimpleFieldConverter(field.name, field_type)

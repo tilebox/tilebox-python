@@ -1,5 +1,5 @@
 from datetime import UTC, datetime, timedelta
-from enum import Enum, IntEnum
+from enum import Enum, IntEnum, StrEnum
 from typing import Any, Literal
 
 import numpy as np
@@ -17,6 +17,15 @@ class NumericQuality(IntEnum):
     GOOD = 1
 
 
+class ProcessingLevel(StrEnum):
+    UPPER = "L1"
+    LOWER = "l1"
+
+
+class StringQuality(str, Enum):  # noqa: UP042 -- Exercise Enum.__str__, unlike StrEnum.
+    GOOD = "good"
+
+
 @pytest.mark.parametrize(
     ("value", "kind", "expected"),
     [
@@ -27,6 +36,11 @@ class NumericQuality(IntEnum):
         ("", "string_value", ""),
         (b"", "bytes_value", b""),
         (Quality.GOOD.value, "string_value", "good"),
+        (NumericQuality.GOOD, "int64_value", 1),
+        (ProcessingLevel.UPPER, "string_value", "L1"),
+        (ProcessingLevel.LOWER, "string_value", "l1"),
+        (StringQuality.GOOD, "string_value", "good"),
+        (np.str_("L2-SP"), "string_value", "L2-SP"),
         ("L2-SP", "string_value", "L2-SP"),
         ("雪", "string_value", "雪"),
     ],
@@ -36,7 +50,8 @@ def test_query_value_types(
     kind: Literal["bool_value", "int64_value", "uint64_value", "double_value", "string_value", "bytes_value"],
     expected: object,
 ) -> None:
-    comparison = (field("quality") == value).to_message().comparison
+    wire = (field("quality") == value).to_message().to_binary()
+    comparison = data_access_pb.FilterExpression.from_binary(wire).comparison
     assert comparison is not None
     message = comparison.value
     assert message is not None
@@ -44,10 +59,19 @@ def test_query_value_types(
     assert getattr(message, kind) == expected
 
 
-@pytest.mark.parametrize("value", [Quality.GOOD, NumericQuality.GOOD])
-def test_enum_members_require_public_strings(value: Enum) -> None:
-    with pytest.raises(TypeError, match="public strings"):
-        _ = field("quality") == value
+def test_unsupported_query_value() -> None:
+    with pytest.raises(TypeError, match="Unsupported query value type"):
+        _ = field("quality") == Quality.GOOD
+
+
+@pytest.mark.parametrize("method", ["contains", "contains_all", "contains_any"])
+@pytest.mark.parametrize("value", [ProcessingLevel.UPPER, ProcessingLevel.LOWER])
+def test_string_subclass_membership(method: str, value: str) -> None:
+    expression = getattr(field("tags"), method)(value if method == "contains" else [value])
+    message = data_access_pb.FilterExpression.from_binary(expression.to_message().to_binary())
+    assert message.array_predicate is not None
+    assert list(message.array_predicate.values) == [value]
+    assert Expression.from_message(message) == expression
 
 
 @pytest.mark.parametrize("method", ["contains_all", "contains_any"])
@@ -74,7 +98,7 @@ def test_array_predicates_round_trip(method: str, values: list[str]) -> None:
 def test_invalid_array_predicate_inputs(values: Any) -> None:
     for method in (field("tags").contains_all, field("tags").contains_any):
         with pytest.raises((TypeError, ValueError)):
-            method(values)
+            method(values).to_message().to_binary()
 
 
 def test_array_predicate_copies_inputs_and_validates_messages() -> None:

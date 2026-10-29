@@ -127,7 +127,6 @@ Numbers and generated protobuf symbols are not accepted as substitutes for publi
 Scalar enum filters support `==` and `!=`. Combine equality expressions with `|` to match several values.
 The server validates values case-sensitively. Comparisons exclude missing values, including `!=`;
 include them explicitly with `(field("processing_level") != "L1") | field("processing_level").is_null()`.
-Python enum members are not filter literals; use their public string `.value` instead.
 
 Vocabularies contain 1–100 unique, nonempty strings. Empty datasets allow replacing, removing,
 renaming, or reordering values. Once a dataset contains data, updates may only append values.
@@ -168,8 +167,10 @@ without_defense = ~field("use_cases").contains("defense")
 
 The backend removes duplicates during ingestion, preserving first-occurrence order. The example
 stores `["defense", "agriculture"]`. Ingest lists of public strings through records, columns, or pandas;
-xarray results can also be ingested again. Results use the existing padded repeated-field layout:
-`use_cases(time, n_use_cases)`, with missing padding. If all returned lists are empty, the variable is omitted.
+xarray results contain one `list[str]` per row in an object column, `use_cases(time)`, without an
+extra array dimension. Empty values are `[]`, including when every returned value is empty.
+Lists preserve the returned order and can be ingested again without changing enum ordering.
+Other repeated fields retain their existing padded array layout.
 
 Repeated enums use membership filters, not `==`, `!=`, or null checks. Combine predicates with `&`, `|`,
 and `~`. Membership treats omitted and empty lists as the empty set and never returns null.

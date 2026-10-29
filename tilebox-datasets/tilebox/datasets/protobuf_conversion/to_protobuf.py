@@ -10,6 +10,7 @@ from protobuf import DescField as FieldDescriptor
 from protobuf import DescFieldValueList, DescFieldValueMessage, DescMessage, Message
 
 from tilebox.datasets.protobuf_conversion.field_types import (
+    EnumField,
     ProtobufFieldType,
     ProtoFieldValue,
     ScalarProtoFieldValue,
@@ -121,7 +122,8 @@ def _xarray_records(
         descriptor = descriptors.get(field_name)
         if descriptor is not None and isinstance(descriptor.value, DescFieldValueList):
             field_type = infer_field_type(descriptor)
-            values = trim_trailing_fill_values(values, field_type.fill_value)
+            if not (isinstance(field_type, EnumField) and values.ndim == 1):
+                values = trim_trailing_fill_values(values, field_type.fill_value)
         columns[field_name] = values
     yield from _transpose_columns(columns, validated_names)
 

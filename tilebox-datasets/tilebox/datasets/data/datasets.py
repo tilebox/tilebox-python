@@ -333,6 +333,7 @@ class Dataset:
     summary: str
     icon: str
     description: str
+    slug: str = ""
 
     @classmethod
     def from_message(cls, dataset: core_pb.Dataset) -> "Dataset":
@@ -347,6 +348,7 @@ class Dataset:
             summary=dataset.summary,
             icon=dataset.icon,
             description=dataset.description,
+            slug=dataset.slug,
         )
 
     def to_message(self) -> core_pb.Dataset:
@@ -359,6 +361,7 @@ class Dataset:
             summary=self.summary,
             icon=self.icon,
             description=self.description,
+            slug=self.slug,
         )
 
 

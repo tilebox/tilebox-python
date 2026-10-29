@@ -1,7 +1,6 @@
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import Enum
 from math import isfinite
 from typing import TYPE_CHECKING, ClassVar, NoReturn, TypeAlias
 
@@ -167,8 +166,6 @@ class _QueryValue:
     def parse(cls, value: object) -> "_QueryValue":  # noqa: C901, PLR0911, PLR0912
         import numpy as np  # noqa: PLC0415
 
-        if isinstance(value, Enum):
-            raise TypeError("Enum query values must be public strings; use the member's string .value")
         if isinstance(value, bool | np.bool_):
             return cls("bool_value", bool(value))
         if isinstance(value, np.datetime64):
@@ -204,7 +201,8 @@ class _QueryValue:
                 raise ValueError("Query float values must be finite")
             return cls("double_value", number)
         if isinstance(value, str | np.str_):
-            return cls("string_value", str(value))
+            # Preserve string contents even when a subclass overrides __str__, such as str + Enum.
+            return cls("string_value", str.__str__(value))
         if isinstance(value, bytes | np.bytes_):
             return cls("bytes_value", bytes(value))
         if value is None:
@@ -276,8 +274,6 @@ class _ArrayPredicate(Expression):
         if len(self.values) > 100:
             raise ValueError("Array predicates accept at most 100 values")
         for value in self.values:
-            if not isinstance(value, str) or isinstance(value, Enum):
-                raise TypeError("Array predicate values must be public strings")
             if not value:
                 raise ValueError("Array predicate values must be nonempty strings")
 

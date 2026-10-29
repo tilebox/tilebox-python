@@ -142,19 +142,23 @@ async def test_repeated_enum_ingestion_and_reads(repeated_enum_schema: Annotated
     service.query_by_id.return_value = core_pb.Any(value=stored[2].to_binary())
     for target in (client, collection):
         result = await _resolve(target.query(temporal_extent=("1970", "1971")))
-        assert result.level.dims == ("time", "n_level")
-        assert result.level.shape == (4, 2)
+        assert result.level.dims == ("time",)
+        assert result.level.shape == (4,)
         assert result.level.dtype == object
-        assert result.level.isnull().to_numpy().tolist() == [[True, True], [True, True], [False, False], [False, True]]  # noqa: PD003
-        assert result.level[2].to_numpy().tolist() == ["L2-SP", "L1"]
-        assert result.level[3, 0].item() == "雪"
-        assert (await _resolve(target.find(UUID(int=3)))).level.to_numpy().tolist() == ["L2-SP", "L1"]
+        assert result.level.to_numpy().tolist() == [[], [], ["L2-SP", "L1"], ["雪"]]
+        assert all(isinstance(value, list) for value in result.level.to_numpy())
+        assert "n_level" not in result.dims
+        assert (await _resolve(target.find(UUID(int=3)))).level.item() == ["L2-SP", "L1"]
         assert "level" not in await _resolve(target.query(temporal_extent=("1970", "1971"), skip_data=True))
     await _resolve(collection.ingest(result))
     assert [row.from_binary(value) for value in captured] == stored
+    result.level[0].item().append("L1")
+    assert result.level[1].item() == []
     service.query.side_effect = None
     service.query.return_value = data_access_pb.QueryResultPage(data=core_pb.RepeatedAny(value=[stored[0].to_binary()]))
-    assert "level" not in await _resolve(collection.query(temporal_extent=("1970", "1971")))
+    empty = await _resolve(collection.query(temporal_extent=("1970", "1971")))
+    assert empty.level.dims == ("time",)
+    assert empty.level.item() == []
     for value in ("L1", [0], [17], ["FIRST"], ["L1"] * 100 + ["unknown"]):
         with pytest.raises((TypeError, ValueError), match="Field 'level'"):
             await _resolve(collection.ingest([{"time": "2026-01-01", "level": value}]))

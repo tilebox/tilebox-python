@@ -33,6 +33,7 @@ from tilebox.datasets.query.expression import Expression
 from tilebox.datasets.query.id_interval import IDInterval, IDIntervalLike
 from tilebox.datasets.query.pagination import Pagination
 from tilebox.datasets.query.time_interval import TimeInterval, TimeIntervalLike
+from tilebox.datasets.representation import dataset_repr
 from tilebox.datasets.sync.pagination import (
     with_progressbar,
     with_time_progress_callback,
@@ -312,9 +313,7 @@ class DatasetClient:
         return collection_ids
 
     def __repr__(self) -> str:
-        kind = self._dataset.type.kind
-        label = f"{kind.name.title()} Dataset" if kind else "Dataset"
-        return f"{self.name} [{label}]: {self._dataset.summary}"
+        return dataset_repr(self._dataset, self._message_type)
 
 
 # always ingest / delete in batches, to avoid timeout issues for very large datasets
