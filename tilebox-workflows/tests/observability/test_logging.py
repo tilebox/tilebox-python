@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -32,7 +33,7 @@ from tilebox.workflows.observability._logging import StructuredLogger, internal_
 def isolated_logging(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     # Reset process-wide handlers, initialization state, and thresholds so each test
     # configures its own outputs. monkeypatch and caplog restore prior state afterward.
-    monkeypatch.setattr(root_logger, "handlers", [])
+    monkeypatch.setattr(root_logger, "handlers", [logging.NullHandler()])
     monkeypatch.setattr(observability, "_api_handler", None)
     monkeypatch.setattr(observability, "_console_handlers", [])
     monkeypatch.setattr(observability, "_console_configured", False)
@@ -137,7 +138,9 @@ def test_one_exporter_with_independent_logger_levels(
         else ["internal-10", "internal-20", "internal-30", "task-40", "internal-40"]
     )
     assert [item.log_record.body for item in exporter.get_finished_logs()] == expected
-    assert [line.split(": ", 2)[2] for line in capsys.readouterr().out.splitlines()] == expected
+    output = capsys.readouterr().out
+    assert len(output.splitlines()) == len(expected)
+    assert all(output.count(message) == 1 for message in expected)
 
 
 @pytest.mark.usefixtures("isolated_logging")
@@ -291,16 +294,159 @@ async def test_external_exports_and_console_do_not_replace_api_or_stream(externa
     observability.configure_console_logging(stream=second, reconfigure=False)
     observability.configure_log_level(logging.DEBUG)
     assert internal_logger.level == logging.ERROR
-    task_logger.info("all outputs")
-    observability.configure_console_logging(enabled=False)
+    correlation = {
+        "task_id": "task-123",
+        "trace_id": "0123456789abcdef0123456789abcdef",
+        "span_id": "fedcba9876543210",
+    }
+    StructuredLogger(task_logger).bind(**correlation, component="demo", attempt=1).info(
+        "all %s", "outputs", attempt=2, details={"labels": ["a b", "x\ny"], "ok": True}
+    )
+    observability.disable_console_logging()
     observability.initialize_logging("https://ignored.example", "ignored-key")
     task_logger.debug("exports only")
     assert first.getvalue().count("all outputs") == second.getvalue().count("all outputs") == 1
+    for output in (first, second):
+        assert (
+            'all outputs component="demo" attempt=2 details={"labels":["a b","x\\ny"],"ok":true}' in output.getvalue()
+        )
+        assert all(
+            key not in output.getvalue() and value not in output.getvalue() for key, value in correlation.items()
+        )
+        assert len(output.getvalue().splitlines()) == 1
     assert "exports only" not in first.getvalue() + second.getvalue()
     for exporter in (api, external):
         assert [item.log_record.body for item in exporter.get_finished_logs()] == ["all outputs", "exports only"]
+        assert exporter.get_finished_logs()[0].log_record.attributes == {
+            **correlation,
+            "component": "demo",
+            "attempt": 2,
+            "details": '{"labels":["a b","x\\ny"],"ok":true}',
+        }
     queue.seal()
-    assert [string_value(record.body) async for record in queue.subscribe_async()] == ["all outputs", "exports only"]
+    streamed = [record async for record in queue.subscribe_async()]
+    assert [string_value(record.body) for record in streamed] == ["all outputs", "exports only"]
+    assert streamed[0].trace_id == bytes.fromhex(correlation["trace_id"])
+    assert streamed[0].span_id == bytes.fromhex(correlation["span_id"])
+    assert (
+        string_value(next(attribute.value for attribute in streamed[0].attributes if attribute.key == "task_id"))
+        == "task-123"
+    )
+
+
+@pytest.mark.usefixtures("isolated_logging")
+def test_console_preserves_message_with_surrogate_attribute(capsys: pytest.CaptureFixture[str]) -> None:
+    output = StringIO()
+    observability.configure_console_logging(stream=output)
+    StructuredLogger(task_logger).info("processing path", path="file_\udcff.tif")
+    assert 'processing path path="file_?.tif"' in output.getvalue()
+    assert capsys.readouterr().err == ""
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="TZ environment timezone selection requires POSIX")
+@pytest.mark.parametrize(
+    ("timezone", "instant", "expected"),
+    [
+        ("Europe/Vienna", "2026-10-30T11:01:53.660+00:00", "2026-10-30 12:01:53.660GMT+1"),
+        ("Europe/Vienna", "2026-07-30T11:01:53.007+00:00", "2026-07-30 13:01:53.007GMT+2"),
+        ("Asia/Kathmandu", "2026-10-30T22:30:53.660+00:00", "2026-10-31 04:15:53.660GMT+5:45"),
+        ("America/St_Johns", "2026-10-30T01:01:53.660+00:00", "2026-10-29 22:31:53.660GMT-2:30"),
+        ("UTC", "2026-10-30T11:01:53.660+00:00", "2026-10-30 11:01:53.660Z"),
+        ("", "2026-10-30T11:01:53.660+00:00", "2026-10-30 11:01:53.660Z"),
+    ],
+)
+def test_console_level_and_local_timestamp(timezone: str, instant: str, expected: str) -> None:
+    result = subprocess.run(  # noqa: S603 -- fixed interpreter and test script
+        [
+            sys.executable,
+            "-c",
+            """
+import logging
+import sys
+from datetime import datetime
+from tilebox.workflows.observability.logging import configure_console_logging, configure_log_level, get_logger
+
+configure_log_level(logging.DEBUG)
+configure_console_logging()
+log = get_logger("timestamp")
+instant = datetime.fromisoformat(sys.argv[1])
+for level in (logging.DEBUG, logging.INFO, 25, logging.WARNING, logging.ERROR, logging.CRITICAL):
+    record = log.makeRecord(log.name, level, "", 0, "message", (), None)
+    record.created = instant.timestamp()
+    record.msecs = instant.microsecond // 1000
+    log.handle(record)
+""",
+            instant,
+        ],
+        env={key: value for key, value in os.environ.items() if not key.startswith("TILEBOX_")} | {"TZ": timezone},
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=True,
+    )
+    output = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+    assert output.splitlines() == [
+        f"{level} {expected} message" for level in ("DEBUG", "INFO", "Level 25", "WARNING", "ERROR", "CRITICAL")
+    ]
+    assert result.stderr == ""
+
+
+@pytest.mark.usefixtures("isolated_logging")
+@pytest.mark.parametrize("stream_name", ["stdout", "stderr"])
+def test_console_preserves_plain_messages_and_exception_tracebacks(
+    capsys: pytest.CaptureFixture[str], stream_name: str
+) -> None:
+    observability.configure_console_logging(stream=getattr(sys, stream_name))
+    log = StructuredLogger(observability.get_logger()).bind(
+        task_id="task-123", trace_id="trace-123", span_id="span-123"
+    )
+    log.info("plain %s", "message")
+
+    def fail() -> None:
+        raise ValueError("invalid scene")
+
+    try:
+        fail()
+    except ValueError:
+        log.exception("processing %s", "failed", test=2)
+
+    captured = capsys.readouterr()
+    rendered = captured.out if stream_name == "stdout" else captured.err
+    assert (captured.err if stream_name == "stdout" else captured.out) == ""
+    assert all(key not in rendered for key in ("task_id", "trace_id", "span_id"))
+    assert rendered.splitlines()[0].endswith("plain message")
+    assert "processing failed test=2\nTraceback (most recent call last):" in rendered
+    assert rendered.endswith("ValueError: invalid scene\n")
+
+
+@pytest.mark.usefixtures("isolated_logging")
+@pytest.mark.parametrize(
+    ("task_level", "console_filter", "expected_console", "expected_export"),
+    [
+        (logging.INFO, logging.DEBUG, ["info", "warning"], ["info", "warning"]),
+        (logging.DEBUG, None, ["debug", "info", "warning"], ["debug", "info", "warning"]),
+        (logging.DEBUG, logging.WARNING, ["warning"], ["debug", "info", "warning"]),
+    ],
+)
+def test_console_filter_only_narrows_task_log_level(
+    task_level: int, console_filter: int | None, expected_console: list[str], expected_export: list[str]
+) -> None:
+    output = StringIO()
+    exporter = InMemoryLogRecordExporter()
+    with patch.object(observability, "_otel_log_exporter", return_value=SimpleLogRecordProcessor(exporter)):
+        observability.initialize_logging("https://example.test", None)
+    observability.configure_log_level(task_level)
+    if console_filter is None:
+        observability.configure_console_logging(stream=output)
+    else:
+        observability.configure_console_logging(filter_level=console_filter, stream=output)
+    log = StructuredLogger(task_logger)
+    log.debug("debug")
+    log.info("info")
+    log.warning("warning")
+    rendered = re.sub(r"\x1b\[[0-9;]*m", "", output.getvalue())
+    assert [line.rsplit(" ", 1)[1] for line in rendered.splitlines()] == expected_console
+    assert [item.log_record.body for item in exporter.get_finished_logs()] == expected_export
 
 
 @pytest.mark.usefixtures("isolated_logging")
@@ -431,7 +577,7 @@ def test_incomplete_environment_skips_startup_logging(missing: str) -> None:
     env = {key: value for key, value in os.environ.items() if not key.startswith("TILEBOX_")}
     env.update({"TILEBOX_API_URL": "https://startup.example", "TILEBOX_API_KEY": "startup-key"})
     env.pop(missing)
-    subprocess.run(
+    result = subprocess.run(
         [
             sys.executable,
             "-c",
@@ -439,8 +585,8 @@ def test_incomplete_environment_skips_startup_logging(missing: str) -> None:
 import sys
 import tilebox.workflows
 from tilebox.workflows.observability._logging import root_logger
-assert not root_logger.handlers
 assert not any(name.startswith('opentelemetry') for name in sys.modules)
+root_logger.warning('no lastResort output before initialization')
 """,
         ],
         env=env,
@@ -448,6 +594,7 @@ assert not any(name.startswith('opentelemetry') for name in sys.modules)
         capture_output=True,
         timeout=10,
     )
+    assert result.stdout == result.stderr == b""
 
 
 @pytest.mark.parametrize(

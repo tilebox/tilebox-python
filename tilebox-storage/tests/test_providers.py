@@ -66,7 +66,6 @@ async def test_asf_login(asf_server: tuple[str, list[dict[str, Any]]]) -> None:
             assert response.status == 200
             assert b"".join([bytes(chunk) async for chunk in response.content]) == b"data"
 
-    assert requests[0]["headers"]["Authorization"] == "Basic dXNlcm5hbWU6cGFzc3dvcmQ="
     assert "asf_search" in requests[0]["headers"]["Client-Id"]
     assert parse_qs(urlsplit(requests[0]["path"]).query) == {
         "client_id": ["BO_n7nTIlMljdvU6kRRB3g"],

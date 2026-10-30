@@ -58,6 +58,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   objects. Keep the official OpenTelemetry SDK and HTTP exporters for telemetry export.
 - Serve managed workers over Connect HTTP/1 with independent log streams and task calls.
   Managed workers require a CLI with Connect worker support; that CLI still supports older workers.
+- `tilebox-workflows`: Show log levels first, local-time timestamps, and structured attributes in console output,
+  omitting `task_id`, `trace_id`, and `span_id` only from the console. Add `disable_console_logging()` to silence
+  console output without affecting exports. Rename `configure_console_logging(level=...)` to `filter_level=...`
+  and default it to `logging.NOTSET` (no additional console filtering). Use `configure_log_level(logging.DEBUG)`
+  to enable task DEBUG logs for both console output and Tilebox's API export.
 
 ### Deprecated
 
