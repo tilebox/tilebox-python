@@ -8,7 +8,8 @@ import sys
 import threading
 import traceback
 from contextvars import ContextVar
-from datetime import timedelta
+from copy import copy
+from datetime import UTC, datetime, timedelta
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any, ClassVar, TextIO
 from uuid import UUID, uuid4
@@ -36,7 +37,7 @@ from opentelemetry.sdk.resources import (
 )
 from opentelemetry.semconv.attributes import exception_attributes
 
-from tilebox.workflows._serialization import normalize_log_value
+from tilebox.workflows._serialization import encode_log_value, normalize_log_value
 from tilebox.workflows.observability._log_stream import _OTLPQueueHandler, managed_log_queue
 from tilebox.workflows.observability._logging import (
     StructuredLogger as StructuredLogger,  # noqa: PLC0414 -- public compatibility alias
@@ -184,12 +185,10 @@ def _add_console_handler(level: int, stream: TextIO, formatter: logging.Formatte
 
 
 def _configure_runtime_logging() -> None:
-    """Add an optional default console when logs aren't streamed to a managed CLI."""
+    """Add a default console for direct runners unless explicitly configured or disabled."""
     with _initialization_lock:
         if managed_log_queue is None and not _console_configured and not _console_handlers:
-            _add_console_handler(
-                logging.NOTSET, sys.stdout, logging.Formatter("%(process)d: %(levelname)s: %(message)s")
-            )
+            _add_console_handler(logging.NOTSET, sys.stdout, ColorfulConsoleFormatter())
 
 
 def configure_log_level(level: int = logging.INFO, *, tilebox_debug: bool = False) -> None:
@@ -382,7 +381,7 @@ def configure_otel_logging_axiom(
 
 
 class ColorfulConsoleFormatter(logging.Formatter):
-    """A logging formatter that adds colors to the console output, depending on the log level."""
+    """Format colored log messages with structured attributes as key=JSON pairs."""
 
     reset = "\033[0m"
     faint = "\033[38;5;241m"
@@ -392,38 +391,89 @@ class ColorfulConsoleFormatter(logging.Formatter):
     bright_red_faint = "\033[91;2m"
 
     FORMATS: ClassVar[dict[int, str]] = {
-        logging.DEBUG: faint + "%(asctime)s %(levelname)s %(message)s" + reset,
-        logging.INFO: faint + "%(asctime)s" + reset + bright_green + " %(levelname)s " + reset + "%(message)s",
-        logging.WARNING: faint + "%(asctime)s" + reset + bright_yellow + " %(levelname)s " + reset + "%(message)s",
-        logging.ERROR: faint + "%(asctime)s" + reset + bright_red_faint + " %(levelname)s " + reset + "%(message)s",
-        logging.CRITICAL: bright_red + "%(asctime)s %(levelname)s %(message)s" + reset,
+        logging.DEBUG: faint + "%(levelname)s %(console_time)s %(message)s" + reset,
+        logging.INFO: bright_green + "%(levelname)s " + reset + faint + "%(console_time)s" + reset + " %(message)s",
+        logging.WARNING: bright_yellow + "%(levelname)s " + reset + faint + "%(console_time)s" + reset + " %(message)s",
+        logging.ERROR: bright_red_faint
+        + "%(levelname)s "
+        + reset
+        + faint
+        + "%(console_time)s"
+        + reset
+        + " %(message)s",
+        logging.CRITICAL: bright_red + "%(levelname)s %(console_time)s %(message)s" + reset,
     }
 
     def format(self, record: logging.LogRecord) -> str:
-        log_fmt = self.FORMATS.get(record.levelno, "%(asctime)s %(levelname)s %(message)s")
+        attributes = {
+            key: value
+            for key, value in _record_attributes(record).items()
+            if key not in {"task_id", "trace_id", "span_id"}
+        }
+        # Keep console-only fields and message formatting out of other handlers.
+        record = copy(record)
+        timestamp = datetime.fromtimestamp(record.created, UTC).astimezone()
+        offset = int((timestamp.utcoffset() or timedelta()).total_seconds())
+        suffix = "Z"
+        if offset:
+            hours, remainder = divmod(abs(offset), 3600)
+            minutes, seconds = divmod(remainder, 60)
+            suffix = f"GMT{'+' if offset > 0 else '-'}{hours}"
+            if minutes or seconds:
+                suffix += f":{minutes:02d}"
+            if seconds:
+                suffix += f":{seconds:02d}"
+        record.console_time = timestamp.replace(tzinfo=None).isoformat(sep=" ", timespec="milliseconds") + suffix
+        if attributes:
+            record.msg = (
+                record.getMessage()
+                + " "
+                + " ".join(f"{key}={encode_log_value(value).decode()}" for key, value in attributes.items())
+            )
+            record.args = ()
+        log_fmt = self.FORMATS.get(record.levelno, "%(levelname)s %(console_time)s %(message)s")
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
 
 
 def configure_console_logging(
-    level: int = logging.INFO, stream: TextIO | None = None, reconfigure: bool = True, *, enabled: bool = True
+    filter_level: int = logging.NOTSET, stream: TextIO | None = None, reconfigure: bool = True, *, enabled: bool = True
 ) -> None:
     """
-    Configure logging to the console (stdout).
+    Configure console output without changing which log records are emitted or exported.
 
-    This will configure a logging handler that will send log messages to the console. The logging handler will be
-    attached to the root tilebox logger. All loggers created using `get_logger()` will therefore inherit this handler
-    configuration.
+    To enable task DEBUG logs, normally call configure_log_level(logging.DEBUG). This enables DEBUG records at
+    the task logger, so both the console and Tilebox's built-in API export receive them. Direct runners and
+    get_logger() install a console handler automatically; no call to this function is needed to enable DEBUG
+    output unless console logging was disabled or an earlier console filter excludes it. Other exporters retain
+    their own output thresholds.
+
+    filter_level only adds a console-specific filter. It defaults to logging.NOTSET, which forwards every record
+    accepted by the logger. Setting filter_level=logging.DEBUG alone does not enable DEBUG records when the
+    task logger is still at INFO: those records are discarded before any handler or exporter receives them.
+    Use configure_log_level() for verbosity and filter_level only to make console output quieter than exports.
+
+    For example, to export task DEBUG logs while printing only warnings and errors::
+
+        configure_log_level(logging.DEBUG)
+        configure_console_logging(filter_level=logging.WARNING)
+
+    Calling configure_console_logging() again removes that extra console filter without changing the task level.
+    Use disable_console_logging() to silence console output while keeping exports active.
+
+    The handler is attached to the root Tilebox workflows logger. Output includes colored levels, local timestamps,
+    and structured attributes as key=JSON pairs, excluding task_id, trace_id, and span_id from console output only.
 
     Args:
-        level: The logging level to use for the console handler. Only log messages with a level higher or equal to
-            this will be sent to the console. Defaults to logging.INFO.
+        filter_level: Minimum severity to display in the console, after the logger's own threshold has been applied.
+            Defaults to logging.NOTSET (no additional filtering). Does not change task verbosity or export levels.
         stream: The TextIO stream to use as output for logging. Defaults to sys.stdout.
         reconfigure: Only relevant if configure_console_logging is called multiple times. If True, any previously
             configured console logging handlers will be removed. If False, the existing handlers will be kept. Useful
             if you want to log to multiple consoles.
-        enabled: If False, remove Tilebox-managed console handlers and disable automatic console output, even if
-            called before runner startup. API exports, the CLI log stream, and user-installed handlers are unaffected.
+        enabled: If False, disable Tilebox-managed console output, including automatic setup on runner startup.
+            Equivalent to disable_console_logging(). API exports, the CLI log stream, and user-installed handlers
+            are unaffected.
     """
     global _console_configured  # noqa: PLW0603 -- explicit process-wide console policy
     with _initialization_lock:
@@ -431,7 +481,17 @@ def configure_console_logging(
             _remove_console_handlers()
         _console_configured = True
         if enabled:
-            _add_console_handler(level, sys.stdout if stream is None else stream, ColorfulConsoleFormatter())
+            _add_console_handler(filter_level, sys.stdout if stream is None else stream, ColorfulConsoleFormatter())
+
+
+def disable_console_logging() -> None:
+    """Disable Tilebox-managed console output, including before runner startup.
+
+    The Tilebox logger's NullHandler prevents Python's lastResort stderr fallback.
+    API exports, the CLI log stream, and application-installed handlers remain active.
+    Call configure_console_logging() to re-enable console output.
+    """
+    configure_console_logging(enabled=False)
 
 
 def get_logger(name: str | None = None, level: int = logging.NOTSET) -> logging.Logger:
@@ -457,9 +517,7 @@ def get_logger(name: str | None = None, level: int = logging.NOTSET) -> logging.
     if name is None:
         name = f"unnamed_logger_{uuid4()}"
 
-    if not root_logger.hasHandlers():
-        _configure_runtime_logging()
-
+    _configure_runtime_logging()
     logger = logging.getLogger(f"{task_logger.name}.{name}")
     logger.setLevel(level)
     return logger

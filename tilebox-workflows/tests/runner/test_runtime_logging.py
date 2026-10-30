@@ -18,14 +18,14 @@ from tilebox.workflows._otel.opentelemetry.proto.common.v1.common_pb import AnyV
 from tilebox.workflows.observability import logging as observability
 from tilebox.workflows.observability._log_stream import _LogQueue, _OTLPQueueHandler
 from tilebox.workflows.observability._logging import internal_logger, logger, root_logger, task_logger
-from tilebox.workflows.observability.logging import _configure_runtime_logging, configure_console_logging
+from tilebox.workflows.observability.logging import configure_console_logging
 from tilebox.workflows.runner.worker_service import WorkerServiceServicer
 from tilebox.workflows.v1 import worker_pb
 
 
 @pytest.fixture(autouse=True)
 def isolated_handlers(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-    monkeypatch.setattr(root_logger, "handlers", [])
+    monkeypatch.setattr(root_logger, "handlers", [logging.NullHandler()])
     monkeypatch.setattr(observability, "_api_handler", None)
     monkeypatch.setattr(observability, "_console_handlers", [])
     monkeypatch.setattr(observability, "_console_configured", False)
@@ -52,8 +52,15 @@ def test_worker_initialization_fallback_is_idempotent() -> None:
     assert [item.log_record.body for item in exporter.get_finished_logs()] == ["legacy-runtime"]
 
 
-def test_direct_runner_initializes_on_connect_not_client_creation(capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize("console", ["default", "configured", "disabled"])
+def test_direct_runner_initializes_on_connect_not_client_creation(
+    capsys: pytest.CaptureFixture[str], console: str
+) -> None:
     exporter = InMemoryLogRecordExporter()
+    if console == "configured":
+        configure_console_logging()
+    elif console == "disabled":
+        observability.disable_console_logging()
     with (
         patch("tilebox.workflows.client.Connection"),
         patch("tilebox.workflows.client.WorkflowTracer"),
@@ -72,7 +79,13 @@ def test_direct_runner_initializes_on_connect_not_client_creation(capsys: pytest
     logger.error("direct-internal")
     expected = ["direct-task", "direct-internal"]
     assert [item.log_record.body for item in exporter.get_finished_logs()] == expected
-    assert [line.split(": ", 2)[2] for line in capsys.readouterr().out.splitlines()] == expected
+    captured = capsys.readouterr()
+    if console != "disabled":
+        assert len(captured.out.splitlines()) == 2
+        assert all(captured.out.count(message) == 1 for message in expected)
+    else:
+        assert captured.out == ""
+    assert captured.err == ""
 
 
 @pytest.mark.parametrize("mode", ["runtime", "blocked-runtime", "direct"])
@@ -133,42 +146,23 @@ print("main exited", flush=True)
         assert result.stdout.index("exported") < result.stdout.index("main exited")
 
 
-def test_unmanaged_runtime_adds_one_console_handler(capsys: pytest.CaptureFixture[str]) -> None:
-    handler = logging.NullHandler()
-    root_logger.addHandler(handler)
-    assert _configure_runtime_logging() is None
-    assert _configure_runtime_logging() is None
-    assert handler in root_logger.handlers
-    task_logger.info("console message")
-    assert capsys.readouterr().out.endswith(": INFO: console message\n")
-
-
-def test_existing_console_is_reused(capsys: pytest.CaptureFixture[str]) -> None:
-    output = StringIO()
-    configure_console_logging(stream=output)
-    handlers = root_logger.handlers[:]
-    _configure_runtime_logging()
-    task_logger.info("configured console")
-    assert root_logger.handlers == handlers
-    assert output.getvalue().count("configured console") == 1
-    assert capsys.readouterr().out == ""
-
-
 def test_console_reconfiguration_preserves_file_handler(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     path = tmp_path / "workflow.log"
     handler = logging.FileHandler(path)
     root_logger.addHandler(handler)
     try:
-        _configure_runtime_logging()
-        task_logger.info("automatic")
-        assert capsys.readouterr().out.count("automatic") == 1
+        observability.disable_console_logging()
+        observability.get_logger().info("file only")
+        assert capsys.readouterr().out == ""
+        original = StringIO()
+        configure_console_logging(stream=original)
         output = StringIO()
         configure_console_logging(stream=output)
-        _configure_runtime_logging()
         task_logger.info("reconfigured")
         assert capsys.readouterr().out == ""
+        assert original.getvalue() == ""
         assert output.getvalue().count("reconfigured") == 1
-        assert path.read_text().splitlines() == ["automatic", "reconfigured"]
+        assert path.read_text().splitlines() == ["file only", "reconfigured"]
     finally:
         root_logger.removeHandler(handler)
         handler.close()
@@ -176,17 +170,69 @@ def test_console_reconfiguration_preserves_file_handler(tmp_path: Path, capsys: 
 
 @pytest.mark.parametrize("before_startup", [False, True])
 def test_console_opt_out_persists(before_startup: bool, capsys: pytest.CaptureFixture[str]) -> None:
-    if not before_startup:
-        _configure_runtime_logging()
-    configure_console_logging(enabled=False)
-    _configure_runtime_logging()
+    exporter = InMemoryLogRecordExporter()
+    configure_console_logging()
+    with patch.object(observability, "_otel_log_exporter", return_value=SimpleLogRecordProcessor(exporter)):
+        if not before_startup:
+            observability.initialize_logging("https://example.test", None)
+        observability.disable_console_logging()
+        observability.initialize_logging("https://example.test", None)
     observability.get_logger("disabled").info("not visible")
     assert capsys.readouterr().out == ""
     assert not observability._console_handlers
+    assert [item.log_record.body for item in exporter.get_finished_logs()] == ["not visible"]
     output = StringIO()
     configure_console_logging(stream=output)
     task_logger.info("enabled again")
     assert output.getvalue().count("enabled again") == 1
+
+
+@pytest.mark.parametrize("disable_before_first_log", [False, True])
+def test_console_defaults_and_disable_without_root_handlers(disable_before_first_log: bool) -> None:
+    result = subprocess.run(  # noqa: S603 -- fixed interpreter and test script
+        [
+            sys.executable,
+            "-c",
+            """
+import logging
+import sys
+from io import StringIO
+from tilebox.workflows.observability.logging import (
+    StructuredLogger, configure_console_logging, disable_console_logging, get_logger,
+)
+
+assert not logging.getLogger().handlers
+if sys.argv[1] == "True":
+    disable_console_logging()
+log = StructuredLogger(get_logger("startup"))
+log.warning("startup message", test=2)
+disable_console_logging()
+disable_console_logging()
+log.error("must not reach stderr")
+get_logger("another").warning("must stay disabled")
+
+application_output = StringIO()
+application_handler = logging.StreamHandler(application_output)
+logging.getLogger().addHandler(application_handler)
+log.error("application still receives logs")
+assert application_output.getvalue() == "application still receives logs\\n"
+logging.getLogger().removeHandler(application_handler)
+
+configure_console_logging()
+log.info("console enabled again", test=3)
+""",
+            str(disable_before_first_log),
+        ],
+        env={key: value for key, value in os.environ.items() if not key.startswith("TILEBOX_")},
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=True,
+    )
+    assert result.stderr == ""
+    assert len(result.stdout.splitlines()) == (1 if disable_before_first_log else 2)
+    assert ("startup message test=2" in result.stdout) is not disable_before_first_log
+    assert "console enabled again test=3" in result.stdout
 
 
 @pytest.mark.asyncio
@@ -196,7 +242,6 @@ async def test_independent_stream_levels(caplog: pytest.LogCaptureFixture, debug
     caplog.set_level(logging.DEBUG if debug == "true" else logging.ERROR, logger=internal_logger.name)
     records = _LogQueue()
     root_logger.addHandler(_OTLPQueueHandler(records))
-    assert _configure_runtime_logging() is None
     workflow = task_logger
     for severity in (logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR):
         logger.log(severity, f"internal-{severity}", task_id="preserved")

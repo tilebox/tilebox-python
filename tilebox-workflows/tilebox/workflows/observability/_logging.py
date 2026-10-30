@@ -94,6 +94,9 @@ class StructuredLogger:
 
 root_logger = logging.getLogger(_LOGGING_NAMESPACE)
 root_logger.setLevel(logging.DEBUG)
+# Prevent lastResort stderr output before initialization or when the console is disabled.
+# NullHandler does not stop propagation to application-installed handlers.
+root_logger.addHandler(logging.NullHandler())
 # User task messages emitted through context.logger. Defaults to INFO; configure
 # with TILEBOX_LOG_LEVEL, `tilebox runner start --log-level debug`, or
 # observability.logging.configure_log_level(logging.DEBUG) in direct Python usage.
