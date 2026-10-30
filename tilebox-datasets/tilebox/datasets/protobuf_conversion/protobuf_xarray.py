@@ -3,9 +3,9 @@ Functionality for converting protobuf messages to xarray datasets.
 """
 
 import contextlib
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from operator import attrgetter
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 import numpy as np
 import xarray as xr
@@ -13,6 +13,7 @@ from numpy.typing import NDArray
 from protobuf import DescField, DescFieldValueList, DescFieldValueMessage, DescFieldValueSingular, Message
 
 from tilebox.datasets.protobuf_conversion.field_types import (
+    EnumField,
     ProtobufFieldType,
     ProtoFieldValue,
     infer_field_type,
@@ -22,7 +23,13 @@ AnyMessage = TypeVar("AnyMessage", bound=Message)
 
 
 class MessageToXarrayConverter:
-    def __init__(self, initial_capacity: int = 0, *, fields: Collection[str] | None = None) -> None:
+    def __init__(
+        self,
+        initial_capacity: int = 0,
+        *,
+        fields: Collection[str] | None = None,
+        field_types: Mapping[str, ProtobufFieldType] | None = None,
+    ) -> None:
         """
         A converter for converting arbitrary protobuf messages to a xarray dataset
 
@@ -30,10 +37,12 @@ class MessageToXarrayConverter:
             initial_capacity: The initial capacity (in number of messages) to reserve for the data arrays of each field.
                 If the total number of messages is already known in advance, set it to this number
             fields: Only convert these fields when the query projects a subset of the schema.
+            field_types: Dataset-specific converters for annotated fields, overriding descriptor-only inference.
         """
         self._capacity = initial_capacity
         self.count = 0  # number of messages already converted
         self._fields = fields
+        self._field_types = field_types or {}
         self._converters: list[tuple[Callable[[Message], ProtoFieldValue], _FieldConverter]] | None = None
 
     def convert(self, message: Message) -> None:
@@ -45,7 +54,7 @@ class MessageToXarrayConverter:
         """
         self._ensure_capacity(self.count + 1)
         if self._converters is None:
-            self._converters = _create_field_converters(message, self._capacity, self._fields)
+            self._converters = _create_field_converters(message, self._capacity, self._fields, self._field_types)
         self._convert(message)
 
     def convert_all(self, messages: list[AnyMessage]) -> None:
@@ -60,7 +69,7 @@ class MessageToXarrayConverter:
 
         self._ensure_capacity(self.count + len(messages))
         if self._converters is None:
-            self._converters = _create_field_converters(messages[0], self._capacity, self._fields)
+            self._converters = _create_field_converters(messages[0], self._capacity, self._fields, self._field_types)
         for read, converter in self._converters:
             converter.convert_all(self.count, messages, read)
         self.count += len(messages)
@@ -261,6 +270,33 @@ class _SimpleFieldConverter(_FieldConverter):
             self._data = data
 
 
+class _EnumListFieldConverter(_FieldConverter):
+    """Keep each repeated enum as one ordered list, including empty fields."""
+
+    def __init__(self, field_name: str, field_type: EnumField) -> None:
+        self._field_name = field_name
+        self._type = field_type
+        self._data: NDArray[Any] = np.empty(0, dtype=object)
+
+    def __call__(self, index: int, value: ProtoFieldValue) -> None:
+        self._data[index] = [self._type.from_proto(item) for item in cast(Sequence, value)]
+
+    def resize(self, buffer_size: int) -> None:
+        if buffer_size > len(self._data):
+            data = np.empty(buffer_size, dtype=object)
+            data[: len(self._data)] = self._data
+            for index in range(len(self._data), buffer_size):
+                data[index] = []
+            self._data = data
+
+    def finalize(
+        self, dataset: xr.Dataset, count: int, dimension_names: tuple[str, ...], skip_if_empty: bool = False
+    ) -> str:
+        _ = skip_if_empty  # Empty lists are values, not missing data.
+        dataset[self._field_name] = dimension_names, self._data[:count]
+        return self._field_name
+
+
 class _ArrayFieldConverter(_FieldConverter):
     def __init__(
         self,
@@ -339,7 +375,10 @@ class _ArrayFieldConverter(_FieldConverter):
 
 
 def _create_field_converters(
-    message: Message, buffer_size: int, fields: Collection[str] | None
+    message: Message,
+    buffer_size: int,
+    fields: Collection[str] | None,
+    field_types: Mapping[str, ProtobufFieldType],
 ) -> list[tuple[Callable[[Message], ProtoFieldValue], _FieldConverter]]:
     """
     Compile field readers and scientific converters once for the selected schema.
@@ -358,7 +397,7 @@ def _create_field_converters(
             continue
         # if we have an unsupported field type we will get a ValueError, so we just skip those fields
         with contextlib.suppress(ValueError):
-            converter = _create_field_converter(field)
+            converter = _create_field_converter(field, field_types.get(field.name))
             converters.append((_field_reader(field), converter))
 
     if buffer_size > 0:
@@ -380,7 +419,7 @@ def _field_reader(field: DescField) -> Callable[[Message], ProtoFieldValue]:
     return lambda message: read(message) if field in message else None
 
 
-def _create_field_converter(field: DescField) -> _FieldConverter:
+def _create_field_converter(field: DescField, field_type: ProtobufFieldType | None = None) -> _FieldConverter:
     """
     Create a field converter for the given protobuf field descriptor.
 
@@ -391,8 +430,10 @@ def _create_field_converter(field: DescField) -> _FieldConverter:
     Returns:
         A field converter for the given protobuf field descriptor
     """
-    field_type = infer_field_type(field)
+    field_type = field_type or infer_field_type(field)
     if isinstance(field.value, DescFieldValueList):
+        if isinstance(field_type, EnumField):
+            return _EnumListFieldConverter(field.name, field_type)
         return _ArrayFieldConverter(field.name, field_type)
 
     return _SimpleFieldConverter(field.name, field_type)

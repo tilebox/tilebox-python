@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.68.0] - 2026-10-29
+
 ### Added
 
+- `tilebox-datasets`: Support scalar and repeated custom enums in schema definitions with `"type": "enum"`,
+  `enum_values`, and optional `"repeated": True`. Ingest and query case-sensitive public strings through
+  sync and async clients, including pandas and xarray inputs.
+- `tilebox-datasets`: Add `field(...).contains()`, `.contains_all()`, and `.contains_any()` filters for
+  queryable repeated enums. Empty `contains_all([])` matches every row; `contains_any([])` matches none.
+  Negated membership includes untagged rows. Requires a backend supporting enum membership predicates.
 - `tilebox-workflows`: Add `workflow` selection by reference or object to job submission and automation creation,
   and `workflows` filters to job queries. Omitting scope preserves unscoped direct-runner behavior.
 - `tilebox-workflows`: Preserve task workflow IDs and inherit the executing parent's scope for children.
@@ -18,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `tilebox-datasets`: Return repeated enums, including built-ins such as SAR polarizations, as one
+  `list[str]` per row in xarray object columns, preserving the returned order. Remove their extra
+  `n_<field>` dimension and retain empty values as `[]`, even when the entire returned column is empty.
+  Update code that indexes the former array dimension to access the per-row list instead.
+  Other repeated fields keep their padded arrays.
 - `tilebox-workflows`: Always create scoped-only workflows with legacy task aliases disabled.
 - `tilebox-workflows`: Use `UnboundTaskIdentifier` for task metadata, runner registries, and release contents;
   keep execution scope in `TaskIdentifier` and resolve each future task's scope before merging submissions.
@@ -716,7 +729,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.67.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.68.0...HEAD
+[0.68.0]: https://github.com/tilebox/tilebox-python/compare/v0.67.0...v0.68.0
 [0.67.0]: https://github.com/tilebox/tilebox-python/compare/v0.66.0...v0.67.0
 [0.65.0]: https://github.com/tilebox/tilebox-python/compare/v0.64.0...v0.65.0
 [0.64.0]: https://github.com/tilebox/tilebox-python/compare/v0.63.2...v0.64.0

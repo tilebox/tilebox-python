@@ -26,6 +26,7 @@ from protobuf.wkt.google.protobuf.duration_pb import Duration
 from protobuf.wkt.google.protobuf.timestamp_pb import Timestamp
 from shapely import from_wkb
 
+from tilebox.datasets.data.datasets import AnnotatedType
 from tilebox.datasets.schema import _MESSAGE_FIELD_TYPES, Assets
 from tilebox.datasets.v1.well_known_types_pb import UUID as UUIDMessage  # noqa: N811
 from tilebox.datasets.v1.well_known_types_pb import Geometry, LatLon, LatLonAlt, Quaternion, Vec3
@@ -123,6 +124,8 @@ class BoolField(ProtobufFieldType):
 
 
 class EnumField(ProtobufFieldType):
+    """Convert custom enum values without exposing protobuf symbols or numbers."""
+
     def __init__(self, name_lookup: dict[int, str]) -> None:
         super().__init__(object)
         self._values_to_name = name_lookup
@@ -136,6 +139,18 @@ class EnumField(ProtobufFieldType):
         except KeyError as error:
             raise ValueError(f"Invalid enum value {value}") from error
 
+    def to_proto(self, value: Any) -> int:
+        if not isinstance(value, str):
+            raise TypeError("Custom enum values must be public strings")
+        try:
+            return self._names_to_value[value]
+        except KeyError as error:
+            raise ValueError(f"Unknown public enum value {value!r}") from error
+
+
+class LegacyEnumField(EnumField):
+    """Convert descriptor-defined enums using short names, numbers, or enum members."""
+
     def to_proto(self, value: str | int | Enum) -> int:
         if isinstance(value, Enum):
             value = value.name
@@ -148,6 +163,44 @@ class EnumField(ProtobufFieldType):
         if integer_value not in self._values_to_name:
             raise ValueError(f"Invalid enum value {value}")  # during ingestion, we can raise an error here
         return integer_value
+
+
+def enum_field_types(schema: AnnotatedType, message_type: type[Message]) -> dict[str, ProtobufFieldType]:
+    """Build dataset-local converters; annotations are not part of the message-class cache."""
+    if not any(annotation.enum_values for annotation in schema.field_annotations):
+        return {}
+    descriptor = message_type.desc()
+    # Native descriptor collections may use numeric order. The wire contract uses declaration order.
+    fields = descriptor.proto.field
+    if len(fields) != len(schema.field_annotations):
+        raise ValueError("Custom enum schema requires one annotation per field, including empty annotations")
+    fields_by_name = {field.name: field for field in descriptor.fields}
+    result: dict[str, ProtobufFieldType] = {}
+    for field, annotation in zip(fields, schema.field_annotations, strict=True):
+        if not annotation.enum_values:
+            continue
+        value = fields_by_name[field.name].value
+        if isinstance(value, DescFieldValueList):
+            enum = value.element
+        elif isinstance(value, DescFieldValueEnum):
+            enum = value.enum
+        else:
+            enum = None
+        if not isinstance(enum, DescEnum):
+            raise TypeError(f"Field {field.name!r}: enum_values requires an enum field")
+        members = [member for member in enum.proto.value if member.number != 0]
+        public_values = annotation.enum_values
+        if (
+            len(members) != len(public_values)
+            or any(not name for name in public_values)
+            or len(set(public_values)) != len(public_values)
+            or len({member.number for member in members}) != len(members)
+        ):
+            raise ValueError(f"Field {field.name!r}: invalid enum_values mapping")
+        result[field.name] = EnumField(
+            {member.number: name for member, name in zip(members, public_values, strict=True)}
+        )
+    return result
 
 
 class TimestampField(ProtobufFieldType):
@@ -347,7 +400,7 @@ def infer_field_type(field: DescField) -> ProtobufFieldType:
     if isinstance(element, DescMessage):
         return _MESSAGE_NAMES_TO_FIELDS.get(element.type_name, ProtobufFieldType(object))
     if isinstance(element, DescEnum):
-        return EnumField(_enum_mapping(element))
+        return LegacyEnumField(_enum_mapping(element))
     if element == ScalarType.BOOL:
         return BoolField()
     return ProtobufFieldType(_PROTOBUF_TYPE_TO_NUMPY_TYPE[element])
@@ -409,10 +462,6 @@ def is_missing(value: Any) -> bool:
     This is needed for pandas 3.0+ compatibility where object-dtype columns use
     np.nan instead of None for missing values.
     """
-    try:
-        return bool(pd.isna(value))
-    except ValueError:
-        # pd.isna returns either a bool, or an array of bools. In case of an array, converting the result to bool()
-        # will raise a ValueError. For an array, we know it's not a missing value, even an array of all NaNs is not
-        # a missing value.
-        return False
+    missing = pd.isna(value)
+    # Arrays are not missing scalars, even when empty or containing only missing values.
+    return isinstance(missing, bool | np.bool_) and bool(missing)

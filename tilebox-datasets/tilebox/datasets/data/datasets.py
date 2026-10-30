@@ -47,6 +47,8 @@ class FieldAnnotation:
     """A JSON Schema reference for the field when it corresponds to a well-known schema."""
     roles: list[FieldRole] = dataclass_field(default_factory=list)
     """Semantic display roles fulfilled by the field."""
+    enum_values: list[str] = dataclass_field(default_factory=list)
+    """Ordered public enum values. Non-empty datasets only allow appending values."""
 
     @classmethod
     def from_message(cls, annotation: dataset_type_pb.FieldAnnotation | None) -> "FieldAnnotation":
@@ -59,6 +61,7 @@ class FieldAnnotation:
             queryable=annotation.queryable,
             json_schema_ref=annotation.json_schema_ref if annotation.has_field("json_schema_ref") else None,
             roles=[_field_role_int_to_enum[role] for role in annotation.roles],
+            enum_values=[entry.value for entry in annotation.enum_values],
         )
 
     def to_message(self) -> dataset_type_pb.FieldAnnotation:
@@ -67,6 +70,7 @@ class FieldAnnotation:
             example_value=self.example_value,
             queryable=self.queryable,
             roles=[role.value for role in self.roles],
+            enum_values=[dataset_type_pb.EnumValue(value=value) for value in self.enum_values],
         )
         if self.source_json_pointer is not None:
             annotation.source_json_pointer = self.source_json_pointer
@@ -99,7 +103,11 @@ class FieldDict(TypedDict):
         | type[Geometry]
         | type[list[Geometry]]
         | MessageFieldType
+        | Literal["enum"]
     ]
+    enum_values: NotRequired[list[str]]
+    repeated: NotRequired[bool]
+    """Whether an enum field contains lists. For other types, use list[T]."""
     description: NotRequired[str]
     example_value: NotRequired[str]
     source_json_pointer: NotRequired[str | None]
@@ -138,6 +146,23 @@ class Field:
 
     @classmethod
     def from_dict(cls, field: FieldDict) -> "Field":
+        enum_values = field.get("enum_values", [])
+        if field["type"] == "enum":
+            if (
+                not isinstance(enum_values, list)
+                or not enum_values
+                or any(not isinstance(value, str) or not value for value in enum_values)
+            ):
+                raise ValueError(f"Field {field['name']!r}: enum_values must be a nonempty list of nonempty strings")
+            if len(enum_values) > 100:
+                raise ValueError(f"Field {field['name']!r}: enum_values must contain at most 100 entries")
+            if len(set(enum_values)) != len(enum_values):
+                raise ValueError(f"Field {field['name']!r}: enum_values must be unique")
+        elif "enum_values" in field:
+            raise ValueError(f"Field {field['name']!r}: enum_values requires type 'enum'")
+        elif field.get("repeated", False):
+            raise ValueError(f"Field {field['name']!r}: use list[T] for non-enum repeated fields")
+
         origin = get_origin(field["type"])
         if origin is list:
             label = FieldDescriptorProto.Label.REPEATED
@@ -148,7 +173,11 @@ class Field:
             inner_type = field["type"]
 
         message_type = _message_field_type(inner_type)
-        if message_type is not None:
+        if inner_type == "enum":
+            field_type = FieldDescriptorProto.Type.ENUM
+            field_type_name = None
+            label = FieldDescriptorProto.Label.REPEATED if field.get("repeated", False) else label
+        elif message_type is not None:
             field_type = FieldDescriptorProto.Type.MESSAGE
             field_type_name = f".{message_type.desc().type_name}"
         else:
@@ -170,6 +199,7 @@ class Field:
                 roles=[
                     _field_roles_from_string[role] if isinstance(role, str) else role for role in field.get("roles", [])
                 ],
+                enum_values=list(enum_values),
             ),
         )
 
@@ -303,6 +333,7 @@ class Dataset:
     summary: str
     icon: str
     description: str
+    slug: str = ""
 
     @classmethod
     def from_message(cls, dataset: core_pb.Dataset) -> "Dataset":
@@ -317,6 +348,7 @@ class Dataset:
             summary=dataset.summary,
             icon=dataset.icon,
             description=dataset.description,
+            slug=dataset.slug,
         )
 
     def to_message(self) -> core_pb.Dataset:
@@ -329,6 +361,7 @@ class Dataset:
             summary=self.summary,
             icon=self.icon,
             description=self.description,
+            slug=self.slug,
         )
 
 

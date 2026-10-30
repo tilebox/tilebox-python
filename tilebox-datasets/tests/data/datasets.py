@@ -46,7 +46,10 @@ def field_annotations(draw: DrawFn) -> FieldAnnotation:
     queryable = draw(booleans())
     json_schema_ref = draw(text(alphabet=string.ascii_letters + string.digits + "#/_-", max_size=25) | none())
     roles = draw(lists(sampled_from(FieldRole), unique=True))
-    return FieldAnnotation(description, example_value, source_json_pointer, queryable, json_schema_ref, roles)
+    enum_values = draw(lists(text(min_size=1, max_size=20), unique=True, max_size=5))
+    return FieldAnnotation(
+        description, example_value, source_json_pointer, queryable, json_schema_ref, roles, enum_values
+    )
 
 
 @composite

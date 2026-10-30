@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import replace
 from functools import partial
 from uuid import UUID
@@ -21,6 +21,7 @@ from tilebox.datasets.data.datapoint import DATAPOINT_METADATA_FIELDS, AnyMessag
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.message_pool import get_message_type
 from tilebox.datasets.progress import ProgressCallback
+from tilebox.datasets.protobuf_conversion.field_types import ProtobufFieldType, enum_field_types
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
 from tilebox.datasets.protobuf_conversion.to_protobuf import (
     DatapointIDs,
@@ -33,6 +34,7 @@ from tilebox.datasets.query.expression import Expression
 from tilebox.datasets.query.id_interval import IDInterval, IDIntervalLike
 from tilebox.datasets.query.pagination import Pagination
 from tilebox.datasets.query.time_interval import TimeInterval, TimeIntervalLike
+from tilebox.datasets.representation import dataset_repr
 from tilebox.datasets.uuid import as_uuid, must_uuid_to_uuid_message, uuid_to_uuid_message
 from tilebox.datasets.v1.collections_connect import CollectionServiceClient
 from tilebox.datasets.v1.collections_pb import (
@@ -65,6 +67,7 @@ class DatasetClient:
         self.name = dataset.name
         self._dataset = dataset
         self._message_type = get_message_type(dataset.type)
+        self._field_types = enum_field_types(dataset.type, self._message_type)
 
     async def collections(
         self, availability: bool | None = None, count: bool | None = None
@@ -217,7 +220,9 @@ class DatasetClient:
         data = self._message_type.from_binary(datapoint.value)
 
         converter = MessageToXarrayConverter(
-            initial_capacity=1, fields=DATAPOINT_METADATA_FIELDS if skip_data else None
+            initial_capacity=1,
+            fields=DATAPOINT_METADATA_FIELDS if skip_data else None,
+            field_types=self._field_types,
         )
         converter.convert(data)
         return converter.finalize("time", skip_empty_fields=skip_data).isel(time=0)
@@ -267,7 +272,7 @@ class DatasetClient:
             message_type=self._message_type,
             show_progress=show_progress,
         )
-        return await _convert_to_dataset(pages, skip_empty_fields=skip_data)
+        return await _convert_to_dataset(pages, skip_empty_fields=skip_data, field_types=self._field_types)
 
     async def _collection_id(self, collection: "UUID | Collection | CollectionInfo | CollectionClient") -> UUID:
         if isinstance(collection, CollectionClient):
@@ -306,9 +311,7 @@ class DatasetClient:
         return collection_ids
 
     def __repr__(self) -> str:
-        kind = self._dataset.type.kind
-        label = f"{kind.name.title()} Dataset" if kind else "Dataset"
-        return f"{self.name} [{label}]: {self._dataset.summary}"
+        return dataset_repr(self._dataset, self._message_type)
 
 
 # always ingest / delete in batches, to avoid timeout issues for very large datasets
@@ -410,7 +413,9 @@ class CollectionClient:
         data = self._dataset._message_type.from_binary(datapoint.value)
 
         converter = MessageToXarrayConverter(
-            initial_capacity=1, fields=DATAPOINT_METADATA_FIELDS if skip_data else None
+            initial_capacity=1,
+            fields=DATAPOINT_METADATA_FIELDS if skip_data else None,
+            field_types=self._dataset._field_types,
         )
         converter.convert(data)
         return converter.finalize("time", skip_empty_fields=skip_data).isel(time=0)
@@ -454,7 +459,7 @@ class CollectionClient:
         if show_progress:
             pages = with_progressbar(pages, f"Fetching {self._dataset.name}")
 
-        return await _convert_to_dataset(pages, skip_empty_fields=skip_data)
+        return await _convert_to_dataset(pages, skip_empty_fields=skip_data, field_types=self._dataset._field_types)
 
     async def load(
         self,
@@ -553,7 +558,7 @@ class CollectionClient:
             message_type=self._dataset._message_type,
             show_progress=show_progress,
         )
-        return await _convert_to_dataset(pages, skip_empty_fields=skip_data)
+        return await _convert_to_dataset(pages, skip_empty_fields=skip_data, field_types=self._dataset._field_types)
 
     async def _iter_pages(
         self,
@@ -604,7 +609,13 @@ class CollectionClient:
         """
         message_type = self._dataset._message_type
         messages = marshal_messages(
-            to_messages(data, message_type, required_fields=["time"], ignore_fields=["id", "ingestion_time"])
+            to_messages(
+                data,
+                message_type,
+                required_fields=["time"],
+                ignore_fields=["id", "ingestion_time"],
+                field_types=self._dataset._field_types,
+            )
         )
 
         disable_progress_bar = callable(show_progress) or (not show_progress)
@@ -747,7 +758,12 @@ async def _iter_query_pages(  # noqa: PLR0913, PLR0917
         yield page
 
 
-async def _convert_to_dataset(pages: AsyncIterator[QueryResultPage], skip_empty_fields: bool = False) -> xr.Dataset:
+async def _convert_to_dataset(
+    pages: AsyncIterator[QueryResultPage],
+    skip_empty_fields: bool = False,
+    *,
+    field_types: Mapping[str, ProtobufFieldType] | None = None,
+) -> xr.Dataset:
     """
     Convert an async iterator of QueryResultPages into a single xarray Dataset
 
@@ -760,7 +776,10 @@ async def _convert_to_dataset(pages: AsyncIterator[QueryResultPage], skip_empty_
     Returns:
         The datapoints from the individual pages converted and combined into a single xarray dataset
     """
-    converter = MessageToXarrayConverter(fields=DATAPOINT_METADATA_FIELDS if skip_empty_fields else None)
+    converter = MessageToXarrayConverter(
+        fields=DATAPOINT_METADATA_FIELDS if skip_empty_fields else None,
+        field_types=field_types,
+    )
 
     def convert_page(page: QueryResultPage) -> None:
         if not page.data.value:

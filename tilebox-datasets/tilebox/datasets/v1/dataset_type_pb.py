@@ -39,14 +39,14 @@ class Field(Message[_FieldFields]):
     Attributes:
         descriptor:
             The descriptor contains the name of the field, the type, optional labels (e.g. repeated) and other information.
-            If the type is TYPE_MESSAGE, then the type_name must be a fully qualified name to a well known type, e.g.
-            `datasets.v1.Vec3` or `google.protobuf.Timestamp`.
+            For built-in message and enum types, set type_name to the full name with a leading dot, e.g. `.datasets.v1.Vec3`.
+            For a custom enum, set TYPE_ENUM, leave type_name empty, and provide annotation.enum_values.
 
             ```proto
             optional google.protobuf.FieldDescriptorProto descriptor = 1;
             ```
         annotation:
-            Additional documentation, source mapping, and query metadata for the field.
+            Documentation, source mapping, query metadata, and custom enum values for the field.
 
             ```proto
             optional datasets.v1.FieldAnnotation annotation = 2;
@@ -68,7 +68,39 @@ class Field(Message[_FieldFields]):
         descriptor: FieldDescriptorProto | None
         annotation: FieldAnnotation | None
 
-_FieldAnnotationFields: TypeAlias = Literal["description", "example_value", "source_json_pointer", "queryable", "json_schema_ref", "roles"]
+_EnumValueFields: TypeAlias = Literal["value"]
+
+class EnumValue(Message[_EnumValueFields]):
+    """
+    EnumValue is one allowed value of a custom enum.
+
+    ```proto
+    message datasets.v1.EnumValue
+    ```
+
+    Attributes:
+        value:
+            The value users ingest, query, and receive, e.g. "L1".
+
+            ```proto
+            string value = 1;
+            ```
+    """
+
+    __slots__ = ("value",)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            value: str = "",
+        ) -> None:
+            pass
+
+        value: str
+
+_FieldAnnotationFields: TypeAlias = Literal["description", "example_value", "source_json_pointer", "queryable", "json_schema_ref", "roles", "enum_values"]
 
 class FieldAnnotation(Message[_FieldAnnotationFields]):
     """
@@ -97,6 +129,7 @@ class FieldAnnotation(Message[_FieldAnnotationFields]):
         queryable:
             Whether the field is projected into query storage and may be used in server-side filter expressions.
             Queryable fields are not necessarily backed by a secondary database index.
+            Enum fields do not count toward the queryable string field limit.
 
             ```proto
             bool queryable = 4;
@@ -115,9 +148,25 @@ class FieldAnnotation(Message[_FieldAnnotationFields]):
             ```proto
             repeated datasets.v1.FieldRole roles = 6 [packed = true];
             ```
+        enum_values:
+            Allowed values for a custom enum field. Values must be unique, with at most 100 entries; leave empty for other types.
+            The server generates the protobuf enum names and numbers. Clients do not need to know its naming rules.
+            Empty datasets allow replacing, removing, renaming, or reordering values, just like other breaking schema changes.
+            Non-empty datasets only allow appending values without changing existing numbers.
+
+            In responses, entries match the enum descriptor's members in order, excluding the generated zero member.
+            Pair each entry with the corresponding member's number to encode and decode datapoints. List positions
+            are not enum numbers. The zero member is not a public value; missing fields remain distinct from zero.
+            Repeated enum fields are deduplicated at ingestion, preserving first-occurrence order in the stored payload.
+            Every element must be a declared nonzero member, so the stored list has at most 100 elements.
+            Omitted and empty repeated fields are equivalent. Queryable repeated enums support FieldArrayPredicate.
+
+            ```proto
+            repeated datasets.v1.EnumValue enum_values = 7;
+            ```
     """
 
-    __slots__ = ("description", "example_value", "source_json_pointer", "queryable", "json_schema_ref", "roles")
+    __slots__ = ("description", "example_value", "source_json_pointer", "queryable", "json_schema_ref", "roles", "enum_values")
 
     if TYPE_CHECKING:
 
@@ -130,6 +179,7 @@ class FieldAnnotation(Message[_FieldAnnotationFields]):
             queryable: bool = False,
             json_schema_ref: str | None = None,
             roles: list[FieldRole] | None = None,
+            enum_values: list[EnumValue] | None = None,
         ) -> None:
             pass
 
@@ -139,6 +189,7 @@ class FieldAnnotation(Message[_FieldAnnotationFields]):
         queryable: bool
         json_schema_ref: str
         roles: list[FieldRole]
+        enum_values: list[EnumValue]
 
 _DatasetTypeFields: TypeAlias = Literal["kind", "fields"]
 
@@ -194,11 +245,13 @@ class AnnotatedType(Message[_AnnotatedTypeFields]):
 
     Attributes:
         descriptor_set:
+            Descriptors for the dataset's datapoint message, including its generated enums.
+
             ```proto
             optional google.protobuf.FileDescriptorSet descriptor_set = 1;
             ```
         type_url:
-            the url of the type, one of the types defined in the descriptor
+            Identifies the datapoint message in descriptor_set by name, independent of file or declaration order.
 
             ```proto
             string type_url = 2;
@@ -402,7 +455,7 @@ class FieldRole(Enum):
 
 
 _DESC = file_desc(
-    b'\n\x1edatasets/v1/dataset_type.proto\x12\x0bdatasets.v1\x1a"datasets/v1/well_known_types.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto"\x8c\x01\n\x05Field\x12E\n\ndescriptor\x18\x01 \x01(\x0b2%.google.protobuf.FieldDescriptorProtoR\ndescriptor\x12<\n\nannotation\x18\x02 \x01(\x0b2\x1c.datasets.v1.FieldAnnotationR\nannotation"\x8a\x02\n\x0fFieldAnnotation\x12 \n\x0bdescription\x18\x01 \x01(\tR\x0bdescription\x12#\n\rexample_value\x18\x02 \x01(\tR\x0cexampleValue\x125\n\x13source_json_pointer\x18\x03 \x01(\tR\x11sourceJsonPointerB\x05\xaa\x01\x02\x08\x01\x12\x1c\n\tqueryable\x18\x04 \x01(\x08R\tqueryable\x12-\n\x0fjson_schema_ref\x18\x05 \x01(\tR\rjsonSchemaRefB\x05\xaa\x01\x02\x08\x01\x12,\n\x05roles\x18\x06 \x03(\x0e2\x16.datasets.v1.FieldRoleR\x05roles"g\n\x0bDatasetType\x12,\n\x04kind\x18\x01 \x01(\x0e2\x18.datasets.v1.DatasetKindR\x04kind\x12*\n\x06fields\x18\x02 \x03(\x0b2\x12.datasets.v1.FieldR\x06fields"\xf4\x01\n\rAnnotatedType\x12I\n\x0edescriptor_set\x18\x01 \x01(\x0b2".google.protobuf.FileDescriptorSetR\rdescriptorSet\x12\x19\n\x08type_url\x18\x02 \x01(\tR\x07typeUrl\x12I\n\x11field_annotations\x18\x04 \x03(\x0b2\x1c.datasets.v1.FieldAnnotationR\x10fieldAnnotations\x12,\n\x04kind\x18\x05 \x01(\x0e2\x18.datasets.v1.DatasetKindR\x04kindJ\x04\x08\x03\x10\x04"\xa6\x01\n\x11TemporalDatapoint\x12.\n\x04time\x18\x01 \x01(\x0b2\x1a.google.protobuf.TimestampR\x04time\x12\x1e\n\x02id\x18\x02 \x01(\x0b2\x0e.tilebox.v1.IDR\x02id\x12A\n\x0eingestion_time\x18\x03 \x01(\x0b2\x1a.google.protobuf.TimestampR\ringestionTime"\xdf\x01\n\x17SpatioTemporalDatapoint\x12.\n\x04time\x18\x01 \x01(\x0b2\x1a.google.protobuf.TimestampR\x04time\x12\x1e\n\x02id\x18\x02 \x01(\x0b2\x0e.tilebox.v1.IDR\x02id\x12A\n\x0eingestion_time\x18\x03 \x01(\x0b2\x1a.google.protobuf.TimestampR\ringestionTime\x121\n\x08geometry\x18\x04 \x01(\x0b2\x15.datasets.v1.GeometryR\x08geometry*g\n\x0bDatasetKind\x12\x1c\n\x18DATASET_KIND_UNSPECIFIED\x10\x00\x12\x19\n\x15DATASET_KIND_TEMPORAL\x10\x01\x12\x1f\n\x1bDATASET_KIND_SPATIOTEMPORAL\x10\x02*E\n\tFieldRole\x12\x1a\n\x16FIELD_ROLE_UNSPECIFIED\x10\x00\x12\x1c\n\x18FIELD_ROLE_PRIMARY_TITLE\x10\x01B\x05\x92\x03\x02\x08\x02b\x08editionsp\xe8\x07',
+    b'\n\x1edatasets/v1/dataset_type.proto\x12\x0bdatasets.v1\x1a"datasets/v1/well_known_types.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto"\x8c\x01\n\x05Field\x12E\n\ndescriptor\x18\x01 \x01(\x0b2%.google.protobuf.FieldDescriptorProtoR\ndescriptor\x12<\n\nannotation\x18\x02 \x01(\x0b2\x1c.datasets.v1.FieldAnnotationR\nannotation"!\n\tEnumValue\x12\x14\n\x05value\x18\x01 \x01(\tR\x05value"\xc3\x02\n\x0fFieldAnnotation\x12 \n\x0bdescription\x18\x01 \x01(\tR\x0bdescription\x12#\n\rexample_value\x18\x02 \x01(\tR\x0cexampleValue\x125\n\x13source_json_pointer\x18\x03 \x01(\tR\x11sourceJsonPointerB\x05\xaa\x01\x02\x08\x01\x12\x1c\n\tqueryable\x18\x04 \x01(\x08R\tqueryable\x12-\n\x0fjson_schema_ref\x18\x05 \x01(\tR\rjsonSchemaRefB\x05\xaa\x01\x02\x08\x01\x12,\n\x05roles\x18\x06 \x03(\x0e2\x16.datasets.v1.FieldRoleR\x05roles\x127\n\x0benum_values\x18\x07 \x03(\x0b2\x16.datasets.v1.EnumValueR\nenumValues"g\n\x0bDatasetType\x12,\n\x04kind\x18\x01 \x01(\x0e2\x18.datasets.v1.DatasetKindR\x04kind\x12*\n\x06fields\x18\x02 \x03(\x0b2\x12.datasets.v1.FieldR\x06fields"\xf4\x01\n\rAnnotatedType\x12I\n\x0edescriptor_set\x18\x01 \x01(\x0b2".google.protobuf.FileDescriptorSetR\rdescriptorSet\x12\x19\n\x08type_url\x18\x02 \x01(\tR\x07typeUrl\x12I\n\x11field_annotations\x18\x04 \x03(\x0b2\x1c.datasets.v1.FieldAnnotationR\x10fieldAnnotations\x12,\n\x04kind\x18\x05 \x01(\x0e2\x18.datasets.v1.DatasetKindR\x04kindJ\x04\x08\x03\x10\x04"\xa6\x01\n\x11TemporalDatapoint\x12.\n\x04time\x18\x01 \x01(\x0b2\x1a.google.protobuf.TimestampR\x04time\x12\x1e\n\x02id\x18\x02 \x01(\x0b2\x0e.tilebox.v1.IDR\x02id\x12A\n\x0eingestion_time\x18\x03 \x01(\x0b2\x1a.google.protobuf.TimestampR\ringestionTime"\xdf\x01\n\x17SpatioTemporalDatapoint\x12.\n\x04time\x18\x01 \x01(\x0b2\x1a.google.protobuf.TimestampR\x04time\x12\x1e\n\x02id\x18\x02 \x01(\x0b2\x0e.tilebox.v1.IDR\x02id\x12A\n\x0eingestion_time\x18\x03 \x01(\x0b2\x1a.google.protobuf.TimestampR\ringestionTime\x121\n\x08geometry\x18\x04 \x01(\x0b2\x15.datasets.v1.GeometryR\x08geometry*g\n\x0bDatasetKind\x12\x1c\n\x18DATASET_KIND_UNSPECIFIED\x10\x00\x12\x19\n\x15DATASET_KIND_TEMPORAL\x10\x01\x12\x1f\n\x1bDATASET_KIND_SPATIOTEMPORAL\x10\x02*E\n\tFieldRole\x12\x1a\n\x16FIELD_ROLE_UNSPECIFIED\x10\x00\x12\x1c\n\x18FIELD_ROLE_PRIMARY_TITLE\x10\x01B\x05\x92\x03\x02\x08\x02b\x08editionsp\xe8\x07',
     [
         well_known_types_pb.desc(),
         descriptor_pb.desc(),
@@ -411,6 +464,7 @@ _DESC = file_desc(
     ],
     {
         "Field": Field,
+        "EnumValue": EnumValue,
         "FieldAnnotation": FieldAnnotation,
         "DatasetType": DatasetType,
         "AnnotatedType": AnnotatedType,

@@ -140,11 +140,11 @@ class QueryFilters(Message[_QueryFiltersFields]):
         spatial_extent: SpatialFilter | None
         expressions: list[FilterExpression]
 
-_FilterExpressionFields: TypeAlias = Literal["logical", "comparison", "is_null"]
+_FilterExpressionFields: TypeAlias = Literal["logical", "comparison", "is_null", "array_predicate"]
 
 class FilterExpression(Message[_FilterExpressionFields]):
     """
-    FilterExpression is a typed filter expression compatible with the Basic CQL2 property-to-literal subset.
+    FilterExpression supports Basic CQL2 property-to-literal comparisons and custom enum array predicates.
     Expressions use three-valued Boolean logic compatible with SQL and CQL2: true, false, and null (unknown). A datapoint
     matches only when the complete filter expression evaluates to true; false and null results are excluded.
 
@@ -167,9 +167,13 @@ class FilterExpression(Message[_FilterExpressionFields]):
             ```proto
             optional datasets.v1.FieldNullCheck is_null = 3;
             ```
+        array_predicate:
+            ```proto
+            optional datasets.v1.FieldArrayPredicate array_predicate = 4;
+            ```
     """
 
-    __slots__ = ("logical", "comparison", "is_null")
+    __slots__ = ("logical", "comparison", "is_null", "array_predicate")
 
     if TYPE_CHECKING:
 
@@ -179,12 +183,64 @@ class FilterExpression(Message[_FilterExpressionFields]):
             logical: LogicalExpression | None = None,
             comparison: FieldComparison | None = None,
             is_null: FieldNullCheck | None = None,
+            array_predicate: FieldArrayPredicate | None = None,
         ) -> None:
             pass
 
         logical: LogicalExpression | None
         comparison: FieldComparison | None
         is_null: FieldNullCheck | None
+        array_predicate: FieldArrayPredicate | None
+
+_FieldArrayPredicateFields: TypeAlias = Literal["field_name", "operator", "values"]
+
+class FieldArrayPredicate(Message[_FieldArrayPredicateFields]):
+    """
+    FieldArrayPredicate tests membership of public values in a queryable repeated custom enum field.
+    Values are case-sensitive and must belong to the field's vocabulary. Order and duplicates do not affect matching.
+    Omitted and empty fields both represent the empty set.
+    CONTAINS_ALL with no values is true; OVERLAPS with no values is false. These predicates never return null.
+    Scalar comparisons and null checks are not supported on repeated fields.
+
+    ```proto
+    message datasets.v1.FieldArrayPredicate
+    ```
+
+    Attributes:
+        field_name:
+            Name of a top-level queryable repeated custom enum field.
+
+            ```proto
+            string field_name = 1;
+            ```
+        operator:
+            ```proto
+            datasets.v1.FieldArrayOperator operator = 2;
+            ```
+        values:
+            Public enum values, not protobuf symbols or numbers. An empty list is allowed.
+
+            ```proto
+            repeated string values = 3;
+            ```
+    """
+
+    __slots__ = ("field_name", "operator", "values")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            field_name: str = "",
+            operator: FieldArrayOperator | None = None,
+            values: list[str] | None = None,
+        ) -> None:
+            pass
+
+        field_name: str
+        operator: FieldArrayOperator
+        values: list[str]
 
 _LogicalExpressionFields: TypeAlias = Literal["operator", "operands"]
 
@@ -235,6 +291,9 @@ class FieldComparison(Message[_FieldComparisonFields]):
     Every comparison evaluates to null (unknown) when the field is absent or explicitly null, including NOT_EQUAL.
     Consequently, both `field != value` and `NOT(field == value)` require the field to be present. To include absent or
     null fields, explicitly combine the comparison with FieldNullCheck using OR.
+    Scalar enum fields support only EQUAL and NOT_EQUAL. Use a LogicalExpression with OR over equality comparisons to match
+    any of several members. Unknown enum values, numeric enum literals, and ordering comparisons are invalid arguments.
+    For repeated custom enums, use FieldArrayPredicate instead.
 
     ```proto
     message datasets.v1.FieldComparison
@@ -254,7 +313,8 @@ class FieldComparison(Message[_FieldComparisonFields]):
             datasets.v1.FieldComparisonOperator operator = 2;
             ```
         value:
-            Literal value. Its kind must match the field's protobuf descriptor.
+            Literal value, interpreted using the field's schema. For custom enums, use string_value with a value from
+            FieldAnnotation.enum_values.
 
             ```proto
             optional datasets.v1.FieldQueryValue value = 3;
@@ -312,7 +372,7 @@ class FieldNullCheck(Message[_FieldNullCheckFields]):
 
         field_name: str
 
-_FieldQueryValueFields: TypeAlias = Literal["bool_value", "int64_value", "uint64_value", "double_value", "string_value", "timestamp_value", "duration_value", "enum_name", "bytes_value"]
+_FieldQueryValueFields: TypeAlias = Literal["bool_value", "int64_value", "uint64_value", "double_value", "string_value", "timestamp_value", "duration_value", "bytes_value"]
 
 class FieldQueryValue(Message[_FieldQueryValueFields]):
     """
@@ -342,6 +402,10 @@ class FieldQueryValue(Message[_FieldQueryValueFields]):
             optional double double_value = 4;
             ```
         string_value:
+            Text for a string field, or a value from FieldAnnotation.enum_values for a custom enum, e.g. "L1".
+            The server resolves enum values to their numbers. Matching is case-sensitive; unknown values are rejected.
+            Generated protobuf names are not accepted here unless they are also declared public values.
+
             ```proto
             optional string string_value = 5;
             ```
@@ -353,19 +417,13 @@ class FieldQueryValue(Message[_FieldQueryValueFields]):
             ```proto
             optional google.protobuf.Duration duration_value = 7;
             ```
-        enum_name:
-            Symbolic value from the field's enum descriptor.
-
-            ```proto
-            optional string enum_name = 8;
-            ```
         bytes_value:
             ```proto
             optional bytes bytes_value = 9;
             ```
     """
 
-    __slots__ = ("bool_value", "int64_value", "uint64_value", "double_value", "string_value", "timestamp_value", "duration_value", "enum_name", "bytes_value")
+    __slots__ = ("bool_value", "int64_value", "uint64_value", "double_value", "string_value", "timestamp_value", "duration_value", "bytes_value")
 
     if TYPE_CHECKING:
 
@@ -379,7 +437,6 @@ class FieldQueryValue(Message[_FieldQueryValueFields]):
             string_value: str | None = None,
             timestamp_value: Timestamp | None = None,
             duration_value: Duration | None = None,
-            enum_name: str | None = None,
             bytes_value: bytes | None = None,
         ) -> None:
             pass
@@ -391,7 +448,6 @@ class FieldQueryValue(Message[_FieldQueryValueFields]):
         string_value: str
         timestamp_value: Timestamp | None
         duration_value: Duration | None
-        enum_name: str
         bytes_value: bytes
 
 _SpatialFilterFields: TypeAlias = Literal["geometry", "mode", "coordinate_system"]
@@ -545,6 +601,37 @@ class QueryResultPage(Message[_QueryResultPageFields]):
 
         data: RepeatedAny | None
         next_page: Pagination | None
+
+class FieldArrayOperator(Enum):
+    """
+    FieldArrayOperator selects a CQL2 set-membership operation.
+
+    ```proto
+    enum datasets.v1.FieldArrayOperator
+    ```
+
+    Attributes:
+        UNSPECIFIED:
+            ```proto
+            FIELD_ARRAY_OPERATOR_UNSPECIFIED = 0
+            ```
+        CONTAINS_ALL:
+            CQL2 A_CONTAINS: the field contains every requested value.
+
+            ```proto
+            FIELD_ARRAY_OPERATOR_CONTAINS_ALL = 1
+            ```
+        OVERLAPS:
+            CQL2 A_OVERLAPS: the field contains at least one requested value.
+
+            ```proto
+            FIELD_ARRAY_OPERATOR_OVERLAPS = 2
+            ```
+    """
+
+    UNSPECIFIED = 0
+    CONTAINS_ALL = 1
+    OVERLAPS = 2
 
 class LogicalOperator(Enum):
     """
@@ -701,7 +788,7 @@ class SpatialCoordinateSystem(Enum):
 
 
 _DESC = file_desc(
-    b'\n\x1ddatasets/v1/data_access.proto\x12\x0bdatasets.v1\x1a\x16datasets/v1/core.proto\x1a"datasets/v1/well_known_types.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto"\xb5\x01\n\x10QueryByIDRequest\x12-\n\ndataset_id\x18\x04 \x01(\x0b2\x0e.tilebox.v1.IDR\tdatasetId\x125\n\x0ecollection_ids\x18\x01 \x03(\x0b2\x0e.tilebox.v1.IDR\rcollectionIds\x12\x1e\n\x02id\x18\x02 \x01(\x0b2\x0e.tilebox.v1.IDR\x02id\x12\x1b\n\tskip_data\x18\x03 \x01(\x08R\x08skipData"\x98\x02\n\x0cQueryFilters\x12=\n\rtime_interval\x18\x01 \x01(\x0b2\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12E\n\x12datapoint_interval\x18\x02 \x01(\x0b2\x16.tilebox.v1.IDIntervalR\x11datapointInterval\x12A\n\x0espatial_extent\x18\x03 \x01(\x0b2\x1a.datasets.v1.SpatialFilterR\rspatialExtent\x12?\n\x0bexpressions\x18\x04 \x03(\x0b2\x1d.datasets.v1.FilterExpressionR\x0bexpressions"\xc0\x01\n\x10FilterExpression\x128\n\x07logical\x18\x01 \x01(\x0b2\x1e.datasets.v1.LogicalExpressionR\x07logical\x12<\n\ncomparison\x18\x02 \x01(\x0b2\x1c.datasets.v1.FieldComparisonR\ncomparison\x124\n\x07is_null\x18\x03 \x01(\x0b2\x1b.datasets.v1.FieldNullCheckR\x06isNull"\x88\x01\n\x11LogicalExpression\x128\n\x08operator\x18\x01 \x01(\x0e2\x1c.datasets.v1.LogicalOperatorR\x08operator\x129\n\x08operands\x18\x02 \x03(\x0b2\x1d.datasets.v1.FilterExpressionR\x08operands"\xa6\x01\n\x0fFieldComparison\x12\x1d\n\nfield_name\x18\x01 \x01(\tR\tfieldName\x12@\n\x08operator\x18\x02 \x01(\x0e2$.datasets.v1.FieldComparisonOperatorR\x08operator\x122\n\x05value\x18\x03 \x01(\x0b2\x1c.datasets.v1.FieldQueryValueR\x05value"/\n\x0eFieldNullCheck\x12\x1d\n\nfield_name\x18\x01 \x01(\tR\tfieldName"\xb0\x03\n\x0fFieldQueryValue\x12$\n\nbool_value\x18\x01 \x01(\x08R\tboolValueB\x05\xaa\x01\x02\x08\x01\x12&\n\x0bint64_value\x18\x02 \x01(\x03R\nint64ValueB\x05\xaa\x01\x02\x08\x01\x12(\n\x0cuint64_value\x18\x03 \x01(\x04R\x0buint64ValueB\x05\xaa\x01\x02\x08\x01\x12(\n\x0cdouble_value\x18\x04 \x01(\x01R\x0bdoubleValueB\x05\xaa\x01\x02\x08\x01\x12(\n\x0cstring_value\x18\x05 \x01(\tR\x0bstringValueB\x05\xaa\x01\x02\x08\x01\x12C\n\x0ftimestamp_value\x18\x06 \x01(\x0b2\x1a.google.protobuf.TimestampR\x0etimestampValue\x12@\n\x0eduration_value\x18\x07 \x01(\x0b2\x19.google.protobuf.DurationR\rdurationValue\x12"\n\tenum_name\x18\x08 \x01(\tR\x08enumNameB\x05\xaa\x01\x02\x08\x01\x12&\n\x0bbytes_value\x18\t \x01(\x0cR\nbytesValueB\x05\xaa\x01\x02\x08\x01"\xc9\x01\n\rSpatialFilter\x121\n\x08geometry\x18\x01 \x01(\x0b2\x15.datasets.v1.GeometryR\x08geometry\x122\n\x04mode\x18\x02 \x01(\x0e2\x1e.datasets.v1.SpatialFilterModeR\x04mode\x12Q\n\x11coordinate_system\x18\x03 \x01(\x0e2$.datasets.v1.SpatialCoordinateSystemR\x10coordinateSystem"\xf9\x01\n\x0cQueryRequest\x12-\n\ndataset_id\x18\x05 \x01(\x0b2\x0e.tilebox.v1.IDR\tdatasetId\x125\n\x0ecollection_ids\x18\x01 \x03(\x0b2\x0e.tilebox.v1.IDR\rcollectionIds\x123\n\x07filters\x18\x02 \x01(\x0b2\x19.datasets.v1.QueryFiltersR\x07filters\x121\n\x04page\x18\x03 \x01(\x0b2\x16.tilebox.v1.PaginationR\x04pageB\x05\xaa\x01\x02\x08\x01\x12\x1b\n\tskip_data\x18\x04 \x01(\x08R\x08skipData"{\n\x0fQueryResultPage\x12,\n\x04data\x18\x01 \x01(\x0b2\x18.datasets.v1.RepeatedAnyR\x04data\x12:\n\tnext_page\x18\x02 \x01(\x0b2\x16.tilebox.v1.PaginationR\x08nextPageB\x05\xaa\x01\x02\x08\x01*\x80\x01\n\x0fLogicalOperator\x12 \n\x1cLOGICAL_OPERATOR_UNSPECIFIED\x10\x00\x12\x18\n\x14LOGICAL_OPERATOR_AND\x10\x01\x12\x17\n\x13LOGICAL_OPERATOR_OR\x10\x02\x12\x18\n\x14LOGICAL_OPERATOR_NOT\x10\x03*\xce\x02\n\x17FieldComparisonOperator\x12)\n%FIELD_COMPARISON_OPERATOR_UNSPECIFIED\x10\x00\x12#\n\x1fFIELD_COMPARISON_OPERATOR_EQUAL\x10\x01\x12\'\n#FIELD_COMPARISON_OPERATOR_NOT_EQUAL\x10\x02\x12\'\n#FIELD_COMPARISON_OPERATOR_LESS_THAN\x10\x03\x120\n,FIELD_COMPARISON_OPERATOR_LESS_THAN_OR_EQUAL\x10\x04\x12*\n&FIELD_COMPARISON_OPERATOR_GREATER_THAN\x10\x05\x123\n/FIELD_COMPARISON_OPERATOR_GREATER_THAN_OR_EQUAL\x10\x06*\xc0\x01\n\x11SpatialFilterMode\x12#\n\x1fSPATIAL_FILTER_MODE_UNSPECIFIED\x10\x00\x12"\n\x1eSPATIAL_FILTER_MODE_INTERSECTS\x10\x01\x120\n,SPATIAL_FILTER_MODE_FILTER_CONTAINS_GEOMETRY\x10\x02\x120\n,SPATIAL_FILTER_MODE_GEOMETRY_CONTAINS_FILTER\x10\x03*\x96\x01\n\x17SpatialCoordinateSystem\x12)\n%SPATIAL_COORDINATE_SYSTEM_UNSPECIFIED\x10\x00\x12\'\n#SPATIAL_COORDINATE_SYSTEM_CARTESIAN\x10\x01\x12\'\n#SPATIAL_COORDINATE_SYSTEM_SPHERICAL\x10\x022\x93\x01\n\x11DataAccessService\x12<\n\tQueryByID\x12\x1d.datasets.v1.QueryByIDRequest\x1a\x10.datasets.v1.Any\x12@\n\x05Query\x12\x19.datasets.v1.QueryRequest\x1a\x1c.datasets.v1.QueryResultPageB\x05\x92\x03\x02\x08\x02b\x08editionsp\xe8\x07',
+    b'\n\x1ddatasets/v1/data_access.proto\x12\x0bdatasets.v1\x1a\x16datasets/v1/core.proto\x1a"datasets/v1/well_known_types.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13tilebox/v1/id.proto\x1a\x16tilebox/v1/query.proto"\xb5\x01\n\x10QueryByIDRequest\x12-\n\ndataset_id\x18\x04 \x01(\x0b2\x0e.tilebox.v1.IDR\tdatasetId\x125\n\x0ecollection_ids\x18\x01 \x03(\x0b2\x0e.tilebox.v1.IDR\rcollectionIds\x12\x1e\n\x02id\x18\x02 \x01(\x0b2\x0e.tilebox.v1.IDR\x02id\x12\x1b\n\tskip_data\x18\x03 \x01(\x08R\x08skipData"\x98\x02\n\x0cQueryFilters\x12=\n\rtime_interval\x18\x01 \x01(\x0b2\x18.tilebox.v1.TimeIntervalR\x0ctimeInterval\x12E\n\x12datapoint_interval\x18\x02 \x01(\x0b2\x16.tilebox.v1.IDIntervalR\x11datapointInterval\x12A\n\x0espatial_extent\x18\x03 \x01(\x0b2\x1a.datasets.v1.SpatialFilterR\rspatialExtent\x12?\n\x0bexpressions\x18\x04 \x03(\x0b2\x1d.datasets.v1.FilterExpressionR\x0bexpressions"\x8b\x02\n\x10FilterExpression\x128\n\x07logical\x18\x01 \x01(\x0b2\x1e.datasets.v1.LogicalExpressionR\x07logical\x12<\n\ncomparison\x18\x02 \x01(\x0b2\x1c.datasets.v1.FieldComparisonR\ncomparison\x124\n\x07is_null\x18\x03 \x01(\x0b2\x1b.datasets.v1.FieldNullCheckR\x06isNull\x12I\n\x0farray_predicate\x18\x04 \x01(\x0b2 .datasets.v1.FieldArrayPredicateR\x0earrayPredicate"\x89\x01\n\x13FieldArrayPredicate\x12\x1d\n\nfield_name\x18\x01 \x01(\tR\tfieldName\x12;\n\x08operator\x18\x02 \x01(\x0e2\x1f.datasets.v1.FieldArrayOperatorR\x08operator\x12\x16\n\x06values\x18\x03 \x03(\tR\x06values"\x88\x01\n\x11LogicalExpression\x128\n\x08operator\x18\x01 \x01(\x0e2\x1c.datasets.v1.LogicalOperatorR\x08operator\x129\n\x08operands\x18\x02 \x03(\x0b2\x1d.datasets.v1.FilterExpressionR\x08operands"\xa6\x01\n\x0fFieldComparison\x12\x1d\n\nfield_name\x18\x01 \x01(\tR\tfieldName\x12@\n\x08operator\x18\x02 \x01(\x0e2$.datasets.v1.FieldComparisonOperatorR\x08operator\x122\n\x05value\x18\x03 \x01(\x0b2\x1c.datasets.v1.FieldQueryValueR\x05value"/\n\x0eFieldNullCheck\x12\x1d\n\nfield_name\x18\x01 \x01(\tR\tfieldName"\x9d\x03\n\x0fFieldQueryValue\x12$\n\nbool_value\x18\x01 \x01(\x08R\tboolValueB\x05\xaa\x01\x02\x08\x01\x12&\n\x0bint64_value\x18\x02 \x01(\x03R\nint64ValueB\x05\xaa\x01\x02\x08\x01\x12(\n\x0cuint64_value\x18\x03 \x01(\x04R\x0buint64ValueB\x05\xaa\x01\x02\x08\x01\x12(\n\x0cdouble_value\x18\x04 \x01(\x01R\x0bdoubleValueB\x05\xaa\x01\x02\x08\x01\x12(\n\x0cstring_value\x18\x05 \x01(\tR\x0bstringValueB\x05\xaa\x01\x02\x08\x01\x12C\n\x0ftimestamp_value\x18\x06 \x01(\x0b2\x1a.google.protobuf.TimestampR\x0etimestampValue\x12@\n\x0eduration_value\x18\x07 \x01(\x0b2\x19.google.protobuf.DurationR\rdurationValue\x12&\n\x0bbytes_value\x18\t \x01(\x0cR\nbytesValueB\x05\xaa\x01\x02\x08\x01J\x04\x08\x08\x10\tR\tenum_name"\xc9\x01\n\rSpatialFilter\x121\n\x08geometry\x18\x01 \x01(\x0b2\x15.datasets.v1.GeometryR\x08geometry\x122\n\x04mode\x18\x02 \x01(\x0e2\x1e.datasets.v1.SpatialFilterModeR\x04mode\x12Q\n\x11coordinate_system\x18\x03 \x01(\x0e2$.datasets.v1.SpatialCoordinateSystemR\x10coordinateSystem"\xf9\x01\n\x0cQueryRequest\x12-\n\ndataset_id\x18\x05 \x01(\x0b2\x0e.tilebox.v1.IDR\tdatasetId\x125\n\x0ecollection_ids\x18\x01 \x03(\x0b2\x0e.tilebox.v1.IDR\rcollectionIds\x123\n\x07filters\x18\x02 \x01(\x0b2\x19.datasets.v1.QueryFiltersR\x07filters\x121\n\x04page\x18\x03 \x01(\x0b2\x16.tilebox.v1.PaginationR\x04pageB\x05\xaa\x01\x02\x08\x01\x12\x1b\n\tskip_data\x18\x04 \x01(\x08R\x08skipData"{\n\x0fQueryResultPage\x12,\n\x04data\x18\x01 \x01(\x0b2\x18.datasets.v1.RepeatedAnyR\x04data\x12:\n\tnext_page\x18\x02 \x01(\x0b2\x16.tilebox.v1.PaginationR\x08nextPageB\x05\xaa\x01\x02\x08\x01*\x84\x01\n\x12FieldArrayOperator\x12$\n FIELD_ARRAY_OPERATOR_UNSPECIFIED\x10\x00\x12%\n!FIELD_ARRAY_OPERATOR_CONTAINS_ALL\x10\x01\x12!\n\x1dFIELD_ARRAY_OPERATOR_OVERLAPS\x10\x02*\x80\x01\n\x0fLogicalOperator\x12 \n\x1cLOGICAL_OPERATOR_UNSPECIFIED\x10\x00\x12\x18\n\x14LOGICAL_OPERATOR_AND\x10\x01\x12\x17\n\x13LOGICAL_OPERATOR_OR\x10\x02\x12\x18\n\x14LOGICAL_OPERATOR_NOT\x10\x03*\xce\x02\n\x17FieldComparisonOperator\x12)\n%FIELD_COMPARISON_OPERATOR_UNSPECIFIED\x10\x00\x12#\n\x1fFIELD_COMPARISON_OPERATOR_EQUAL\x10\x01\x12\'\n#FIELD_COMPARISON_OPERATOR_NOT_EQUAL\x10\x02\x12\'\n#FIELD_COMPARISON_OPERATOR_LESS_THAN\x10\x03\x120\n,FIELD_COMPARISON_OPERATOR_LESS_THAN_OR_EQUAL\x10\x04\x12*\n&FIELD_COMPARISON_OPERATOR_GREATER_THAN\x10\x05\x123\n/FIELD_COMPARISON_OPERATOR_GREATER_THAN_OR_EQUAL\x10\x06*\xc0\x01\n\x11SpatialFilterMode\x12#\n\x1fSPATIAL_FILTER_MODE_UNSPECIFIED\x10\x00\x12"\n\x1eSPATIAL_FILTER_MODE_INTERSECTS\x10\x01\x120\n,SPATIAL_FILTER_MODE_FILTER_CONTAINS_GEOMETRY\x10\x02\x120\n,SPATIAL_FILTER_MODE_GEOMETRY_CONTAINS_FILTER\x10\x03*\x96\x01\n\x17SpatialCoordinateSystem\x12)\n%SPATIAL_COORDINATE_SYSTEM_UNSPECIFIED\x10\x00\x12\'\n#SPATIAL_COORDINATE_SYSTEM_CARTESIAN\x10\x01\x12\'\n#SPATIAL_COORDINATE_SYSTEM_SPHERICAL\x10\x022\x93\x01\n\x11DataAccessService\x12<\n\tQueryByID\x12\x1d.datasets.v1.QueryByIDRequest\x1a\x10.datasets.v1.Any\x12@\n\x05Query\x12\x19.datasets.v1.QueryRequest\x1a\x1c.datasets.v1.QueryResultPageB\x05\x92\x03\x02\x08\x02b\x08editionsp\xe8\x07',
     [
         core_pb.desc(),
         well_known_types_pb.desc(),
@@ -714,6 +801,7 @@ _DESC = file_desc(
         "QueryByIDRequest": QueryByIDRequest,
         "QueryFilters": QueryFilters,
         "FilterExpression": FilterExpression,
+        "FieldArrayPredicate": FieldArrayPredicate,
         "LogicalExpression": LogicalExpression,
         "FieldComparison": FieldComparison,
         "FieldNullCheck": FieldNullCheck,
@@ -721,6 +809,7 @@ _DESC = file_desc(
         "SpatialFilter": SpatialFilter,
         "QueryRequest": QueryRequest,
         "QueryResultPage": QueryResultPage,
+        "FieldArrayOperator": FieldArrayOperator,
         "LogicalOperator": LogicalOperator,
         "FieldComparisonOperator": FieldComparisonOperator,
         "SpatialFilterMode": SpatialFilterMode,

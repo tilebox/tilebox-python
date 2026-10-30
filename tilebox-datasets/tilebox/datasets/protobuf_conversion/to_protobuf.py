@@ -10,6 +10,7 @@ from protobuf import DescField as FieldDescriptor
 from protobuf import DescFieldValueList, DescFieldValueMessage, DescMessage, Message
 
 from tilebox.datasets.protobuf_conversion.field_types import (
+    EnumField,
     ProtobufFieldType,
     ProtoFieldValue,
     ScalarProtoFieldValue,
@@ -30,6 +31,8 @@ def to_messages(
     message_type: type[_MessageT],
     required_fields: list[str] | None = None,
     ignore_fields: list[str] | None = None,
+    *,
+    field_types: Mapping[str, ProtobufFieldType] | None = None,
 ) -> list[_MessageT]:
     """Convert supported ingestion inputs into protobuf messages.
 
@@ -40,12 +43,14 @@ def to_messages(
 
     Missing optional values and absent record keys leave the protobuf field
     unset. Required fields must be present and non-missing in every record.
+    field_types supplies dataset-specific converters, such as public enum
+    vocabularies that cannot be inferred from protobuf descriptors alone.
     """
     required = set(required_fields or [])
     ignore = set(ignore_fields or [])
     field_descriptors_by_name = _fields_by_name(message_type)
     records = _iter_records(data, field_descriptors_by_name, ignore)
-    return _records_to_messages(records, message_type, field_descriptors_by_name, required, ignore)
+    return _records_to_messages(records, message_type, required, ignore, field_types or {})
 
 
 def marshal_messages(messages: list[Message]) -> list[bytes]:
@@ -117,7 +122,8 @@ def _xarray_records(
         descriptor = descriptors.get(field_name)
         if descriptor is not None and isinstance(descriptor.value, DescFieldValueList):
             field_type = infer_field_type(descriptor)
-            values = trim_trailing_fill_values(values, field_type.fill_value)
+            if not (isinstance(field_type, EnumField) and values.ndim == 1):
+                values = trim_trailing_fill_values(values, field_type.fill_value)
         columns[field_name] = values
     yield from _transpose_columns(columns, validated_names)
 
@@ -171,13 +177,13 @@ def _validate_field_names(
 def _records_to_messages(
     records: Iterable[Record],
     message_type: type[_MessageT],
-    descriptors: Mapping[str, FieldDescriptor],
     required: set[str],
     ignore: set[str],
+    field_types: Mapping[str, ProtobufFieldType],
 ) -> list[_MessageT]:
     """Convert records and add the record index to conversion errors."""
     return [
-        _record_to_message_with_context(indexed_record, message_type, descriptors, required, ignore)
+        _record_to_message_with_context(indexed_record, message_type, required, ignore, field_types)
         for indexed_record in enumerate(records)
     ]
 
@@ -185,14 +191,14 @@ def _records_to_messages(
 def _record_to_message_with_context(
     indexed_record: tuple[int, Record],
     message_type: type[_MessageT],
-    descriptors: Mapping[str, FieldDescriptor],
     required: set[str],
     ignore: set[str],
+    field_types: Mapping[str, ProtobufFieldType],
 ) -> _MessageT:
     """Convert one record and add its index to conversion errors."""
     index, record = indexed_record
     try:
-        return _record_to_message(record, message_type, descriptors, required, ignore)
+        return _record_to_message(record, message_type, required, ignore, field_types)
     except (TypeError, ValueError) as error:
         raise type(error)(f"Record {index}: {error}") from error
 
@@ -200,21 +206,22 @@ def _record_to_message_with_context(
 def _record_to_message(
     record: Record,
     message_type: type[_MessageT],
-    descriptors: Mapping[str, FieldDescriptor],
     required: set[str],
     ignore: set[str],
+    field_types: Mapping[str, ProtobufFieldType],
 ) -> _MessageT:
     """Convert one field-name-validated record into a protobuf message."""
     missing_required = [name for name in required if name not in record or is_missing(record[name])]
     if missing_required:
         raise ValueError(f"Missing required field(s): {', '.join(sorted(missing_required))}")
 
+    descriptors = _fields_by_name(message_type)
     values: dict[str, ProtoFieldValue] = {}
     for field_name, value in record.items():
         if field_name in ignore or is_missing(value):
             continue
         descriptor = descriptors[field_name]
-        field_type = infer_field_type(descriptor)
+        field_type = field_types.get(field_name) or infer_field_type(descriptor)
         try:
             if isinstance(descriptor.value, DescFieldValueList):
                 converted = _convert_repeated_value(value, field_type)

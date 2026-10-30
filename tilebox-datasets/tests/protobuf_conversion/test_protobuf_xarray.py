@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any
 from uuid import UUID
 
 import numpy as np
@@ -343,7 +344,7 @@ def test_convert_scalar_and_repeated_enums_to_names_and_round_trip() -> None:
     message_type = get_message_type(
         AnnotatedType(FileDescriptorSet(file=[file_descriptor]), "tests.protobuf_conversion.enums.EnumDatapoint", [])
     )
-    messages = [
+    messages: list[Any] = [
         message_type(primary_polarization=1, polarizations=[0, 1]),
         message_type(primary_polarization=2, polarizations=[2]),
         message_type(),
@@ -357,11 +358,8 @@ def test_convert_scalar_and_repeated_enums_to_names_and_round_trip() -> None:
     assert dataset.primary_polarization[:2].to_numpy().tolist() == ["HH", "VV"]
     assert pd.isna(dataset.primary_polarization[2].item())
     assert dataset.polarizations.dtype == object
-    assert dataset.polarizations[0].to_numpy().tolist() == ["UNSPECIFIED", "HH"]
-    assert dataset.polarizations[1, 0].item() == "VV"
-    assert pd.isna(dataset.polarizations[1, 1].item())
-    assert pd.isna(dataset.polarizations[2].to_numpy()).all()
-    assert dataset.polarizations.dims == ("time", "n_polarizations")
+    assert dataset.polarizations.to_numpy().tolist() == [["UNSPECIFIED", "HH"], ["VV"], []]
+    assert dataset.polarizations.dims == ("time",)
     assert dataset.primary_polarization.attrs == {}
     assert dataset.polarizations.attrs == {}
     assert to_messages(dataset, message_type) == messages
@@ -387,10 +385,8 @@ def test_convert_sar_polarizations_with_short_names_in_both_directions() -> None
 
     dataset = converter.finalize("item")
 
-    assert dataset.polarizations[0].to_numpy().tolist() == ["HH", "VV"]
-    assert dataset.polarizations[1, 0].item() == "VV"
-    assert pd.isna(dataset.polarizations[1, 1].item())
-    assert pd.isna(dataset.polarizations[2].to_numpy()).all()
+    assert dataset.polarizations.dims == ("item",)
+    assert dataset.polarizations.to_numpy().tolist() == [["HH", "VV"], ["VV"], []]
 
     other_fields = [field.name for field in SARProperties.desc().fields if field.name != "polarizations"]
     assert to_messages(dataset, SARProperties, ignore_fields=other_fields) == messages

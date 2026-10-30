@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
-from enum import Enum, IntEnum
-from typing import Literal
+from enum import Enum, IntEnum, StrEnum
+from typing import Any, Literal
 
 import numpy as np
 import pytest
@@ -17,6 +17,15 @@ class NumericQuality(IntEnum):
     GOOD = 1
 
 
+class ProcessingLevel(StrEnum):
+    UPPER = "L1"
+    LOWER = "l1"
+
+
+class StringQuality(str, Enum):  # noqa: UP042 -- Exercise Enum.__str__, unlike StrEnum.
+    GOOD = "good"
+
+
 @pytest.mark.parametrize(
     ("value", "kind", "expected"),
     [
@@ -26,23 +35,91 @@ class NumericQuality(IntEnum):
         (0.0, "double_value", 0.0),
         ("", "string_value", ""),
         (b"", "bytes_value", b""),
-        (Quality.GOOD, "enum_name", "GOOD"),
-        (NumericQuality.GOOD, "enum_name", "GOOD"),
+        (Quality.GOOD.value, "string_value", "good"),
+        (NumericQuality.GOOD, "int64_value", 1),
+        (ProcessingLevel.UPPER, "string_value", "L1"),
+        (ProcessingLevel.LOWER, "string_value", "l1"),
+        (StringQuality.GOOD, "string_value", "good"),
+        (np.str_("L2-SP"), "string_value", "L2-SP"),
+        ("L2-SP", "string_value", "L2-SP"),
+        ("雪", "string_value", "雪"),
     ],
 )
 def test_query_value_types(
     value: object,
-    kind: Literal[
-        "bool_value", "int64_value", "uint64_value", "double_value", "string_value", "bytes_value", "enum_name"
-    ],
+    kind: Literal["bool_value", "int64_value", "uint64_value", "double_value", "string_value", "bytes_value"],
     expected: object,
 ) -> None:
-    comparison = (field("quality") == value).to_message().comparison
+    wire = (field("quality") == value).to_message().to_binary()
+    comparison = data_access_pb.FilterExpression.from_binary(wire).comparison
     assert comparison is not None
     message = comparison.value
     assert message is not None
     assert message.has_field(kind)
     assert getattr(message, kind) == expected
+
+
+def test_unsupported_query_value() -> None:
+    with pytest.raises(TypeError, match="Unsupported query value type"):
+        _ = field("quality") == Quality.GOOD
+
+
+@pytest.mark.parametrize("method", ["contains", "contains_all", "contains_any"])
+@pytest.mark.parametrize("value", [ProcessingLevel.UPPER, ProcessingLevel.LOWER])
+def test_string_subclass_membership(method: str, value: str) -> None:
+    expression = getattr(field("tags"), method)(value if method == "contains" else [value])
+    message = data_access_pb.FilterExpression.from_binary(expression.to_message().to_binary())
+    assert message.array_predicate is not None
+    assert list(message.array_predicate.values) == [value]
+    assert Expression.from_message(message) == expression
+
+
+@pytest.mark.parametrize("method", ["contains_all", "contains_any"])
+@pytest.mark.parametrize("values", [[], ["defense"], ["wind-power", "雪", "defense", "defense"], ["defense"] * 100])
+def test_array_predicates_round_trip(method: str, values: list[str]) -> None:
+    expression = getattr(field("use_cases"), method)(values)
+    message = expression.to_message()
+    predicate = message.array_predicate
+    assert predicate is not None
+    assert predicate.field_name == "use_cases"
+    assert predicate.operator == (
+        data_access_pb.FieldArrayOperator.CONTAINS_ALL
+        if method == "contains_all"
+        else data_access_pb.FieldArrayOperator.OVERLAPS
+    )
+    assert list(predicate.values) == values
+    assert Expression.from_message(message) == expression
+    combined = ~(expression | field("use_cases").contains("agriculture")) & (field("quality") == "good")
+    assert Expression.from_message(combined.to_message()) == combined
+    assert field("use_cases").contains("defense") == field("use_cases").contains_all(["defense"])
+
+
+@pytest.mark.parametrize("values", ["defense", None, [1], [""], [Quality.GOOD], {"defense": True}, ["defense"] * 101])
+def test_invalid_array_predicate_inputs(values: Any) -> None:
+    for method in (field("tags").contains_all, field("tags").contains_any):
+        with pytest.raises((TypeError, ValueError)):
+            method(values).to_message().to_binary()
+
+
+def test_array_predicate_copies_inputs_and_validates_messages() -> None:
+    values = ["defense"]
+    expression = field("tags").contains_any(values)
+    values.append("agriculture")
+    assert expression == field("tags").contains_any(["defense"])
+    for operator, values in ((0, []), (99, []), (1, [""]), (2, ["defense"] * 101)):
+        message = data_access_pb.FilterExpression(
+            array_predicate=data_access_pb.FieldArrayPredicate(
+                field_name="tags",
+                operator=data_access_pb.FieldArrayOperator(operator),
+                values=values,
+            )
+        )
+        with pytest.raises(ValueError, match=r"[Aa]rray predicate"):
+            Expression.from_message(message)
+    message = expression.to_message()
+    message.is_null = data_access_pb.FieldNullCheck(field_name="tags")
+    with pytest.raises(ValueError, match="exactly one"):
+        Expression.from_message(message)
 
 
 @pytest.mark.parametrize(
