@@ -4,6 +4,7 @@ from warnings import warn
 if TYPE_CHECKING:
     from tilebox.datasets.aio.timeseries import TimeseriesCollection, TimeseriesDataset
     from tilebox.datasets.datapoints import iter_datapoints
+    from tilebox.datasets.lazy import LazyMessage
     from tilebox.datasets.query import field
     from tilebox.datasets.sync.client import Client
     from tilebox.datasets.sync.dataset import CollectionClient, DatasetClient
@@ -12,6 +13,7 @@ __all__ = [
     "Client",
     "CollectionClient",
     "DatasetClient",
+    "LazyMessage",
     "TimeseriesCollection",
     "TimeseriesDataset",
     "field",
@@ -45,6 +47,10 @@ def __getattr__(name: str) -> Any:
             from tilebox.datasets.sync.dataset import DatasetClient  # noqa: PLC0415
 
             value = DatasetClient
+        case "LazyMessage":
+            from tilebox.datasets.lazy import LazyMessage  # noqa: PLC0415
+
+            value = LazyMessage
         case "field":
             from tilebox.datasets.query import field  # noqa: PLC0415
 

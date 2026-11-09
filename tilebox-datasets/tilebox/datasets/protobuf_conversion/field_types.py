@@ -3,12 +3,13 @@ from collections.abc import Sequence
 from datetime import timedelta
 from enum import Enum
 from functools import lru_cache
-from typing import Any, TypeGuard, TypeVar
+from typing import Any, TypeGuard, TypeVar, cast
 from uuid import UUID
 
 import numpy as np
 import pandas as pd
 from numpy import dtypes as npdtypes
+from numpy.typing import NDArray
 from pandas.core.tools.datetimes import DatetimeScalar, to_datetime
 from pandas.core.tools.timedeltas import to_timedelta
 from protobuf import (
@@ -24,10 +25,11 @@ from protobuf import (
 )
 from protobuf.wkt.google.protobuf.duration_pb import Duration
 from protobuf.wkt.google.protobuf.timestamp_pb import Timestamp
-from shapely import from_wkb
+from shapely import from_wkb, to_wkb
 
 from tilebox.datasets.data.datasets import AnnotatedType
-from tilebox.datasets.schema import _MESSAGE_FIELD_TYPES, Assets
+from tilebox.datasets.lazy import LazyMessage
+from tilebox.datasets.schema import _MESSAGE_FIELD_TYPES, Assets, Authentication, Links, Storage
 from tilebox.datasets.v1.well_known_types_pb import UUID as UUIDMessage  # noqa: N811
 from tilebox.datasets.v1.well_known_types_pb import Geometry, LatLon, LatLonAlt, Quaternion, Vec3
 
@@ -83,30 +85,79 @@ class ProtobufFieldType:
 
 
 class MessageField(ProtobufFieldType):
-    """Normalize dynamically loaded values into public native message classes."""
+    """Reuse public messages, converting only dynamically loaded classes."""
 
-    def __init__(
-        self,
-        value_type: type[Message],
-        *,
-        read_type: type[Message] | None = None,
-    ) -> None:
+    def __init__(self, value_type: type[Message]) -> None:
         """Initialize the public message class used for conversion."""
         super().__init__(object)
         self._value_type = value_type
-        self._read_type = read_type or value_type
 
     def from_proto(self, value: ProtoFieldValue) -> Message:
+        # Query results retain children of temporary records instead of copying them.
+        if isinstance(value, Message) and isinstance(value, self._value_type):
+            return value
         if not isinstance(value, Message) or value.desc().type_name != self._value_type.desc().type_name:
             raise TypeError(f"Expected {self._value_type.__name__} message but got {type(value)}")
-        return self._read_type.from_binary(value.to_binary())
+        return self._value_type.from_binary(value.to_binary())
 
-    def to_proto(self, value: Message) -> Message | None:
+    def to_proto(self, value: Message | LazyMessage) -> Message | None:
         if is_missing(value):
             return None
+        if isinstance(value, LazyMessage) and value.message_type is self._value_type:
+            value = value.get()
         if not isinstance(value, self._value_type):
             raise TypeError(f"Expected {self._value_type.__name__} message but got {type(value)}")
         return self._value_type.from_binary(value.to_binary())
+
+
+def _message_repr(value: Message) -> str:
+    name = type(value).__name__
+    match value:
+        case Assets(assets=items) | Links(links=items):
+            return f"{name}({len(items)})"
+        case Storage(schemes=schemes) | Authentication(schemes=schemes):
+            count = len(schemes)
+            return f"{name}({count} scheme{'s' if count != 1 else ''})"
+    return f"{name}(…)"
+
+
+class EncodedMessageField(ProtobufFieldType):
+    """Convert private repeated-bytes fields without decoding their messages."""
+
+    def __init__(self, message_type: type[Message], *, repeated: bool) -> None:
+        super().__init__(object)
+        self.message_type = message_type
+        self.repeated = repeated
+
+    def from_proto(self, value: ProtoFieldValue) -> LazyMessage:
+        # A singular message can occur several times on the wire. Concatenating
+        # its payloads preserves protobuf merge semantics and unknown fields.
+        data = cast(bytes, value) if self.repeated else b"".join(cast(list[bytes], value))
+        return LazyMessage(self.message_type, data, repr_formatter=_message_repr)
+
+    def to_proto(self, value: Message | LazyMessage) -> bytes:
+        if isinstance(value, LazyMessage) and value.message_type is self.message_type:
+            return value.to_binary()
+        if isinstance(value, self.message_type):
+            return value.to_binary()
+        raise TypeError(f"Expected {self.message_type.__name__} message or lazy wrapper but got {type(value)}")
+
+
+def encoded_message_field_types(message_type: type[Message]) -> dict[str, EncodedMessageField]:
+    """Select heavy top-level message fields by type, not dataset field name."""
+    supported = {cls.desc().type_name: cls for cls in (Assets, Links, Storage, Authentication)}
+    result = {}
+    for field in message_type.desc().fields:
+        match field.value:
+            case DescFieldValueMessage(message=message, oneof=None):
+                repeated = False
+            case DescFieldValueList(element=DescMessage() as message):
+                repeated = True
+            case _:
+                continue
+        if message.type_name in supported:
+            result[field.name] = EncodedMessageField(supported[message.type_name], repeated=repeated)
+    return result
 
 
 class BoolField(ProtobufFieldType):
@@ -243,7 +294,10 @@ class UUIDField(ProtobufFieldType):
     def from_proto(self, value: ProtoFieldValue) -> str:
         if not _is_message(value, UUIDMessage):
             raise TypeError(f"Expected UUID message but got {type(value)}")
-        return str(UUID(bytes=value.uuid))
+        if len(value.uuid) != 16:
+            raise ValueError("bytes is not a 16-char string")
+        hex_value = value.uuid.hex()
+        return f"{hex_value[:8]}-{hex_value[8:12]}-{hex_value[12:16]}-{hex_value[16:20]}-{hex_value[20:]}"
 
     def to_proto(self, value: str | UUID) -> UUIDMessage | None:
         if is_missing(value) or value == "":  # missing or empty string
@@ -264,10 +318,22 @@ class GeometryField(ProtobufFieldType):
             raise TypeError(f"Expected Geometry message but got {type(value)}")
         return from_wkb(value.wkb)
 
+    def from_proto_batch(self, values: Sequence[ProtoFieldValue]) -> NDArray[np.object_]:
+        """Decode a column in one Shapely call, preserving missing geometries."""
+        wkbs: list[bytes | None] = []
+        for value in values:
+            if value is None:
+                wkbs.append(None)
+            elif _is_message(value, Geometry):
+                wkbs.append(value.wkb)
+            else:
+                raise TypeError(f"Expected Geometry message but got {type(value)}")
+        return from_wkb(wkbs)
+
     def to_proto(self, value: Any) -> Geometry | None:
         if is_missing(value):
             return None
-        return Geometry(wkb=value.wkb)
+        return Geometry(wkb=to_wkb(value, include_srid=True))
 
 
 class Vec3Field(ProtobufFieldType):
@@ -350,26 +416,10 @@ _PROTOBUF_TYPE_TO_NUMPY_TYPE = {
 }
 
 
-class _AssetsDisplay(Assets):
-    """Assets value with concise text representations, including in xarray displays."""
-
-    def __repr__(self) -> str:
-        return f"[{', '.join(a.key for a in self.assets)}]"
-
-    def __str__(self) -> str:
-        return f"{len(self.assets)} assets"
-
-
 _MESSAGE_NAMES_TO_FIELDS: dict[str, ProtobufFieldType] = {
     "google.protobuf.Timestamp": TimestampField(),
     "google.protobuf.Duration": TimeDeltaField(),
-    **{
-        value_type.desc().type_name: MessageField(
-            value_type,
-            read_type=_AssetsDisplay if value_type is Assets else None,
-        )
-        for value_type in _MESSAGE_FIELD_TYPES
-    },
+    **{value_type.desc().type_name: MessageField(value_type) for value_type in _MESSAGE_FIELD_TYPES},
     "datasets.v1.UUID": UUIDField(),
     "datasets.v1.Geometry": GeometryField(),
     "datasets.v1.Vec3": Vec3Field(),
@@ -380,7 +430,9 @@ _MESSAGE_NAMES_TO_FIELDS: dict[str, ProtobufFieldType] = {
 
 
 def _is_message(value: object, message_type: type[_MessageT]) -> TypeGuard[_MessageT]:
-    return isinstance(value, Message) and value.desc().type_name == message_type.desc().type_name
+    return isinstance(value, message_type) or (
+        isinstance(value, Message) and value.desc().type_name == message_type.desc().type_name
+    )
 
 
 @lru_cache(maxsize=4096)

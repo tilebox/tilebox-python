@@ -37,7 +37,6 @@ bypass-selection = true
 [tool.uv.workspace]
 members = [
     "tilebox-core",
-    "tilebox-grpc",
     "tilebox-datasets",
     "tilebox-storage",
     "tilebox-workflows",
@@ -45,7 +44,6 @@ members = [
 
 [tool.uv.sources] # don't install from pypi, use the workspace packages
 tilebox-core = { workspace = true }
-tilebox-grpc = { workspace = true }
 tilebox-datasets = { workspace = true }
 tilebox-storage = { workspace = true }
 tilebox-workflows = { workspace = true }

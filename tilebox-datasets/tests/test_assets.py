@@ -3,8 +3,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 import xarray as xr
+from protobuf import Message
 
-from tilebox.datasets import iter_datapoints
+from tilebox.datasets import LazyMessage, iter_datapoints
 from tilebox.datasets.assets import (
     Asset,
     AssetCollection,
@@ -40,7 +41,7 @@ from tilebox.datasets.stac.v1.authentication_pb import (
 from tilebox.datasets.stac.v1.authentication_pb import (
     AuthenticationScheme as AuthenticationSchemeProto,
 )
-from tilebox.datasets.stac.v1.core_pb import KnownMediaType
+from tilebox.datasets.stac.v1.core_pb import KnownMediaType, Links
 from tilebox.datasets.stac.v1.core_pb import MediaType as ProtoMediaType
 from tilebox.datasets.stac.v1.sar_pb import (
     SARFrequencyBand,
@@ -53,7 +54,12 @@ from tilebox.datasets.stac.v1.storage_pb import KnownStorageType, Storage, Stora
 TESTDATA = Path(__file__).parent / "testdata"
 
 
-def _scalar(**variables: object) -> xr.Dataset:
+def _scalar(*, lazy: bool = False, **variables: object) -> xr.Dataset:
+    if lazy:
+        variables = {
+            name: LazyMessage(type(value), value.to_binary()) if isinstance(value, Message) else value
+            for name, value in variables.items()
+        }
     return xr.Dataset({name: xr.DataArray(np.array(value, dtype=object)) for name, value in variables.items()})
 
 
@@ -70,9 +76,18 @@ def _read_real_fixture() -> tuple[Assets, Storage]:
     return assets, storage
 
 
-def test_real_sentinel2_fixture_decodes_to_self_contained_assets() -> None:
+@pytest.mark.parametrize("lazy", [False, True])
+def test_real_sentinel2_fixture_decodes_to_self_contained_assets(lazy: bool) -> None:
     assets_message, storage = _read_real_fixture()
-    assets = AssetCollection.from_datapoint(_scalar(catalog=assets_message, storage=storage))
+    # An unrelated malformed field must stay lazy during asset discovery.
+    links = LazyMessage(Links, b"\x0a\xff")
+    datapoint = _scalar(
+        catalog=LazyMessage(Assets, assets_message.to_binary()) if lazy else assets_message,
+        storage=LazyMessage(Storage, storage.to_binary()) if lazy else storage,
+        links=links,
+    )
+    assets = AssetCollection.from_datapoint(datapoint)
+    assert links.to_binary() == b"\x0a\xff"
 
     assert len(assets) == 23
     red = assets["red"]
@@ -107,7 +122,8 @@ def test_real_sentinel2_fixture_recompiles_to_identical_optimized_fields() -> No
     assert len(fields["assets"].band_profiles) == 12
 
 
-def test_asset_authoring_compiles_profiles_registries_and_custom_field_names() -> None:
+@pytest.mark.parametrize("lazy", [False, True])
+def test_asset_authoring_compiles_profiles_registries_and_custom_field_names(lazy: bool) -> None:
     scheme = StorageScheme(known_type=KnownStorageType.AWS_S3, region="eu-central-1")
     authentication_scheme = AuthenticationSchemeProto(name="signed")
     assets = AssetCollection.from_assets(
@@ -170,7 +186,7 @@ def test_asset_authoring_compiles_profiles_registries_and_custom_field_names() -
     assert compiled_red.roles == [KnownAssetRole.DATA]
     assert compiled_red.custom_roles == ["custom-role"]
     decoded = AssetCollection.from_datapoint(
-        _scalar(catalog=root, store=fields["store"], auth=fields["auth"]),
+        _scalar(lazy=lazy, catalog=root, store=fields["store"], auth=fields["auth"]),
         fields={"assets": "catalog", "storage": "store", "authentication": "auth"},
     )
     assert decoded == assets
@@ -536,12 +552,13 @@ def test_malformed_media_types_are_rejected(media_type: ProtoMediaType) -> None:
         AssetCollection.from_datapoint(_scalar(assets=root))
 
 
-def test_discovery_uses_descriptor_type_and_supports_overrides() -> None:
+@pytest.mark.parametrize("lazy", [False, True])
+def test_discovery_uses_descriptor_type_and_supports_overrides(lazy: bool) -> None:
     root = Assets(
         access_profiles=[AssetAccessProfile(base_href="https://example.com/")],
         assets=[ProtoAsset(key="data", primary=ProtoAssetLocation(access_profile_index=0, href="data.tif"))],
     )
-    datapoint = _scalar(not_named_assets=root, other=root)
+    datapoint = _scalar(lazy=lazy, not_named_assets=root, other=root)
     with pytest.raises(ValueError, match=r"ambiguous datasets\.stac\.v1\.Assets"):
         AssetCollection.from_datapoint(datapoint)
 
@@ -551,14 +568,20 @@ def test_discovery_uses_descriptor_type_and_supports_overrides() -> None:
         AssetCollection.from_datapoint(datapoint, fields={"assets": "missing"})
 
 
-def test_context_ambiguity_and_explicit_override() -> None:
+@pytest.mark.parametrize("lazy", [False, True])
+def test_context_ambiguity_and_explicit_override(lazy: bool) -> None:
     root = Assets(
         access_profiles=[AssetAccessProfile(base_href="s3://bucket/", storage_refs=["main"])],
         assets=[ProtoAsset(key="data", primary=ProtoAssetLocation(access_profile_index=0, href="data.tif"))],
     )
     first = Storage(schemes={"main": StorageScheme(region="eu-west-1")})
     second = Storage(schemes={"main": StorageScheme(region="us-west-2")})
-    datapoint = _scalar(root=root, first=first, second=second)
+    # Exercise mixed eager/lazy inputs as well as the existing eager-only case.
+    datapoint = _scalar(
+        root=LazyMessage(Assets, root.to_binary()) if lazy else root,
+        first=first,
+        second=LazyMessage(Storage, second.to_binary()) if lazy else second,
+    )
     with pytest.raises(ValueError, match=r"ambiguous datasets\.stac\.v1\.Storage"):
         AssetCollection.from_datapoint(datapoint)
     decoded = AssetCollection.from_datapoint(datapoint, fields={"storage": "second"})
@@ -659,3 +682,21 @@ def test_iter_datapoints_and_multi_datapoint_error() -> None:
         AssetCollection.from_datapoint(data)
     with pytest.raises(ValueError, match=r"'sample'.*not present"):
         list(iter_datapoints(data, dimension="sample"))
+    data["assets"] = (
+        "time",
+        [
+            LazyMessage(
+                Assets,
+                Assets(
+                    access_profiles=[AssetAccessProfile(base_href="https://example.com/")],
+                    assets=[
+                        ProtoAsset(
+                            key=str(index), primary=ProtoAssetLocation(access_profile_index=0, href=f"{index}.tif")
+                        )
+                    ],
+                ).to_binary(),
+            )
+            for index in range(3)
+        ],
+    )
+    assert [list(AssetCollection.from_datapoint(row)) for row in iter_datapoints(data)] == [["0"], ["1"], ["2"]]

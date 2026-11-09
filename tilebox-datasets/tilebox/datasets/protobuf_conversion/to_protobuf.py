@@ -10,6 +10,7 @@ from protobuf import DescField as FieldDescriptor
 from protobuf import DescFieldValueList, DescFieldValueMessage, DescMessage, Message
 
 from tilebox.datasets.protobuf_conversion.field_types import (
+    EncodedMessageField,
     EnumField,
     ProtobufFieldType,
     ProtoFieldValue,
@@ -49,7 +50,7 @@ def to_messages(
     required = set(required_fields or [])
     ignore = set(ignore_fields or [])
     field_descriptors_by_name = _fields_by_name(message_type)
-    records = _iter_records(data, field_descriptors_by_name, ignore)
+    records = _iter_records(data, field_descriptors_by_name, ignore, field_types or {})
     return _records_to_messages(records, message_type, required, ignore, field_types or {})
 
 
@@ -66,10 +67,11 @@ def _iter_records(
     data: IngestionData,
     descriptors: Mapping[str, FieldDescriptor],
     ignore: set[str],
+    field_types: Mapping[str, ProtobufFieldType],
 ) -> Iterator[Record]:
     """Adapt each supported input representation to an iterator of records."""
     if isinstance(data, xr.Dataset):
-        yield from _xarray_records(data, descriptors, ignore)
+        yield from _xarray_records(data, descriptors, ignore, field_types)
         return
     if isinstance(data, pd.DataFrame):
         yield from _dataframe_records(data, descriptors, ignore)
@@ -109,6 +111,7 @@ def _xarray_records(
     data: xr.Dataset,
     descriptors: Mapping[str, FieldDescriptor],
     ignore: set[str],
+    field_types: Mapping[str, ProtobufFieldType],
 ) -> Iterator[Record]:
     """Yield xarray datapoints while removing padding from repeated fields."""
     field_names = [*data.data_vars]
@@ -121,8 +124,11 @@ def _xarray_records(
         values = data[field_name].to_numpy()
         descriptor = descriptors.get(field_name)
         if descriptor is not None and isinstance(descriptor.value, DescFieldValueList):
-            field_type = infer_field_type(descriptor)
-            if not (isinstance(field_type, EnumField) and values.ndim == 1):
+            field_type = field_types.get(field_name) or infer_field_type(descriptor)
+            scalar_column = (isinstance(field_type, EnumField) and values.ndim == 1) or (
+                isinstance(field_type, EncodedMessageField) and not field_type.repeated
+            )
+            if not scalar_column:
                 values = trim_trailing_fill_values(values, field_type.fill_value)
         columns[field_name] = values
     yield from _transpose_columns(columns, validated_names)
@@ -224,7 +230,11 @@ def _record_to_message(
         field_type = field_types.get(field_name) or infer_field_type(descriptor)
         try:
             if isinstance(descriptor.value, DescFieldValueList):
-                converted = _convert_repeated_value(value, field_type)
+                converted = (
+                    [field_type.to_proto(value)]
+                    if isinstance(field_type, EncodedMessageField) and not field_type.repeated
+                    else _convert_repeated_value(value, field_type)
+                )
                 element = descriptor.value.element
                 if isinstance(element, DescMessage):
                     converted = [element.type.from_binary(cast(Message, item).to_binary()) for item in converted]

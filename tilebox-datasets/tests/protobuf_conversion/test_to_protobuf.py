@@ -12,6 +12,7 @@ from protobuf.wkt.google.protobuf.descriptor_pb import (
     FileDescriptorProto,
     FileDescriptorSet,
 )
+from shapely import Polygon, from_wkb, get_srid, set_srid, to_wkb
 
 from tests.data.datapoint import example_datapoints, example_pandas_datapoints
 from tests.example_dataset.schema import ExampleDatapoint
@@ -19,6 +20,7 @@ from tilebox.datasets.data.datasets import AnnotatedType
 from tilebox.datasets.message_pool import get_message_type
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
 from tilebox.datasets.protobuf_conversion.to_protobuf import to_messages
+from tilebox.datasets.v1.well_known_types_pb import Geometry
 
 
 def test_ingestion_preserves_fields_with_escaped_python_names() -> None:
@@ -67,6 +69,24 @@ def test_xarray_dataset_to_protobuf_messages(messages: list[ExampleDatapoint]) -
             assert getattr(expected_message, field.name) == getattr(converted_message, field.name), (
                 f"Field {field.name} mismatch"
             )
+
+
+@pytest.mark.parametrize("srid", [0, 4326, 3857])
+def test_geometry_srid_survives_xarray_ingestion_roundtrip(srid: int) -> None:
+    polygon = set_srid(Polygon([(11, 47), (12, 47), (12, 49), (11, 47)]), srid)
+    geometry = Geometry(wkb=to_wkb(polygon, include_srid=True))
+    message = ExampleDatapoint(geometry=geometry, some_repeated_geometry=[geometry])
+
+    dataset = _to_dataset([message])
+    assert get_srid(dataset.geometry.item()) == srid
+    converted = to_messages(dataset, ExampleDatapoint)[0]
+
+    for value in [converted.geometry, *converted.some_repeated_geometry]:
+        restored = from_wkb(value.wkb)
+        assert get_srid(restored) == srid
+        assert restored.equals_exact(polygon, tolerance=0)
+        if srid == 0:
+            assert value.wkb == polygon.wkb
 
 
 def _to_dataset(datapoints: list[ExampleDatapoint]) -> xr.Dataset:

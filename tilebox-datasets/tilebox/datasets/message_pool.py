@@ -1,5 +1,6 @@
 """Load isolated native schemas, including the imports supported by datasets."""
 
+from collections.abc import Collection
 from functools import lru_cache
 
 from protobuf import Message, Registry
@@ -47,9 +48,33 @@ def _known_imports() -> Registry:
     )
 
 
+def _encode_message_fields(
+    supplied: descriptor_pb.FileDescriptorSet, type_name: str, encoded_fields: tuple[str, ...]
+) -> None:
+    if not encoded_fields:
+        return
+    # Nested messages and bytes share the length-delimited wire format. Preserve
+    # every occurrence, even for singular messages: protobuf merges their contents.
+    # Only this private descriptor copy changes; the public schema stays intact.
+    for file in supplied.file:
+        pending = [(message, file.package) for message in file.message_type]
+        while pending:
+            message, prefix = pending.pop()
+            name = f"{prefix}.{message.name}" if prefix else message.name
+            pending.extend((nested, name) for nested in message.nested_type)
+            if name != type_name:
+                continue
+            for field in message.field:
+                if field.name in encoded_fields:
+                    field.type = descriptor_pb.FieldDescriptorProto.Type.BYTES
+                    field.label = descriptor_pb.FieldDescriptorProto.Label.REPEATED
+                    field.clear_field("type_name")
+
+
 @lru_cache(maxsize=128)
-def _load(descriptor_content: bytes, type_url: str) -> type[Message]:
+def _load(descriptor_content: bytes, type_url: str, encoded_fields: tuple[str, ...] = ()) -> type[Message]:
     supplied = descriptor_pb.FileDescriptorSet.from_binary(descriptor_content)
+    _encode_message_fields(supplied, type_url, encoded_fields)
     files = {file.name: file for file in supplied.file}
     registry = Registry(_known_imports())
     visiting: set[str] = set()
@@ -85,7 +110,7 @@ def _load(descriptor_content: bytes, type_url: str) -> type[Message]:
     return descriptor.type
 
 
-def get_message_type(message_type: AnnotatedType) -> type[Message]:
+def get_message_type(message_type: AnnotatedType, *, encoded_fields: Collection[str] = ()) -> type[Message]:
     """Resolve the native class cached by descriptor content and type name."""
     type_name = message_type.type_url.rsplit("/", 1)[-1].removeprefix(".")
-    return _load(message_type.descriptor_set.to_binary(), type_name)
+    return _load(message_type.descriptor_set.to_binary(), type_name, tuple(sorted(encoded_fields)))

@@ -87,6 +87,44 @@ results = s2a_l1c.query(
 print(f"Found {results.sizes['time']} datapoints")  # Found 979 datapoints
 ```
 
+## Lazy metadata fields
+
+Queries and `find()` return `LazyMessage` wrappers for fields of type `Assets`, `Links`,
+`Storage`, and `Authentication`, including elements of repeated fields. Other fields
+keep their existing xarray representation. Wrappers display counts such as `Assets(23)`,
+`Links(8)`, or `Storage(1 scheme)`. Displaying a wrapper decodes and caches its message;
+xarray's default display formats only a sample of rows, not the entire result.
+
+For a result with an `assets` field:
+
+```python
+from tilebox.datasets.assets import AssetCollection
+
+row = results.isel(time=0)
+message = row.assets.item().get()  # Decode to the generated Assets message.
+assets = AssetCollection.from_datapoint(row)  # Unwraps assets and their storage/authentication context.
+```
+
+`get()` caches the mutable message in that wrapper and releases its encoded bytes.
+Subsequent calls return the same message. Different datapoints do not share decoded
+messages, but an xarray shallow copy shares its wrappers with the original.
+Missing fields remain missing; a present empty message still has a wrapper.
+Malformed nested messages raise when decoded, rather than during the query.
+Display catches `ValueError` from decoding or formatting and falls back to `Assets(…)`
+(or the corresponding type name); other errors propagate. Explicit `get()` still raises
+decoding errors. Custom wrappers
+can supply `repr_formatter=` with a function that takes the decoded message and returns
+a string. Without a formatter, display uses the placeholder without decoding.
+Equality comparisons, including xarray merges, decode compatible messages and use
+protobuf equality, including its treatment of NaN values as unequal between
+independently decoded messages.
+
+Ingestion accepts wrappers alongside ordinary generated messages in records, columns,
+DataFrames, and xarray Datasets. Untouched wrappers forward their protobuf bytes without
+decoding; decoded wrappers serialize the current message, including any edits. Lazy
+payload validation is deferred to decoding or the ingestion server. Use `get()` first
+if you need to check that a payload can be decoded before sending it.
+
 ## Enum fields
 
 Define a scalar enum with an ordered list of public strings:

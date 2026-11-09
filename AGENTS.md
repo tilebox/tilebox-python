@@ -6,10 +6,9 @@ This repository is the Python monorepo for Tilebox SDK packages. It is organized
 
 ## Monorepo Architecture
 
-The workspace contains four implementation packages and a compatibility package:
+The workspace contains four implementation packages:
 
 - `tilebox-core`: Public `tilebox.query` value types and `tilebox.errors` exceptions; private shared infrastructure, generated messages, conversions, transports, pagination, replay, and concurrency helpers under `_tilebox`. Only this distribution packages `_tilebox`.
-- `tilebox-grpc`: Empty compatibility package depending on `tilebox-core>=0.68.0`, retained for one release.
 - `tilebox-datasets`: Datasets SDK (`tilebox.datasets`) with sync + async clients, query/data model helpers, protobuf conversion, and generated datasets-related protobuf stubs.
 - `tilebox-workflows`: Workflows SDK (`tilebox.workflows`) with job/cluster/automation clients, task model + runner, observability/tracing, and generated workflows protobuf stubs.
 - `tilebox-storage`: Storage SDK (`tilebox.storage`) for provider-specific payload downloads (ASF, Copernicus, Umbra, Landsat, local FS), built mostly on async internals with sync wrappers.

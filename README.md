@@ -52,7 +52,6 @@ The SDKs share types and native Connect RPC infrastructure in `tilebox-core`, in
 automatically with datasets, workflows, and storage. Use `tilebox.query` for shared
 intervals and pagination, and `tilebox.errors` for SDK exceptions. Infrastructure under
 `_tilebox` is private. Core and workflows do not require the datasets scientific stack.
-`tilebox-grpc` is a dependency-only compatibility package for the 0.68 release.
 
 ## Getting started
 
