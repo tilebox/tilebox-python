@@ -13,7 +13,9 @@ from numpy.typing import NDArray
 from protobuf import DescField, DescFieldValueList, DescFieldValueMessage, DescFieldValueSingular, Message
 
 from tilebox.datasets.protobuf_conversion.field_types import (
+    EncodedMessageField,
     EnumField,
+    GeometryField,
     ProtobufFieldType,
     ProtoFieldValue,
     infer_field_type,
@@ -227,6 +229,12 @@ class _SimpleFieldConverter(_FieldConverter):
 
     def convert_all(self, index: int, messages: Sequence[Message], read: Callable[[Message], ProtoFieldValue]) -> None:
         """Assign scalar columns in one NumPy operation instead of one write per row."""
+        if isinstance(self._type, GeometryField):
+            values = [read(message) for message in messages]
+            if any(value is not None for value in values):
+                self._empty = False
+            self._data[index : index + len(messages), 0] = self._type.from_proto_batch(values)
+            return
         if self._type.value_dim != 1:
             super().convert_all(index, messages, read)
             return
@@ -431,6 +439,8 @@ def _create_field_converter(field: DescField, field_type: ProtobufFieldType | No
         A field converter for the given protobuf field descriptor
     """
     field_type = field_type or infer_field_type(field)
+    if isinstance(field_type, EncodedMessageField) and not field_type.repeated:
+        return _SimpleFieldConverter(field.name, field_type)
     if isinstance(field.value, DescFieldValueList):
         if isinstance(field_type, EnumField):
             return _EnumListFieldConverter(field.name, field_type)

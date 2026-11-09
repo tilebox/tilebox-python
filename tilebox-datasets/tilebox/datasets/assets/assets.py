@@ -13,6 +13,7 @@ import numpy as np
 import xarray as xr
 from protobuf import Message
 
+from tilebox.datasets.lazy import LazyMessage
 from tilebox.datasets.stac.v1.asset_metadata_pb import (
     ClassificationBitField,
     ClassificationClass,
@@ -1249,9 +1250,15 @@ def _resolve_assets(
     return MappingProxyType(result)
 
 
-def _message_values(data: Any) -> list[Message[Any]]:
+def _message_values(data: Any, message_type: type[_MessageT]) -> list[_MessageT]:
     values = np.asarray(data.values, dtype=object).reshape(-1)
-    return [value for value in values if isinstance(value, Message)]
+    result = []
+    for value in values:
+        if isinstance(value, LazyMessage) and issubclass(value.message_type, message_type):
+            result.append(value.get())
+        elif isinstance(value, message_type):
+            result.append(value)
+    return result
 
 
 def _discover_xarray_message(
@@ -1260,17 +1267,17 @@ def _discover_xarray_message(
     message_name: str,
     variable_override: str | None,
 ) -> _MessageT | None:
-    """Find one concrete protobuf-py message among the xarray variables."""
+    """Find a message by type, decoding only wrappers of the requested type."""
     if variable_override is not None:
         if variable_override not in datapoint.variables:
             raise ValueError(f"context field {variable_override!r} is not present in the datapoint")
-        values = [value for value in _message_values(datapoint[variable_override]) if isinstance(value, message_type)]
+        values = _message_values(datapoint[variable_override], message_type)
         if len(values) != 1:
             raise ValueError(f"field {variable_override!r} does not contain exactly one {message_name} message")
         return values[0]
     candidates = []
     for name, data in datapoint.variables.items():
-        values = [value for value in _message_values(data) if isinstance(value, message_type)]
+        values = _message_values(data, message_type)
         if values:
             if len(values) != 1:
                 raise ValueError(f"field {name!r} contains multiple {message_name} messages")

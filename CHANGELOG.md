@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.69.0] - 2026-11-09
+
+### Changed
+
+- `tilebox-datasets`: Return compact `LazyMessage` wrappers for `Assets`, `Links`, `Storage`, and
+  `Authentication` fields in query and `find()` results, including repeated elements. Call `.get()`
+  to decode and cache the generated message; `AssetCollection.from_datapoint()` unwraps these fields
+  automatically. Ingestion accepts both wrappers and generated messages, forwarding untouched payloads
+  without decoding and preserving edits to decoded messages. Nested decoding errors are deferred until
+  decoding. Display uses a formatter to decode sampled cells and show counts such as `Assets(23)`,
+  falling back to `Assets(…)` on `ValueError`. Equality comparisons can also trigger decoding. Primitive fields
+  keep their existing xarray representation.
+- `tilebox-datasets`: Reduce protobuf-to-xarray conversion overhead with batched geometry decoding,
+  direct UUID formatting, and a class-check fast path that retains support for dynamic message types.
+
+### Removed
+
+- `tilebox-grpc`: Remove the compatibility package and its release workflow after the 0.68 release.
+  Use `tilebox-core` directly instead.
+
 ## [0.68.0] - 2026-10-29
 
 ### Added
@@ -734,7 +754,8 @@ the first client that does not cache data (since it's already on the local file 
 - Released under the [MIT](https://opensource.org/license/mit) license.
 - Released packages: `tilebox-datasets`, `tilebox-workflows`, `tilebox-storage`, `tilebox-grpc`
 
-[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.68.0...HEAD
+[Unreleased]: https://github.com/tilebox/tilebox-python/compare/v0.69.0...HEAD
+[0.69.0]: https://github.com/tilebox/tilebox-python/compare/v0.68.0...v0.69.0 
 [0.68.0]: https://github.com/tilebox/tilebox-python/compare/v0.67.0...v0.68.0
 [0.67.0]: https://github.com/tilebox/tilebox-python/compare/v0.66.0...v0.67.0
 [0.65.0]: https://github.com/tilebox/tilebox-python/compare/v0.64.0...v0.65.0

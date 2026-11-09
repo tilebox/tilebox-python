@@ -19,14 +19,13 @@ from protobuf.wkt.google.protobuf.descriptor_pb import (
     FileDescriptorSet,
     OneofDescriptorProto,
 )
-from shapely import MultiPolygon, Polygon, from_wkb
+from shapely import MultiPolygon, Polygon, from_wkb, get_srid, set_srid
 from xarray.testing import assert_equal
 
 from tests.data.datapoint import example_datapoints
 from tests.example_dataset.schema import DESCRIPTOR, ExampleDatapoint
 from tilebox.datasets.data.datasets import AnnotatedType
 from tilebox.datasets.message_pool import get_message_type
-from tilebox.datasets.protobuf_conversion.field_types import _AssetsDisplay
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
 from tilebox.datasets.protobuf_conversion.to_protobuf import to_messages
 from tilebox.datasets.query.time_interval import timestamp_to_datetime, us_to_datetime
@@ -122,6 +121,33 @@ def test_supplied_imports_preserve_nanoseconds_and_message_values(nanos: int) ->
     assert to_messages(dataset, message_type) == messages
 
 
+@pytest.mark.parametrize("supplied_imports", [False, True])
+def test_geometry_batches_preserve_missing_empty_and_srid(supplied_imports: bool) -> None:
+    files = [well_known_types_pb.desc().proto, DESCRIPTOR] if supplied_imports else [DESCRIPTOR]
+    message_type = get_message_type(AnnotatedType(FileDescriptorSet(file=files), "tests.scientific.Datapoint", []))
+    polygon = set_srid(Polygon([(11, 47), (12, 47), (12, 49), (11, 47)]), 4326)
+    messages = to_messages([{}, {"geometry": Polygon()}, {}, {"geometry": polygon}, {}, {}], message_type)
+    messages = [message_type.from_binary(message.to_binary()) for message in messages]
+    converter = MessageToXarrayConverter(initial_capacity=1)
+    converter.convert(messages[0])
+    converter.convert_all(messages[1:4])
+    converter.convert_all(messages[4:])
+    dataset = converter.finalize("row", skip_empty_fields=True)
+    assert set(dataset.data_vars) == {"geometry"}
+    values = dataset.geometry.to_numpy()
+    assert [value is None for value in values] == [True, False, True, False, True, True]
+    assert values[1].is_empty
+    assert values[3].equals_exact(polygon, tolerance=0)
+    assert get_srid(values[3]) == 4326
+
+
+@pytest.mark.parametrize("length", [0, 15, 17])
+def test_conversion_rejects_invalid_uuid_lengths(length: int) -> None:
+    message = ExampleDatapoint(some_identifier=well_known_types_pb.UUID(uuid=b"x" * length))
+    with pytest.raises(ValueError, match="bytes is not a 16-char string"):
+        MessageToXarrayConverter().convert_all([message])
+
+
 @given(example_datapoints(generated_fields=True, missing_fields=False))
 def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR0915
     converter = MessageToXarrayConverter()
@@ -206,9 +232,10 @@ def test_convert_datapoint(datapoint: ExampleDatapoint) -> None:  # noqa: PLR091
         assert isinstance(dataset.some_repeated_geometry[i].item(), Polygon | MultiPolygon)
 
 
-def test_convert_stac_messages_to_protobuf_py() -> None:
+@pytest.mark.parametrize("dynamic_imports", [False, True])
+def test_convert_stac_messages_to_protobuf_py(dynamic_imports: bool) -> None:
     message_types = {
-        "assets": ("datasets.stac.v1.Assets", Assets(assets=[Asset(key="preview")]), _AssetsDisplay),
+        "assets": ("datasets.stac.v1.Assets", Assets(assets=[Asset(key="preview")]), Assets),
         "authentication": ("datasets.stac.v1.Authentication", Authentication(), Authentication),
         "links": ("datasets.stac.v1.Links", Links(links=[Link(href="https://example.com")]), Links),
         "provider": ("datasets.stac.v1.Provider", Provider(name="Tilebox"), Provider),
@@ -218,6 +245,11 @@ def test_convert_stac_messages_to_protobuf_py() -> None:
             ProcessingSoftware,
         ),
         "storage": ("datasets.stac.v1.Storage", Storage(), Storage),
+    }
+    # Unknown field 100 (varint 7) must survive both native reuse and dynamic conversion.
+    message_types = {
+        name: (type_name, target_type.from_binary(value.to_binary() + b"\xa0\x06\x07"), target_type)
+        for name, (type_name, value, target_type) in message_types.items()
     }
     file_descriptor = FileDescriptorProto(
         name="tests/protobuf_conversion/stac_datapoint.proto",
@@ -251,15 +283,21 @@ def test_convert_stac_messages_to_protobuf_py() -> None:
                 type_name=f".{message_name}",
             )
         )
-    message_type = get_message_type(
-        AnnotatedType(FileDescriptorSet(file=[file_descriptor]), "tests.protobuf_conversion.StacDatapoint", [])
-    )
+    schema = AnnotatedType(FileDescriptorSet(file=[file_descriptor]), "tests.protobuf_conversion.StacDatapoint", [])
+    message_type = get_message_type(schema)
 
     values = {}
     for field_name, (_, source_value, _) in message_types.items():
         values[field_name] = source_value
         values[f"related_{field_name}"] = [source_value]
-    messages = [message_type(), message_type(**values)]
+    encoded = message_type(**values).to_binary()
+    if dynamic_imports:
+        imports = {
+            target_type.desc().file.name: target_type.desc().file.proto for _, _, target_type in message_types.values()
+        }
+        schema.descriptor_set.file.extend(imports.values())
+        message_type = get_message_type(schema)
+    messages = [message_type(), message_type.from_binary(encoded), message_type.from_binary(encoded)]
 
     converter = MessageToXarrayConverter()
     converter.convert_all(messages)
@@ -269,23 +307,23 @@ def test_convert_stac_messages_to_protobuf_py() -> None:
         assert dataset[field_name].dtype == object
         assert dataset[field_name][0].item() is None
         converted_value = dataset[field_name][1].item()
-        assert isinstance(converted_value, target_type)
+        assert type(converted_value) is target_type
         assert converted_value.to_binary() == source_value.to_binary()
-        if field_name == "assets":
-            assert isinstance(converted_value, Assets)
-            assert str(converted_value) == "1 assets"
-            assert repr(converted_value) == "[preview]"
+        if dynamic_imports:
+            assert not isinstance(getattr(messages[1], field_name), target_type)
+        else:
+            assert converted_value is getattr(messages[1], field_name)
+        # Equal contents from independent datapoints must not become shared mutable messages.
+        assert converted_value is not dataset[field_name][2].item()
 
         repeated_field_name = f"related_{field_name}"
         assert dataset[repeated_field_name].dtype == object
         converted_repeated_value = dataset[repeated_field_name][1, 0].item()
-        assert isinstance(converted_repeated_value, target_type)
+        assert type(converted_repeated_value) is target_type
         assert converted_repeated_value.to_binary() == source_value.to_binary()
-
-    converted_assets = dataset["assets"][1].item()
-    assert isinstance(converted_assets, Assets)
-    assert repr(converted_assets) == "[preview]"
-    assert str(converted_assets) == "1 assets"
+        if not dynamic_imports:
+            assert converted_repeated_value is getattr(messages[1], repeated_field_name)[0]
+        assert converted_repeated_value is not dataset[repeated_field_name][2, 0].item()
 
     roundtripped = to_messages(dataset, message_type)
     assert roundtripped == messages
@@ -294,18 +332,13 @@ def test_convert_stac_messages_to_protobuf_py() -> None:
         input_data = {}
         record = {}
         for field_name, (_, source_value, target_type) in message_types.items():
-            value_type = Assets if field_name == "assets" else target_type
-            target_value = value_type.from_binary(source_value.to_binary())
+            target_value = target_type.from_binary(source_value.to_binary())
             input_data[field_name] = [target_value]
             input_data[f"related_{field_name}"] = [repeated_container([target_value])]
             record[field_name] = target_value
             record[f"related_{field_name}"] = repeated_container([target_value])
-        assert to_messages(input_data, message_type) == [message_type(**values)]
-        assert to_messages([record], message_type) == [message_type(**values)]
-
-    html = dataset._repr_html_()
-    assert "preview" in html
-    assert "access_profiles" not in html
+        assert to_messages(input_data, message_type) == [message_type.from_binary(encoded)]
+        assert to_messages([record], message_type) == [message_type.from_binary(encoded)]
 
 
 def test_convert_scalar_and_repeated_enums_to_names_and_round_trip() -> None:

@@ -21,7 +21,11 @@ from tilebox.datasets.data.datapoint import DATAPOINT_METADATA_FIELDS, AnyMessag
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.message_pool import get_message_type
 from tilebox.datasets.progress import ProgressCallback
-from tilebox.datasets.protobuf_conversion.field_types import ProtobufFieldType, enum_field_types
+from tilebox.datasets.protobuf_conversion.field_types import (
+    ProtobufFieldType,
+    encoded_message_field_types,
+    enum_field_types,
+)
 from tilebox.datasets.protobuf_conversion.protobuf_xarray import MessageToXarrayConverter
 from tilebox.datasets.protobuf_conversion.to_protobuf import (
     DatapointIDs,
@@ -68,6 +72,9 @@ class DatasetClient:
         self._dataset = dataset
         self._message_type = get_message_type(dataset.type)
         self._field_types = enum_field_types(dataset.type, self._message_type)
+        encoded_fields = encoded_message_field_types(self._message_type)
+        self._wire_message_type = get_message_type(dataset.type, encoded_fields=encoded_fields)
+        self._field_types.update(encoded_fields)
 
     async def collections(
         self, availability: bool | None = None, count: bool | None = None
@@ -217,7 +224,7 @@ class DatasetClient:
         except NotFoundError:
             raise NotFoundError(f"No such datapoint {datapoint_id}") from None
 
-        data = self._message_type.from_binary(datapoint.value)
+        data = self._wire_message_type.from_binary(datapoint.value)
 
         converter = MessageToXarrayConverter(
             initial_capacity=1,
@@ -269,7 +276,7 @@ class DatasetClient:
             skip_data,
             filter_expression=filter,
             dataset_name=self.name,
-            message_type=self._message_type,
+            message_type=self._wire_message_type,
             show_progress=show_progress,
         )
         return await _convert_to_dataset(pages, skip_empty_fields=skip_data, field_types=self._field_types)
@@ -410,7 +417,7 @@ class CollectionClient:
         except NotFoundError:
             raise NotFoundError(f"No such datapoint {datapoint_id}") from None
 
-        data = self._dataset._message_type.from_binary(datapoint.value)
+        data = self._dataset._wire_message_type.from_binary(datapoint.value)
 
         converter = MessageToXarrayConverter(
             initial_capacity=1,
@@ -451,7 +458,7 @@ class CollectionClient:
                 filters,
                 skip_data,
                 page,
-                message_type=self._dataset._message_type,
+                message_type=self._dataset._wire_message_type,
             )
 
         initial_page = Pagination()
@@ -555,7 +562,7 @@ class CollectionClient:
             skip_data,
             filter_expression=filter,
             dataset_name=self._dataset.name,
-            message_type=self._dataset._message_type,
+            message_type=self._dataset._wire_message_type,
             show_progress=show_progress,
         )
         return await _convert_to_dataset(pages, skip_empty_fields=skip_data, field_types=self._dataset._field_types)
@@ -576,7 +583,7 @@ class CollectionClient:
             spatial_extent,
             skip_data,
             dataset_name=self._dataset.name,
-            message_type=self._dataset._message_type,
+            message_type=self._dataset._wire_message_type,
             show_progress=show_progress,
             page_size=page_size,
         ):
@@ -607,7 +614,7 @@ class CollectionClient:
         Returns:
             List of datapoint ids that were ingested.
         """
-        message_type = self._dataset._message_type
+        message_type = self._dataset._wire_message_type
         messages = marshal_messages(
             to_messages(
                 data,

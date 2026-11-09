@@ -11,7 +11,6 @@ organize our code into multiple packages that then share the common `tilebox` py
 `_tilebox` infrastructure namespace. Datasets, workflows, and storage depend on core;
 scientific dependencies stay in datasets. Core and workflows have no runtime dependency
 on datasets. Their cross-SDK tests run in the all-packages workspace environment.
-`tilebox-grpc` is a dependency-only compatibility package retained for the 0.68 release.
 
 ## Required tooling
 
@@ -88,7 +87,7 @@ Raise these minimums only when a package needs a newer sibling. Make core availa
 and datasets before storage. The release workflows run independently; do not announce installation availability
 until all packages have published successfully.
 Before the first core release, configure PyPI trusted publishing for `tilebox-core` using this repository's
-`publish_tilebox_core.yml` workflow. The compatibility `tilebox-grpc` wheel must contain no Python modules.
+`publish_tilebox_core.yml` workflow.
 All that is needed is to create a github release for a given tag. This can be done in the github web UI or on the
 command line.
 
