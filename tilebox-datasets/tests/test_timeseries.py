@@ -16,6 +16,7 @@ from tests.data.datasets import example_dataset_type, example_dataset_type_url
 from tests.example_dataset.schema import ExampleDatapoint
 from tilebox.datasets import CollectionClient, DatasetClient, field
 from tilebox.datasets.data.collection import Collection, CollectionInfo
+from tilebox.datasets.data.data_access import QueryTimeExtent
 from tilebox.datasets.data.datapoint import AnyMessage, QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.data.timeseries import TimeseriesDatasetChunk
@@ -35,6 +36,7 @@ from tilebox.datasets.v1.collections_pb import (
 )
 from tilebox.datasets.v1.core_pb import Collection as CollectionMessage
 from tilebox.datasets.v1.core_pb import CollectionInfo as CollectionInfoMessage
+from tilebox.datasets.v1.data_access_pb import QueryResultPage as QueryResultPageMessage
 from tilebox.datasets.v1.timeseries_pb import TimeseriesDatasetChunk as TimeseriesDatasetChunkMessage
 
 
@@ -325,6 +327,35 @@ def test_timeseries_dataset_query_filter(pages: list[QueryResultPage]) -> None:
     filters = service.query.call_args_list[0].args[0].filters
     assert len(filters.expressions) == 1
     assert filters.expressions[0].logical.operands[0].comparison.field_name == "quality"
+
+
+@pytest.mark.parametrize(
+    ("extent", "start", "end", "inclusive_end"),
+    [
+        (None, None, None, False),
+        ((None, None), None, None, False),
+        ([None, None], None, None, False),
+        ((None, "1970-01-01"), None, 0, False),
+        ([None, "1970-01-01"], None, 0, False),
+        (("1970-01-02", None), 86400, None, False),
+        (["1970-01-02", None], 86400, None, False),
+        ("1970-01-02", 86400, 86400, True),
+    ],
+)
+def test_query_time_bounds(extent: QueryTimeExtent, start: int | None, end: int | None, inclusive_end: bool) -> None:
+    dataset, service = _mocked_dataset()
+    service.query.return_value = QueryResultPageMessage()
+    progress = []
+    dataset.query(temporal_extent=extent, show_progress=progress.append)
+    assert progress == [1.0]
+    interval = service.query.call_args.args[0].filters.time_interval
+    if start is None and end is None:
+        assert interval is None
+    else:
+        assert (interval.start_time.seconds if interval.start_time is not None else None) == start
+        assert (interval.end_time.seconds if interval.end_time is not None else None) == end
+        assert not interval.start_exclusive
+        assert interval.end_inclusive == inclusive_end
 
 
 def test_timeseries_dataset_query_rejects_invalid_filter_before_request() -> None:

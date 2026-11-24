@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tilebox-datasets`: Omit `temporal_extent` to query all time, or pass `(None, end)` or `(start, None)` for a one-sided range.
+
 ## [0.69.0] - 2026-11-09
 
 ### Changed

@@ -130,7 +130,8 @@ async def test_lazy_query_find_and_ingestion(asynchronous: bool) -> None:  # noq
     client = client_type(connection, Dataset(UUID(int=1), UUID(int=0), schema, "test", "Test", "", "", ""))
     collection = await _resolve(client.collection("test"))
     for target in (client, collection):
-        result = await _resolve(target.query(temporal_extent=("1970", "1971")))
+        result = await _resolve(target.query())
+        assert service.query.call_args.args[0].filters.time_interval is None
         assert result.cloud_cover.to_numpy().tolist() == [12.5, 0.0, 7.5, 12.5]
         assert result.catalog.dims == ("time",)
         assert result.related.shape == (4, 2)
