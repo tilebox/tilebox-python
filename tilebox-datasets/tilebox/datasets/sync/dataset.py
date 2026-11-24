@@ -15,7 +15,13 @@ from _tilebox.pagination import Pagination as PaginationProtocol
 from _tilebox.pagination import paginated_request
 from _tilebox.proto.tilebox.v1.id_pb import ID
 from tilebox.datasets.data.collection import Collection, CollectionInfo
-from tilebox.datasets.data.data_access import QueryFilters, SpatialFilter, SpatialFilterLike
+from tilebox.datasets.data.data_access import (
+    QueryFilters,
+    QueryTimeExtent,
+    SpatialFilter,
+    SpatialFilterLike,
+    parse_query_extent,
+)
 from tilebox.datasets.data.datapoint import DATAPOINT_METADATA_FIELDS, AnyMessage, IngestResponse, QueryResultPage
 from tilebox.datasets.data.datasets import Dataset
 from tilebox.datasets.message_pool import get_message_type
@@ -240,7 +246,7 @@ class DatasetClient:
         self,
         *,
         collections: "list[str] | list[UUID] | list[Collection] | list[CollectionInfo] | list[CollectionClient] | dict[str, CollectionClient] | None" = None,
-        temporal_extent: TimeIntervalLike,
+        temporal_extent: QueryTimeExtent = None,
         filter: Expression | None = None,  # noqa: A002
         spatial_extent: SpatialFilterLike | None = None,
         skip_data: bool = False,
@@ -252,7 +258,8 @@ class DatasetClient:
         Args:
             collections: The collections to query in. Supports collection names, ids or collection objects.
                 If not specified, all collections in the dataset are queried.
-            temporal_extent: The temporal extent to query data for. (Required)
+            temporal_extent: Omit for all time. A single timestamp matches datapoints in that millisecond.
+                Pass a two-item list or tuple for [start, end). Use None for either or both missing bounds.
             filter: An expression over queryable dataset fields. (Optional)
             spatial_extent: The spatial extent to query data in. (Optional)
             skip_data: Whether to skip the actual data of the datapoint. If True, only
@@ -265,8 +272,6 @@ class DatasetClient:
         """
         if filter is not None and not isinstance(filter, Expression):
             raise TypeError(f"Expected a query expression, got {type(filter).__name__}")
-        if temporal_extent is None:
-            raise ValueError("A temporal_extent for your query must be specified")
 
         collection_ids = self._collection_ids(collections)
         pages = _iter_query_pages(
@@ -507,7 +512,7 @@ class CollectionClient:
     def query(
         self,
         *,
-        temporal_extent: TimeIntervalLike,
+        temporal_extent: QueryTimeExtent = None,
         filter: Expression | None = None,  # noqa: A002
         spatial_extent: SpatialFilterLike | None = None,
         skip_data: bool = False,
@@ -517,13 +522,10 @@ class CollectionClient:
         Query datapoints in this collection in a specified temporal extent and an optional spatial extent.
 
         Args:
-            temporal_extent: The temporal extent to query data for. (Required)
-                Can be specified in a number of ways:
+            temporal_extent: Omit for all time. Supported inputs:
                 - TimeInterval: interval -> Use the time interval as its given
-                - DatetimeScalar: [time, time] -> Construct a TimeInterval with start and end time set to the given
-                    value and the end time inclusive
-                - tuple of two DatetimeScalar: [start, end) -> Construct a TimeInterval with the given start and
-                    end time
+                - A single timestamp matches datapoints in that millisecond.
+                - A two-item list or tuple selects [start, end). Use None for either or both missing bounds.
                 - xr.DataArray: [arr[0], arr[-1]] -> Construct a TimeInterval with start and end time set to the
                     first and last value in the array and the end time inclusive
                 - xr.Dataset: [ds.time[0], ds.time[-1]] -> Construct a TimeInterval with start and end time set to
@@ -547,8 +549,6 @@ class CollectionClient:
         """
         if filter is not None and not isinstance(filter, Expression):
             raise TypeError(f"Expected a query expression, got {type(filter).__name__}")
-        if temporal_extent is None:
-            raise ValueError("A temporal_extent for your query must be specified")
 
         pages = _iter_query_pages(
             self._dataset._data_access,
@@ -728,7 +728,7 @@ def _iter_query_pages(  # noqa: PLR0913, PLR0917
     service: DataAccessServiceClientSync,
     dataset_id: UUID,
     collection_ids: list[UUID] | None,
-    temporal_extent: TimeIntervalLike,
+    temporal_extent: QueryTimeExtent,
     spatial_extent: SpatialFilterLike | None = None,
     skip_data: bool = False,
     *,
@@ -738,7 +738,7 @@ def _iter_query_pages(  # noqa: PLR0913, PLR0917
     show_progress: bool | ProgressCallback = False,
     page_size: int | None = None,
 ) -> Iterator[QueryResultPage]:
-    time_interval = TimeInterval.parse(temporal_extent)
+    time_interval = parse_query_extent(temporal_extent)
     filters = QueryFilters(
         time_interval,
         SpatialFilter.parse(spatial_extent) if spatial_extent else None,
@@ -750,6 +750,13 @@ def _iter_query_pages(  # noqa: PLR0913, PLR0917
     initial_page = Pagination(limit=page_size)
     pages = paginated_request(request, initial_page)
 
+    if not isinstance(time_interval, TimeInterval) or time_interval.start == time_interval.end:
+        if show_progress is True:
+            pages = with_progressbar(pages, f"Fetching {dataset_name}")
+        yield from pages
+        if callable(show_progress):
+            show_progress(1.0)
+        return
     if callable(show_progress):
         pages = with_time_progress_callback(pages, time_interval, show_progress)
     elif show_progress:

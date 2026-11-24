@@ -109,9 +109,6 @@ def test_query_filters_reject_invalid_filter() -> None:
 
 
 def test_query_filters_reject_invalid_interval_variants() -> None:
-    with pytest.raises(ValueError, match="exactly one time or datapoint interval"):
-        QueryFilters.from_message(data_access_pb.QueryFilters())
-
     message = QueryFilters(
         TimeInterval(
             datetime(2026, 7, 27, tzinfo=UTC),
@@ -119,5 +116,5 @@ def test_query_filters_reject_invalid_interval_variants() -> None:
         )
     ).to_message()
     message.datapoint_interval = IDInterval(uuid4(), uuid4(), False, False).to_message()
-    with pytest.raises(ValueError, match="exactly one time or datapoint interval"):
+    with pytest.raises(ValueError, match="cannot combine time and datapoint intervals"):
         QueryFilters.from_message(message)

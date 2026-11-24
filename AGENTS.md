@@ -21,6 +21,13 @@ Design choices to keep in mind:
 - External API communication uses native Connect RPC clients and protobuf-py messages.
 - Use `pyqwest` for HTTP requests; it is also the HTTP library used by `connectrpc`.
 
+## Changelog
+
+- Update the `Unreleased` summary in `CHANGELOG.md` when the user-facing release outcome changes. Describe final features, behavior changes, and significant fixes concisely, focusing on what users gain or need to change.
+- Treat `Unreleased` as an editable release summary. Refine, shorten, and consolidate existing entries as a feature evolves instead of adding a bullet for each incremental request or implementation step.
+- Group related refinements under their feature; keep unrelated changes separate. Omit internal refactors, implementation details, minor wording changes, and fixes to features that have not shipped unless they materially affect the release summary.
+- Preserve breaking changes, migration steps, compatibility requirements, and data-loss warnings. Put detailed parameter semantics and edge cases in API documentation rather than the changelog.
+
 ## Developer Tooling
 
 Use `uv` for all local development.

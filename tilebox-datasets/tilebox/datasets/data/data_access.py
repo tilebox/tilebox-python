@@ -1,14 +1,38 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal, NotRequired, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Literal, NotRequired, TypeAlias, TypedDict, cast
 from warnings import warn
 
 from shapely import Geometry, from_wkb, to_wkb
 
+from _tilebox.proto.tilebox.v1 import query_pb
+from _tilebox.time import _convert_to_datetime, datetime_to_timestamp
 from tilebox.datasets.query.expression import Expression
 from tilebox.datasets.query.id_interval import IDInterval
-from tilebox.datasets.query.time_interval import TimeInterval
+from tilebox.datasets.query.time_interval import TimeInterval, TimeIntervalLike
 from tilebox.datasets.v1 import data_access_pb, well_known_types_pb
+
+if TYPE_CHECKING:
+    from pandas.core.tools.datetimes import DatetimeScalar
+
+QueryTimeExtent: TypeAlias = (
+    "TimeIntervalLike | tuple[DatetimeScalar | None, DatetimeScalar | None] | list[DatetimeScalar | None] | None"
+)
+
+
+def parse_query_extent(extent: QueryTimeExtent) -> TimeInterval | query_pb.TimeInterval | None:
+    if extent is None:
+        return None
+    if isinstance(extent, list | tuple) and len(extent) == 2:
+        start, end = extent
+        if start is None and end is None:
+            return None
+        if start is None or end is None:
+            return query_pb.TimeInterval(
+                start_time=datetime_to_timestamp(_convert_to_datetime(start)) if start is not None else None,
+                end_time=datetime_to_timestamp(_convert_to_datetime(end)) if end is not None else None,
+            )
+    return TimeInterval.parse(cast("TimeIntervalLike", extent))
 
 
 class SpatialFilterMode(Enum):
@@ -116,7 +140,7 @@ class SpatialFilter:
 
 @dataclass(frozen=True)
 class QueryFilters:
-    temporal_extent: TimeInterval | IDInterval
+    temporal_extent: TimeInterval | query_pb.TimeInterval | IDInterval | None
     spatial_extent: SpatialFilter | None = None
     filter: Expression | None = None
 
@@ -126,15 +150,15 @@ class QueryFilters:
 
     @classmethod
     def from_message(cls, filters: data_access_pb.QueryFilters) -> "QueryFilters":
-        interval_variants = [name for name in ("time_interval", "datapoint_interval") if filters.has_field(name)]
-        if len(interval_variants) != 1:
-            raise ValueError("Invalid filter: exactly one time or datapoint interval must be set")
-
-        if interval_variants[0] == "time_interval":
-            assert filters.time_interval is not None
-            temporal_extent = TimeInterval.from_message(filters.time_interval)
-        else:
-            assert filters.datapoint_interval is not None
+        temporal_extent = None
+        if (interval := filters.time_interval) is not None:
+            if filters.datapoint_interval is not None:
+                raise ValueError("Invalid filter: cannot combine time and datapoint intervals")
+            if interval.start_time is None or interval.end_time is None:
+                temporal_extent = interval
+            else:
+                temporal_extent = TimeInterval.from_message(interval)
+        elif filters.datapoint_interval is not None:
             temporal_extent = IDInterval.from_message(filters.datapoint_interval)
 
         spatial_extent = None
@@ -157,15 +181,12 @@ class QueryFilters:
     def to_message(self) -> data_access_pb.QueryFilters:
         spatial_extent = self.spatial_extent.to_message() if self.spatial_extent else None
         expressions = [self.filter.to_message()] if self.filter is not None else []
-        if isinstance(self.temporal_extent, TimeInterval):
-            return data_access_pb.QueryFilters(
-                time_interval=self.temporal_extent.to_message(),
-                spatial_extent=spatial_extent,
-                expressions=expressions,
-            )
-
+        extent = self.temporal_extent
         return data_access_pb.QueryFilters(
-            datapoint_interval=self.temporal_extent.to_message(),
+            time_interval=extent.to_message()
+            if isinstance(extent, TimeInterval)
+            else (extent if isinstance(extent, query_pb.TimeInterval) else None),
+            datapoint_interval=extent.to_message() if isinstance(extent, IDInterval) else None,
             spatial_extent=spatial_extent,
             expressions=expressions,
         )
